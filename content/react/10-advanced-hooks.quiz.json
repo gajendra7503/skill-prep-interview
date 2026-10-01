@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "When is `useReducer` generally preferable to multiple `useState` calls?",
+      "options": [
+        "Always — useReducer should replace useState entirely",
+        "When updates depend on the previous state in non-trivial ways, or one action needs to update several fields together",
+        "Only in class components",
+        "When state never changes"
+      ],
+      "correctIndex": 1,
+      "explanation": "useReducer centralizes 'what can happen' as a pure function, which pays off once transitions become interdependent or multi-field — for simple independent values, useState stays simpler."
+    },
+    {
+      "question": "What is the key difference between updating a `useRef` value and a `useState` value?",
+      "options": [
+        "There is no difference",
+        "Updating a ref does not trigger a re-render; updating state does",
+        "Refs can only hold numbers",
+        "Refs are recreated on every render, state persists"
+      ],
+      "correctIndex": 1,
+      "explanation": "A ref is a mutable box that survives across renders without causing one — useful for values like interval IDs that affect behavior but not what's displayed."
+    },
+    {
+      "question": "Why might accessing a DOM node via `useRef` inside `useEffect` be necessary?",
+      "options": [
+        "It's never necessary — React can always avoid direct DOM access",
+        "Some operations (focusing an input, measuring size, integrating a non-React library) require imperative access to the actual DOM node",
+        "useRef is required to use JSX at all",
+        "It replaces the need for state entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "Refs are the escape hatch from React's declarative model for the cases where you must imperatively interact with a real DOM node."
+    },
+    {
+      "question": "Why would you choose `useLayoutEffect` over `useEffect` when positioning a tooltip based on measured DOM size?",
+      "options": [
+        "useLayoutEffect runs faster in general",
+        "useLayoutEffect runs synchronously before the browser paints, avoiding a visible flash of incorrectly positioned content",
+        "useEffect cannot access the DOM at all",
+        "There is no functional difference between the two"
+      ],
+      "correctIndex": 1,
+      "explanation": "useEffect runs after paint, so a position correction there can cause a one-frame flicker; useLayoutEffect blocks paint until the adjustment is applied."
+    }
+  ]
+}

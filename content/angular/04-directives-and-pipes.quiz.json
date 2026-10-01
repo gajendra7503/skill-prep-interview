@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the required `track` expression in `@for` used for?",
+      "options": [
+        "Logging performance metrics to the console",
+        "Letting Angular match items across re-renders by a stable identity instead of recreating DOM nodes",
+        "Sorting the list automatically",
+        "It's optional styling metadata"
+      ],
+      "correctIndex": 1,
+      "explanation": "Similar to React's `key`, `track` tells Angular how to identify items between renders so it can reuse DOM nodes instead of destroying and recreating them."
+    },
+    {
+      "question": "When should you prefer `[class.active]=\"isActive\"` over `[ngClass]`?",
+      "options": [
+        "Never, ngClass is always better",
+        "When you only need to toggle a single class, since it avoids importing NgClass",
+        "Only inside @for loops",
+        "class binding doesn't support boolean expressions"
+      ],
+      "correctIndex": 1,
+      "explanation": "For a single conditional class, the lightweight class binding syntax does the job without pulling in the NgClass directive."
+    },
+    {
+      "question": "What does the `async` pipe do differently from manually calling `.subscribe()` in a component?",
+      "options": [
+        "It converts the Observable into a synchronous value",
+        "It automatically subscribes and unsubscribes, preventing memory leaks",
+        "It only works with Promises",
+        "It disables change detection for that binding"
+      ],
+      "correctIndex": 1,
+      "explanation": "The async pipe manages the subscription lifecycle tied to the template, cleaning up automatically when the component is destroyed."
+    },
+    {
+      "question": "By default, when does Angular re-run a pipe's `transform` method?",
+      "options": [
+        "On every change detection cycle, regardless of input",
+        "Only when the input reference changes (pure pipes)",
+        "Only once, on component creation",
+        "Pipes never re-run automatically"
+      ],
+      "correctIndex": 1,
+      "explanation": "Pipes are pure by default — Angular skips re-running transform unless the input value/reference actually changes, keeping them cheap even in loops."
+    }
+  ]
+}

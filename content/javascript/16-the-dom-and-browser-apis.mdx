@@ -1,0 +1,88 @@
+---
+title: "The DOM & Browser APIs"
+description: "Querying and manipulating the DOM, event propagation, and event delegation."
+module: "Browser & Runtime"
+order: 16
+---
+
+Frameworks like React and Angular abstract the DOM away for day-to-day work,
+but understanding what's underneath — and specifically how events travel
+through it — explains behavior you'll still hit directly in interviews and
+in framework-agnostic code (like this course's final project).
+
+## Querying and manipulating elements
+
+```js
+const list = document.querySelector("#task-list");     // first match, or null
+const items = document.querySelectorAll(".task-item"); // a static NodeList of all matches
+
+const li = document.createElement("li");
+li.textContent = "Buy groceries";
+li.classList.add("task-item", "pending");
+list.appendChild(li);
+
+li.classList.toggle("pending");   // flip a class on/off
+li.classList.contains("pending"); // check for a class
+```
+
+`querySelector`/`querySelectorAll` accept any CSS selector, which makes them
+far more flexible than the older `getElementById`/`getElementsByClassName`
+methods. `classList` is the modern way to add/remove/toggle CSS classes
+without manually string-splitting `className`.
+
+## Event propagation: capturing, target, bubbling
+
+When an event fires on an element, it travels through three phases:
+
+```text
+1. Capturing phase: window -> document -> ... -> the element's parent
+2. Target phase: the element the event actually happened on
+3. Bubbling phase: the element's parent -> ... -> document -> window
+```
+
+```js
+parent.addEventListener("click", () => console.log("parent"));
+child.addEventListener("click", () => console.log("child"));
+// clicking `child` logs: "child", then "parent" — bubbling is the default
+
+parent.addEventListener("click", () => console.log("parent (capturing)"), {
+  capture: true,
+});
+// with capture: true, this would log BEFORE the child's listener fires
+```
+
+Listeners default to the **bubbling** phase (the third one) — most code
+never needs the `capture` option, but understanding that events "bubble up"
+through ancestors by default is essential for the next pattern.
+
+## Event delegation
+
+Instead of attaching a listener to every item in a list (expensive, and
+broken for items added later), attach **one** listener to a stable parent
+and use `event.target` to figure out which child was actually clicked:
+
+```js
+document.querySelector("#task-list").addEventListener("click", (event) => {
+  const item = event.target.closest(".task-item"); // find the clicked item, even if a
+  if (!item) return;                                 // nested <span> inside it was clicked
+
+  if (event.target.matches(".delete-button")) {
+    item.remove();
+  } else {
+    item.classList.toggle("completed");
+  }
+});
+```
+
+This single listener handles clicks on every current *and future* `.task-
+item` — new items added later with `appendChild` work automatically, since
+the listener lives on the parent and relies on bubbling, not on being
+attached to each individual item.
+
+### Try it yourself
+
+Build a small task list in plain HTML/JS using event delegation: one click
+listener on the list's parent element that toggles a `completed` class when
+a task is clicked and removes the task entirely when its delete button is
+clicked, using `event.target.closest()` to identify which task was
+interacted with.

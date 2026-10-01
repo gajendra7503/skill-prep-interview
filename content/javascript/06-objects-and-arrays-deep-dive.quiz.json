@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `const { role: jobTitle } = user` do?",
+      "options": [
+        "Creates a variable named role with the value of user.jobTitle",
+        "Destructures user.role into a new variable named jobTitle",
+        "Throws a SyntaxError — renaming during destructuring isn't allowed",
+        "Creates two separate variables, role and jobTitle, both equal to user.role"
+      ],
+      "correctIndex": 1,
+      "explanation": "The `oldName: newName` syntax in object destructuring pulls out a property under a different local variable name."
+    },
+    {
+      "question": "After `const overridden = { ...base, fontSize: 16 }`, what happens to nested objects inside `base` if `overridden` mutates one of them?",
+      "options": [
+        "Nothing changes in base — spread always creates a full deep copy",
+        "base is also affected, because spread only performs a shallow copy; nested objects are still shared by reference",
+        "It throws a runtime error",
+        "Spread cannot be used with objects containing nested objects"
+      ],
+      "correctIndex": 1,
+      "explanation": "Spread copies top-level properties only; any nested object or array value is still the same reference in both the original and the copy."
+    },
+    {
+      "question": "Which array method is the most general, in the sense that `map` and `filter` could both be implemented using it?",
+      "options": [
+        "forEach",
+        "reduce",
+        "sort",
+        "find"
+      ],
+      "correctIndex": 1,
+      "explanation": "reduce folds an array down to any accumulated value, including a transformed array (map's job) or a filtered array (filter's job)."
+    },
+    {
+      "question": "In `function sum(...numbers) { ... }`, what does the `...` before `numbers` do?",
+      "options": [
+        "Spreads an existing array into individual arguments",
+        "Collects all remaining arguments passed to the function into a single array called numbers (a rest parameter)",
+        "Marks numbers as optional",
+        "It's a syntax error outside of array literals"
+      ],
+      "correctIndex": 1,
+      "explanation": "Inside a function parameter list, `...name` is a rest parameter, gathering any number of trailing arguments into one array."
+    }
+  ]
+}

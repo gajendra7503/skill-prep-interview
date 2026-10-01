@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Once a Promise settles (fulfills or rejects), what can happen to its state afterward?",
+      "options": [
+        "It can be reset back to pending and tried again",
+        "Nothing — a settled Promise's state and value are permanent and can never change again",
+        "It automatically retries the operation",
+        "It can switch from fulfilled to rejected if read again"
+      ],
+      "correctIndex": 1,
+      "explanation": "A Promise transitions one-way from pending to either fulfilled or rejected, and that outcome is then fixed forever."
+    },
+    {
+      "question": "In a `.then().then()` chain, what happens if the first `.then()` callback returns another Promise?",
+      "options": [
+        "The chain immediately moves to the next .then() with the inner Promise object itself as the value",
+        "The next .then() automatically waits for that returned Promise to settle, then receives its resolved value",
+        "It throws a TypeError — you cannot return a Promise from .then()",
+        "The chain stops executing entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "Returning a Promise from a .then() callback causes the chain to flatten/wait on it, which is what allows sequential async steps to read linearly."
+    },
+    {
+      "question": "You need to fetch data from 3 independent APIs and want to know the outcome of all three, even if one of them fails. Which should you use?",
+      "options": [
+        "Promise.all",
+        "Promise.allSettled",
+        "Promise.race",
+        "A single .then() chain"
+      ],
+      "correctIndex": 1,
+      "explanation": "Promise.allSettled always resolves with the status of every promise, unlike Promise.all, which rejects immediately if any one of them fails."
+    },
+    {
+      "question": "What does `Promise.race([a, b])` resolve or reject with?",
+      "options": [
+        "The combined results of both a and b",
+        "Whichever of a or b settles first, with that same outcome (fulfilled or rejected)",
+        "Always a, regardless of timing",
+        "It waits for both to finish before resolving"
+      ],
+      "correctIndex": 1,
+      "explanation": "Promise.race settles as soon as the first of its input promises settles, adopting that same fulfillment or rejection."
+    }
+  ]
+}

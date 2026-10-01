@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does Context struggle as a store for frequently-changing, widely-read state?",
+      "options": [
+        "Context can only hold strings and numbers",
+        "Every consumer of a Context re-renders whenever the Provider's value changes, even if it only reads one field",
+        "Context requires a separate npm package to work",
+        "Context values cannot be updated after the Provider mounts"
+      ],
+      "correctIndex": 1,
+      "explanation": "A Context Provider re-render fans out to every consumer, regardless of which part of the value object a given consumer actually reads."
+    },
+    {
+      "question": "What is a key reason libraries like Zustand avoid Context's re-render fan-out problem?",
+      "options": [
+        "They don't use React state internally at all",
+        "Components subscribe only to the specific slice of the store they read, so unrelated changes don't re-render them",
+        "They disable re-renders globally for the whole app",
+        "They only work with class components"
+      ],
+      "correctIndex": 1,
+      "explanation": "Stores like Zustand let a component select just the slice it needs (e.g. `state => state.items.length`), so it only re-renders when that specific slice changes."
+    },
+    {
+      "question": "According to the lesson's decision order, what should you try before reaching for Context or a global store?",
+      "options": [
+        "Immediately install Redux Toolkit for any shared value",
+        "Colocate state locally in the component that needs it, lifting it only as high as actual consumers require",
+        "Store all state in localStorage",
+        "Convert all components to class components"
+      ],
+      "correctIndex": 1,
+      "explanation": "The recommended default is local state, lifted only as far as necessary — global state is reached for only once that stops being sufficient."
+    },
+    {
+      "question": "Pairing Context with `useReducer` gives you a pattern most similar to:",
+      "options": [
+        "Server-side rendering",
+        "A lightweight, dependency-free version of Redux's dispatch-action-reducer model",
+        "React Router's route matching",
+        "CSS-in-JS styling"
+      ],
+      "correctIndex": 1,
+      "explanation": "Dispatching actions to a centralized reducer, exposed via Context, mirrors Redux's core pattern without adding an external library."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "According to the testing pyramid, what shape should a healthy test suite generally have?",
+      "options": [
+        "Mostly end-to-end tests, with a few unit tests",
+        "Many fast unit tests, fewer integration tests, and only a handful of end-to-end tests covering critical flows",
+        "Exactly equal numbers of each type of test",
+        "Only end-to-end tests are necessary; unit tests are redundant"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unit tests are fast and cheap so you write many; E2E tests are slow and brittle so you reserve them for your most critical flows, with integration tests in between."
+    },
+    {
+      "question": "Why is a pure function like `sum(a, b)` especially easy to unit test?",
+      "options": [
+        "Pure functions cannot be tested at all",
+        "It requires no setup or mocking — just call it with inputs and assert the output, since it has no external dependencies or side effects",
+        "Pure functions always run asynchronously",
+        "You need a real database to test it properly"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because a pure function's output depends only on its inputs, with no side effects or dependencies, testing it is as simple as asserting on the returned value."
+    },
+    {
+      "question": "Why mock `fetch` when testing `getTemperature(city)` instead of letting it make a real network request?",
+      "options": [
+        "Mocking is required by every testing framework and has no real benefit",
+        "It makes the test fast, deterministic, and isolated from network conditions or the real external API's current behavior",
+        "fetch cannot be called inside a test environment under any circumstances",
+        "It makes the test slower but more \"realistic\""
+      ],
+      "correctIndex": 1,
+      "explanation": "Mocking removes the real network dependency, so the test runs instantly and reliably, specifically verifying getTemperature's own logic rather than the real API's availability."
+    },
+    {
+      "question": "What is the main distinction between an integration test and a unit test?",
+      "options": [
+        "Integration tests only run in CI, never locally",
+        "A unit test isolates one function/module with dependencies mocked out; an integration test exercises several units working together, closer to real behavior but slower to run",
+        "There is no real difference between them",
+        "Unit tests can only test asynchronous code"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unit tests isolate a single piece with mocks; integration tests verify that multiple real pieces correctly work together, trading some speed for more realistic coverage."
+    }
+  ]
+}

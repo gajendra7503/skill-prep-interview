@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `@supports (display: grid) { ... }` actually check?",
+      "options": [
+        "The user agent string to guess the browser name",
+        "Whether the current browser itself understands that property/value pair, applying the block only if it does",
+        "Whether the user's screen is wide enough for a grid layout",
+        "Whether a polyfill script has loaded"
+      ],
+      "correctIndex": 1,
+      "explanation": "@supports performs real feature detection against the browser's own capabilities, which is more reliable than inferring support from a spoofable user agent string."
+    },
+    {
+      "question": "In progressive enhancement, what is the baseline experience built from?",
+      "options": [
+        "The newest, most feature-rich version of the UI",
+        "Something that works everywhere, typically semantic HTML and basic CSS, with enhancements layered on top for capable browsers",
+        "A browser-specific version for each major browser",
+        "JavaScript-rendered content only"
+      ],
+      "correctIndex": 1,
+      "explanation": "Progressive enhancement starts from a guaranteed-to-work baseline and adds capability for browsers that support more, rather than hoping a rich experience degrades safely."
+    },
+    {
+      "question": "How does graceful degradation differ in direction from progressive enhancement?",
+      "options": [
+        "They are exactly the same technique with a different name",
+        "Graceful degradation starts from the full, modern experience and adds fallbacks for when something isn't supported, the reverse direction of progressive enhancement",
+        "Graceful degradation only applies to JavaScript, never CSS",
+        "Graceful degradation means ignoring older browsers entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "Progressive enhancement builds up from a baseline; graceful degradation builds down from the ideal experience, providing a fallback path for unsupported cases."
+    },
+    {
+      "question": "Why check a feature on caniuse.com against your project's browserslist before relying on it?",
+      "options": [
+        "It's purely a formality with no practical value",
+        "To concretely know whether your actual supported-browser audience needs a fallback, rather than guessing or over-engineering for browsers nobody uses",
+        "caniuse.com is required for @supports to function",
+        "It replaces the need for any testing"
+      ],
+      "correctIndex": 1,
+      "explanation": "Real support data lets you make an informed, audience-specific decision instead of either skipping a useful feature unnecessarily or shipping something that silently breaks for real users."
+    }
+  ]
+}

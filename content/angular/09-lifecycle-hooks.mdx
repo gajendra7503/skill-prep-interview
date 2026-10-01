@@ -1,0 +1,93 @@
+---
+title: "Lifecycle Hooks"
+description: "The full sequence of lifecycle hooks Angular calls on every component, and when to use each one."
+module: "Fundamentals"
+order: 9
+---
+
+Every Angular component goes through a predictable sequence of moments —
+created, checked for input changes, rendered, checked again, eventually
+destroyed. Angular exposes each moment as an interface you can implement.
+
+## The full sequence
+
+For a component with projected content and child views, hooks fire in this
+order:
+
+```text
+constructor()
+ngOnChanges()        (only if the component has @Input() bindings)
+ngOnInit()
+ngDoCheck()
+ngAfterContentInit()
+ngAfterContentChecked()
+ngAfterViewInit()
+ngAfterViewChecked()
+... (ngDoCheck / ngAfterContentChecked / ngAfterViewChecked repeat on every change detection cycle)
+ngOnDestroy()
+```
+
+```ts
+import { Component, Input, OnChanges, OnInit, OnDestroy, SimpleChanges } from "@angular/core";
+
+@Component({
+  selector: "app-user-panel",
+  standalone: true,
+  template: `<p>{{ userId }}</p>`,
+})
+export class UserPanelComponent implements OnChanges, OnInit, OnDestroy {
+  @Input() userId!: string;
+  private pollHandle?: ReturnType<typeof setInterval>;
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes["userId"] && !changes["userId"].isFirstChange()) {
+      this.reload();
+    }
+  }
+
+  ngOnInit() {
+    this.pollHandle = setInterval(() => this.reload(), 30_000);
+  }
+
+  ngOnDestroy() {
+    clearInterval(this.pollHandle);
+  }
+
+  private reload() {
+    /* refetch data for this.userId */
+  }
+}
+```
+
+## The three you'll use most
+
+- **`ngOnInit`** — one-time setup: fetch initial data, start a subscription,
+  initialize local state. Runs once, after the first `ngOnChanges`.
+- **`ngOnChanges`** — react whenever a parent passes a new `@Input()` value.
+  Receives a `SimpleChanges` map so you can compare `previousValue` and
+  `currentValue`, and check `isFirstChange()` to skip the initial call.
+- **`ngOnDestroy`** — cleanup: unsubscribe from Observables you subscribed to
+  manually, clear intervals/timeouts, detach event listeners. Skipping this
+  is one of the most common sources of memory leaks in Angular apps.
+
+`ngDoCheck`, `ngAfterContentInit/Checked`, and `ngAfterViewInit/Checked` exist
+for advanced cases (custom change detection, reading `@ContentChild`/`@ViewChild`
+results only once they're guaranteed to exist) but are far less commonly
+needed in everyday component code.
+
+## Interview gotcha: constructor vs `ngOnInit`
+
+The constructor runs before Angular has set any `@Input()` properties — its
+only real job is receiving injected dependencies (`constructor(private http: HttpClient)`
+or `inject()`). Reading `this.userId` inside the constructor of the example
+above would see `undefined`, because inputs are only bound afterward, right
+before `ngOnInit` fires. This is one of the most frequently asked Angular
+interview questions: **use the constructor for DI, use `ngOnInit` for
+anything that depends on `@Input()` values or that does real initialization
+work.**
+
+### Try it yourself
+
+Add a `ngDoCheck` to `UserPanelComponent` that logs every time change
+detection runs for it, then trigger a parent re-render and observe how much
+more often `ngDoCheck` fires compared to `ngOnChanges`.

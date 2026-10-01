@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `<ng-content></ng-content>` do inside a component's template?",
+      "options": [
+        "Fetches content from an API",
+        "Marks a slot where markup passed by the parent between the component's tags gets rendered",
+        "Injects a service",
+        "Creates a new Angular module"
+      ],
+      "correctIndex": 1,
+      "explanation": "ng-content is Angular's content projection mechanism, conceptually similar to `children` in React — it renders whatever the parent placed inside the component's tags."
+    },
+    {
+      "question": "How do you project different pieces of parent markup into different named slots in the same component?",
+      "options": [
+        "It's not possible — only one ng-content is allowed per component",
+        "Multiple <ng-content> elements, each with a `select` attribute matching an attribute/selector on the projected markup",
+        "Using @Input() for each slot",
+        "By creating separate components for each slot"
+      ],
+      "correctIndex": 1,
+      "explanation": "The `select` attribute on ng-content works like a CSS selector, letting you route specific projected elements (e.g. `[card-header]`) to specific slots."
+    },
+    {
+      "question": "What is the key difference between `@ViewChild` and `@ContentChild`?",
+      "options": [
+        "There is no difference, they're aliases",
+        "@ViewChild queries the component's own template; @ContentChild queries content projected into it via ng-content",
+        "@ContentChild only works with services",
+        "@ViewChild is deprecated in favor of @ContentChild"
+      ],
+      "correctIndex": 1,
+      "explanation": "@ViewChild looks at elements/components defined in the component's own template, while @ContentChild looks at whatever markup the parent projected in."
+    },
+    {
+      "question": "When should you prefer @Input()/@Output() over @ViewChild for component communication?",
+      "options": [
+        "Never — @ViewChild should always be preferred",
+        "As the default choice for most cases; @ViewChild is best reserved for genuinely imperative needs like focus management",
+        "Only when using standalone components",
+        "@Input()/@Output() cannot be used together with services"
+      ],
+      "correctIndex": 1,
+      "explanation": "@ViewChild couples a parent directly to a child's internal API, which is more brittle than the declarative data flow of @Input()/@Output(), so it should be reserved for cases that genuinely need imperative calls."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In the NgModule system, how many modules could a single component be declared in?",
+      "options": [
+        "As many as needed",
+        "Exactly one",
+        "Zero — components never needed to be declared",
+        "Two: one for templates, one for logic"
+      ],
+      "correctIndex": 1,
+      "explanation": "A component had to be declared in exactly one NgModule before it could be used, then optionally exported for other modules to import."
+    },
+    {
+      "question": "What is a key readability advantage of standalone components over NgModule-declared ones?",
+      "options": [
+        "Standalone components cannot have templates",
+        "A standalone component lists its own dependencies directly in its `imports` array, instead of requiring you to go check its enclosing module",
+        "Standalone components don't support dependency injection",
+        "There is no difference in readability"
+      ],
+      "correctIndex": 1,
+      "explanation": "With NgModules, a component's available directives/pipes were determined by its module's imports elsewhere; standalone components make that visible on the component itself."
+    },
+    {
+      "question": "What does `bootstrapApplication` take as its first argument, compared to the older `bootstrapModule`?",
+      "options": [
+        "A root component, instead of a root NgModule",
+        "A configuration object only, no component or module",
+        "An array of routes",
+        "The exact same NgModule as before — nothing changed"
+      ],
+      "correctIndex": 0,
+      "explanation": "`bootstrapApplication(AppComponent, { providers: [...] })` bootstraps directly from a root component, replacing `bootstrapModule(AppModule)`."
+    },
+    {
+      "question": "Why would a developer still need to understand NgModules today?",
+      "options": [
+        "NgModules are required for all new Angular projects",
+        "Many existing production apps are NgModule-based, and some third-party libraries still ship an NgModule-based API",
+        "Standalone components were removed in the latest Angular version",
+        "There is no reason — NgModules are entirely obsolete and unused"
+      ],
+      "correctIndex": 1,
+      "explanation": "Angular supports both styles side by side, which matters for working in or migrating existing NgModule-based codebases and libraries."
+    }
+  ]
+}

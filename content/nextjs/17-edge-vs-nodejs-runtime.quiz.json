@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which runtime does this app's src/proxy.ts always run on?",
+      "options": [
+        "Whichever you set via `export const runtime`",
+        "The Edge runtime — it's fixed and not configurable for proxy/middleware",
+        "Node.js, always",
+        "A separate runtime called 'Proxy Runtime'"
+      ],
+      "correctIndex": 1,
+      "explanation": "Proxy/middleware always executes on the Edge runtime regardless of any runtime config set elsewhere in the app."
+    },
+    {
+      "question": "What is a key capability the Edge runtime does NOT provide?",
+      "options": [
+        "The fetch API",
+        "Full Node.js APIs like `fs`, raw TCP sockets, or native addons",
+        "Fast cold starts",
+        "Geographic distribution of execution"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Edge runtime exposes Web-standard APIs and a curated Node subset, but not full Node.js — no filesystem access, no raw sockets, no native modules."
+    },
+    {
+      "question": "Why do traditional Postgres/MySQL drivers often fail on the Edge runtime?",
+      "options": [
+        "They are too slow",
+        "They typically rely on persistent TCP connections, which the Edge runtime doesn't support — an HTTP-based driver is needed instead",
+        "They require a GUI",
+        "Edge functions can't make any network requests at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "Most traditional database drivers open a long-lived TCP socket, a capability the Edge runtime's sandboxed environment doesn't provide."
+    },
+    {
+      "question": "Which scenario is the best fit for the Edge runtime according to the lesson?",
+      "options": [
+        "A Route Handler running a heavy Node-only image processing library",
+        "A simple, latency-sensitive check like a geolocation lookup with no heavy dependencies",
+        "A Server Action uploading large files to a filesystem",
+        "A job that needs to run for several minutes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Edge is best suited for fast, lightweight, latency-sensitive logic — exactly the kind of check that benefits most from quick cold starts and geographic distribution."
+    }
+  ]
+}

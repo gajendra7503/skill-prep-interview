@@ -1,0 +1,91 @@
+---
+title: "Pseudo-classes, Pseudo-elements & :has()"
+description: "Structural selectors, ::before/::after, and the parent selector CSS finally has."
+module: "Advanced Selectors"
+order: 14
+---
+
+Beyond basic class and tag selectors, CSS has a set of tools for targeting
+elements based on their position, generating decorative content, and —
+recently — selecting based on what an element *contains*.
+
+## Structural pseudo-classes
+
+```css
+/* Every odd row gets a background — classic "zebra striping" */
+tr:nth-child(odd) {
+  background: #f9fafb;
+}
+
+/* The first paragraph in any article gets larger intro text */
+article p:first-of-type {
+  font-size: 1.125rem;
+}
+
+/* Style every button except the one marked as disabled */
+button:not(:disabled):hover {
+  cursor: pointer;
+}
+```
+
+`:nth-child(2n)`, `:nth-child(odd)`, `:first-child`, `:last-of-type` — these
+let you target elements by their position among siblings without adding a
+class to every single one. `:not()` excludes elements matching its argument,
+which is often cleaner than writing a more specific positive selector.
+
+## Pseudo-elements: generated content
+
+```css
+.required-field::after {
+  content: " *";
+  color: red;
+}
+
+.quote::before {
+  content: "\201C"; /* a left double quotation mark */
+}
+```
+
+`::before` and `::after` insert generated content immediately inside an
+element, before or after its real content — but **only if you set a
+`content` property**; without one, nothing renders, even if you've set
+other styles on the pseudo-element. They're for decorative or
+non-essential content only (a quotation mark, a required-field asterisk,
+a clearfix hack) — never for content a user actually needs, since it's
+invisible to some assistive technology and impossible to select as text.
+
+## `:has()`: CSS finally gets a parent selector
+
+For years, CSS could style a child based on its parent, but never the
+reverse. `:has()` changes that — it matches an element if the selector
+inside it matches something **within** that element:
+
+```css
+/* Style a card differently if it contains an image */
+.card:has(img) {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+}
+
+/* Style a form group red only if its input is actually invalid */
+.form-group:has(input:invalid) {
+  border-color: red;
+}
+
+/* Style a label based on its sibling checkbox being checked */
+.label:has(+ input:checked) {
+  font-weight: 600;
+}
+```
+
+This is a genuine parent/ancestor selector — something JavaScript used to be
+required for (adding/removing a class based on a child's state). `:has()`
+also works with sibling combinators, which is how the checkbox example above
+reaches "forward" conceptually by combining `:has()` with `+`.
+
+### Try it yourself
+
+Using only `:has()` and no JavaScript, style a `<fieldset>` to show a red
+border only when it contains at least one `input:invalid` — then try the
+same thing with `:focus-within` instead and compare what each actually
+checks for.

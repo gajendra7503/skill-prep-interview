@@ -1,0 +1,96 @@
+---
+title: "Custom Properties (CSS Variables)"
+description: "Declaring and scoping CSS variables, fallback values, and why they beat Sass variables for anything that changes at runtime."
+module: "Modern CSS"
+order: 10
+---
+
+CSS custom properties (informally "CSS variables") let you name a value once
+and reuse it everywhere — but unlike a preprocessor's variables, they're a
+real part of the CSS language, which changes what they're capable of.
+
+## Declaring and using them
+
+```css
+:root {
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --color-primary: #4f46e5;
+}
+
+.button {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-primary);
+}
+```
+
+`:root` is just a selector — custom properties declared there are available
+everywhere, since every element is a descendant of `:root`. The `--` prefix
+is required; it's what distinguishes a custom property from a regular one.
+
+## They're scoped like any other CSS property
+
+This is the detail that makes them fundamentally different from a
+preprocessor variable: a custom property can be **redeclared at any
+selector**, and anything inside that selector picks up the new value —
+no rebuild, no recompilation, just the normal CSS cascade:
+
+```css
+:root {
+  --color-bg: white;
+  --color-text: #18181b;
+}
+
+.dark-theme {
+  --color-bg: #18181b;
+  --color-text: white;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+```
+
+Toggling a `dark-theme` class on `<body>` (or any ancestor) instantly swaps
+every element reading `--color-bg`/`--color-text` beneath it — including
+inside a media query for `prefers-color-scheme: dark`, where you can
+redeclare the same variables without touching a single component's CSS.
+
+## Fallback values
+
+```css
+.badge {
+  background: var(--badge-color, #71717a); /* falls back to gray if --badge-color isn't set */
+}
+```
+
+The second argument to `var()` is used whenever the custom property is
+undefined (not just falsy — an explicitly empty value still counts as "set").
+This makes components safely consumable even by code that never bothered to
+define the variable.
+
+## Why not just use Sass variables?
+
+Sass (`$variable`) variables are a **compile-time** feature — by the time the
+CSS reaches the browser, every `$variable` has already been replaced with its
+literal value, permanently. That means:
+
+- A Sass variable **cannot change based on runtime conditions** — not a CSS
+  class toggle, not a media query, not JavaScript.
+- A CSS custom property **can** be read and even *written* from JavaScript
+  (`element.style.setProperty('--color-primary', 'red')`), which is how a lot
+  of real-world theme switchers and design-system tooling work.
+
+In practice, many codebases use both: Sass variables for build-time constants
+that genuinely never change (a breakpoint list, say), and CSS custom
+properties for anything that needs to vary by theme, state, or user
+preference at runtime.
+
+### Try it yourself
+
+Build a `--theme-accent` custom property on `:root`, use it for a button's
+background color, then write a tiny script that calls
+`document.documentElement.style.setProperty('--theme-accent', 'orange')` on a
+click and watch every button using that variable update instantly with no
+page reload.

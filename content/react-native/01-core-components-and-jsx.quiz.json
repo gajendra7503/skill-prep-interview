@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does a `<View>` component actually compile down to on a real device?",
+      "options": [
+        "An HTML <div> rendered in a hidden WebView",
+        "A real native view (UIView on iOS, ViewGroup on Android) — there is no DOM or browser involved",
+        "A Canvas element",
+        "A JSON description that is never actually rendered natively"
+      ],
+      "correctIndex": 1,
+      "explanation": "React Native renders to genuine native platform views, not to HTML or a browser DOM — this is what distinguishes it from a web view wrapped in an app shell."
+    },
+    {
+      "question": "What happens if you put a bare string directly inside a `<View>` without wrapping it in `<Text>`?",
+      "options": [
+        "It renders exactly like it would on the web",
+        "React Native throws an error — unlike the web, text content must always be wrapped in a <Text> component",
+        "It silently renders as an empty View",
+        "It automatically gets wrapped in <Text> behind the scenes"
+      ],
+      "correctIndex": 1,
+      "explanation": "This is one of the first things that trips up developers coming from web React — React Native requires all text to be inside a <Text> element, with no silent auto-wrapping."
+    },
+    {
+      "question": "Why does rendering a remote image with `<Image source={{ uri }} />` typically require explicit width/height styling?",
+      "options": [
+        "Image never supports remote URLs",
+        "React Native can't infer the image's dimensions from an unfetched remote resource the way a browser can for a loaded <img>",
+        "Width and height are only needed for local images",
+        "It's purely a styling preference with no functional requirement"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without a fetched image already in the layout pipeline, React Native has no dimensions to lay out with until you provide them explicitly."
+    },
+    {
+      "question": "What is the key performance difference between `ScrollView` and `FlatList`?",
+      "options": [
+        "There is no difference, they are aliases for the same component",
+        "ScrollView renders all of its children immediately; FlatList only renders items on or near screen and recycles rows as the user scrolls",
+        "FlatList cannot scroll at all",
+        "ScrollView is the virtualized version and FlatList renders everything upfront"
+      ],
+      "correctIndex": 1,
+      "explanation": "FlatList's virtualization is what keeps long lists performant — ScrollView's render-everything-upfront behavior only works well for short, fixed content."
+    }
+  ]
+}

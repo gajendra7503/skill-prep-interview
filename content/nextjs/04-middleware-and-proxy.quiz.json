@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the Next.js 16 file/function name for what used to be `middleware.ts` / `export function middleware`?",
+      "options": [
+        "edge.ts / export function edge",
+        "proxy.ts / export function proxy",
+        "guard.ts / export function guard",
+        "interceptor.ts / export function interceptor"
+      ],
+      "correctIndex": 1,
+      "explanation": "Next.js 16 renamed the convention to proxy.ts with an exported proxy function; having both proxy.ts and middleware.ts in the same project is an error."
+    },
+    {
+      "question": "What does the `config.matcher` option control?",
+      "options": [
+        "Which database the app connects to",
+        "Which request paths run through the proxy function",
+        "The order routes are rendered in",
+        "Which CSS framework is used"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without a matcher, the proxy function runs on every request, including static assets; matcher patterns scope it to only the routes that need it."
+    },
+    {
+      "question": "Why does redirecting unauthenticated users in the proxy function (rather than inside the page component) matter?",
+      "options": [
+        "It doesn't matter, they're equivalent",
+        "It runs before the route starts rendering, avoiding wasted Server Component work for unauthorized requests",
+        "It's the only place NextResponse.redirect is available",
+        "It automatically caches the redirect forever"
+      ],
+      "correctIndex": 1,
+      "explanation": "The proxy runs ahead of routing, so an unauthorized request is redirected before any page/data-fetching code executes."
+    },
+    {
+      "question": "What is a key limitation of the proxy/middleware runtime?",
+      "options": [
+        "It cannot return a redirect",
+        "It runs in a restricted Edge runtime without filesystem access and only a subset of npm packages",
+        "It can only run on GET requests",
+        "It cannot read cookies"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Edge runtime is intentionally lightweight — no Node.js filesystem APIs and limited package compatibility — so heavier logic belongs in a page or Server Action."
+    }
+  ]
+}

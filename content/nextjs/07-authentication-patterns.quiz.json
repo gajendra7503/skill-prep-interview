@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In a Server Component, what is the standard way to protect a page from unauthenticated access?",
+      "options": [
+        "Hide the content with CSS",
+        "Check the session server-side and call redirect() if there isn't one",
+        "Use a client-side useEffect to check auth after render",
+        "Rely on the browser's built-in password manager"
+      ],
+      "correctIndex": 1,
+      "explanation": "Checking the session and calling redirect() before returning JSX prevents any protected content from ever being sent to an unauthenticated visitor."
+    },
+    {
+      "question": "Why might an app check authentication at both the proxy layer AND inside the Server Component?",
+      "options": [
+        "It's redundant and should be avoided",
+        "The proxy is a fast, coarse gate running in a restricted Edge runtime, while the Server Component is the trusted source of truth",
+        "Server Components cannot check authentication",
+        "The proxy layer replaces the need for any database session check"
+      ],
+      "correctIndex": 1,
+      "explanation": "Proxy-layer checks reject requests early and cheaply, but since the Edge runtime is restricted, the Server Component check remains the authoritative gate for sensitive logic."
+    },
+    {
+      "question": "What does wrapping login/signup pages in a `(auth)` route group achieve?",
+      "options": [
+        "It adds /auth to every URL",
+        "It groups routes to share a layout without adding a path segment to the URL",
+        "It automatically adds authentication to those pages",
+        "It disables Server Components for that folder"
+      ],
+      "correctIndex": 1,
+      "explanation": "Parenthesized route group folders are purely organizational — they let you share a layout.tsx across grouped routes without appearing in the URL."
+    },
+    {
+      "question": "Why is handling login/signup submission through a Server Action (rather than client-side fetch) a good security practice?",
+      "options": [
+        "It makes the page load faster with no other benefit",
+        "The password is submitted directly to server code and never handled by client-side JavaScript",
+        "Server Actions automatically hash passwords",
+        "It removes the need for HTTPS"
+      ],
+      "correctIndex": 1,
+      "explanation": "A form posting to a Server Action sends credentials straight to the server; there's no client-side JS handling or storing the raw password along the way."
+    }
+  ]
+}

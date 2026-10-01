@@ -1,0 +1,100 @@
+---
+title: "this, call, apply & bind"
+description: "How `this` is determined at call time, and why arrow functions behave differently."
+module: "Core Concepts"
+order: 4
+---
+
+`this` is one of the most interview-tested JavaScript concepts precisely
+because it doesn't work the way people expect coming from other languages:
+**`this` is determined by how a function is called, not where it's
+defined.**
+
+## The four ways `this` gets set
+
+```js
+function show() {
+  console.log(this);
+}
+
+// 1. Plain call — `this` is undefined in strict mode (or the global object otherwise)
+show();
+
+// 2. Method call — `this` is the object the method was called ON
+const obj = { show };
+obj.show(); // this === obj
+
+// 3. Explicit binding — call/apply/bind set `this` yourself
+show.call({ name: "explicit" });   // this === { name: "explicit" }
+show.apply({ name: "explicit" });  // same, but arguments passed as an array
+const bound = show.bind({ name: "bound" });
+bound(); // this === { name: "bound" }, permanently
+
+// 4. Constructor call — `this` is the newly created object
+function Person(name) {
+  this.name = name;
+}
+const p = new Person("Asha"); // this === the new object being constructed
+```
+
+`call` and `apply` do the same thing — invoke the function immediately with
+a given `this` — differing only in how extra arguments are passed (`call`
+takes them individually, `apply` takes an array). `bind` doesn't call the
+function at all; it returns a **new function** permanently locked to the
+given `this`, which is why it's the one used for callbacks.
+
+## The classic bug: losing `this` in a callback
+
+```js
+class Timer {
+  constructor() {
+    this.seconds = 0;
+  }
+  tick() {
+    this.seconds += 1; // relies on `this` being the Timer instance
+  }
+  start() {
+    setInterval(this.tick, 1000); // BUG: tick is called as a plain function
+  }
+}
+```
+
+When `setInterval` calls `this.tick`, it invokes it as a bare function
+reference — `this` inside `tick` is no longer the `Timer` instance, so
+`this.seconds += 1` either fails or silently operates on the wrong object.
+Two standard fixes:
+
+```js
+// Fix 1: bind it explicitly
+setInterval(this.tick.bind(this), 1000);
+
+// Fix 2: wrap it in an arrow function, which has no `this` of its own
+setInterval(() => this.tick(), 1000);
+```
+
+## Why arrow functions don't have their own `this`
+
+Arrow functions deliberately skip creating their own `this` binding —
+instead, `this` inside an arrow function is resolved by looking at the
+*enclosing lexical scope*, exactly like a normal variable would be. This is
+precisely why `() => this.tick()` above works: the arrow function has no
+`this` of its own, so it looks outward to `start()`'s `this`, which
+correctly refers to the `Timer` instance (assuming `start` itself was called
+as a method, e.g. `timer.start()`).
+
+This also means arrow functions are a poor choice for object methods defined
+with shorthand syntax if you need `this` to refer to the object itself:
+
+```js
+const obj = {
+  name: "Oops",
+  greet: () => console.log(this.name), // `this` here is NOT obj — it's whatever
+};                                      // encloses the object literal (often undefined)
+```
+
+### Try it yourself
+
+Rewrite the `Timer` class's `start` method using a regular (non-arrow)
+function passed to `setInterval` but with no `.bind()` call — intentionally
+reproduce the bug, log `this` inside `tick`, and confirm what it actually is
+in your environment (strict mode vs non-strict mode changes the answer).

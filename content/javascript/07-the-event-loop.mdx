@@ -1,0 +1,77 @@
+---
+title: "The Event Loop"
+description: "The call stack, microtasks vs macrotasks, and why async output order is often surprising."
+module: "Asynchronous JavaScript"
+order: 7
+---
+
+JavaScript runs on a **single thread** — only one piece of code executes at
+a time — yet it handles timers, network requests, and UI events without
+blocking. The event loop is the mechanism that makes this possible, and
+"predict the output order" questions based on it are a staple of JavaScript
+interviews.
+
+## The pieces involved
+
+- **Call stack** — where synchronous code actually executes, one frame at a
+  time, last in first out.
+- **Web APIs / Node APIs** — things like `setTimeout`, DOM events, and
+  network requests are handled *outside* the JS engine, by the browser or
+  Node runtime, so they don't block the stack while waiting.
+- **Task queue (macrotasks)** — completed `setTimeout`/`setInterval`
+  callbacks, I/O callbacks, and UI events wait here until the stack is empty.
+- **Microtask queue** — completed Promise callbacks (`.then`, `.catch`,
+  `.finally`, `async`/`await` continuations) and `queueMicrotask` wait here.
+- **The event loop** — repeatedly checks: is the call stack empty? If so,
+  run **all** queued microtasks first, then take just **one** task from the
+  macrotask queue, then check microtasks again, and repeat.
+
+## Predicting output order
+
+```js
+console.log("1: sync start");
+
+setTimeout(() => console.log("2: setTimeout"), 0);
+
+Promise.resolve().then(() => console.log("3: promise"));
+
+console.log("4: sync end");
+
+// Output:
+// 1: sync start
+// 4: sync end
+// 3: promise
+// 2: setTimeout
+```
+
+Walking through it: both synchronous `console.log`s run first, since the
+call stack always finishes what's already on it before anything else runs.
+Then, with the stack empty, the event loop drains the **microtask queue
+completely** before touching the macrotask queue — so the Promise callback
+(a microtask) runs before the `setTimeout` callback (a macrotask), even
+though the timeout was scheduled with a `0`ms delay. `setTimeout(fn, 0)`
+never means "run immediately" — it means "run as soon as possible, but only
+after the stack clears *and* all pending microtasks have run."
+
+## Why microtasks are drained completely, not one at a time
+
+If a microtask callback itself schedules another microtask, that new one
+also runs before the loop moves on to the next macrotask — this is why
+chained `.then()` calls all resolve before a `setTimeout` from the same
+tick fires, no matter how many `.then()` links are in the chain. This
+prioritization is intentional: it lets Promise chains complete in a
+predictable, uninterrupted sequence relative to timers and I/O.
+
+### Try it yourself
+
+Predict the output order of this before running it, then verify:
+
+```js
+console.log("A");
+setTimeout(() => console.log("B"), 0);
+Promise.resolve().then(() => {
+  console.log("C");
+  Promise.resolve().then(() => console.log("D"));
+});
+console.log("E");
+```

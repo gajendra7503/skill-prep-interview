@@ -1,0 +1,85 @@
+---
+title: "Testing React Components"
+description: "Testing behavior, not implementation, with React Testing Library and userEvent."
+module: "Testing"
+order: 7
+---
+
+React Testing Library (RTL) is built around one guiding principle: **test
+your components the way a user would interact with them**, not by reaching
+into internal state or implementation details.
+
+## Rendering and querying
+
+```jsx
+import { render, screen } from "@testing-library/react";
+import { Counter } from "./Counter";
+
+test("renders with an initial count of 0", () => {
+  render(<Counter />);
+  expect(screen.getByText("Clicked 0 times")).toBeInTheDocument();
+});
+```
+
+`screen.getByText`, `getByRole`, and `getByLabelText` query the rendered DOM
+the same way a screen reader or a user scanning the page would — by visible
+text, accessible role, or label, not by CSS class or internal component
+name.
+
+## Simulating user interaction with `userEvent`
+
+```jsx
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Counter } from "./Counter";
+
+test("increments the count when clicked", async () => {
+  const user = userEvent.setup();
+  render(<Counter />);
+
+  const button = screen.getByRole("button", { name: /clicked 0 times/i });
+  await user.click(button);
+
+  expect(screen.getByText("Clicked 1 times")).toBeInTheDocument();
+});
+```
+
+`userEvent` fires realistic sequences of DOM events (pointerdown, focus,
+click, etc.) rather than a single synthetic click, which catches more real
+bugs than the older, lower-level `fireEvent` API.
+
+## Testing a form
+
+```jsx
+test("submits the entered name", async () => {
+  const handleSubmit = vi.fn(); // or jest.fn()
+  const user = userEvent.setup();
+  render(<NameForm onSubmit={handleSubmit} />);
+
+  await user.type(screen.getByLabelText(/name/i), "Asha");
+  await user.click(screen.getByRole("button", { name: /submit/i }));
+
+  expect(handleSubmit).toHaveBeenCalledWith("Asha");
+});
+```
+
+Notice what's absent: no reference to `useState`, no inspecting a
+component's internal variables. The test only cares about what the user
+sees and does — type into a labeled field, click a named button, observe
+the result. This is what "test behavior, not implementation" means in
+practice, and it's why RTL tests rarely need updating when you refactor a
+component's internals.
+
+## `getByRole` over `getByTestId`
+
+Prefer querying by role and accessible name (`getByRole("button", { name:
+/submit/i })`) over adding `data-testid` attributes everywhere. It has a
+side benefit: if your component isn't queryable by role, that's often a
+sign it's missing proper semantic HTML or ARIA attributes for real users
+too.
+
+### Try it yourself
+
+Write a test for the `TaskForm` component from the Task Tracker project:
+type a task title, click "Add", and assert the `onAdd` callback was called
+with the trimmed title.

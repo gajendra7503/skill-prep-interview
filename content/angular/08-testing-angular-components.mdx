@@ -1,0 +1,85 @@
+---
+title: "Testing Angular Components"
+description: "TestBed, ComponentFixture, querying rendered output, and mocking injected services."
+module: "Testing"
+order: 8
+---
+
+Angular's CLI ships Jasmine/Karma (or Jest, in newer setups) configured out
+of the box. Component tests revolve around `TestBed`, which builds a small
+Angular environment just for the test.
+
+## Setting up a component test
+
+```ts
+import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { EmployeeCardComponent } from "./employee-card.component";
+
+describe("EmployeeCardComponent", () => {
+  let fixture: ComponentFixture<EmployeeCardComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [EmployeeCardComponent], // standalone components go in `imports`
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(EmployeeCardComponent);
+    fixture.componentInstance.employee = { id: 1, name: "Priya Nair", role: "Engineer" };
+    fixture.detectChanges(); // triggers initial data binding + rendering
+  });
+
+  it("renders the employee name", () => {
+    const heading: HTMLElement = fixture.nativeElement.querySelector("h3");
+    expect(heading.textContent).toContain("Priya Nair");
+  });
+});
+```
+
+`fixture.detectChanges()` is easy to forget — without it, the template
+hasn't been rendered yet and `nativeElement` will be empty.
+
+## Querying with `By.css`
+
+```ts
+import { By } from "@angular/platform-browser";
+
+it("emits remove when the delete button is clicked", () => {
+  const emitSpy = spyOn(fixture.componentInstance.remove, "emit");
+
+  const button = fixture.debugElement.query(By.css("button.delete"));
+  button.triggerEventHandler("click");
+
+  expect(emitSpy).toHaveBeenCalled();
+});
+```
+
+`DebugElement` (via `fixture.debugElement`) wraps the native DOM node with
+Angular-aware helpers like `triggerEventHandler`, useful when you want to
+simulate an event without relying on the raw DOM event object.
+
+## Mocking an injected service
+
+Components that `inject()` a service shouldn't hit a real API in unit tests.
+Provide a fake in the testing module instead:
+
+```ts
+class FakeEmployeeService {
+  getById = jasmine.createSpy().and.returnValue({ id: 1, name: "Test User" });
+}
+
+await TestBed.configureTestingModule({
+  imports: [EmployeeDetailComponent],
+  providers: [{ provide: EmployeeService, useClass: FakeEmployeeService }],
+}).compileComponents();
+```
+
+Because Angular resolves `EmployeeService` through the injector rather than
+a hardcoded import, swapping in `FakeEmployeeService` requires no change to
+the component under test — this is the payoff of using dependency injection
+in the first place.
+
+### Try it yourself
+
+Write a test for the `EmployeeListComponent` search filter: render it with
+two employees, set the search `FormControl`'s value, and assert that
+`filtered()` narrows down to the matching employee.

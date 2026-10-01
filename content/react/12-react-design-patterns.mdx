@@ -1,0 +1,148 @@
+---
+title: "React Design Patterns"
+description: "Higher-Order Components, render props, and compound components — and why hooks replaced most of them."
+module: "Advanced Patterns"
+order: 12
+---
+
+Before hooks existed, React had two main patterns for sharing logic between
+components. Interviewers still ask about them, both because you'll
+encounter them in older codebases and because understanding *why* hooks
+replaced them tells you a lot about React's design philosophy.
+
+## Higher-Order Components (HOC)
+
+A HOC is a function that takes a component and returns a new, enhanced
+component:
+
+```jsx
+function withLoading(Component) {
+  return function WithLoadingComponent({ isLoading, ...props }) {
+    if (isLoading) return <p>Loading…</p>;
+    return <Component {...props} />;
+  };
+}
+
+const UserListWithLoading = withLoading(UserList);
+// usage: <UserListWithLoading isLoading={loading} users={users} />
+```
+
+HOCs compose logic by wrapping, which means wrapping several HOCs around one
+component creates a "wrapper hell" of nested components in DevTools, and
+naming/prop collisions between HOCs are a real hazard (`withLoading(withAuth(withTheme(Component)))`).
+
+## Render props
+
+A render prop passes a function as a prop, which the component calls with
+data instead of rendering fixed markup itself:
+
+```jsx
+function MouseTracker({ render }) {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  return (
+    <div onMouseMove={(e) => setPosition({ x: e.clientX, y: e.clientY })}>
+      {render(position)}
+    </div>
+  );
+}
+
+// usage:
+<MouseTracker render={({ x, y }) => <p>{x}, {y}</p>} />
+```
+
+This avoids HOC wrapper nesting but tends to produce deeply nested JSX when
+composing multiple render-prop components together.
+
+## Compound components
+
+Compound components let a parent and its children share implicit state via
+Context, giving a declarative, flexible API — similar to how native
+`<select>` and `<option>` work together:
+
+```jsx
+const TabsContext = createContext(null);
+
+function Tabs({ children, defaultIndex = 0 }) {
+  const [activeIndex, setActiveIndex] = useState(defaultIndex);
+  return (
+    <TabsContext.Provider value={{ activeIndex, setActiveIndex }}>
+      <div className="tabs">{children}</div>
+    </TabsContext.Provider>
+  );
+}
+
+function TabList({ children }) {
+  return <div className="tab-list">{children}</div>;
+}
+
+function Tab({ index, children }) {
+  const { activeIndex, setActiveIndex } = useContext(TabsContext);
+  return (
+    <button
+      className={activeIndex === index ? "active" : ""}
+      onClick={() => setActiveIndex(index)}
+    >
+      {children}
+    </button>
+  );
+}
+
+function TabPanel({ index, children }) {
+  const { activeIndex } = useContext(TabsContext);
+  return activeIndex === index ? <div>{children}</div> : null;
+}
+
+Tabs.List = TabList;
+Tabs.Tab = Tab;
+Tabs.Panel = TabPanel;
+```
+
+```jsx
+<Tabs>
+  <Tabs.List>
+    <Tabs.Tab index={0}>Profile</Tabs.Tab>
+    <Tabs.Tab index={1}>Settings</Tabs.Tab>
+  </Tabs.List>
+  <Tabs.Panel index={0}>Profile content</Tabs.Panel>
+  <Tabs.Panel index={1}>Settings content</Tabs.Panel>
+</Tabs>
+```
+
+The consumer controls the structure and styling of each piece while the
+components internally coordinate through Context — no prop drilling, no
+wrapper nesting.
+
+## Why custom hooks replaced most of this
+
+A custom hook extracts the *logic* (state + effects) without wrapping
+anything in the component tree, avoiding wrapper hell and prop-collision
+issues entirely:
+
+```jsx
+function useMousePosition() {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  useEffect(() => {
+    const handler = (e) => setPosition({ x: e.clientX, y: e.clientY });
+    window.addEventListener("mousemove", handler);
+    return () => window.removeEventListener("mousemove", handler);
+  }, []);
+  return position;
+}
+
+function Cursor() {
+  const { x, y } = useMousePosition(); // no wrapping, no render prop nesting
+  return <p>{x}, {y}</p>;
+}
+```
+
+Compound components are the one pattern from this lesson that's still
+commonly used today — they solve a structural/API problem (letting a
+consumer freely arrange related pieces) that a hook alone can't, since a
+hook returns data, not markup structure.
+
+### Try it yourself
+
+Convert the `withLoading` HOC into a `useLoading`-style pattern, or better,
+just render a loading state conditionally where it's used — notice how much
+indirection disappears.

@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "question": "What does a `route.ts` file export to handle HTTP methods?",
+      "options": [
+        "A single default export handling all methods",
+        "One function per HTTP verb, e.g. `GET`, `POST`",
+        "A class extending `RouteHandler`",
+        "Nothing — it's configuration only"
+      ],
+      "correctIndex": 1,
+      "explanation": "Route Handlers export a named async function per verb (GET, POST, PATCH, DELETE, etc.), each receiving the Request."
+    },
+    {
+      "question": "What directive marks a function as a Server Action?",
+      "options": ["\"use client\"", "\"use server\"", "\"use action\"", "\"server-only\""],
+      "correctIndex": 1,
+      "explanation": "`\"use server\"` at the top of the function (or file) marks it as a Server Action, callable directly from a form or component."
+    },
+    {
+      "question": "What is the main benefit of a Server Action over a hand-rolled API route + fetch for a form submission?",
+      "options": [
+        "It's the only way to talk to a database",
+        "No manual fetch/JSON wiring, and it integrates with native form submission and progressive enhancement",
+        "It runs in the browser instead of the server",
+        "It automatically creates a REST API"
+      ],
+      "correctIndex": 1,
+      "explanation": "Server Actions let a `<form action={myAction}>` submit directly to server code, skipping manual fetch calls, loading state wiring, and JSON parsing for simple mutations."
+    },
+    {
+      "question": "When should you reach for a Route Handler instead of a Server Action?",
+      "options": [
+        "Never — Server Actions replace Route Handlers entirely",
+        "When something outside your Next.js app needs to call the endpoint, like a webhook or mobile client",
+        "Only for GET requests",
+        "Only when not using TypeScript"
+      ],
+      "correctIndex": 1,
+      "explanation": "Route Handlers expose a real HTTP endpoint, which is necessary when an external caller (not your own app's forms/components) needs to hit it."
+    }
+  ]
+}

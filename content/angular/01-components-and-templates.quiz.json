@@ -1,0 +1,38 @@
+{
+  "questions": [
+    {
+      "question": "What do standalone components remove the need for?",
+      "options": [
+        "TypeScript decorators",
+        "NgModules to declare and wire up components",
+        "Templates",
+        "Angular CLI"
+      ],
+      "correctIndex": 1,
+      "explanation": "Standalone components declare their own dependencies via an `imports` array, removing the need for NgModule boilerplate."
+    },
+    {
+      "question": "Which binding syntax updates a class property whenever the user types into an input, AND updates the input when the property changes?",
+      "options": ["Interpolation `{{ }}`", "Property binding `[value]`", "Event binding `(input)`", "Two-way binding `[( )]`"],
+      "correctIndex": 3,
+      "explanation": "Two-way binding, e.g. `[(ngModel)]`, combines a property binding and an event binding into one syntax."
+    },
+    {
+      "question": "What must you import to use `[(ngModel)]` in a standalone component?",
+      "options": ["HttpClientModule", "FormsModule", "ReactiveFormsModule", "RouterModule"],
+      "correctIndex": 1,
+      "explanation": "`ngModel` comes from `FormsModule`, which a standalone component must list in its own `imports` array."
+    },
+    {
+      "question": "In Angular, what is `@Output()` used for?",
+      "options": [
+        "Passing data from parent to child",
+        "Declaring a component's route",
+        "Emitting events from a child component up to its parent",
+        "Injecting a service"
+      ],
+      "correctIndex": 2,
+      "explanation": "`@Output()` combined with an `EventEmitter` lets a child notify its parent of something (e.g. `remove.emit(id)`), which the parent listens for with event binding."
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+---
+title: "CSS Architecture at Scale"
+description: "BEM, utility-first CSS, and CSS Modules — three different ways to keep a large stylesheet from collapsing under its own specificity."
+module: "Modern CSS"
+order: 11
+---
+
+A handful of CSS files is easy to manage. Thousands of lines across dozens
+of components is a different problem entirely — without a convention,
+teams end up in "specificity wars," where nobody can safely change a style
+without accidentally breaking something three features away.
+
+## BEM: a naming convention, not a tool
+
+BEM (Block\_\_Element--Modifier) solves the specificity problem by agreeing,
+as a team, to **never nest selectors and never increase specificity beyond a
+single class**:
+
+```css
+/* Block */
+.card { }
+
+/* Element — a part of the block */
+.card__title { }
+.card__footer { }
+
+/* Modifier — a variant of the block or element */
+.card--featured { }
+.card__title--large { }
+```
+
+```html
+<div class="card card--featured">
+  <h3 class="card__title card__title--large">Pro plan</h3>
+  <div class="card__footer">...</div>
+</div>
+```
+
+Because every selector is exactly one class (specificity `0,1,0`, always),
+two BEM rules can never fight over which one "wins" by accident — the
+cascade only matters based on source order, which is predictable. The
+trade-off is verbosity: class names get long, and the convention has to be
+enforced by habit/linting since nothing stops someone from writing
+`.card .title` instead.
+
+## Utility-first CSS: Tailwind
+
+```html
+<div class="rounded-xl border p-6 shadow-sm">
+  <h3 class="text-lg font-semibold">Pro plan</h3>
+</div>
+```
+
+Tailwind (used throughout this app) sidesteps the naming problem entirely —
+there's no `.card` or `.card__title` to invent, just small, single-purpose
+classes composed directly in the markup. This eliminates an entire category
+of CSS architecture decisions (what do we name this? where does this style
+live?) at the cost of more verbose HTML/JSX and a vocabulary you have to
+learn. Because classes are reused constantly instead of written per
+component, unused styles are easy for a build tool to detect and purge.
+
+## CSS Modules: scoped by the build tool instead of by convention
+
+```css
+/* Card.module.css */
+.title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+```
+
+```jsx
+import styles from "./Card.module.css";
+<h3 className={styles.title}>Pro plan</h3>;
+```
+
+Here the build tool rewrites `.title` into something like
+`Card_title__a1b2c`, guaranteeing no collision with any other component's
+`.title` class — scoping is enforced automatically, not by a naming
+discipline a team has to maintain by hand. You still write plain CSS
+(nesting, pseudo-classes, media queries all work normally inside the file),
+just file-scoped instead of global.
+
+## Choosing between them
+
+| Priority | Good fit |
+|---|---|
+| A large team, no build tool enforcing scope, a shared convention is the only guardrail | BEM |
+| Fast iteration, no naming decisions, a constrained design vocabulary | Utility-first (Tailwind) |
+| Plain CSS authoring, automatic scoping via tooling, per-component files | CSS Modules |
+
+None of these are mutually exclusive in practice — it's common to see
+Tailwind for most UI and a CSS Module for one component with genuinely
+complex, hard-to-express-as-utilities styling.
+
+### Try it yourself
+
+Take the `.plan` card markup from the pricing page project later in this
+course and rewrite its class names in BEM style (`.plan`, `.plan__price`,
+`.plan--featured`), then compare how it feels against the utility-class
+version.

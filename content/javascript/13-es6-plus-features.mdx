@@ -1,0 +1,76 @@
+---
+title: "ES6+ Features"
+description: "Template literals, optional chaining, and why ?? isn't just a shorter ||."
+module: "Modern JavaScript"
+order: 13
+---
+
+Modern JavaScript (ES2015 and later, often just called "ES6+") added syntax
+that eliminates a lot of verbose, error-prone patterns from older code. A
+few of these show up in virtually every file of a modern codebase.
+
+## Template literals
+
+```js
+const name = "Asha";
+const greeting = `Hello, ${name}!
+Welcome back.`; // multi-line, no \n needed
+```
+
+Backtick strings support embedded expressions (`${...}`) and span multiple
+lines naturally — both awkward with plain `'...'`/`"..."` string
+concatenation.
+
+## Default parameters and destructured parameters
+
+```js
+function createUser(name, role = "viewer") { // default used only if the arg is `undefined`
+  return { name, role };
+}
+
+function renderButton({ label, variant = "primary", onClick }) {
+  // destructuring + defaults directly in the parameter list
+}
+```
+
+A default parameter only kicks in when the argument is `undefined` —
+passing `null` explicitly does **not** trigger the default, which is a
+common point of confusion.
+
+## Optional chaining: `?.`
+
+```js
+const city = user?.address?.city; // undefined instead of throwing, if address is missing
+user?.sendWelcomeEmail?.();        // only calls the method if it exists
+```
+
+Before `?.`, safely reading a deeply nested property required a chain of
+manual `&&` checks (`user && user.address && user.address.city`). `?.`
+short-circuits to `undefined` the moment it hits `null`/`undefined`, instead
+of throwing `Cannot read properties of undefined`.
+
+## Nullish coalescing: `??` vs `||`
+
+```js
+function getVolume(settings) {
+  return settings.volume || 50;  // BUG: if volume is explicitly 0, this returns 50!
+}
+
+function getVolumeFixed(settings) {
+  return settings.volume ?? 50;  // correctly returns 0 if volume is 0
+}
+```
+
+`||` falls back to its right-hand side for **any falsy** left-hand value —
+`0`, `""`, `false`, `NaN`, `null`, and `undefined` all trigger it. `??` only
+falls back for **`null` or `undefined` specifically**, leaving legitimate
+falsy values like `0` or `""` alone. This difference is exactly why `??`
+was added: `volume: 0` is a perfectly valid, intentional setting that `||`
+would incorrectly override.
+
+### Try it yourself
+
+Write a `getConfig(overrides)` function that merges a `defaults` object with
+a user-provided `overrides` object, using `??` (not `||`) for each
+individual field so that an explicit `false` or `0` override isn't
+accidentally replaced by the default.

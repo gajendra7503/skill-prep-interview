@@ -1,0 +1,102 @@
+---
+title: "Prototypes & Inheritance"
+description: "The prototype chain, Object.create, and what `class` really compiles down to."
+module: "Core Concepts"
+order: 5
+---
+
+JavaScript's object model is fundamentally different from classical
+inheritance in languages like Java — there are no "classes" at the engine
+level, only objects linked to other objects. `class` syntax is a layer on
+top of this, and understanding what's underneath is a common interview
+probe ("what does `class` actually do under the hood?").
+
+## The prototype chain
+
+Every object has an internal link to another object, its **prototype**. When
+you access a property, the engine looks on the object itself first, then
+walks up the prototype chain until it finds the property or runs out of
+chain:
+
+```js
+const animal = {
+  eats: true,
+  walk() {
+    console.log("walking");
+  },
+};
+
+const rabbit = Object.create(animal); // rabbit's prototype is animal
+rabbit.jumps = true;
+
+rabbit.jumps; // true — own property
+rabbit.eats;  // true — found on the prototype, animal
+rabbit.walk(); // "walking" — method found on the prototype too
+```
+
+`Object.getPrototypeOf(rabbit) === animal` confirms the link directly. The
+older `rabbit.__proto__` accessor does the same thing but is considered
+legacy — `Object.getPrototypeOf`/`Object.setPrototypeOf` are the modern API.
+
+Don't confuse an object's **prototype** (the object it delegates to) with a
+*function's* `.prototype` **property** (an object used as the template for
+instances created with `new` from that function) — related concepts, same
+word, different things.
+
+## Constructor functions: how `new` builds the chain
+
+```js
+function Animal(name) {
+  this.name = name;
+}
+Animal.prototype.walk = function () {
+  console.log(`${this.name} is walking`);
+};
+
+const dog = new Animal("Rex");
+dog.walk(); // "Rex is walking" — found via dog's prototype, Animal.prototype
+```
+
+`new Animal("Rex")` does three things: creates a new empty object, sets that
+object's prototype to `Animal.prototype`, and runs `Animal` with `this`
+bound to the new object. The `walk` method lives once on `Animal.prototype`
+and is shared by every instance via the chain — it's not copied onto each
+object individually.
+
+## `class` is sugar over exactly this mechanism
+
+```js
+class Animal {
+  constructor(name) {
+    this.name = name;
+  }
+  walk() {
+    console.log(`${this.name} is walking`);
+  }
+}
+
+class Dog extends Animal {
+  bark() {
+    console.log(`${this.name} says woof`);
+  }
+}
+
+const rex = new Dog("Rex");
+rex.walk(); // inherited from Animal.prototype via the chain
+rex.bark(); // own method, on Dog.prototype
+```
+
+This compiles down to essentially the same constructor-function-plus-
+prototype pattern shown above — `extends` sets `Dog.prototype`'s prototype
+to `Animal.prototype`, linking the two chains together. `class` is stricter
+(methods aren't enumerable, you can't call the class without `new`) and far
+more readable, but there's no new object model underneath it; it's the same
+prototype chain with better syntax.
+
+### Try it yourself
+
+Without using `class` at all, write a `Cat` constructor function that
+inherits from an `Animal` constructor function (using `Object.create` to
+wire up `Cat.prototype`), and give `Cat` its own `meow` method alongside the
+inherited `walk` method — this is exactly what `class`/`extends` does for
+you automatically.

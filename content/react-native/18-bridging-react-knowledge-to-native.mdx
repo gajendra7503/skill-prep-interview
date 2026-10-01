@@ -1,0 +1,72 @@
+---
+title: "Bridging React Knowledge to React Native"
+description: "What transfers directly from web React, what's fundamentally different, and where React Native Web fits in."
+module: "Advanced Patterns"
+order: 18
+---
+
+If you already know React, you're not starting from zero here — but it's
+worth being precise about exactly where the overlap ends, since assuming
+too much (or too little) transfers is equally unproductive.
+
+## What transfers directly
+
+- **Components, props, and the entire composition model** — breaking UI into
+  small, reusable pieces works identically.
+- **All the hooks** — `useState`, `useEffect`, `useContext`, custom hooks,
+  everything from the Hooks Deep Dive and Advanced Hooks lessons applies
+  unchanged. The `useNotes` hook from this course's capstone project is
+  ordinary React, nothing React-Native-specific about its logic.
+- **Unidirectional data flow** — state down via props, events up via
+  callbacks, lifting state to a common parent — identical mental model.
+- **State management choices** — Context, Redux Toolkit, Zustand, the
+  decision framework from the React course's state management lesson
+  applies here too.
+
+## What's fundamentally different
+
+- **No DOM, no CSS.** There's no `<div>`, no `className`, no CSS files.
+  Layout and styling happen via the `StyleSheet` API and Flexbox props on
+  core components (`View`, `Text`, `Image`) — the box model and cascade
+  concepts from HTML/CSS don't apply the same way, since there's no HTML
+  underneath.
+- **No semantic HTML elements.** There's no `<button>`, `<article>`, or
+  `<nav>` — everything is a `View`/`Text`/`Pressable` composition. Semantic
+  *meaning* for assistive technology instead comes from explicit props:
+
+```jsx
+<Pressable
+  accessible={true}
+  accessibilityRole="button"
+  accessibilityLabel="Delete note"
+  onPress={handleDelete}
+>
+  <Text>Delete</Text>
+</Pressable>
+```
+
+  This is the React Native equivalent of a `<button aria-label="Delete
+  note">` — same underlying goal (telling assistive tech what this element
+  is and does), different, more explicit API since there's no native HTML
+  semantics to lean on.
+
+- **Touch, not mouse/hover.** There's no `:hover` state, no `onMouseEnter` —
+  interaction is built around press/long-press/gesture events instead.
+
+## React Native Web: sharing code the other direction
+
+**React Native Web** renders React Native's core components (`View`,
+`Text`, `Pressable`, `StyleSheet`) to real DOM elements and CSS in a
+browser, which lets a team share a substantial amount of component code
+between a mobile app and a web app — write a `View`/`Text`-based component
+once, and it can run in both environments. It doesn't erase every
+difference (web-specific concerns like SEO and semantic HTML still need
+deliberate handling), but it's the main tool for React Native/React
+cross-platform code sharing.
+
+### Try it yourself
+
+Take the `TaskForm` component from the web React course's Task Tracker
+project and sketch its React Native equivalent: which pieces (the `useState`
+logic, the `onAdd` callback) stay identical, and which JSX
+(`<input>`/`<button>`) needs to change to `TextInput`/`Pressable`?

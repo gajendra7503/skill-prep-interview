@@ -1,0 +1,152 @@
+---
+title: "Real Project: Blog Platform"
+description: "Ship a full-stack blog: dynamic routes, ISR, a Server Action to post comments, and metadata."
+module: "Real-World Project"
+order: 20
+---
+
+We'll combine routing, rendering strategies, and Server Actions into a small
+blog platform: a listing page, individual post pages with ISR, and a comment
+form powered by a Server Action.
+
+## 1. Route structure
+
+```text
+app/
+  blog/
+    page.tsx              -> listing page (ISR)
+    [slug]/
+      page.tsx            -> single post (ISR + generateStaticParams)
+      comment-form.tsx     -> client component wrapping the action
+      actions.ts           -> "use server" mutation
+```
+
+## 2. The listing page (ISR)
+
+```tsx
+// app/blog/page.tsx
+async function getPosts() {
+  const res = await fetch("https://api.example.com/posts", {
+    next: { revalidate: 300, tags: ["posts"] },
+  });
+  return res.json();
+}
+
+export default async function BlogIndex() {
+  const posts = await getPosts();
+  return (
+    <ul className="space-y-4">
+      {posts.map((post: { slug: string; title: string; excerpt: string }) => (
+        <li key={post.slug}>
+          <Link href={`/blog/${post.slug}`} className="text-xl font-semibold">
+            {post.title}
+          </Link>
+          <p className="text-gray-600">{post.excerpt}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## 3. The post page, pre-rendered per slug
+
+```tsx
+// app/blog/[slug]/page.tsx
+export async function generateStaticParams() {
+  const posts = await getPosts();
+  return posts.map((post: { slug: string }) => ({ slug: post.slug }));
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = await getPost(slug);
+  return { title: post.title, description: post.excerpt };
+}
+
+export default async function BlogPost({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = await getPost(slug);
+
+  return (
+    <article className="prose">
+      <h1>{post.title}</h1>
+      <div dangerouslySetInnerHTML={{ __html: post.html }} />
+      <CommentForm slug={slug} />
+      <CommentList comments={post.comments} />
+    </article>
+  );
+}
+```
+
+`generateMetadata` runs per-route and sets the `<title>`/meta description
+per post — important for a real blog's SEO, and it composes with the static
+metadata defined in `layout.tsx`.
+
+## 4. Comments via a Server Action
+
+```ts
+// app/blog/[slug]/actions.ts
+"use server";
+
+import { revalidateTag } from "next/cache";
+
+export async function postComment(slug: string, formData: FormData) {
+  const body = formData.get("body");
+  if (typeof body !== "string" || body.trim().length === 0) {
+    return { error: "Comment cannot be empty." };
+  }
+
+  await fetch(`https://api.example.com/posts/${slug}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+
+  revalidateTag("posts"); // invalidate the cached post + listing
+  return { error: null };
+}
+```
+
+```tsx
+// app/blog/[slug]/comment-form.tsx
+"use client";
+
+import { useActionState } from "react";
+import { postComment } from "./actions";
+
+export function CommentForm({ slug }: { slug: string }) {
+  const [state, formAction, pending] = useActionState(
+    (_prev: { error: string | null }, formData: FormData) => postComment(slug, formData),
+    { error: null }
+  );
+
+  return (
+    <form action={formAction} className="mt-6">
+      <textarea name="body" rows={3} className="w-full border rounded p-2" />
+      {state.error && <p className="text-red-500 text-sm">{state.error}</p>}
+      <button type="submit" disabled={pending} className="mt-2 px-4 py-2 bg-black text-white rounded">
+        {pending ? "Posting…" : "Post comment"}
+      </button>
+    </form>
+  );
+}
+```
+
+`useActionState` bridges a Server Action into a Client Component that needs
+pending/error UI — the mutation itself still runs entirely on the server.
+
+## What this project demonstrates
+
+- **ISR with tag-based revalidation** — `revalidateTag("posts")` invalidates
+  exactly the cached `fetch` calls tagged `"posts"`, everywhere they're used.
+- **`generateStaticParams` + `generateMetadata`** working together so every
+  post is both pre-rendered and has correct per-page SEO metadata.
+- **Server Actions wired into a Client Component** for pending/error state,
+  without hand-writing a `fetch` + API route.
+
+### Extend it yourself
+
+- Add pagination to the listing page.
+- Add a "like" count using the same Server Action + `revalidateTag` pattern.
+- Swap the mock `fetch` calls for real queries against the Supabase project
+  you configured for this app's auth/progress tracking.

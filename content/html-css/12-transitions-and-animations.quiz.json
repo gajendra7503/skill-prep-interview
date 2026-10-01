@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does a CSS `transition` do if the property it watches never actually changes value?",
+      "options": [
+        "It runs automatically after a fixed delay regardless",
+        "Nothing — a transition only animates a property when its value changes, e.g. via :hover or a class toggle",
+        "It throws a CSS error",
+        "It loops infinitely by default"
+      ],
+      "correctIndex": 1,
+      "explanation": "transition is purely reactive: it interpolates between old and new values when a change occurs, and does nothing if no change ever happens."
+    },
+    {
+      "question": "What can `@keyframes`/`animation` do that a plain `transition` cannot?",
+      "options": [
+        "Animate color properties",
+        "Run on its own without a triggering state change, and define multiple intermediate steps rather than just a start and end state",
+        "Work with the transform property",
+        "Nothing — they are functionally identical"
+      ],
+      "correctIndex": 1,
+      "explanation": "Animations are self-running sequences defined by keyframe percentages, useful for continuous or on-mount motion that isn't a reaction to a state change like hover."
+    },
+    {
+      "question": "Why are `transform` and `opacity` considered 'cheap' properties to animate compared to `width` or `top`?",
+      "options": [
+        "They are shorter to type",
+        "They can be handled entirely by the compositor on the GPU, skipping the layout and paint stages that width/top/margin changes force on every frame",
+        "Browsers cache them more aggressively",
+        "There is no actual performance difference"
+      ],
+      "correctIndex": 1,
+      "explanation": "Animating layout-affecting properties like width or top forces the browser to recompute geometry every frame; transform and opacity changes can be composited directly without that recalculation."
+    },
+    {
+      "question": "To move a card upward on hover, which approach is more performant, and why?",
+      "options": [
+        "Animating `top: -4px`, because top is more precise",
+        "Animating `transform: translateY(-4px)`, because it achieves the same visual movement via composite-only, avoiding a layout recalculation",
+        "Both are exactly equivalent in performance",
+        "Neither approach can move an element visually"
+      ],
+      "correctIndex": 1,
+      "explanation": "translateY produces the same visual result as adjusting top, but through the compositor rather than triggering layout, making it the preferred choice for smooth animation."
+    }
+  ]
+}

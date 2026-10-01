@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is logged by `console.log(x); var x = 5;` when run as the first lines of a function?",
+      "options": [
+        "A ReferenceError",
+        "undefined",
+        "5",
+        "null"
+      ],
+      "correctIndex": 1,
+      "explanation": "var declarations are hoisted and initialized to undefined immediately, so reading the variable before its assignment line gives undefined, not an error."
+    },
+    {
+      "question": "Why does `var fromVar` declared inside an `if` block remain accessible after the block ends, while a `let` declared the same way does not?",
+      "options": [
+        "var is scoped to the nearest enclosing function, not the block, while let is block-scoped",
+        "let variables are deleted automatically when a block ends",
+        "There is no real difference; it depends on strict mode",
+        "var only works inside if statements"
+      ],
+      "correctIndex": 0,
+      "explanation": "var ignores block boundaries and is scoped to the function (or global scope); let and const respect the block they were declared in."
+    },
+    {
+      "question": "What happens when you access a `let` variable before its declaration line, within the same block?",
+      "options": [
+        "It returns undefined, same as var",
+        "It throws a ReferenceError due to the Temporal Dead Zone",
+        "It returns the value from the nearest outer scope instead",
+        "It silently returns null"
+      ],
+      "correctIndex": 1,
+      "explanation": "let/const bindings exist from the start of the block but stay uninitialized until their declaration executes — accessing them in that gap (the TDZ) throws."
+    },
+    {
+      "question": "What is hoisted for a function *expression* like `const greet = function() { ... }`, if called before that line?",
+      "options": [
+        "Both the variable name and the function body are hoisted, so it works fine",
+        "Only the variable binding is hoisted (and stays in the TDZ for const); the function body is not usable until the assignment runs",
+        "Nothing is hoisted at all",
+        "It behaves identically to a function declaration"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unlike a function declaration, a function expression only hoists the variable itself — calling it before the assignment line executes fails (TDZ error for let/const, or 'not a function' for var)."
+    }
+  ]
+}

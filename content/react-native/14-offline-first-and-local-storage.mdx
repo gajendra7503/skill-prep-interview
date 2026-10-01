@@ -1,0 +1,79 @@
+---
+title: "Offline-First & Local Storage"
+description: "Why mobile apps need real offline support, AsyncStorage's limits, and when to reach for an embedded database."
+module: "Offline & Storage"
+order: 14
+---
+
+On the web, "offline" is often an edge case. On mobile, it's a routine state
+— a subway commute, a flight, a rural signal dead zone, or just a
+flaky-but-technically-connected network. An app that simply shows errors or
+blank screens whenever a request is slow or fails feels broken; an
+**offline-first** app treats local data as the primary source of truth and
+the network as a background sync detail.
+
+## AsyncStorage: simple, but limited
+
+```jsx
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+await AsyncStorage.setItem("theme", "dark");
+const theme = await AsyncStorage.getItem("theme");
+```
+
+AsyncStorage is a simple, persistent, **asynchronous key-value store** —
+perfect for small bits of data like settings, auth tokens, or (as in this
+course's project) a modest, flat list of notes serialized as JSON. It starts
+to strain once you need:
+
+- **Querying** — AsyncStorage has no concept of "find all items matching X,"
+  only "get this exact key." Any filtering means loading everything into
+  memory and filtering in JS.
+- **Relational data** — notes with tags, tags with colors, users with
+  settings — modeling relationships in a flat key-value store gets
+  unwieldy fast.
+- **Large datasets** — serializing and re-parsing a large JSON blob on every
+  read/write doesn't scale the way an indexed database does.
+
+## Reaching for a real embedded database
+
+**SQLite** (via `expo-sqlite` or similar) gives you actual tables, indexes,
+and SQL queries, running entirely on-device — a proper relational database
+with no server involved. For apps that need two-way sync with a backend
+*and* conflict resolution, a layer like **WatermelonDB** (built on SQLite)
+adds an observable, React-friendly query layer plus built-in sync
+primitives, so components can simply subscribe to "notes matching this
+query" and re-render automatically as local data changes — whether that
+change came from the user or from a background sync.
+
+## The core offline-first pattern: optimistic local writes
+
+```js
+async function addNote(text) {
+  const note = { id: generateId(), text, synced: false };
+
+  await db.notes.insert(note);       // 1. write locally, immediately
+  renderNoteInUI(note);              // 2. UI updates instantly, no spinner
+
+  try {
+    const saved = await api.createNote(note);  // 3. sync in the background
+    await db.notes.update(note.id, { ...saved, synced: true });
+  } catch {
+    // 4. still safely stored locally; retry later (e.g. on reconnect)
+  }
+}
+```
+
+The user never waits on the network to see their own action reflected — the
+local database is the source of truth the UI renders from, and the network
+request is a background concern that updates a `synced` flag rather than
+gating the UI. This is the same "optimistic update" idea as `useOptimistic`
+in the React course, just extended to a model where the "optimistic" state
+is also the durable, persisted state, not a temporary UI-only guess.
+
+### Try it yourself
+
+Take the notes app project from this course and add a `synced: boolean`
+field to each note. Simulate a failed network request (reject the mock API
+call) and confirm the note still appears in the list immediately, then add
+a small "pending sync" indicator for notes where `synced` is still `false`.

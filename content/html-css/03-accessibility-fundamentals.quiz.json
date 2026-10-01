@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is <button onclick=\"...\"> preferred over <div onclick=\"...\"> for a clickable control?",
+      "options": [
+        "div elements cannot have onclick handlers at all",
+        "button is automatically keyboard-focusable, announced as a button by screen readers, and already responds to Enter/Space — a div needs tabindex, role, and keydown handlers added manually to match",
+        "button elements render faster in the browser",
+        "There is no actual accessibility difference between the two"
+      ],
+      "correctIndex": 1,
+      "explanation": "Native interactive elements come with keyboard focusability, correct semantics, and key handling built in; replicating that on a div requires several additional manual steps."
+    },
+    {
+      "question": "What is the 'first rule of ARIA' referenced in the lesson?",
+      "options": [
+        "Always add as many ARIA attributes as possible to be safe",
+        "Don't use ARIA if a native HTML element or attribute already provides the semantics and behavior you need",
+        "ARIA should only be used on form elements",
+        "ARIA attributes must always be paired with a role attribute"
+      ],
+      "correctIndex": 1,
+      "explanation": "Native HTML elements provide correct accessibility semantics for free; ARIA is for the gap where no native element covers the pattern you need (like a custom tab panel)."
+    },
+    {
+      "question": "What does `aria-hidden=\"true\"` do?",
+      "options": [
+        "Visually hides the element from sighted users",
+        "Removes the element from the accessibility tree so assistive technology skips it entirely, appropriate for purely decorative content",
+        "Disables the element so it cannot be clicked",
+        "Makes the element load lazily for performance"
+      ],
+      "correctIndex": 1,
+      "explanation": "aria-hidden only affects the accessibility tree, not visual rendering — it's used to prevent decorative icons/emoji from being announced redundantly."
+    },
+    {
+      "question": "Why is <button role=\"link\">Submit</button> considered harmful rather than just redundant?",
+      "options": [
+        "It will cause the button to stop working entirely",
+        "It overrides the button's implicit role with a contradictory one, so assistive tech announces it as a link while it still behaves like a button — a mismatch ARIA is supposed to prevent, not cause",
+        "role attributes are deprecated in HTML5",
+        "It has no effect either way since browsers ignore conflicting roles"
+      ],
+      "correctIndex": 1,
+      "explanation": "Overriding a native element's role to something that contradicts its actual behavior actively misleads assistive technology users about how the control works."
+    }
+  ]
+}

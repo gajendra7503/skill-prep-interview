@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What can EAS Build do that is particularly valuable for a developer without a Mac?",
+      "options": [
+        "Nothing specific to iOS — it only builds Android apps",
+        "Produce a signed iOS binary in the cloud, since building an iOS app normally requires Xcode on macOS",
+        "Automatically rewrite the app's JavaScript code",
+        "Replace the need for an Apple Developer account"
+      ],
+      "correctIndex": 1,
+      "explanation": "EAS Build compiles the native binary on Expo's cloud infrastructure, removing the usual requirement of having a Mac with Xcode installed to produce an iOS build."
+    },
+    {
+      "question": "What is the main limitation of Expo's managed workflow compared to a bare React Native project?",
+      "options": [
+        "It cannot use any native functionality at all",
+        "You can't freely add arbitrary third-party native code without using config plugins/prebuild, unlike a bare project where you can link any native module directly",
+        "It only supports Android, not iOS",
+        "It doesn't support TypeScript"
+      ],
+      "correctIndex": 1,
+      "explanation": "Expo's managed workflow covers a large curated set of native modules, but a native dependency outside that set requires generating native project files via prebuild and a config plugin rather than simple manual linking."
+    },
+    {
+      "question": "What does an OTA (over-the-air) update via `expo-updates` allow you to ship without an app store review?",
+      "options": [
+        "Any change at all, including new native modules",
+        "JavaScript-only changes, like a bug fix or content update — native code changes still require a new store submission",
+        "Changes to the app's icon and name",
+        "OTA updates don't actually exist in React Native"
+      ],
+      "correctIndex": 1,
+      "explanation": "OTA updates push a new JS bundle directly to installed apps, bypassing store review — but since they don't touch compiled native code, any native-level change still needs a normal app store release."
+    },
+    {
+      "question": "What is a 'config plugin' used for in a modern Expo project?",
+      "options": [
+        "Styling React Native components",
+        "Modifying the native iOS/Android project files generated during `expo prebuild`, such as adding a required permission, without hand-editing native files",
+        "Configuring ESLint rules",
+        "Managing npm package versions"
+      ],
+      "correctIndex": 1,
+      "explanation": "Config plugins let you declare native-level changes (permissions, build settings) in your JS-level app config, which Expo applies automatically whenever the native project is (re)generated."
+    }
+  ]
+}

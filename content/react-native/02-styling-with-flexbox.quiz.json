@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the main practical benefit of `StyleSheet.create` over an inline style object?",
+      "options": [
+        "It adds CSS selectors and cascading to React Native",
+        "It validates style shapes during development and lets styles be referenced by a lightweight ID instead of resending the full object every render",
+        "It is required for Flexbox to work at all",
+        "It converts styles into real CSS files at build time"
+      ],
+      "correctIndex": 1,
+      "explanation": "StyleSheet.create doesn't change what the styles do — it's a development-time validation and a small performance optimization over passing fresh inline objects."
+    },
+    {
+      "question": "What is React Native's default `flexDirection`, and how does it differ from the web?",
+      "options": [
+        "row, same as the web's flexbox default",
+        "column — the opposite of the web's row default for flex containers",
+        "React Native has no default flex direction",
+        "It depends on the platform (iOS vs Android)"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every View is a flex container by default, and that default direction is column, which surprises developers coming from web CSS where flex-direction: row is the default."
+    },
+    {
+      "question": "What layout systems besides Flexbox are available in React Native?",
+      "options": [
+        "CSS Grid, as a fallback",
+        "None — Flexbox is the only layout system; there is no Grid, float, or display: block",
+        "Table-based layout",
+        "Absolute positioning only"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unlike the web, which has multiple layout modes, React Native layout is Flexbox-only (though individual elements can still opt into position: 'absolute')."
+    },
+    {
+      "question": "What does a unitless number like `width: 200` represent in a React Native style?",
+      "options": [
+        "200 CSS pixels, exactly as on the web",
+        "200 density-independent points, which the platform scales for the device's screen density",
+        "200% of the parent's width",
+        "It's invalid — all dimensions require an explicit unit string"
+      ],
+      "correctIndex": 1,
+      "explanation": "React Native has no px/em/rem units; plain numbers are density-independent points scaled appropriately per device, which is why percentages are written as strings like \"50%\" but fixed sizes are plain numbers."
+    }
+  ]
+}

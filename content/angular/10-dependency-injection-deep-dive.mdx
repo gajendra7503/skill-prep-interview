@@ -1,0 +1,90 @@
+---
+title: "Dependency Injection Deep Dive"
+description: "The hierarchical injector tree, injection tokens, and the provider configuration options."
+module: "Architecture"
+order: 10
+---
+
+Earlier in this course you used `@Injectable({ providedIn: "root" })` to get
+a single app-wide instance of a service. That's the common case, but
+Angular's injector is actually a **tree**, and understanding it explains a
+lot of DI behavior that otherwise looks like magic.
+
+## The injector hierarchy
+
+Every component has its own injector, nested inside its parent's. When a
+component asks for a dependency, Angular walks **up** the tree — component →
+parent component → ... → module injector → root injector — and uses the
+first provider it finds.
+
+Declaring a provider on a specific component scopes it to that component
+and its children, creating a **new instance** separate from the root one:
+
+```ts
+@Component({
+  selector: "app-checkout",
+  standalone: true,
+  providers: [CartService], // a fresh CartService, just for this subtree
+  template: `...`,
+})
+export class CheckoutComponent {}
+```
+
+Any child of `CheckoutComponent` that injects `CartService` gets this
+scoped instance, not the app-wide singleton from `providedIn: "root"` —
+useful for state that should reset per-feature (a wizard, a modal, a
+per-row editor) instead of persisting for the whole app.
+
+## `InjectionToken`: injecting things that aren't classes
+
+DI isn't limited to service classes. For plain values or configuration
+objects, use an `InjectionToken` as a unique, type-safe key:
+
+```ts
+import { InjectionToken } from "@angular/core";
+
+export interface AppConfig {
+  apiBaseUrl: string;
+  pageSize: number;
+}
+
+export const APP_CONFIG = new InjectionToken<AppConfig>("APP_CONFIG");
+```
+
+```ts
+// app.config.ts
+providers: [
+  { provide: APP_CONFIG, useValue: { apiBaseUrl: "/api", pageSize: 20 } },
+];
+```
+
+```ts
+@Component({ standalone: true, template: `...` })
+export class ProductListComponent {
+  private config = inject(APP_CONFIG);
+  pageSize = this.config.pageSize;
+}
+```
+
+## The provider configuration options
+
+Behind every `providers: [...]` entry is one of four ways to tell Angular
+*how* to produce the value:
+
+| Syntax | Meaning |
+|---|---|
+| `{ provide: Logger, useClass: ConsoleLogger }` | Instantiate a different class when `Logger` is requested |
+| `{ provide: APP_CONFIG, useValue: {...} }` | Provide a plain, already-constructed value |
+| `{ provide: ApiService, useFactory: () => new ApiService(env.apiUrl) }` | Compute the value with a factory function, useful when construction needs logic |
+| `{ provide: NewLogger, useExisting: Logger }` | Alias — reuse the same instance already provided for `Logger` |
+
+`useClass` is what makes services easy to swap in tests — providing a
+`FakeCartService` under the `CartService` token means components under test
+never know the difference.
+
+### Try it yourself
+
+Create an `InjectionToken<{ retries: number }>` called `HTTP_RETRY_CONFIG`,
+provide it at the root with a default, then override it with a different
+value using a component-level `providers` array on just one feature and
+confirm (via `inject`) that only that subtree sees the override.

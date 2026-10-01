@@ -1,0 +1,99 @@
+---
+title: "Services & Dependency Injection"
+description: "Sharing logic and state across components with injectable services and HttpClient."
+module: "Fundamentals"
+order: 2
+---
+
+Components should stay focused on presentation. Business logic, API calls,
+and shared state belong in **services** — plain classes decorated with
+`@Injectable`.
+
+```ts
+import { Injectable, signal } from "@angular/core";
+
+@Injectable({ providedIn: "root" })
+export class CartService {
+  private items = signal<string[]>([]);
+  readonly count = this.items.length; // derived value for templates
+
+  add(item: string) {
+    this.items.update((current) => [...current, item]);
+  }
+}
+```
+
+`providedIn: "root"` registers the service as a **singleton** for the whole
+app — Angular's dependency injector hands the same instance to every
+component that asks for it.
+
+## Injecting a service
+
+```ts
+import { Component, inject } from "@angular/core";
+import { CartService } from "./cart.service";
+
+@Component({
+  selector: "app-add-to-cart",
+  standalone: true,
+  template: `<button (click)="cart.add('Widget')">Add to cart</button>`,
+})
+export class AddToCartComponent {
+  cart = inject(CartService);
+}
+```
+
+The `inject()` function (or constructor injection) is how Angular wires
+dependencies together — you never call `new CartService()` yourself, which is
+what makes services easy to mock in tests.
+
+## Calling an API with `HttpClient`
+
+```ts
+import { Injectable, inject } from "@angular/core";
+import { HttpClient } from "@angular/common/http";
+import { Observable } from "rxjs";
+
+export interface Product {
+  id: number;
+  name: string;
+  price: number;
+}
+
+@Injectable({ providedIn: "root" })
+export class ProductService {
+  private http = inject(HttpClient);
+
+  getAll(): Observable<Product[]> {
+    return this.http.get<Product[]>("/api/products");
+  }
+}
+```
+
+`HttpClient` methods return **Observables** (from RxJS), not Promises.
+Subscribe to them, or use the `async` pipe in templates to handle
+subscription/unsubscription automatically:
+
+```ts
+@Component({
+  standalone: true,
+  template: `
+    <ul>
+      <li *ngFor="let p of products$ | async">{{ p.name }} — ₹{{ p.price }}</li>
+    </ul>
+  `,
+})
+export class ProductListComponent {
+  private products = inject(ProductService);
+  products$ = this.products.getAll();
+}
+```
+
+`HttpClientModule` (or `provideHttpClient()` in `app.config.ts`) must be set
+up once at the application root for injection to work.
+
+### Try it yourself
+
+Create a `NotificationService` with an `add(message: string)` method and a
+`signal` array of active messages, then render them as a toast list in
+`AppComponent`.

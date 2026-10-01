@@ -1,0 +1,67 @@
+---
+title: "JSX & Components"
+description: "How React turns markup-like syntax into UI, and how to compose components with props."
+module: "Fundamentals"
+order: 1
+---
+
+React apps are built out of **components** — JavaScript functions that return
+UI described in **JSX**, a syntax extension that looks like HTML but compiles
+down to `React.createElement` calls.
+
+```jsx
+function Greeting({ name }) {
+  return <h1>Hello, {name}!</h1>;
+}
+```
+
+A few rules that trip people up early on:
+
+- JSX must return a **single root element** (or a `<>...</>` fragment).
+- Use `{}` to embed any JavaScript expression — variables, function calls, ternaries.
+- Attributes are camelCase: `className` instead of `class`, `onClick` instead of `onclick`.
+
+## Props: passing data down
+
+Props are read-only inputs to a component. They flow **one direction**, from
+parent to child:
+
+```jsx
+function ProfileCard({ name, role }) {
+  return (
+    <div className="card">
+      <h2>{name}</h2>
+      <p>{role}</p>
+    </div>
+  );
+}
+
+function App() {
+  return <ProfileCard name="Asha Rao" role="Frontend Engineer" />;
+}
+```
+
+Never mutate props inside a component — treat them as immutable. If a
+component needs to change something over time, that's a job for **state**
+(next lesson).
+
+## Composing with `children`
+
+The special `children` prop lets a component wrap arbitrary content, which is
+how layout components and design systems are usually built:
+
+```jsx
+function Card({ children }) {
+  return <div className="rounded-lg border p-4">{children}</div>;
+}
+
+<Card>
+  <h3>Title</h3>
+  <p>Body text goes here.</p>
+</Card>;
+```
+
+### Try it yourself
+
+Create a `Badge` component that accepts `label` and `color` props and renders
+a small pill. Then render three badges with different colors inside a `Card`.

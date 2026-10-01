@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does the project wrap each plan in `<article>` rather than a generic `<div>`?",
+      "options": [
+        "article elements render faster than div elements",
+        "Each card is independently meaningful content that would still make sense on its own — the semantic test article is designed for",
+        "div elements cannot be styled with Flexbox",
+        "It has no real effect, either tag would be equally correct"
+      ],
+      "correctIndex": 1,
+      "explanation": "article is for self-contained content; a pricing card describing one complete plan fits that definition, which is why it's chosen over a meaningless div."
+    },
+    {
+      "question": "What is the main benefit of defining colors and spacing as CSS custom properties on `:root` instead of hard-coding values in each selector?",
+      "options": [
+        "Custom properties make CSS parse faster in the browser",
+        "A single change at :root (e.g. a new brand color) updates every selector that references the variable, instead of requiring a find-and-replace",
+        "They are required for Flexbox to work",
+        "They only work in combination with Sass"
+      ],
+      "correctIndex": 1,
+      "explanation": "Custom properties centralize values so theming changes (rebrands, dark mode) touch one place instead of scattering edits across the stylesheet."
+    },
+    {
+      "question": "Why is `flex: 1` applied to `.plan__features` inside each flex-column card?",
+      "options": [
+        "To make the text larger",
+        "So the features list grows to fill available space, pushing the CTA button to the same bottom position across cards even when feature lists differ in length",
+        "It's required for any list element",
+        "To center the text horizontally"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without flex: 1, cards with shorter feature lists would have their CTA button sitting higher up than cards with longer lists — a common layout-alignment problem Flexbox solves well."
+    },
+    {
+      "question": "Why does the responsive CSS define `.pricing__grid { grid-template-columns: 1fr; }` as the default, only switching to 3 columns inside a `min-width` media query?",
+      "options": [
+        "Because three columns are impossible on any screen size",
+        "This is the mobile-first approach: the simple single-column layout is the unconditional default, and larger screens opt into more columns as space allows",
+        "min-width media queries only work with one column",
+        "It's a typo and should be the other way around"
+      ],
+      "correctIndex": 1,
+      "explanation": "Mobile-first CSS starts from the simplest, most constrained layout and progressively adds complexity as more viewport width becomes available, rather than starting wide and cramming down."
+    }
+  ]
+}

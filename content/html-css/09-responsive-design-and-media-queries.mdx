@@ -1,0 +1,94 @@
+---
+title: "Responsive Design & Media Queries"
+description: "Mobile-first breakpoints, the viewport meta tag every page needs, and container queries as the newer alternative."
+module: "Layout"
+order: 9
+---
+
+"Responsive" doesn't mean "has some media queries" — it means the layout
+adapts sensibly across the full range of screen sizes people actually use,
+and the methodology you build it with matters as much as the CSS itself.
+
+## Mobile-first: write the small-screen styles as the default
+
+```css
+/* Base styles = mobile, unconditional */
+.nav {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Widen the layout as more space becomes available */
+@media (min-width: 768px) {
+  .nav {
+    flex-direction: row;
+  }
+}
+```
+
+Writing base styles for the smallest screen and layering on `min-width`
+media queries to *add* complexity (rather than starting from a desktop
+layout and using `max-width` queries to strip things away) tends to produce
+simpler CSS — you're never fighting to undo desktop-only rules on mobile,
+you're only ever adding.
+
+## The viewport meta tag
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+```
+
+Without this tag, mobile browsers render the page at a **desktop-width
+virtual viewport** (typically 980px) and then zoom the whole thing out to
+fit the screen — your media queries would see a width far larger than the
+device's actual screen, and every `min-width`/`max-width` breakpoint would
+fire at the wrong moments. This single `<meta>` tag is a prerequisite for
+any responsive CSS to behave as authored.
+
+## Common breakpoint strategy
+
+There's no universally "correct" set of breakpoints — the right approach is
+to let your own content's layout tell you where it breaks, rather than
+designing around specific device widths:
+
+```css
+/* Illustrative, not gospel */
+@media (min-width: 640px)  { /* small tablets */ }
+@media (min-width: 768px)  { /* tablets */ }
+@media (min-width: 1024px) { /* small laptops */ }
+@media (min-width: 1280px) { /* desktops */ }
+```
+
+Resize a real browser window on your own design and add a breakpoint exactly
+where the layout starts to look cramped or too sparse — that's a more
+reliable signal than copying a generic device-width list.
+
+## Container queries: responding to a parent, not the viewport
+
+```css
+.card-container {
+  container-type: inline-size;
+  container-name: card;
+}
+
+@container card (min-width: 400px) {
+  .card {
+    flex-direction: row; /* switch layout based on the CONTAINER's width, not the page's */
+  }
+}
+```
+
+Media queries only ever know about the viewport. A reusable `.card`
+component might render inside a 300px sidebar on one page and a 900px main
+column on another — a media query can't tell those apart, but a **container
+query** can, because it reacts to the size of `.card-container` specifically.
+This makes genuinely reusable, context-aware components possible in a way
+media queries never could.
+
+### Try it yourself
+
+Take a card component and give it two different layouts — stacked
+vertically below ~400px of available width, side-by-side above it — driven
+entirely by a container query, then drop that same card into both a narrow
+sidebar and a wide main column on the same page and confirm each renders
+correctly without any viewport-level media query involved.

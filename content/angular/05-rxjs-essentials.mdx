@@ -1,0 +1,94 @@
+---
+title: "RxJS Essentials"
+description: "Observables vs Promises, the operators you'll actually use, and why switchMap prevents race conditions."
+module: "State & Data"
+order: 5
+---
+
+Angular is built on **RxJS** — `HttpClient`, the `Router`, and reactive forms
+all expose Observables. Understanding a handful of operators covers most
+real-world usage.
+
+## Observable vs Promise
+
+```ts
+// Promise: resolves once, eagerly starts executing
+const promise = fetch("/api/data");
+
+// Observable: lazy — nothing happens until you subscribe, and it can emit
+// multiple values over time
+const obs$ = this.http.get("/api/data");
+obs$.subscribe((data) => console.log(data));
+```
+
+Key differences: Observables are **lazy** (no subscription, no execution),
+can emit **many values** over time (a stream of clicks, WebSocket messages),
+and are **cancellable** via `unsubscribe()` — none of which a Promise
+supports natively.
+
+## The operators you'll reach for constantly
+
+```ts
+import { map, filter, switchMap, combineLatest, debounceTime } from "rxjs";
+
+// map: transform each emitted value
+this.products$ = this.http.get<Product[]>("/api/products").pipe(
+  map((products) => products.filter((p) => p.inStock))
+);
+
+// combineLatest: react whenever any of several sources emit
+combineLatest([this.search$, this.category$]).subscribe(([term, category]) => {
+  console.log(`Searching "${term}" in ${category}`);
+});
+```
+
+## `switchMap`: the type-ahead search pattern
+
+The most commonly asked-about operator. Imagine a search box that calls an
+API on every keystroke — without `switchMap`, a slow earlier response could
+arrive *after* a newer one and overwrite it with stale results:
+
+```ts
+this.results$ = this.searchControl.valueChanges.pipe(
+  debounceTime(300),               // wait for typing to pause
+  switchMap((term) => this.api.search(term)) // cancel the previous request
+);
+```
+
+`switchMap` **cancels the previous inner Observable** as soon as a new value
+arrives from the source — exactly what you want for search-as-you-type,
+where only the latest request's result should ever reach the UI.
+
+Contrast with `mergeMap` (runs all inner Observables concurrently, no
+cancellation — fine for independent fire-and-forget calls) and `concatMap`
+(queues them one at a time in order — useful when order matters, like
+sequential save operations).
+
+## Subscribing safely
+
+Manually subscribing in a component risks memory leaks if you forget to
+unsubscribe. Prefer the `async` pipe in templates whenever possible:
+
+```html
+<ul>
+  @for (item of results$ | async; track item.id) {
+    <li>{{ item.name }}</li>
+  }
+</ul>
+```
+
+If you must subscribe in the class (e.g. to trigger a side effect like
+navigation), use `takeUntilDestroyed()` so the subscription is cleaned up
+automatically when the component is destroyed:
+
+```ts
+this.searchControl.valueChanges
+  .pipe(takeUntilDestroyed())
+  .subscribe((term) => this.analytics.track("search", term));
+```
+
+### Try it yourself
+
+Build a type-ahead component: a text input wired to a `FormControl`, piped
+through `debounceTime(300)` and `switchMap` to call a mock search function,
+rendering results with the `async` pipe.

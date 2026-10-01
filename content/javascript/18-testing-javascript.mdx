@@ -1,0 +1,96 @@
+---
+title: "Testing JavaScript"
+description: "The testing pyramid, writing a unit test with Vitest/Jest, and mocking dependencies."
+module: "Testing"
+order: 18
+---
+
+Tests exist to catch regressions before users do. Knowing what *kind* of
+test to write for a given piece of code — and how to isolate it from things
+it depends on — is as important as knowing the testing framework's syntax.
+
+## The testing pyramid
+
+- **Unit tests** — test one function or module in isolation, with
+  dependencies mocked out. Fast, numerous, cheap to write and run.
+- **Integration tests** — test several units working together (e.g. a
+  service plus the component that uses it), closer to how the app actually
+  behaves, but slower and more complex to set up.
+- **End-to-end (E2E) tests** — drive the real app through a real browser
+  (Playwright, Cypress), verifying a full user flow works. Most realistic,
+  but slowest and most brittle.
+
+The "pyramid" shape is a guideline: write many fast unit tests, fewer
+integration tests, and only a handful of E2E tests covering your most
+critical user flows — not the other way around, since a test suite made
+mostly of slow E2E tests becomes painful to run and maintain.
+
+## A unit test with Vitest/Jest syntax
+
+```js
+// sum.js
+export function sum(a, b) {
+  return a + b;
+}
+
+// sum.test.js
+import { describe, it, expect } from "vitest"; // (or from "@jest/globals")
+import { sum } from "./sum";
+
+describe("sum", () => {
+  it("adds two positive numbers", () => {
+    expect(sum(2, 3)).toBe(5);
+  });
+
+  it("handles negative numbers", () => {
+    expect(sum(-1, -1)).toBe(-2);
+  });
+});
+```
+
+`describe` groups related tests, `it` (or `test`) defines one test case, and
+`expect(...).toBe(...)` (and friends like `.toEqual`, `.toThrow`,
+`.toHaveBeenCalledWith`) make an assertion. A pure function like `sum` is the
+easiest possible thing to unit test — no setup, no mocking, just inputs and
+an expected output.
+
+## Mocking a dependency
+
+```js
+// weather.js
+export async function getTemperature(city) {
+  const response = await fetch(`https://api.example.com/weather?city=${city}`);
+  const data = await response.json();
+  return data.temperature;
+}
+
+// weather.test.js
+import { vi, it, expect } from "vitest";
+import { getTemperature } from "./weather";
+
+it("returns the temperature from the API response", async () => {
+  global.fetch = vi.fn().mockResolvedValue({
+    json: () => Promise.resolve({ temperature: 28 }),
+  });
+
+  const temp = await getTemperature("Mumbai");
+
+  expect(temp).toBe(28);
+  expect(global.fetch).toHaveBeenCalledWith(
+    "https://api.example.com/weather?city=Mumbai"
+  );
+});
+```
+
+Mocking `fetch` means this test runs instantly, never touches the network,
+and gives a deterministic, controlled response — exactly what a *unit* test
+needs. Without mocking, this test would be slow, flaky (depending on real
+network conditions), and not actually testing `getTemperature`'s own logic
+in isolation from the real weather API's behavior.
+
+### Try it yourself
+
+Write a unit test for a `formatCurrency(amount, locale)` pure function
+(no dependencies to mock), then write a second test for a function that
+calls `localStorage.getItem`, mocking `localStorage` so the test doesn't
+depend on a real browser environment.

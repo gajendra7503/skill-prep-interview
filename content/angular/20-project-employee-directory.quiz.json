@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `EmployeeService` store its list with `signal<Employee[]>([...])` instead of a plain array property?",
+      "options": [
+        "Signals are required for HttpClient to work",
+        "So every component reading `employees.all` re-renders automatically when the list changes, without manual change detection calls",
+        "Plain arrays can't be typed in TypeScript",
+        "It has no practical benefit over a plain array"
+      ],
+      "correctIndex": 1,
+      "explanation": "Wrapping the list in a signal makes it reactive — any component reading it via the readonly `all` accessor updates automatically when `add()` changes the underlying data."
+    },
+    {
+      "question": "In `EmployeeDetailComponent`, how does the component know which employee to display?",
+      "options": [
+        "It fetches all employees and picks the first one",
+        "It reads the `:id` route param via `ActivatedRoute` and looks it up through the injected `EmployeeService`",
+        "The parent component passes it as a hardcoded @Input()",
+        "It's stored in a global variable"
+      ],
+      "correctIndex": 1,
+      "explanation": "The route config maps `employees/:id` to this component, and `route.snapshot.paramMap.get('id')` combined with `service.getById()` resolves which employee to show."
+    },
+    {
+      "question": "What does the `filtered` computed signal in `EmployeeListComponent` depend on?",
+      "options": [
+        "Only the search FormControl's current value",
+        "Both the service's `employees` signal and the search FormControl's value",
+        "Nothing — it's a static list",
+        "Only route parameters"
+      ],
+      "correctIndex": 1,
+      "explanation": "`filtered` reads both `this.employees()` (the signal) and `this.search.value` inside its computation, combining service state with local search input."
+    },
+    {
+      "question": "Why is the add-employee form disabled from submitting when invalid (`[disabled]=\"form.invalid\"`)?",
+      "options": [
+        "Angular forms are always disabled by default",
+        "The reactive form's required validators mean `form.invalid` is true until name, role, and department are all filled in",
+        "It's disabled permanently until an admin approves it",
+        "This has no relation to the form's validators"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each field has `Validators.required`, so the FormGroup as a whole is invalid until every required field has a value, and the submit button reflects that via the disabled binding."
+    }
+  ]
+}

@@ -1,0 +1,104 @@
+---
+title: "Design Patterns"
+description: "The module pattern, singleton, and observer/pub-sub — classic JS patterns still used today."
+module: "Advanced Patterns"
+order: 11
+---
+
+Design patterns are reusable solutions to recurring problems. A few predate
+`class` and modern modules entirely but are still worth knowing — both
+because you'll meet them in existing codebases and because they explain
+*why* certain modern features (ES modules, private class fields) exist.
+
+## The module pattern: private state via closures
+
+Before ES modules and `class` private fields existed, closures were the way
+to create private state:
+
+```js
+const counterModule = (function () {
+  let count = 0; // private — not reachable from outside this IIFE
+
+  return {
+    increment() {
+      count += 1;
+      return count;
+    },
+    reset() {
+      count = 0;
+    },
+  };
+})();
+
+counterModule.increment(); // 1
+counterModule.count;        // undefined — truly private, not just a naming convention
+```
+
+The Immediately Invoked Function Expression (IIFE) runs once and returns an
+object exposing only the methods you choose — `count` itself is trapped in
+the closure, inaccessible from outside. This is the same closure mechanism
+from earlier lessons, applied specifically to simulate encapsulation.
+
+## Singleton: exactly one instance
+
+```js
+let instance = null;
+
+class Database {
+  constructor(connectionString) {
+    if (instance) return instance; // return the existing instance instead of a new one
+    this.connectionString = connectionString;
+    instance = this;
+  }
+}
+
+const db1 = new Database("prod-db");
+const db2 = new Database("ignored-string");
+db1 === db2; // true — db2 is actually just db1
+```
+
+A singleton guarantees only one instance of something exists app-wide —
+useful for a shared resource like a single database connection pool or
+configuration object. In module-based JavaScript, this is often simpler:
+a module's top-level `const` instance, exported once, is naturally a
+singleton, since `import` always gives every consumer the same module
+instance.
+
+## Observer / pub-sub: decoupled event notification
+
+```js
+class EventEmitter {
+  #listeners = {}; // private class field
+
+  on(event, callback) {
+    (this.#listeners[event] ??= []).push(callback);
+    return () => this.off(event, callback); // return an unsubscribe function
+  }
+
+  off(event, callback) {
+    this.#listeners[event] = (this.#listeners[event] ?? []).filter((cb) => cb !== callback);
+  }
+
+  emit(event, payload) {
+    (this.#listeners[event] ?? []).forEach((callback) => callback(payload));
+  }
+}
+
+const bus = new EventEmitter();
+const unsubscribe = bus.on("user:login", (user) => console.log(`${user} logged in`));
+bus.emit("user:login", "Asha"); // logs: "Asha logged in"
+unsubscribe();
+```
+
+The publisher (`emit`) never needs to know who's listening — subscribers
+register independently via `on`. This decoupling is why pub-sub underlies
+everything from Node's `EventEmitter` to DOM events to state-management
+libraries' subscription models. You'll build a fuller version of this
+exact pattern in this course's final project.
+
+### Try it yourself
+
+Extend the `EventEmitter` above with a `once(event, callback)` method that
+automatically unsubscribes the callback after it fires a single time —
+combine `on` and `off` to implement it without duplicating the listener
+storage logic.

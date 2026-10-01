@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `tr:nth-child(odd)` select?",
+      "options": [
+        "Every tr element that has an odd number of children",
+        "Every tr element that is in an odd position among its siblings",
+        "Only the first tr element",
+        "Every tr element with an odd-numbered class name"
+      ],
+      "correctIndex": 1,
+      "explanation": "nth-child selects elements based on their position among sibling elements, not based on properties of the element itself."
+    },
+    {
+      "question": "What is required for `::before` or `::after` to actually render anything?",
+      "options": [
+        "Nothing extra — they render automatically once styled",
+        "A `content` property must be set, even if it's just an empty string, or nothing renders regardless of other styles",
+        "The parent element must have position: relative",
+        "They only work on <div> elements"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without a content property, a pseudo-element has nothing to generate and produces no visible output, even with background/border styles applied."
+    },
+    {
+      "question": "Why is `::after` generated content considered inappropriate for information a user actually needs?",
+      "options": [
+        "It renders slower than real DOM content",
+        "Generated content is not reliably exposed to assistive technology and cannot be selected as real text",
+        "It only works in one browser",
+        "It cannot contain any text at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "Pseudo-element content lives outside the accessibility tree in a way real content doesn't, making it unsuitable for anything beyond decorative or supplementary content."
+    },
+    {
+      "question": "What makes `:has()` different from traditional CSS combinators like `>` or `+`?",
+      "options": [
+        "It only works with id selectors",
+        "It lets you style an element based on what it contains — effectively a parent/ancestor selector, which CSS previously had no equivalent for",
+        "It replaces media queries entirely",
+        "It can only be used inside @keyframes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every other combinator selects based on relationships looking 'downward' or 'forward'; :has() is the first native CSS way to select an element based on its descendants, something that previously required JavaScript."
+    }
+  ]
+}

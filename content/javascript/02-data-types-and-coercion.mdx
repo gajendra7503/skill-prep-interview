@@ -1,0 +1,89 @@
+---
+title: "Data Types & Coercion"
+description: "Primitives vs objects, typeof's quirks, and why == produces surprising results."
+module: "Fundamentals"
+order: 2
+---
+
+JavaScript is dynamically typed, but it isn't *untyped* — every value has a
+type, and knowing how those types interact (especially during comparison)
+explains a lot of behavior that otherwise looks like the language being
+"weird."
+
+## Primitives vs objects
+
+JavaScript has 7 primitive types — `string`, `number`, `boolean`,
+`undefined`, `null`, `bigint`, and `symbol` — plus one catch-all `object`
+type that covers objects, arrays, and functions. The distinction that
+matters in practice is **value vs reference semantics**:
+
+```js
+let a = 10;
+let b = a;
+b = 20;
+console.log(a); // 10 — primitives are copied by value
+
+const obj1 = { count: 10 };
+const obj2 = obj1;
+obj2.count = 20;
+console.log(obj1.count); // 20 — objects are copied by reference
+```
+
+Assigning a primitive copies its value; assigning an object copies a
+*reference* to the same underlying object, so mutating it through one
+variable is visible through the other.
+
+## `typeof`'s well-known quirks
+
+```js
+typeof null;           // "object"  — a long-standing language bug, kept for compatibility
+typeof undefined;      // "undefined"
+typeof function(){};   // "function" — functions report their own type despite being objects
+typeof [];              // "object"  — arrays are NOT their own typeof category
+typeof NaN;             // "number"  — NaN is technically a number value
+```
+
+`typeof null === "object"` is the single most-cited `typeof` gotcha —
+historically a bug in the very first JavaScript implementation that was
+never fixed because too much code came to depend on it. If you need to check
+for an array specifically, use `Array.isArray(value)`, not `typeof`.
+
+## `==` vs `===`: coercion rules
+
+`===` (strict equality) compares values with no type conversion — if the
+types differ, the result is simply `false`. `==` (loose equality) first
+attempts to convert the operands to a common type, and the rules for *how*
+it does that produce the classic gotchas:
+
+```js
+"0" == false;   // true  — "0" coerces to number 0, false coerces to 0
+[] == false;    // true  — [] coerces to "" then to number 0, false coerces to 0
+null == undefined; // true — a special case rule, but null === undefined is false
+0 == "";        // true  — "" coerces to 0
+NaN == NaN;     // false — NaN is never equal to anything, including itself
+```
+
+The `==` coercion rules are genuinely complex (there's a whole algorithm in
+the spec for it), which is exactly why the universal recommendation is:
+**default to `===`**, and only reach for `==` in the rare, deliberate case
+where you specifically want `null`/`undefined` to be treated as equal to
+each other (and nothing else).
+
+## Checking for `NaN` correctly
+
+```js
+NaN === NaN;        // false
+Number.isNaN(NaN);  // true — the only reliable way to check
+isNaN("hello");      // true — global isNaN coerces its argument first, often wrongly
+```
+
+`Number.isNaN` is preferred over the global `isNaN` because the global
+version coerces non-numbers before checking, so `isNaN("hello")` returns
+`true` even though `"hello"` was never a number to begin with.
+
+### Try it yourself
+
+Predict the output of `[] + []`, `[] + {}`, and `{} + []` before running them
+in a console — each exercises a different corner of JavaScript's coercion
+rules for `+` on objects/arrays (hint: `+` first calls `toString`/`valueOf`
+on non-primitive operands).

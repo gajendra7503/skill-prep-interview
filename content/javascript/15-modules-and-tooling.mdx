@@ -1,0 +1,87 @@
+---
+title: "Modules & Tooling"
+description: "CommonJS vs ES Modules, named vs default exports, and what a bundler actually does."
+module: "Modern JavaScript"
+order: 15
+---
+
+Splitting code into separate files and sharing values between them requires
+a module system — JavaScript has had two competing ones, and knowing the
+practical differences between them matters for debugging real build issues.
+
+## CommonJS vs ES Modules
+
+```js
+// CommonJS (Node's traditional default, .cjs or plain .js in older configs)
+const fs = require("fs");
+module.exports = { readConfig };
+
+// ES Modules (the modern standard — .mjs, or .js with "type": "module")
+import fs from "fs";
+export { readConfig };
+```
+
+The practical differences:
+
+- **Loading time**: `require()` is synchronous and can be called
+  conditionally, anywhere in a function. `import` statements are
+  **static** — they're hoisted to the top of the file and resolved before
+  any code runs, which is what lets tools analyze the import graph without
+  executing anything.
+- **Async support**: ES Modules have a native `import()` function for
+  dynamic, asynchronous loading (used by `next/dynamic` and code-splitting
+  generally); CommonJS has no equivalent built in.
+- **`this` at the top level**: `undefined` in an ES Module, `module.exports`
+  in CommonJS.
+
+## Named vs default exports
+
+```js
+// named exports — a module can have any number of these
+export function formatDate(date) { /* ... */ }
+export const DEFAULT_LOCALE = "en-IN";
+
+// default export — at most one per module
+export default function Logger() { /* ... */ }
+```
+
+```js
+import Logger, { formatDate, DEFAULT_LOCALE } from "./utils";
+import * as Utils from "./utils"; // everything, namespaced
+```
+
+Named exports must be imported with matching names (though they can be
+renamed with `as`); a default export can be imported under *any* local name,
+since there's no name to match against. Many style guides now prefer named
+exports exclusively, since they're easier to refactor (a rename is caught by
+tooling everywhere) and easier for editors to auto-import correctly.
+
+## What a bundler does, and why tree-shaking needs static imports
+
+A bundler (webpack, esbuild, Vite, the one built into Next.js) walks your
+`import` graph starting from an entry file, combines everything into a
+smaller number of output files, and can apply **tree-shaking** — removing
+exported code that's never actually imported anywhere:
+
+```js
+// utils.js
+export function used() { /* ... */ }
+export function neverImported() { /* ... */ } // tree-shaken out of the final bundle
+
+// app.js
+import { used } from "./utils";
+```
+
+Tree-shaking fundamentally relies on imports being **static and
+analyzable at build time** — the bundler needs to see, without running any
+code, exactly which names are imported from where. This is precisely why it
+works reliably with ES Modules (whose `import`/`export` are fixed,
+top-level statements) but not with CommonJS's `require()`, which can be
+called conditionally or with a dynamically computed path that no static
+analysis can fully predict.
+
+### Try it yourself
+
+Take a small file with 3 exported functions, import only 1 of them into
+another file, and (if you have a bundler available, e.g. via Vite) check the
+production build output to confirm the other 2 were tree-shaken out.

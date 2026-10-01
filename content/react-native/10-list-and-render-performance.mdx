@@ -1,0 +1,84 @@
+---
+title: "List & Render Performance"
+description: "FlatList optimization props, React.memo on list rows, and why Hermes matters for startup time."
+module: "Performance"
+order: 10
+---
+
+Lists are where React Native performance problems show up first and most
+visibly — a janky scroll is immediately obvious to a user in a way a slightly
+slow re-render elsewhere often isn't.
+
+## `FlatList` optimization props
+
+```jsx
+<FlatList
+  data={messages}
+  keyExtractor={(item) => item.id}
+  renderItem={({ item }) => <MessageRow message={item} />}
+  getItemLayout={(data, index) => ({ length: ROW_HEIGHT, offset: ROW_HEIGHT * index, index })}
+  windowSize={5}
+  initialNumToRender={10}
+  removeClippedSubviews
+/>
+```
+
+- **`keyExtractor`** gives FlatList a stable identity per row, so it can
+  correctly recycle and reorder rendered rows instead of guessing from
+  position — the same stable-key principle from the React fundamentals
+  course, but with a bigger performance impact here since FlatList actively
+  virtualizes.
+- **`getItemLayout`** lets FlatList skip measuring each row by letting it
+  compute every row's position mathematically up front — only possible when
+  every row is a fixed, known height, but when it applies, it removes an
+  entire category of layout-measurement work.
+- **`windowSize`/`initialNumToRender`** control how many screens' worth of
+  content FlatList keeps rendered above/below the visible area — smaller
+  values use less memory but risk a visible blank flash if the user scrolls
+  faster than new rows can render.
+
+## `React.memo` matters even more here
+
+```jsx
+const MessageRow = React.memo(function MessageRow({ message }) {
+  return (
+    <View style={styles.row}>
+      <Text>{message.text}</Text>
+    </View>
+  );
+});
+```
+
+On the web, an unnecessary re-render of an off-screen list item is often
+cheap enough not to notice. On a mobile device — with far less CPU/GPU
+headroom than a desktop browser — re-rendering every visible row every time
+unrelated state changes (a header's state, a typing indicator) can visibly
+drop frames. Wrapping row components in `React.memo` so they only re-render
+when their own `message` prop actually changes is a much higher-leverage
+optimization on mobile than it typically is on the web.
+
+## Hermes: a JS engine built for React Native
+
+By default, modern React Native apps run on **Hermes**, a JavaScript engine
+built specifically for React Native rather than a general-purpose engine
+like JSC or V8. Its design trades some raw execution speed for things that
+matter more on mobile:
+
+- **Faster app startup** — Hermes can precompile JavaScript to bytecode
+  ahead of time (at build time), so the app doesn't need to parse and
+  compile raw JS on every cold start.
+- **Lower memory usage** — important on lower-end Android devices in
+  particular, where available RAM is a much tighter constraint than on a
+  typical web client.
+
+You don't configure Hermes per-component — it's an engine-level choice
+(enabled by default in current React Native versions) — but knowing *why*
+it exists is a common interview question when discussing React Native's
+performance characteristics versus plain web React.
+
+### Try it yourself
+
+Take the `NotesListScreen` from this course's capstone project, wrap its row
+component in `React.memo`, and add a `console.log` inside it to confirm it
+stops re-rendering existing rows when you add a new note to the top of the
+list.

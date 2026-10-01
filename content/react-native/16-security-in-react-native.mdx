@@ -1,0 +1,80 @@
+---
+title: "Security in React Native"
+description: "Why the JS bundle isn't a secret, secure storage for tokens, and certificate pinning."
+module: "Security"
+order: 16
+---
+
+A web app's server-only code never reaches the browser. A React Native
+app's JS bundle ships **inside the installed app package itself** — which
+changes what "secret" can mean.
+
+## The JS bundle is not a safe place for secrets
+
+Anyone can extract the `.ipa`/`.apk` file for an installed app and unpack
+the JS bundle from it — it's plain (if minified) JavaScript, not compiled
+machine code. This is an even more literal version of the `NEXT_PUBLIC_`
+gotcha from the Next.js course:
+
+```js
+// WRONG — this string is sitting in the shipped JS bundle, extractable by anyone
+const API_SECRET = "sk_live_abc123";
+
+// RIGHT — the app calls your own backend, which holds the real secret
+// and only returns data the authenticated user is allowed to see
+const response = await fetch("https://api.yourapp.com/orders", {
+  headers: { Authorization: `Bearer ${userSessionToken}` },
+});
+```
+
+Any API key that grants privileged access (a payment provider's secret key,
+an admin-level database credential) belongs on a server you control, never
+in the app's JS — the app should only ever hold tokens scoped to what that
+specific signed-in user is allowed to do.
+
+## Storing tokens securely: Keychain/Keystore, not AsyncStorage
+
+`AsyncStorage` persists data as **unencrypted** plain text on the device's
+filesystem — fine for a notes app's content, not fine for an auth token or
+anything else sensitive. The platform-provided secure stores exist exactly
+for this:
+
+```js
+import * as Keychain from "react-native-keychain";
+
+// store
+await Keychain.setGenericPassword("authToken", userSessionToken);
+
+// retrieve
+const credentials = await Keychain.getGenericPassword();
+if (credentials) {
+  const token = credentials.password;
+}
+```
+
+`react-native-keychain` wraps iOS's Keychain and Android's Keystore —
+hardware-backed, encrypted storage designed specifically for credentials,
+unlike AsyncStorage which prioritizes simplicity and speed over encryption.
+
+## Certificate pinning against man-in-the-middle attacks
+
+Even over HTTPS, a device on a compromised network (or with a malicious root
+certificate installed) can potentially intercept and inspect your app's
+traffic. **Certificate pinning** has the app verify the server's certificate
+against a known, hard-coded fingerprint, rejecting the connection if it
+doesn't match — even if the certificate chain otherwise looks valid to the
+OS. This defends specifically against attackers who can get a
+seemingly-valid certificate issued (e.g. a compromised certificate
+authority), which plain HTTPS alone doesn't protect against.
+
+Pinning does add an operational cost: when you rotate your server's real
+certificate, you must ship an app update with the new pinned fingerprint
+*before* the old certificate expires, or the app will start rejecting
+legitimate connections.
+
+### Try it yourself
+
+Take the capstone notes app's `useNotes` hook and sketch how you'd change it
+if notes needed to sync with a backend requiring an auth token — specifically,
+where the token would be stored and why that's different from where the
+notes themselves are stored.

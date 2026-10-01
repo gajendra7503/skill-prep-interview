@@ -1,0 +1,86 @@
+---
+title: "CSS Grid Deep Dive"
+description: "Template columns with the fr unit, named grid areas, auto-fit/minmax for media-query-free responsiveness, and Grid vs Flexbox."
+module: "Layout"
+order: 8
+---
+
+Where Flexbox lays things out along one axis, **Grid is two-dimensional** —
+it controls rows and columns together, which is why it's the better tool for
+overall page layout, while Flexbox tends to win for the internals of a single
+component (a toolbar, a card's content).
+
+## `grid-template-columns` and the `fr` unit
+
+```css
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr; /* fixed sidebar, flexible main area */
+  grid-template-rows: auto 1fr auto; /* header, content, footer */
+  min-height: 100vh;
+}
+```
+
+`fr` (fraction) divides the *remaining* space after fixed-size tracks are
+accounted for — `1fr 2fr` means the second column gets twice as much
+leftover space as the first, regardless of the container's actual width.
+
+## Named grid areas: self-documenting layout
+
+```css
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-areas:
+    "sidebar header"
+    "sidebar content"
+    "sidebar footer";
+}
+
+.sidebar { grid-area: sidebar; }
+.header  { grid-area: header; }
+.content { grid-area: content; }
+.footer  { grid-area: footer; }
+```
+
+The `grid-template-areas` string is literally a visual map of the layout —
+anyone reading the CSS can see the page structure without mentally
+calculating row/column numbers, which is a real maintainability win over the
+numeric `grid-column: 2 / 3` style of positioning.
+
+## `repeat(auto-fit, minmax(...))`: responsive without media queries
+
+```css
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+```
+
+This single line says: "fit as many 240px-minimum columns as will comfortably
+fit, and stretch them evenly (`1fr`) to fill any leftover space." As the
+container narrows, columns drop away automatically — no breakpoints needed.
+(`auto-fill` is the close cousin: it reserves space for columns that *could*
+fit even if currently empty, which matters only when the grid has very few
+items relative to the container's width.)
+
+## When to reach for Grid vs Flexbox
+
+- **Grid**: you're laying out a whole page, or a component where **both**
+  rows and columns need to align with each other (a dashboard, a card grid,
+  a gallery).
+- **Flexbox**: you're arranging items in a single row or column, especially
+  when their sizes should be driven by their content (a toolbar, a list of
+  tags, a card's internal header/body/footer stack).
+
+In practice, most real UIs use **both**: Grid for the page skeleton,
+Flexbox inside individual Grid cells for their contents — exactly the
+pattern used in this course's capstone pricing-page project.
+
+### Try it yourself
+
+Build a photo gallery using `repeat(auto-fit, minmax(150px, 1fr))` and
+resize the browser window — confirm the column count adjusts with no media
+queries at all, then add one media query to cap the grid at a `max-width`
+so columns don't get absurdly wide on an ultra-wide monitor.

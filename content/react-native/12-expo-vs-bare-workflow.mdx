@@ -1,0 +1,76 @@
+---
+title: "Expo vs Bare Workflow"
+description: "What the managed workflow gives you for free, what it costs you, and how EAS Build fits in."
+module: "Tooling"
+order: 12
+---
+
+Nearly every new React Native project starts with the same question: use
+Expo, or start from the bare React Native CLI template? The honest answer is
+"use Expo until you have a specific reason not to" — but knowing what that
+trade-off actually involves matters for an interview and for real decisions.
+
+## What the managed workflow gives you
+
+Expo's managed workflow bundles a large, curated set of native modules
+(camera, location, notifications, secure storage, and dozens more) behind a
+single consistent JS API, pre-configured and ready to use — no manual
+linking, no touching `Podfile`s or Gradle files. On top of that, it provides:
+
+- **OTA (over-the-air) updates** — ship a JS-only bug fix or content change
+  directly to users' installed apps via `expo-updates`, without waiting for
+  app store review (native code changes still require a new store submission).
+- **EAS Build** — builds signed iOS and Android binaries in the cloud, so you
+  don't need a Mac to produce an iOS build, or Android Studio installed
+  locally at all.
+- **A consistent, fast dev loop** via Expo Go or a custom dev client, with
+  Fast Refresh working the same way across both platforms.
+
+## The trade-off
+
+The managed workflow's native module set, while large, isn't infinite. If
+you need a native library that isn't part of Expo's SDK — a very specific
+Bluetooth integration, say — you can't simply `npm install` arbitrary native
+code the way you could in a bare project. The modern answer is **config
+plugins** and **prebuild**: Expo generates (or regenerates) the native
+`ios`/`android` folders on demand from your JS-level configuration, letting
+you add custom native code without permanently "ejecting" in the old,
+one-way sense. This is sometimes called the "bare workflow with Expo
+tooling" — you get the native folders back, but keep using EAS Build, OTA
+updates, and the rest of the Expo toolchain.
+
+```json
+// app.json / app.config.js
+{
+  "expo": {
+    "plugins": [
+      "expo-camera",
+      ["expo-build-properties", { "ios": { "deploymentTarget": "15.0" } }]
+    ]
+  }
+}
+```
+
+A config plugin like this modifies the generated native project during
+`expo prebuild` — e.g. adding the camera permission to `Info.plist` — without
+you ever hand-editing the native files yourself.
+
+## EAS Build and EAS Submit
+
+```bash
+eas build --platform ios --profile production
+eas submit --platform ios
+```
+
+`eas build` compiles a signed binary in Expo's cloud infrastructure using
+your project's config (handling code signing certificates and provisioning
+profiles for you), and `eas submit` uploads the result directly to the App
+Store Connect / Google Play Console. Together, this means a solo developer
+or a small team can ship to both app stores without ever installing Xcode.
+
+### Try it yourself
+
+Look up `expo-camera` in the Expo documentation and identify: what
+permission string it adds automatically on iOS via its config plugin, and
+what you'd have to do manually if you were using the bare React Native CLI
+instead.

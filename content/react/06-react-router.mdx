@@ -1,0 +1,100 @@
+---
+title: "React Router"
+description: "Client-side routing: routes, navigation, URL params, and nested layouts with React Router."
+module: "Routing"
+order: 6
+---
+
+React itself has no built-in router — **React Router** is the standard
+library for mapping URLs to components in a single-page app.
+
+## Setting up routes
+
+```jsx
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/courses" element={<CourseList />} />
+        <Route path="/courses/:courseId" element={<CourseDetail />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+`<Routes>` renders the first `<Route>` whose `path` matches the current URL.
+The `*` path is a catch-all for unmatched routes — a client-side 404.
+
+## Reading URL params
+
+```jsx
+import { useParams } from "react-router-dom";
+
+function CourseDetail() {
+  const { courseId } = useParams(); // matches ":courseId" from the route path
+
+  return <h1>Course: {courseId}</h1>;
+}
+```
+
+## Navigating programmatically
+
+```jsx
+import { useNavigate } from "react-router-dom";
+
+function LoginForm() {
+  const navigate = useNavigate();
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    // ...authenticate...
+    navigate("/dashboard");
+  }
+
+  return <form onSubmit={handleSubmit}>{/* ... */}</form>;
+}
+```
+
+Use `<Link to="/courses">` for normal in-app navigation (it renders an
+anchor tag without a full page reload); reach for `useNavigate` only when
+navigation needs to happen from inside logic, like after a form submits.
+
+## Nested routes with `<Outlet>`
+
+Routes can nest, sharing a common layout:
+
+```jsx
+<Routes>
+  <Route path="/courses" element={<CoursesLayout />}>
+    <Route index element={<CourseList />} />
+    <Route path=":courseId" element={<CourseDetail />} />
+  </Route>
+</Routes>
+```
+
+```jsx
+function CoursesLayout() {
+  return (
+    <div className="flex">
+      <Sidebar />
+      <main>
+        <Outlet /> {/* renders whichever child route matched */}
+      </main>
+    </div>
+  );
+}
+```
+
+`<Outlet />` is the placeholder where the matched child route renders —
+exactly the same idea as Next.js's nested layouts, implemented on the
+client instead of the server.
+
+### Try it yourself
+
+Add a `/courses/:courseId/:lessonId` nested route, and render a "Back to
+course" link using `useParams` to read `courseId` inside the lesson view.

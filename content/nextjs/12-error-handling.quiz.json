@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why must `error.tsx` always be a Client Component?",
+      "options": [
+        "It's an arbitrary restriction that may change",
+        "Error boundaries rely on class-component-style lifecycle behavior, which only works client-side",
+        "Server Components cannot throw errors",
+        "It needs access to browser localStorage"
+      ],
+      "correctIndex": 1,
+      "explanation": "React error boundaries are implemented using lifecycle methods that only exist in the client rendering model, so `error.tsx` requires the \"use client\" directive."
+    },
+    {
+      "question": "Why can't a regular `error.tsx` catch an error thrown inside the root `layout.tsx`?",
+      "options": [
+        "Root layouts never throw errors",
+        "Because the layout wraps the error boundary itself, so the boundary can't catch an error from its own ancestor — `global-error.tsx` is needed instead",
+        "`error.tsx` only works for API routes",
+        "It's a bug that will be fixed in a future version"
+      ],
+      "correctIndex": 1,
+      "explanation": "The error boundary created by `error.tsx` sits inside the layout, so it cannot catch a failure in the layout that wraps it — `global-error.tsx` handles that case by replacing the whole root layout."
+    },
+    {
+      "question": "What does calling `notFound()` inside a Server Component page do?",
+      "options": [
+        "Throws an unrecoverable error that crashes the server",
+        "Renders the nearest not-found.tsx (or the built-in default) with a proper 404 status code",
+        "Redirects to the homepage",
+        "Only works in Route Handlers, not pages"
+      ],
+      "correctIndex": 1,
+      "explanation": "`notFound()` is the App Router's mechanism for rendering a 404 state with the correct status code, used in this app whenever a course or lesson slug doesn't exist."
+    },
+    {
+      "question": "For an expected failure inside a Server Action, like invalid form input, what's the recommended approach?",
+      "options": [
+        "Always throw, so the nearest error.tsx handles it",
+        "Catch it and return a plain error value the calling component can render inline, reserving throw for truly unrecoverable failures",
+        "Log it silently and do nothing",
+        "Redirect to a generic error page every time"
+      ],
+      "correctIndex": 1,
+      "explanation": "Throwing triggers the heavy-handed error boundary UI; returning an error object lets the form show a normal inline validation message instead."
+    }
+  ]
+}

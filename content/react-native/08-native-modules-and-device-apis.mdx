@@ -1,0 +1,92 @@
+---
+title: "Native Modules & Device APIs"
+description: "Using camera/location libraries, the iOS vs Android permissions model, and when to write a custom native module."
+module: "Native Integration"
+order: 8
+---
+
+Almost every real app eventually needs something a pure-JS layer can't
+provide on its own — the camera, GPS location, biometric auth, contacts.
+These live behind **native modules**: small bridges (traditionally, or
+TurboModules under the New Architecture) that expose a native API to your
+JavaScript code.
+
+## The common pattern: install, link, request permission
+
+```bash
+npm install react-native-image-picker
+```
+
+```jsx
+import { launchCamera } from "react-native-image-picker";
+
+async function takePhoto() {
+  const result = await launchCamera({ mediaType: "photo" });
+  if (result.assets) {
+    setPhotoUri(result.assets[0].uri);
+  }
+}
+```
+
+Most device-API libraries follow this exact shape: install the package,
+run a native build step if you're not on Expo's managed workflow (`pod
+install` for iOS), and call a JS function that internally talks to the
+native camera/location/contacts API.
+
+## Permissions: two different models to declare, one concept to request
+
+**Declaring** that your app *might* ask for a permission is platform-specific
+and happens at build config level:
+
+```xml
+<!-- Android: app/src/main/AndroidManifest.xml -->
+<uses-permission android:name="android.permission.CAMERA" />
+```
+
+```xml
+<!-- iOS: ios/YourApp/Info.plist -->
+<key>NSCameraUsageDescription</key>
+<string>We use the camera so you can add a photo to your profile.</string>
+```
+
+Android's manifest permission is just a declaration; iOS's `Info.plist`
+string is what's actually **shown to the user** in the system permission
+dialog — forgetting it causes an instant crash on iOS the moment you try to
+access the camera, which is a common early mistake.
+
+**Requesting** the permission at runtime is where the actual user-facing
+prompt happens, and is conceptually the same on both platforms even though
+the underlying APIs differ:
+
+```jsx
+import { check, request, PERMISSIONS, RESULTS } from "react-native-permissions";
+
+async function ensureCameraPermission() {
+  const status = await check(PERMISSIONS.IOS.CAMERA);
+  if (status === RESULTS.GRANTED) return true;
+
+  const result = await request(PERMISSIONS.IOS.CAMERA);
+  return result === RESULTS.GRANTED;
+}
+```
+
+Always `check` before `request` — repeatedly calling `request` on a
+permission the user already denied can, on some platforms, silently fail
+instead of re-prompting, since the OS stops showing the native dialog after
+a denial and expects the app to direct the user to Settings instead.
+
+## When do you need to write a custom native module?
+
+Reach for an existing library first — camera, location, biometrics, storage,
+and most common device APIs already have well-maintained community modules.
+Writing your own native module (Swift/Kotlin code wrapped as a TurboModule)
+is for the narrower case of needing a native SDK with **no existing RN
+wrapper** — a proprietary payment SDK, a specialized Bluetooth protocol, or
+company-internal native code that needs to be callable from JS.
+
+### Try it yourself
+
+Pick a device API you haven't used before (contacts, biometrics, or
+clipboard) and find its most popular React Native library. Read through its
+installation instructions and identify exactly which permission string it
+requires you to add to `Info.plist`.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `TaskQueue.add()` wrap its logic in `new Promise((resolve, reject) => { ... })` instead of being an `async` function?",
+      "options": [
+        "It's purely a style preference with no functional reason",
+        "Because resolve/reject need to be called later, from inside the scheduling/retry logic that runs after add() has already returned — this is the standard pattern for making a callback-driven process awaitable",
+        "async functions cannot be used inside classes",
+        "new Promise() is required for every function that uses await anywhere in the class"
+      ],
+      "correctIndex": 1,
+      "explanation": "The task doesn't actually run until a concurrency slot is free, possibly much later — the explicit Promise constructor lets resolve/reject be invoked whenever the job eventually finishes, from deep inside #next()/#runWithRetries()."
+    },
+    {
+      "question": "What enforces the concurrency limit in this TaskQueue implementation?",
+      "options": [
+        "A fixed setTimeout delay between tasks",
+        "#next() checks #running against #concurrency before starting a new task, and is called again via .finally() each time a running task completes, freeing a slot",
+        "Promise.all automatically limits concurrency",
+        "JavaScript enforces concurrency limits natively for all async code"
+      ],
+      "correctIndex": 1,
+      "explanation": "The queue only starts a new task when #running is below the limit; completing a task decrements #running and immediately re-invokes #next() to pull the next pending job, if any."
+    },
+    {
+      "question": "Why are `#pending` and `#running` declared as private class fields instead of regular properties?",
+      "options": [
+        "Private fields are required for a class to extend another class",
+        "They encapsulate the queue's internal bookkeeping so external code cannot directly read or corrupt it, the same guarantee closures provided in the module pattern",
+        "Private fields make the code run asynchronously",
+        "There is no actual difference from public fields"
+      ],
+      "correctIndex": 1,
+      "explanation": "Private fields (#name) are only accessible within the class body, preventing external code from reaching into and mutating internal queue state directly."
+    },
+    {
+      "question": "In `#runWithRetries`, what happens once `attempt` exceeds `job.retries`?",
+      "options": [
+        "The task silently succeeds with an undefined result",
+        "The error is re-thrown, propagating out of #runWithRetries so the task's promise ultimately rejects",
+        "The queue retries forever regardless of the retries option",
+        "The whole queue stops processing any further tasks"
+      ],
+      "correctIndex": 1,
+      "explanation": "Once the retry budget is exhausted, the loop re-throws the last error instead of retrying again, which the caller in #next() catches and uses to reject that job's promise."
+    }
+  ]
+}

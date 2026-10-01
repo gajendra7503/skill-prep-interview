@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What controls how often a `useEffect` callback re-runs?",
+      "options": [
+        "The order it appears in the component",
+        "Its dependency array",
+        "Whether the component uses TypeScript",
+        "The component's display name"
+      ],
+      "correctIndex": 1,
+      "explanation": "React compares the dependency array between renders; the effect re-runs only when one of those values has changed."
+    },
+    {
+      "question": "What is the purpose of the function returned from inside `useEffect`?",
+      "options": [
+        "It's a cleanup function that runs before the effect re-runs or when the component unmounts",
+        "It replaces the component's render output",
+        "It's called immediately, before the effect body runs",
+        "It has no special meaning"
+      ],
+      "correctIndex": 0,
+      "explanation": "The cleanup function prevents memory leaks and race conditions — e.g. cancelling an in-flight fetch or removing an event listener."
+    },
+    {
+      "question": "What problem does `useContext` solve?",
+      "options": [
+        "It memoizes expensive calculations",
+        "It avoids 'prop drilling' by letting deeply nested components read a shared value directly",
+        "It replaces useState entirely",
+        "It fetches data from an API automatically"
+      ],
+      "correctIndex": 1,
+      "explanation": "Context lets any descendant of a Provider read a value without every intermediate component having to forward it as a prop."
+    },
+    {
+      "question": "What naming convention must a custom hook follow?",
+      "options": [
+        "It must start with `use`",
+        "It must end with `Hook`",
+        "It must be a class",
+        "There is no required convention"
+      ],
+      "correctIndex": 0,
+      "explanation": "The `use` prefix is how both React and lint rules (like the Rules of Hooks) recognize it as a hook, enabling correct linting and hook rules."
+    }
+  ]
+}

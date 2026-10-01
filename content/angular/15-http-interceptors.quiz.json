@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does an auth interceptor call `req.clone()` instead of mutating `req` directly?",
+      "options": [
+        "HttpRequest objects are immutable, so clone() is required to produce a modified copy",
+        "clone() is just a stylistic convention with no functional difference",
+        "Mutating req would throw a compile-time TypeScript error only",
+        "clone() is required only when running in SSR"
+      ],
+      "correctIndex": 0,
+      "explanation": "HttpRequest instances are immutable; `clone()` returns a new request with the requested changes (like an added header) applied."
+    },
+    {
+      "question": "How do you register functional interceptors for an app using `provideHttpClient`?",
+      "options": [
+        "By adding them to the `declarations` array of an NgModule",
+        "Via `provideHttpClient(withInterceptors([...]))` in the app's providers",
+        "By injecting them manually into every component that calls HttpClient",
+        "They register themselves automatically once defined"
+      ],
+      "correctIndex": 1,
+      "explanation": "`withInterceptors` is the functional provider API for wiring one or more interceptor functions into HttpClient's pipeline."
+    },
+    {
+      "question": "In what order do multiple interceptors run on the way an HTTP response comes back?",
+      "options": [
+        "The same order they were registered in, for both requests and responses",
+        "Reverse of the registration order — they run outbound in array order and inbound in the opposite order",
+        "Randomly, since RxJS does not guarantee ordering",
+        "Only the first interceptor in the array ever sees the response"
+      ],
+      "correctIndex": 1,
+      "explanation": "Interceptors form a chain: requests flow through in array order, and responses flow back through the same chain in reverse, like middleware."
+    },
+    {
+      "question": "Why can an interceptor function call `inject(Router)` even though it isn't a class?",
+      "options": [
+        "It can't — this would throw a runtime error",
+        "Angular runs interceptor functions within an active injection context, so inject() works outside of class constructors too",
+        "Router is a global variable in Angular, not an injectable service",
+        "Only class-based HttpInterceptor implementations can use inject()"
+      ],
+      "correctIndex": 1,
+      "explanation": "Functional interceptors execute inside an Angular injection context, which is what allows `inject()` to resolve dependencies without a constructor."
+    }
+  ]
+}

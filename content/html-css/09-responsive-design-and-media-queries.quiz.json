@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In mobile-first CSS, what role do `min-width` media queries play?",
+      "options": [
+        "They remove styles as the screen gets smaller",
+        "They add or override the unconditional base (mobile) styles as more viewport width becomes available",
+        "They only apply to print stylesheets",
+        "They have the same effect as max-width queries"
+      ],
+      "correctIndex": 1,
+      "explanation": "Mobile-first means small-screen styles are the default; min-width queries progressively layer on more complex layout for larger viewports."
+    },
+    {
+      "question": "What goes wrong on mobile browsers if the viewport meta tag is omitted?",
+      "options": [
+        "Nothing, it's purely optional",
+        "The browser renders at a desktop-width virtual viewport (e.g. 980px) and zooms out, so media query breakpoints fire at the wrong actual widths",
+        "The page fails to load entirely",
+        "CSS stops working altogether"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without the viewport meta tag, mobile browsers assume a wide desktop viewport and scale the page down, which breaks the relationship between CSS breakpoints and the device's real width."
+    },
+    {
+      "question": "What is the recommended way to choose breakpoints?",
+      "options": [
+        "Copy a fixed list of exact device widths from a popular phone/tablet model list",
+        "Let your own content and layout tell you where it starts to look cramped or sparse, rather than targeting specific device widths",
+        "Breakpoints should never be customized per project",
+        "Always use exactly 3 breakpoints regardless of the design"
+      ],
+      "correctIndex": 1,
+      "explanation": "Device-width lists go stale as new devices ship; designing breakpoints around where your actual content breaks is a more durable approach."
+    },
+    {
+      "question": "What problem do container queries solve that media queries cannot?",
+      "options": [
+        "They make CSS load faster",
+        "They let a reusable component adapt based on the size of its actual container (e.g. a sidebar vs a main column), not just the overall viewport",
+        "They replace the need for any CSS selectors",
+        "They only work on mobile devices"
+      ],
+      "correctIndex": 1,
+      "explanation": "A component dropped into differently-sized containers on the same page can't distinguish them via viewport-based media queries, but container queries respond directly to the container's own size."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "With no extra options on `fetch`, when is a page's data typically fetched?",
+      "options": [
+        "On every single request",
+        "Once at build time, then served as static HTML",
+        "Never — fetch requires an explicit cache option",
+        "Only when the user scrolls to that section"
+      ],
+      "correctIndex": 1,
+      "explanation": "By default, fetch results are cached and the page is statically rendered at build time — the fastest option, but data won't update until the next deploy or revalidation."
+    },
+    {
+      "question": "What does `fetch(url, { next: { revalidate: 60 } })` enable?",
+      "options": [
+        "The page is rendered fresh on every request",
+        "Incremental Static Regeneration — the cached page is regenerated in the background at most once every 60 seconds",
+        "The request is retried 60 times on failure",
+        "The page becomes a Client Component"
+      ],
+      "correctIndex": 1,
+      "explanation": "`revalidate` enables ISR: content stays statically served but is refreshed periodically, a middle ground between fully static and fully dynamic."
+    },
+    {
+      "question": "What forces a page to render dynamically on every request?",
+      "options": [
+        "Using `cache: 'no-store'`, reading cookies/headers, or depending on a dynamic value at request time",
+        "Adding more than 3 components",
+        "Using TypeScript",
+        "Naming the file `dynamic.tsx`"
+      ],
+      "correctIndex": 0,
+      "explanation": "`no-store` (or accessing per-request data like cookies) opts a route out of caching and static generation, appropriate for personalized content like a dashboard."
+    },
+    {
+      "question": "What is `generateStaticParams` used for?",
+      "options": [
+        "Styling dynamic routes",
+        "Pre-building a dynamic route's pages at build time for a known set of param values",
+        "Generating TypeScript types automatically",
+        "Only used in the pages router, not the app router"
+      ],
+      "correctIndex": 1,
+      "explanation": "It tells Next.js which dynamic segment values exist ahead of time (e.g. every course slug), so those routes are pre-rendered instead of rendered on first visit."
+    }
+  ]
+}

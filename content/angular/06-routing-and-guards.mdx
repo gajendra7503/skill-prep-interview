@@ -1,0 +1,92 @@
+---
+title: "Routing & Guards"
+description: "Configuring routes, reading params, lazy-loading, and protecting routes with functional guards."
+module: "Routing"
+order: 6
+---
+
+Angular's router maps URLs to components, and — with standalone components —
+is configured with plain functions instead of an `NgModule`.
+
+## Setting up routes
+
+```ts
+// app.config.ts
+import { provideRouter } from "@angular/router";
+import { routes } from "./app.routes";
+
+export const appConfig: ApplicationConfig = {
+  providers: [provideRouter(routes)],
+};
+```
+
+```ts
+// app.routes.ts
+export const routes: Routes = [
+  { path: "", component: EmployeeListComponent },
+  { path: "employees/:id", component: EmployeeDetailComponent },
+  { path: "admin", loadComponent: () => import("./admin.component").then((m) => m.AdminComponent) },
+  { path: "**", component: NotFoundComponent },
+];
+```
+
+## Reading route params
+
+```ts
+export class EmployeeDetailComponent {
+  private route = inject(ActivatedRoute);
+
+  // snapshot: read once, when the component is created
+  id = Number(this.route.snapshot.paramMap.get("id"));
+
+  // for routes that can change params without recreating the component
+  // (e.g. next/previous employee), subscribe to the observable instead:
+  id$ = this.route.paramMap.pipe(map((params) => Number(params.get("id"))));
+}
+```
+
+Use the snapshot when the component is always recreated on navigation (the
+common case); use the observable form when the same component instance is
+reused across param changes.
+
+## Lazy loading with `loadComponent`
+
+```ts
+{ path: "admin", loadComponent: () => import("./admin.component").then((m) => m.AdminComponent) }
+```
+
+The `admin.component.ts` (and everything it imports) is split into its own
+JS chunk and only downloaded when a user actually navigates to `/admin` —
+this is the standalone-component replacement for lazy-loaded `NgModule`s and
+keeps the initial bundle small.
+
+## Protecting routes with a functional guard
+
+```ts
+import { CanActivateFn, Router } from "@angular/router";
+import { inject } from "@angular/core";
+import { AuthService } from "./auth.service";
+
+export const authGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  if (auth.isLoggedIn()) return true;
+
+  router.navigate(["/login"]);
+  return false;
+};
+```
+
+```ts
+{ path: "admin", canActivate: [authGuard], loadComponent: () => import("./admin.component").then((m) => m.AdminComponent) }
+```
+
+Functional guards (plain functions, introduced alongside standalone
+components) replaced the older class-based `CanActivate` interface — they're
+simpler to write and test since they're just functions using `inject()`.
+
+### Try it yourself
+
+Add a `canDeactivate` guard to a form-editing route that warns the user with
+a confirm dialog if they try to navigate away with unsaved changes.

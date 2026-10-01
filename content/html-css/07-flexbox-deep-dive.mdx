@@ -1,0 +1,84 @@
+---
+title: "Flexbox Deep Dive"
+description: "Main axis vs cross axis, what flex-grow/shrink/basis actually control, and justify-content vs align-items."
+module: "Layout"
+order: 7
+---
+
+Flexbox is a **one-dimensional** layout system — it arranges items along a
+single axis (either a row or a column). Most of the confusion around it
+comes from not keeping that one axis, and its perpendicular "cross axis,"
+straight.
+
+## Main axis vs cross axis
+
+```css
+.row {
+  display: flex;
+  flex-direction: row; /* main axis = horizontal (the default) */
+}
+
+.column {
+  display: flex;
+  flex-direction: column; /* main axis = vertical */
+}
+```
+
+Every property in Flexbox is defined relative to whichever axis is currently
+the **main axis** — and `flex-direction` is what decides that. This is why
+switching from `row` to `column` doesn't just stack items vertically, it also
+flips the meaning of `justify-content` and `align-items`.
+
+## `justify-content` vs `align-items` vs `align-self`
+
+- **`justify-content`** distributes space **along the main axis** — think
+  "spread items out horizontally" in a row layout.
+- **`align-items`** aligns items **along the cross axis** — "vertically
+  center everything" in a row layout.
+- **`align-self`** overrides `align-items` for one specific child.
+
+```css
+.toolbar {
+  display: flex;
+  justify-content: space-between; /* main axis: push first/last apart */
+  align-items: center;            /* cross axis: vertically center all items */
+}
+
+.toolbar .search-icon {
+  align-self: flex-start; /* this one item ignores align-items */
+}
+```
+
+## `flex-grow`, `flex-shrink`, `flex-basis`
+
+The shorthand `flex: 1 1 0` sets all three at once, and each number controls
+something distinct:
+
+- **`flex-basis`** (third value) — the item's starting size before growing or
+  shrinking is applied, e.g. `flex-basis: 200px` or `flex-basis: 0`.
+- **`flex-grow`** (first value) — how much of the *leftover* space (after all
+  items' basis sizes are laid out) this item should claim, relative to its
+  siblings' grow values. `flex-grow: 0` (the default) means "don't grow."
+- **`flex-shrink`** (second value) — how much this item should shrink,
+  relative to siblings, when there isn't enough space to fit everyone at
+  their basis size. `flex-shrink: 0` means "never shrink below basis."
+
+```css
+.sidebar {
+  flex: 0 0 240px; /* don't grow, don't shrink, start at 240px — a fixed-width sidebar */
+}
+
+.main-content {
+  flex: 1 1 0; /* grow and shrink freely, starting from 0 — takes all remaining space */
+}
+```
+
+This is the single most common real layout: a fixed sidebar plus a flexible
+main area, expressed in two lines without a single media query.
+
+### Try it yourself
+
+Build a three-item navbar — a logo (fixed width), a search input (should grow
+to fill available space), and a profile icon (fixed width) — using only
+`flex` shorthand values on the three children of one `display: flex`
+container.

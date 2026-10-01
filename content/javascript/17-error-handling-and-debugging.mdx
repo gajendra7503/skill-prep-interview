@@ -1,0 +1,100 @@
+---
+title: "Error Handling & Debugging"
+description: "try/catch/finally semantics, custom error classes, and practical debugging techniques."
+module: "Browser & Runtime"
+order: 17
+---
+
+Handling errors well is about distinguishing failures you expect and can
+recover from from genuine bugs — and having the right tools to find the
+bugs quickly when they happen.
+
+## try/catch/finally
+
+```js
+function parseConfig(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error("Invalid config JSON:", error.message);
+    return {};
+  } finally {
+    console.log("Parse attempt finished"); // always runs — success, failure, or even a `return` above
+  }
+}
+```
+
+`finally` runs unconditionally — whether the `try` block succeeds, throws,
+or even executes a `return` statement — which makes it the right place for
+cleanup that must always happen (closing a connection, hiding a loading
+spinner), regardless of outcome.
+
+## Custom error classes
+
+```js
+class ValidationError extends Error {
+  constructor(message, field) {
+    super(message);
+    this.name = "ValidationError";
+    this.field = field;
+  }
+}
+
+function validateAge(age) {
+  if (age < 0) {
+    throw new ValidationError("Age cannot be negative", "age");
+  }
+}
+
+try {
+  validateAge(-5);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.log(`Invalid field: ${error.field}`);
+  } else {
+    throw error; // not ours to handle — let it propagate
+  }
+}
+```
+
+Extending the built-in `Error` class preserves the stack trace and
+`instanceof Error` checks, while letting you attach extra context (like
+`field` here) and distinguish error types with `instanceof` — essential once
+a codebase has more than one kind of expected failure.
+
+## Operational errors vs programmer errors
+
+- **Operational errors** are expected failure modes of a correctly-written
+  program — a network request timing out, a user submitting invalid input,
+  a file not existing. These should be caught and handled gracefully.
+- **Programmer errors** are bugs — calling a function with the wrong type,
+  a typo in a property access (`undefined.someProperty`). These generally
+  should **not** be silently caught; let them crash loudly (or hit an error
+  boundary/global handler) so they get noticed and fixed, rather than
+  papering over them with a `try/catch` that masks the real problem.
+
+A common anti-pattern is wrapping everything in `try { ... } catch {}` with
+an empty catch block — this swallows programmer errors just as readily as
+operational ones, making real bugs silently disappear instead of surfacing.
+
+## Practical debugging techniques
+
+```js
+console.table(users); // renders an array of objects as a readable table
+console.group("Processing order"); console.log(...); console.groupEnd(); // collapsible log groups
+```
+
+Beyond `console.log`, `console.table` is invaluable for arrays of objects,
+and conditional breakpoints (right-click a line number in DevTools, add a
+condition like `i === 42`) let you pause execution only when a specific case
+occurs, instead of stepping through hundreds of harmless iterations. When
+reading a stack trace, start from the top (where the error was thrown) and
+work down — the first few frames usually point directly at the real cause,
+with the rest showing how execution got there.
+
+### Try it yourself
+
+Write a `fetchWithRetry(url, retries)` function that catches a failed
+`fetch`, retries up to `retries` times, and finally throws a custom
+`FetchError` (extending `Error`) containing the original error and the
+number of attempts made, only after all retries are exhausted.

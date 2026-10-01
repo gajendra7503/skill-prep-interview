@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What makes CSS custom properties fundamentally different from Sass (`$variable`) variables?",
+      "options": [
+        "Custom properties require a build step and Sass variables don't",
+        "Custom properties are a real part of the CSS language and can change at runtime (via class toggles, media queries, or JavaScript); Sass variables are replaced with literal values at compile time and can't",
+        "There is no real difference between the two",
+        "Sass variables can be read by JavaScript but custom properties cannot"
+      ],
+      "correctIndex": 1,
+      "explanation": "Sass variables are resolved once during compilation; CSS custom properties remain live values in the browser that respond to the cascade, media queries, and JS."
+    },
+    {
+      "question": "Why can redeclaring `--color-bg` inside a `.dark-theme` class instantly theme a whole page?",
+      "options": [
+        "It requires a full page reload to take effect",
+        "Elements inside .dark-theme pick up the new cascaded value of --color-bg automatically, the same way any other inherited CSS property would update",
+        "Dark mode requires a separate JavaScript library",
+        "Custom properties can only be declared once per page"
+      ],
+      "correctIndex": 1,
+      "explanation": "Custom properties follow the normal CSS cascade — redeclaring one at a more specific selector overrides it for everything inside that selector, live, with no rebuild."
+    },
+    {
+      "question": "In `background: var(--badge-color, #71717a);`, when does the fallback `#71717a` get used?",
+      "options": [
+        "Only when --badge-color is set to a falsy value like 0",
+        "Whenever --badge-color is undefined/not set",
+        "The fallback is always applied regardless of --badge-color",
+        "Fallback values are not supported by var()"
+      ],
+      "correctIndex": 1,
+      "explanation": "var()'s second argument is used only when the custom property is undefined, making components safely usable even where the variable was never declared."
+    },
+    {
+      "question": "What is one thing a CSS custom property can do that a Sass variable fundamentally cannot?",
+      "options": [
+        "Hold a color value",
+        "Be read and updated at runtime from JavaScript via element.style.setProperty()",
+        "Be used inside a CSS selector",
+        "Be declared more than once in a stylesheet"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because custom properties exist in the browser's rendering, JavaScript can read and write them live; a Sass variable has already disappeared into literal values by the time the browser sees the CSS."
+    }
+  ]
+}

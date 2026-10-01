@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In this project, what does `generateStaticParams` on the `[slug]` post page do?",
+      "options": [
+        "Validates the slug format at runtime",
+        "Pre-renders a page for every post slug at build time instead of on first request",
+        "Generates TypeScript types for the params object",
+        "Only runs in development mode"
+      ],
+      "correctIndex": 1,
+      "explanation": "It returns the full list of slugs ahead of time so Next.js can statically generate a page per post at build time."
+    },
+    {
+      "question": "After `postComment` runs, why does it call `revalidateTag(\"posts\")` instead of just returning success?",
+      "options": [
+        "revalidateTag is required syntax for every Server Action",
+        "It invalidates every cached fetch tagged 'posts', so the post page and listing page both show the new comment/updated data",
+        "It deletes the old comment",
+        "It has no functional effect, only logging"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without revalidating, the Data Cache would keep serving the pre-comment version of the post and listing pages."
+    },
+    {
+      "question": "Why does `CommentForm` use `useActionState` instead of calling `postComment` directly in an onClick handler?",
+      "options": [
+        "useActionState is required for all functions",
+        "It bridges the Server Action into the Client Component, giving pending/error UI state while the mutation still runs on the server",
+        "It replaces the need for a form element",
+        "It caches the comment locally instead of submitting it"
+      ],
+      "correctIndex": 1,
+      "explanation": "useActionState wires a Server Action's result and pending status into component state, without needing a hand-written fetch call or loading-state management."
+    },
+    {
+      "question": "Why is `generateMetadata` used on the post page instead of a static `metadata` export?",
+      "options": [
+        "Static metadata isn't supported in the app router",
+        "The title and description depend on the fetched post, which is only known once the post's data is loaded per slug",
+        "generateMetadata is faster to write",
+        "It's required whenever generateStaticParams is used"
+      ],
+      "correctIndex": 1,
+      "explanation": "Since each post has a different title/excerpt, the metadata must be computed dynamically per slug rather than hardcoded once."
+    }
+  ]
+}

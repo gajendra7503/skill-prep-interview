@@ -1,0 +1,87 @@
+---
+title: "Positioning & Stacking Contexts"
+description: "The five position values, what each establishes for descendants, and the z-index gotcha that trips almost everyone up."
+module: "CSS Fundamentals"
+order: 6
+---
+
+`position` is one of the most-used CSS properties and one of the
+least-understood — not because the five values are individually complex, but
+because their *interactions* (with each other, and with `z-index`) are where
+the real interview questions live.
+
+## The five values
+
+- **`static`** — the default. The element follows normal document flow;
+  `top`/`left`/`right`/`bottom` have no effect.
+- **`relative`** — stays in normal flow, but `top`/`left`/etc. nudge it
+  visually from where it would otherwise sit. Crucially, it also becomes the
+  **positioning context** for any `absolute` descendant.
+- **`absolute`** — removed from normal flow entirely (other elements act as
+  if it isn't there) and positioned relative to its nearest ancestor that is
+  **not** `static` — i.e. the nearest `relative`, `absolute`, `fixed`, or
+  `sticky` ancestor. If there isn't one, it's positioned relative to the
+  initial containing block (effectively the viewport).
+- **`fixed`** — removed from flow and positioned relative to the viewport,
+  staying put even as the page scrolls (unless an ancestor has a `transform`,
+  which — surprisingly — also makes *that* the containing block for `fixed`).
+- **`sticky`** — behaves like `relative` until the scroll position crosses a
+  threshold (`top: 0`, for example), then "sticks" like `fixed` within the
+  bounds of its parent.
+
+```css
+.card {
+  position: relative; /* establishes the positioning context */
+}
+
+.card__badge {
+  position: absolute; /* positioned relative to .card, not the page */
+  top: 0.5rem;
+  right: 0.5rem;
+}
+```
+
+Without `position: relative` on `.card`, `.card__badge` would jump out and
+position itself relative to the nearest positioned ancestor further up the
+tree (or the viewport) — one of the most common real-world CSS bugs.
+
+## The `z-index` gotcha: stacking contexts
+
+`z-index` doesn't compare every element on the page globally — it only
+compares elements **within the same stacking context**. A new stacking
+context is created by several things besides `z-index` itself: `opacity`
+less than 1, any `transform`, `filter`, `position: fixed`/`sticky`, and a few
+others.
+
+```css
+.parent-a {
+  position: relative;
+  z-index: 1;
+  opacity: 0.99; /* creates a new stacking context! */
+}
+
+.parent-a .child {
+  z-index: 9999; /* only competes with siblings INSIDE .parent-a */
+}
+
+.parent-b {
+  position: relative;
+  z-index: 2; /* higher than .parent-a, and .parent-a has no transform/opacity trick */
+}
+```
+
+Here, `.child`'s `z-index: 9999` is meaningless outside `.parent-a` — once
+`.parent-a` renders as a whole (as a single stacking context, because of
+`opacity: 0.99`), it stacks against `.parent-b` using `.parent-a`'s own
+`z-index: 1`, which loses to `.parent-b`'s `z-index: 2`. No `z-index` value
+inside `.parent-a`, however large, can place `.child` above `.parent-b`'s
+content. This is the single most common cause of "why isn't my z-index
+working?!" bugs.
+
+### Try it yourself
+
+Build a modal overlay (`position: fixed`, covering the viewport) and confirm
+it renders above a card that has `position: relative; z-index: 999`. Then
+add `transform: scale(1)` to one of the modal's ancestors and watch the
+modal get trapped behind the card despite its high z-index — then fix it by
+removing the transform or moving the modal outside that ancestor.

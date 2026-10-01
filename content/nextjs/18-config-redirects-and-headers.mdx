@@ -1,0 +1,100 @@
+---
+title: "next.config.ts, Redirects & Headers"
+description: "Framework-level routing rules and security headers, configured once instead of per-route."
+module: "Fundamentals"
+order: 18
+---
+
+Some routing and security concerns don't belong in any one page — they're
+rules about the whole app. `next.config.ts` is where those live.
+
+## `redirects()`: permanent and temporary URL changes
+
+```ts
+// next.config.ts
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/courses/react/hooks",
+        destination: "/courses/react/03-hooks-deep-dive",
+        permanent: true, // emits a 308, tells browsers/crawlers to update bookmarks and search results
+      },
+      {
+        source: "/old-dashboard",
+        destination: "/dashboard",
+        permanent: false, // emits a 307, for a temporary move
+      },
+    ];
+  },
+};
+
+export default nextConfig;
+```
+
+This is the right tool when a URL has permanently moved (a renamed lesson
+slug, a restructured route) and you want old links and search engine
+results to keep working instead of 404ing.
+
+## `rewrites()`: serving a different path without changing the URL
+
+```ts
+async rewrites() {
+  return [
+    {
+      source: "/docs/:path*",
+      destination: "https://docs.example.com/:path*",
+    },
+  ];
+},
+```
+
+Unlike a redirect, the browser's URL bar still shows `/docs/...` — this is
+how you'd transparently proxy a separate docs site (or an old legacy app)
+under your own domain without the visitor noticing it's a different origin
+behind the scenes.
+
+## `headers()`: setting security headers framework-wide
+
+```ts
+async headers() {
+  return [
+    {
+      source: "/:path*",
+      headers: [
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        {
+          key: "Content-Security-Policy",
+          value: "default-src 'self'; img-src 'self' data:; script-src 'self'",
+        },
+      ],
+    },
+  ];
+},
+```
+
+- `X-Frame-Options: DENY` stops the site from being embedded in an
+  `<iframe>` on another domain (a common clickjacking defense).
+- `Content-Security-Policy` (CSP) restricts which origins scripts, styles,
+  and images are allowed to load from, dramatically limiting what an
+  injected `<script>` tag could do even if an XSS bug slipped through
+  elsewhere in the app.
+
+## Why these belong in config, not in individual routes
+
+Redirects, rewrites, and security headers are **cross-cutting concerns** —
+every route should get the same security headers, and a redirect rule
+shouldn't need to be duplicated into every page that might be linked from an
+old URL. Centralizing them in `next.config.ts` means there's exactly one
+place to audit and update these rules, and they apply even to routes you
+haven't written code for yet.
+
+### Try it yourself
+
+Add a `headers()` rule to this app's `next.config.ts` that sets
+`X-Content-Type-Options: nosniff` on every route, then add a `redirects()`
+entry that would send visitors from `/courses/react/01` to
+`/courses/react/01-jsx-and-components` (handy for short, typeable links).

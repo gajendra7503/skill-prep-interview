@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What changes about useState, useReducer, and Context when moving from web React to React Native?",
+      "options": [
+        "They all require a different import path with different behavior",
+        "Nothing — they work identically, since React Native runs the same React reconciliation and hook rules",
+        "useReducer is not supported in React Native",
+        "Context causes a full app re-render in React Native, unlike on the web"
+      ],
+      "correctIndex": 1,
+      "explanation": "The core React programming model is unchanged between web and native — only the host components and platform APIs (like storage) differ."
+    },
+    {
+      "question": "Why can't AsyncStorage be read synchronously inside a useState initializer, the way the web course's useLocalStorage reads localStorage?",
+      "options": [
+        "AsyncStorage doesn't exist on Android",
+        "AsyncStorage's I/O is asynchronous (always returns a Promise) since native storage access can't block the JS thread the way localStorage can block the web main thread",
+        "useState initializers cannot run any code at all",
+        "There's no actual difference, the same pattern works unchanged"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because every AsyncStorage method returns a Promise, reading it has to happen in an effect (after mount), not synchronously during initial state computation."
+    },
+    {
+      "question": "What data types can be stored directly in AsyncStorage?",
+      "options": [
+        "Any JavaScript value, including functions and class instances",
+        "Only strings — non-string values must be serialized with JSON.stringify before storing and parsed back with JSON.parse after reading",
+        "Only numbers and booleans",
+        "Only plain objects, automatically serialized"
+      ],
+      "correctIndex": 1,
+      "explanation": "Like localStorage on the web, AsyncStorage is a string-only key-value store, so structured data needs manual JSON serialization."
+    },
+    {
+      "question": "Why does `useAsyncStorage` return a `loaded` flag that `useLocalStorage` on the web doesn't need?",
+      "options": [
+        "It's an arbitrary addition with no functional purpose",
+        "Because the restored value now arrives asynchronously, callers need a way to distinguish 'still the initial placeholder' from 'the real restored value'",
+        "loaded is required by the AsyncStorage API itself",
+        "It makes the hook's return value serializable"
+      ],
+      "correctIndex": 1,
+      "explanation": "Since reading is no longer synchronous, something has to signal when the real value has actually arrived — otherwise the UI might flash the default/placeholder value briefly on every app launch."
+    }
+  ]
+}

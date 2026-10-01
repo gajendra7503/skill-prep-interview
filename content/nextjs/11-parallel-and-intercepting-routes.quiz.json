@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does an `@`-prefixed folder like `@analytics` define in the App Router?",
+      "options": [
+        "A private folder excluded from routing",
+        "A named parallel route slot that a layout can render alongside its normal children",
+        "An API route",
+        "A dynamic route segment"
+      ],
+      "correctIndex": 1,
+      "explanation": "`@folderName` defines a slot, passed into the layout as a prop with that same name, rendered independently alongside `children`."
+    },
+    {
+      "question": "Why does each parallel route slot need a `default.tsx`?",
+      "options": [
+        "It's purely optional styling",
+        "As a fallback for when the current URL doesn't match anything inside that specific slot",
+        "To define the slot's TypeScript types",
+        "It replaces the need for a layout.tsx"
+      ],
+      "correctIndex": 1,
+      "explanation": "Since slots render independently, Next.js needs a fallback (`default.tsx`) to render in a slot whose own routes don't match the current URL."
+    },
+    {
+      "question": "In the intercepting routes folder convention, what does `(..)` mean compared to `(.)`?",
+      "options": [
+        "They are identical in every way",
+        "`(.)` intercepts at the same level; `(..)` intercepts one level up, matching how far up the tree the real route lives",
+        "`(..)` disables interception",
+        "`(..)` is only valid in Pages Router, not App Router"
+      ],
+      "correctIndex": 1,
+      "explanation": "The number of dots mirrors relative path segments — more dots means intercepting a route that lives further up the folder tree."
+    },
+    {
+      "question": "When a user pastes a direct URL to an intercepted route (e.g. a photo's URL) instead of clicking a link inside the app, what happens?",
+      "options": [
+        "It always renders the modal version, even on a hard reload",
+        "It 404s, since intercepted routes replace the real page",
+        "It renders the real, full standalone page rather than the intercepted modal version",
+        "It redirects back to the grid"
+      ],
+      "correctIndex": 2,
+      "explanation": "The router only applies the intercepted (modal) version for client-side navigation originating from within the intercepting segment; a direct/hard navigation renders the actual standalone page."
+    }
+  ]
+}

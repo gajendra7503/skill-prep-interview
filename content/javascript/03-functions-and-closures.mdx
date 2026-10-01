@@ -1,0 +1,110 @@
+---
+title: "Functions & Closures"
+description: "Declarations vs expressions vs arrow functions, and what a closure actually is."
+module: "Fundamentals"
+order: 3
+---
+
+Functions are JavaScript's core building block — they're values you can
+pass around, and understanding exactly how they capture their surrounding
+scope (closures) explains everything from React's `useState` to Node's
+callback patterns.
+
+## Three ways to write a function
+
+```js
+function add(a, b) {       // declaration — hoisted fully, usable before its line
+  return a + b;
+}
+
+const subtract = function (a, b) { // expression — only the variable is hoisted
+  return a - b;
+};
+
+const multiply = (a, b) => a * b;  // arrow function — no own `this`, no `arguments`
+```
+
+Arrow functions are not just shorter syntax — they deliberately don't have
+their own `this`, `arguments`, or `super`, inheriting all of those from the
+enclosing scope instead. That makes them a poor fit for object methods that
+rely on `this` (covered in the next lesson) but ideal for short callbacks.
+
+## What a closure actually is
+
+A closure is what you get when a function "remembers" the variables from the
+scope it was created in, even after that outer scope has finished running:
+
+```js
+function makeCounter() {
+  let count = 0; // this variable lives in makeCounter's scope
+
+  return function () {
+    count += 1; // the returned function still has access to it
+    return count;
+  };
+}
+
+const counter = makeCounter();
+counter(); // 1
+counter(); // 2
+counter(); // 3
+```
+
+`makeCounter()` returns and its scope would normally be discarded — but
+because the inner function references `count`, the JavaScript engine keeps
+that variable alive as long as something can still reach it. Each call to
+`makeCounter()` creates a brand new, independent `count`.
+
+## A practical use: memoization
+
+```js
+function memoize(fn) {
+  const cache = new Map();
+  return function (arg) {
+    if (cache.has(arg)) return cache.get(arg);
+    const result = fn(arg);
+    cache.set(arg, result);
+    return result;
+  };
+}
+
+const slowSquare = (n) => { /* imagine this is expensive */ return n * n; };
+const fastSquare = memoize(slowSquare);
+fastSquare(5); // computes and caches
+fastSquare(5); // returns the cached result instantly
+```
+
+The `cache` Map is private to each memoized function — nothing outside the
+closure can reach or tamper with it, which is also closures acting as a form
+of **encapsulation**, long before `class` private fields existed.
+
+## The classic `var` in a loop bug
+
+```js
+for (var i = 0; i < 3; i++) {
+  setTimeout(() => console.log(i), 0);
+}
+// logs: 3, 3, 3 — not 0, 1, 2!
+```
+
+All three callbacks close over the *same* `i`, because `var` creates one
+shared binding for the whole loop. By the time the callbacks run (after the
+loop has finished), `i` is already `3`.
+
+```js
+for (let i = 0; i < 3; i++) {
+  setTimeout(() => console.log(i), 0);
+}
+// logs: 0, 1, 2 — correct!
+```
+
+`let` creates a **new binding for each iteration**, so each callback closes
+over its own separate `i`. This single example is why closures and
+`let`/`var` scoping are almost always taught together.
+
+### Try it yourself
+
+Write a `once(fn)` function that returns a new function which calls `fn` the
+first time it's invoked, then returns that same cached result on every
+subsequent call without calling `fn` again — a common closure-based utility
+used to guard against double-initialization.

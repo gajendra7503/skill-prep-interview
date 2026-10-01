@@ -1,0 +1,109 @@
+---
+title: "State Management with NgRx"
+description: "Store, actions, reducers, selectors, and effects — and when NgRx's structure is actually worth adopting."
+module: "State Management"
+order: 12
+---
+
+Services with `signal`s (covered earlier in this course) handle shared state
+well for small-to-medium apps. As an app grows — many features reading and
+writing overlapping state, needing time-travel debugging, or coordinating
+complex async flows — **NgRx** offers a more structured, Redux-style
+pattern.
+
+## The core pieces
+
+```ts
+// counter.actions.ts
+import { createAction, props } from "@ngrx/store";
+
+export const increment = createAction("[Counter] Increment");
+export const decrement = createAction("[Counter] Decrement");
+export const setCount = createAction("[Counter] Set", props<{ value: number }>());
+```
+
+```ts
+// counter.reducer.ts
+import { createReducer, on } from "@ngrx/store";
+import { increment, decrement, setCount } from "./counter.actions";
+
+export const counterReducer = createReducer(
+  0, // initial state
+  on(increment, (state) => state + 1),
+  on(decrement, (state) => state - 1),
+  on(setCount, (_state, { value }) => value)
+);
+```
+
+```ts
+// counter.selectors.ts
+import { createFeatureSelector } from "@ngrx/store";
+
+export const selectCount = createFeatureSelector<number>("count");
+```
+
+```ts
+// a component
+@Component({
+  standalone: true,
+  template: `
+    <p>{{ count$ | async }}</p>
+    <button (click)="store.dispatch(increment())">+</button>
+  `,
+})
+export class CounterComponent {
+  store = inject(Store);
+  count$ = this.store.select(selectCount);
+}
+```
+
+The flow is always: a component **dispatches an action** → a **reducer**
+computes the next state from the current state and the action → a
+**selector** reads a slice of that state back out for the template.
+Reducers must be pure functions — no side effects, no mutation.
+
+## Handling async work with Effects
+
+Reducers can't call an API — they must be synchronous and pure. **Effects**
+listen for an action, perform the side effect, and dispatch a follow-up
+action with the result:
+
+```ts
+@Injectable()
+export class ProductEffects {
+  private actions$ = inject(Actions);
+  private api = inject(ProductService);
+
+  loadProducts$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(loadProducts),
+      switchMap(() =>
+        this.api.getAll().pipe(
+          map((products) => loadProductsSuccess({ products })),
+          catchError((error) => of(loadProductsFailure({ error })))
+        )
+      )
+    )
+  );
+}
+```
+
+## Is NgRx worth it?
+
+NgRx buys you: a single, inspectable source of truth, predictable
+unidirectional data flow, time-travel debugging via Redux DevTools, and a
+clear pattern for coordinating state across many unrelated components.
+
+It costs you: a lot of boilerplate (actions, reducers, selectors, effects
+for even simple state) and a steeper learning curve.
+
+A reasonable rule of thumb: start with component state or a signal-based
+service. Reach for NgRx when state is genuinely shared across many distant
+parts of the app, has complex async coordination, or when your team
+specifically values the structure and tooling enough to accept the
+boilerplate.
+
+### Try it yourself
+
+Add a `reset` action and reducer case that sets the counter back to `0`,
+and a selector `selectIsPositive` that derives a boolean from `selectCount`.

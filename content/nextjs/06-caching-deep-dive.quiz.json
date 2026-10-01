@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "question": "Which cache layer persists a fetch() result across requests and deployments until revalidated?",
+      "options": ["Request Memoization", "Data Cache", "Router Cache", "Browser localStorage"],
+      "correctIndex": 1,
+      "explanation": "The Data Cache is what powers static rendering and ISR — fetch results stick around across requests until revalidated or opted out with cache: 'no-store'."
+    },
+    {
+      "question": "What does Request Memoization deduplicate?",
+      "options": [
+        "Duplicate npm packages",
+        "Identical fetch calls (same URL + options) made multiple times within a single render pass",
+        "Duplicate React components",
+        "Duplicate database rows"
+      ],
+      "correctIndex": 1,
+      "explanation": "If the same fetch is called more than once while rendering one request, React automatically dedupes it to a single network call."
+    },
+    {
+      "question": "What is the difference between `revalidatePath` and `revalidateTag`?",
+      "options": [
+        "They are identical, just different names",
+        "revalidatePath clears the cache for one specific route, while revalidateTag clears every tagged fetch call across the whole app",
+        "revalidatePath only works in Client Components",
+        "revalidateTag deletes data from the database"
+      ],
+      "correctIndex": 1,
+      "explanation": "revalidatePath targets a single route's cached output; revalidateTag invalidates all fetches sharing a tag, which is useful when the same data backs multiple routes."
+    },
+    {
+      "question": "A mutation updates the database successfully, but the UI keeps showing old data on the next visit. What's the most likely cause?",
+      "options": [
+        "The database write actually failed silently",
+        "The mutation never called revalidatePath/revalidateTag, so the Data Cache and Full Route Cache still hold the old rendered output",
+        "Next.js doesn't support mutations",
+        "The browser needs to be restarted"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without explicitly revalidating, cached rendered output and cached fetch data remain stale until the next scheduled revalidation window or redeploy."
+    }
+  ]
+}

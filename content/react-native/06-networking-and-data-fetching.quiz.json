@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Does React Native require a different networking API than web React?",
+      "options": [
+        "Yes, it has its own NativeFetch API",
+        "No — it ships the same standard fetch API used on the web",
+        "Yes, all networking must go through native modules",
+        "No, but fetch only works inside Expo apps"
+      ],
+      "correctIndex": 1,
+      "explanation": "React Native provides the same fetch global as browsers, so existing fetch-based code and patterns carry over directly."
+    },
+    {
+      "question": "Why is explicitly handling loading/error/empty states more important in a mobile app than it might feel on the web?",
+      "options": [
+        "Mobile devices cannot display loading spinners",
+        "There's no browser-level loading affordance on mobile, and users expect immediate feedback on touch interactions, so skipping these states makes an app feel broken",
+        "fetch behaves differently on mobile and requires extra states",
+        "It isn't actually more important, the concern is identical"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without explicit UI for each state, a slow or failed request can leave a blank screen with no indication anything is happening or went wrong — a common source of 'janky' mobile UX."
+    },
+    {
+      "question": "In the hand-rolled fetch example, what does the `cancelled` flag inside the cleanup function protect against?",
+      "options": [
+        "Network timeouts",
+        "Setting state after the component has unmounted or a newer request has superseded this one, avoiding a race condition",
+        "It prevents the fetch from ever failing",
+        "It's required syntax for useEffect"
+      ],
+      "correctIndex": 1,
+      "explanation": "If userId changes or the component unmounts before the fetch resolves, the cleanup function sets cancelled so the stale response's .then/.catch callbacks don't update state for an outdated request."
+    },
+    {
+      "question": "What do libraries like React Query/SWR primarily add on top of a hand-rolled fetch + useState pattern?",
+      "options": [
+        "A completely different network protocol",
+        "Caching, request deduplication, and automatic retry/refetch logic that would otherwise be reimplemented in every component",
+        "They replace the need for loading/error states entirely",
+        "They are only useful for GraphQL APIs"
+      ],
+      "correctIndex": 1,
+      "explanation": "The underlying states (loading/error/data) are the same; these libraries solve the surrounding problems — caching, dedup, retries — once, instead of per-component."
+    }
+  ]
+}

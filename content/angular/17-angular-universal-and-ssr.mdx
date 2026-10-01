@@ -1,0 +1,77 @@
+---
+title: "Angular Universal & SSR"
+description: "Rendering Angular on the server for faster first paint and better SEO, and how hydration avoids re-rendering from scratch."
+module: "Rendering"
+order: 17
+---
+
+By default, an Angular app ships a near-empty `index.html` plus a JS bundle
+— the browser has to download, parse, and execute that JS before anything
+appears on screen. Server-side rendering (historically branded "Angular
+Universal") renders the initial HTML on the server instead, so the browser
+has real content to paint immediately.
+
+## Why it matters
+
+- **Faster first paint.** The user sees meaningful content before the JS
+  bundle finishes loading and executing, instead of a blank page or a
+  spinner.
+- **SEO and link previews.** Some crawlers and most social-media link
+  unfurlers don't execute JavaScript — they only see what's in the initial
+  HTML response. An empty shell means no content to index or preview.
+
+## How it works today
+
+```ts
+// app.config.server.ts
+import { provideServerRendering } from "@angular/platform-server";
+
+export const serverConfig = {
+  providers: [provideServerRendering()],
+};
+```
+
+`ng add @angular/ssr` wires up a Node.js server entry point that renders
+your root component to an HTML string per request, using the exact same
+component tree and routing as the client build — there isn't a separate
+"server version" of your app to maintain.
+
+## Hydration: reusing the server's DOM instead of re-rendering it
+
+Older SSR implementations would render HTML on the server, then have the
+client **re-render everything from scratch** and throw away the server's
+DOM nodes — "SSR" in name, but you paid the full client-rendering cost
+anyway, plus a visible flicker as the real DOM replaced the server one.
+
+Angular's modern hydration instead **reuses** the exact DOM nodes the server
+already produced, attaching event listeners and component state to them in
+place:
+
+```ts
+import { provideClientHydration } from "@angular/platform-browser";
+
+export const appConfig = {
+  providers: [provideClientHydration()],
+};
+```
+
+The result: the user sees server-rendered content immediately, and the app
+becomes interactive without a jarring re-render or a flash of replaced
+content.
+
+## Hydration mismatches: the common pitfall
+
+Hydration assumes the DOM the client receives matches what the client-side
+render would have produced. If your template renders something
+environment-dependent — `new Date()` formatted differently, a check for
+`typeof window !== "undefined"` that branches your output, random IDs
+generated per render — the server's HTML and the client's expectation
+diverge, and Angular either logs a hydration error or falls back to a full
+client re-render for that part of the tree, losing the SSR benefit.
+
+### Try it yourself
+
+Imagine a component that displays "time since this page loaded" using
+`Date.now()` directly in the template. Explain why this would cause a
+hydration mismatch, and sketch how you'd fix it (hint: compute the value
+once, consistently, rather than inline during render).

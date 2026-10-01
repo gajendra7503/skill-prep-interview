@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "With `box-sizing: content-box` (the default), what happens to an element's rendered width when you add padding?",
+      "options": [
+        "Nothing — width always means the final rendered width",
+        "The element becomes visually wider than the specified width, since padding and border are added on top of it",
+        "The padding is ignored entirely",
+        "The content shrinks to keep the total width the same"
+      ],
+      "correctIndex": 1,
+      "explanation": "content-box measures only the content area with `width`; padding and border are added on top, making the final rendered box larger than the declared width."
+    },
+    {
+      "question": "Why do most modern CSS resets set `box-sizing: border-box` globally?",
+      "options": [
+        "It makes CSS parse faster",
+        "So that a declared width/height already includes padding and border, making fixed-width layouts behave predictably",
+        "It is required for Flexbox to work",
+        "It disables margins"
+      ],
+      "correctIndex": 1,
+      "explanation": "border-box means the box you set with width/height is the box you get, regardless of how much padding or border is added — far more predictable for layout work."
+    },
+    {
+      "question": "What is the key difference between `inline` and `inline-block` display values?",
+      "options": [
+        "They are functionally identical",
+        "inline-block respects width, height, and full margin like a block element while still flowing inline with surrounding content; inline ignores width/height and only applies horizontal margin",
+        "inline-block always takes up the full width of its container",
+        "inline elements cannot contain any text"
+      ],
+      "correctIndex": 1,
+      "explanation": "inline-block is the hybrid: it sits inline with text/content like `inline`, but honors box dimensions and all four margins like `block`."
+    },
+    {
+      "question": "How does `display: none` differ from `visibility: hidden`?",
+      "options": [
+        "They are exactly the same",
+        "display: none removes the element from layout entirely (no space reserved); visibility: hidden hides it visually but still reserves its layout space",
+        "visibility: hidden also removes the element from the DOM",
+        "display: none only works on inline elements"
+      ],
+      "correctIndex": 1,
+      "explanation": "An element with visibility: hidden still occupies its normal space in the layout, just invisibly; display: none collapses it out of the layout as if it weren't there."
+    }
+  ]
+}

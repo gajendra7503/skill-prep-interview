@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "When does a default parameter value actually get used?",
+      "options": [
+        "Whenever the argument is falsy (0, \"\", false, null, undefined)",
+        "Only when the argument is exactly undefined (not passed at all, or explicitly passed as undefined)",
+        "Only when no arguments are passed to the function at all",
+        "Default parameters are triggered by null as well as undefined"
+      ],
+      "correctIndex": 1,
+      "explanation": "Default parameters specifically check for undefined — passing null explicitly does not trigger the default, which trips people up."
+    },
+    {
+      "question": "What does `user?.address?.city` return if `user.address` is undefined?",
+      "options": [
+        "It throws a TypeError",
+        "undefined — optional chaining short-circuits instead of throwing when it hits a nullish value",
+        "An empty string",
+        "It returns user.city instead"
+      ],
+      "correctIndex": 1,
+      "explanation": "Optional chaining stops and returns undefined as soon as it encounters null/undefined in the chain, rather than throwing."
+    },
+    {
+      "question": "Why does `settings.volume || 50` incorrectly return 50 when `settings.volume` is explicitly `0`?",
+      "options": [
+        "|| only works with strings",
+        "|| falls back to its right side for ANY falsy left-hand value, and 0 is falsy, even though it's a perfectly valid, intentional setting",
+        "This is a bug in JavaScript that has since been fixed",
+        "0 is not a valid number in JavaScript"
+      ],
+      "correctIndex": 1,
+      "explanation": "|| doesn't distinguish between \"no value provided\" and \"a legitimate falsy value provided\" — both 0 and missing values trigger the fallback."
+    },
+    {
+      "question": "How does `??` (nullish coalescing) differ from `||` in deciding when to use the fallback?",
+      "options": [
+        "They behave identically in all cases",
+        "?? only falls back when the left side is null or undefined specifically, leaving other falsy values like 0 or \"\" untouched",
+        "?? falls back for any falsy value, same as ||",
+        "?? only works with numbers"
+      ],
+      "correctIndex": 1,
+      "explanation": "?? was introduced specifically to fix the || problem — it narrows the fallback trigger to only null/undefined, preserving intentional falsy values."
+    }
+  ]
+}

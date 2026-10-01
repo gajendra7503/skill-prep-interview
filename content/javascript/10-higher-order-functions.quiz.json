@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What makes a function 'higher-order'?",
+      "options": [
+        "It runs faster than other functions",
+        "It takes a function as an argument, returns a function, or both",
+        "It is defined using the `function` keyword instead of an arrow function",
+        "It only works with arrays"
+      ],
+      "correctIndex": 1,
+      "explanation": "Being higher-order is about treating functions as values — accepting or producing them — which is why map/filter/reduce all qualify."
+    },
+    {
+      "question": "Which of these is a pure function?",
+      "options": [
+        "function addToCart(item) { cart.push(item); }",
+        "function getRandom() { return Math.random(); }",
+        "function add(a, b) { return a + b; }",
+        "function logAndReturn(x) { console.log(x); return x; }"
+      ],
+      "correctIndex": 2,
+      "explanation": "`add` always returns the same output for the same inputs and has no observable side effects — the others mutate external state, return non-deterministic values, or perform I/O."
+    },
+    {
+      "question": "Why are pure functions considered easier to test than impure ones?",
+      "options": [
+        "They run faster in all cases",
+        "Their output depends only on their inputs, so there's no hidden external state to set up or tear down",
+        "They never need test cases at all",
+        "They cannot contain any conditional logic"
+      ],
+      "correctIndex": 1,
+      "explanation": "Since a pure function's behavior is fully determined by its arguments, a test just needs to supply inputs and check the output — no mocking of external state required."
+    },
+    {
+      "question": "What does currying transform a multi-argument function into?",
+      "options": [
+        "A function that ignores all but its first argument",
+        "A sequence of functions, each taking one argument, that can be partially applied to create specialized versions",
+        "An asynchronous function",
+        "A function with no arguments at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "Currying breaks `f(a, b)` into `f(a)(b)`, letting you call it with one argument at a time and reuse the partially-applied result, like `multiply(2)` becoming a reusable `double` function."
+    }
+  ]
+}

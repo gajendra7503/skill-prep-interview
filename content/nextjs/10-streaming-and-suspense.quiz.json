@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does adding a `loading.tsx` file next to a `page.tsx` do?",
+      "options": [
+        "Nothing unless manually imported",
+        "Automatically wraps the route in a Suspense boundary, shown instantly on navigation before the page's data finishes loading",
+        "Disables server rendering for that route",
+        "Only works in development mode"
+      ],
+      "correctIndex": 1,
+      "explanation": "loading.tsx is a file convention that Next.js automatically turns into a Suspense fallback for that route segment — no manual boundary code needed."
+    },
+    {
+      "question": "In a page with one fast section and one slow section, what does wrapping only the slow section in `<Suspense>` achieve?",
+      "options": [
+        "The whole page waits for the slow section anyway",
+        "The fast section renders and streams to the browser immediately, while the slow section's fallback shows until its data resolves",
+        "It disables caching for the whole page",
+        "It converts the fast section into a Client Component"
+      ],
+      "correctIndex": 1,
+      "explanation": "Suspense boundaries let Next.js stream independent parts of a page separately — fast content doesn't wait on slow content elsewhere on the same page."
+    },
+    {
+      "question": "Compared to a traditional client-side spinner (fetch-after-hydration), what's the advantage of Suspense-based streaming?",
+      "options": [
+        "There is no real difference",
+        "Data fetching starts on the server immediately, and resolved HTML streams in already-rendered, without waiting for JS to hydrate first",
+        "Suspense makes the JavaScript bundle smaller",
+        "It removes the need for a database"
+      ],
+      "correctIndex": 1,
+      "explanation": "A client-fetched spinner requires sending an empty shell, hydrating, then fetching. Streaming starts the server-side fetch immediately and sends real rendered HTML as it resolves."
+    },
+    {
+      "question": "Once the fallback in a `<Suspense>` boundary is replaced with real content, does the browser need to re-fetch that data client-side?",
+      "options": [
+        "Yes, always",
+        "No — the server streams the already-rendered HTML for that boundary directly, no separate client-side refetch is needed",
+        "Only if the component is a Client Component",
+        "Only in production"
+      ],
+      "correctIndex": 1,
+      "explanation": "The resolved content arrives as part of the same streamed server response, swapping out the fallback in place without an additional round trip."
+    }
+  ]
+}

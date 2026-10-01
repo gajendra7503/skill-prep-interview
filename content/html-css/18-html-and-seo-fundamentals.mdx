@@ -1,0 +1,76 @@
+---
+title: "HTML & SEO Fundamentals"
+description: "Heading hierarchy, essential meta tags, Open Graph previews, and why crawlability depends on real HTML."
+module: "SEO"
+order: 18
+---
+
+SEO is often treated as a marketing concern, but a large share of it is just
+correct, disciplined HTML — the kind of thing an interviewer expects any
+front-end developer to get right regardless of role.
+
+## Heading hierarchy
+
+```html
+<h1>SkillPrep</h1>
+  <h2>Courses</h2>
+    <h3>React</h3>
+    <h3>Angular</h3>
+  <h2>Dashboard</h2>
+```
+
+One `<h1>` per page, and no skipped levels (an `<h3>` should have an `<h2>`
+ancestor, not jump straight from `<h1>`). This matters for two separate
+audiences at once: search engines use the heading structure to understand a
+page's outline and weight its content, and screen reader users frequently
+navigate a page **by jumping between headings** — a broken hierarchy makes
+that navigation confusing or misleading, independent of any visual styling.
+
+## Essential `<meta>` tags
+
+```html
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Learn React, Angular, Next.js, and JavaScript with real projects and interview-prep quizzes." />
+
+  <!-- Open Graph: controls the preview card when this URL is shared on social platforms -->
+  <meta property="og:title" content="SkillPrep" />
+  <meta property="og:description" content="Learn by building real projects." />
+  <meta property="og:image" content="https://skillprep.example.com/og-image.png" />
+</head>
+```
+
+- `viewport` is required for responsive CSS to work at all on mobile browsers
+  — without it, mobile browsers render the page at a fixed desktop-like width
+  and zoom out.
+- `description` is often (not always) what search engines display as the
+  snippet under a search result.
+- The `og:*` tags are read by platforms like Twitter/X, Slack, and LinkedIn
+  to build the preview card when a link is pasted — without them, a shared
+  link often falls back to a generic or missing image.
+
+## Crawlability depends on real HTML being present
+
+```js
+// Client-side-only rendering: the initial HTML response is nearly empty
+// <div id="root"></div>
+// ...content only appears after JS downloads, parses, and runs.
+```
+
+A page that renders entirely via client-side JavaScript sends a nearly empty
+`<div id="root"></div>` in its initial HTML response — the real content only
+appears after the browser downloads and executes JavaScript. Some crawlers
+do execute JavaScript, but inconsistently, with delays, and not universally
+across every search and social-preview crawler — so content that matters for
+SEO or link previews is safest when it's present in the **initial** HTML
+response. This is a core reason frameworks like Next.js default to server
+rendering or static generation rather than a client-only single-page app:
+the real content is already there when a crawler (or a social platform's
+link-preview bot) fetches the page.
+
+### Try it yourself
+
+Open this app's own pages and check the heading hierarchy in the browser's
+DevTools accessibility tree — confirm every lesson page has exactly one
+`<h1>` and no skipped heading levels.

@@ -1,0 +1,86 @@
+---
+title: "Middleware & the Proxy Convention"
+description: "Run code before a route renders — auth checks, redirects, and rewriting requests at the edge."
+module: "Backend"
+order: 4
+---
+
+Some logic needs to run **before** any route in your app renders — checking
+whether a visitor is signed in, redirecting based on locale, or rewriting a
+request to a different path. Next.js runs a single function for every
+matching request, ahead of routing, for exactly this purpose.
+
+## The `proxy` file convention
+
+As of Next.js 16, this function lives in `proxy.ts` at the project root (or
+inside `src/`), exported as `proxy`. This app's own `src/proxy.ts` is a real
+example — it refreshes the signed-in user's Supabase session on every
+request so Server Components downstream always see a valid session:
+
+```ts
+// src/proxy.ts
+import { type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
+
+export async function proxy(request: NextRequest) {
+  return await updateSession(request);
+}
+
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+};
+```
+
+> Older Next.js projects (and most tutorials/blog posts today) still use the
+> `middleware.ts` file with an exported `middleware` function — same idea,
+> older name. If you see both a `middleware.ts` and a `proxy.ts` file in a
+> project, Next.js will error and tell you to keep only `proxy.ts`.
+
+## The `matcher`: scoping which requests run through it
+
+Without a `matcher`, the function runs on **every** request, including
+static assets — usually wasteful. The `config.matcher` array is a set of
+path patterns (or a regex, as above) that limits it to the routes that
+actually need it.
+
+## Redirecting unauthenticated visitors
+
+A common use case: protect a section of the site by checking for a session
+cookie before the route ever renders, and redirect if it's missing.
+
+```ts
+// src/proxy.ts
+import { NextResponse, type NextRequest } from "next/server";
+
+export function proxy(request: NextRequest) {
+  const isLoggedIn = request.cookies.has("session");
+  const isProtectedRoute = request.nextUrl.pathname.startsWith("/dashboard");
+
+  if (isProtectedRoute && !isLoggedIn) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/dashboard/:path*"],
+};
+```
+
+This runs at the edge, before any Server Component code executes — cheaper
+than letting the page start rendering and only then discovering the user
+isn't authorized.
+
+## What it can't do
+
+The proxy function runs in a restricted **Edge runtime**, not full Node.js —
+no filesystem access, and only a subset of npm packages work there. Database
+queries, reading cookies to redirect, and lightweight checks are a good fit;
+anything heavier belongs in the page or a Server Action instead.
+
+### Try it yourself
+
+Add a `matcher` that also protects `/courses/*` routes, and extend the
+redirect to preserve the originally requested path as a `?next=` query param
+so the login page can send the user back after signing in.

@@ -1,0 +1,58 @@
+---
+title: "Core Components & JSX"
+description: "Why there's no DOM in React Native, and the handful of built-in components everything else is built from."
+module: "Fundamentals"
+order: 1
+---
+
+React Native renders JSX to real, native platform views — not HTML. There is
+no DOM, no `document`, and no browser underneath; `<View>` compiles down to a
+native `UIView` on iOS and a native `ViewGroup` on Android. The React
+programming model (components, props, state, hooks) is identical to web
+React — what changes is the vocabulary of built-in components you render.
+
+## The core building blocks
+
+```jsx
+import { View, Text, Image, ScrollView } from "react-native";
+
+function ProfileCard({ user }) {
+  return (
+    <View style={{ padding: 16 }}>
+      <Image source={{ uri: user.avatarUrl }} style={{ width: 64, height: 64 }} />
+      <Text style={{ fontSize: 18, fontWeight: "bold" }}>{user.name}</Text>
+      <Text>{user.bio}</Text>
+    </View>
+  );
+}
+```
+
+- **`View`** is the rough equivalent of a `<div>` — a generic, non-scrolling
+  container used for layout.
+- **`Text`** is required to render any text at all. Unlike the web, where bare
+  text works inside almost any element, React Native throws an error if you
+  put a text string directly inside a `<View>` — all text must be wrapped in
+  `<Text>`.
+- **`Image`** needs an explicit `source` (either a remote `{ uri }` object or
+  a local `require(...)`) and, for remote images, explicit `width`/`height`
+  styling — React Native can't infer size from the file the way a browser can
+  for a loaded `<img>`.
+- **`ScrollView`** makes its content scrollable, but renders **all** of its
+  children immediately, all at once — fine for a short, fixed amount of
+  content, but a performance problem for a long list.
+
+## Why `FlatList` exists separately from `ScrollView`
+
+For anything list-shaped with more than a handful of items, React Native
+provides `FlatList`, which only renders items that are on or near screen and
+recycles row components as the user scrolls — the same virtualization idea
+behind long lists in any native mobile app. The performance lesson later in
+this course covers `FlatList` tuning in depth; for now, the rule of thumb is:
+reach for `ScrollView` for a short, known amount of mixed content, and
+`FlatList` for anything that renders a list of same-shaped items.
+
+### Try it yourself
+
+Build a small `ScrollView` containing three `ProfileCard`-style sections, then
+try rendering a bare string like `"Hello"` directly inside a `<View>` instead
+of inside `<Text>`, and read the error React Native gives you.

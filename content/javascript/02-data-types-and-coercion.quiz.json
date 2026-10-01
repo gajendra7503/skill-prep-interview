@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `typeof null` return, and why is this notable?",
+      "options": [
+        "\"null\" — exactly what you'd expect",
+        "\"object\" — a long-standing historical quirk of the language, kept for backward compatibility",
+        "\"undefined\" — because null represents absence of a value",
+        "It throws a TypeError"
+      ],
+      "correctIndex": 1,
+      "explanation": "typeof null returning \"object\" is a famous bug from the original JS implementation that has remained for compatibility ever since."
+    },
+    {
+      "question": "Why does `obj2.count = 20` also change `obj1.count` after `const obj2 = obj1`?",
+      "options": [
+        "const prevents reassignment but objects are assigned by reference, so obj1 and obj2 point to the same underlying object",
+        "JavaScript automatically synchronizes variables with the same shape",
+        "This only happens in non-strict mode",
+        "It doesn't — this is a trick question, obj1.count stays 10"
+      ],
+      "correctIndex": 0,
+      "explanation": "Objects are reference types: both variables hold a reference to the same object in memory, so mutating it via either variable is visible through both."
+    },
+    {
+      "question": "Why does `\"0\" == false` evaluate to true?",
+      "options": [
+        "Because == never performs type coercion",
+        "Because loose equality coerces both operands toward a common type — here, \"0\" becomes the number 0, and false also becomes 0",
+        "Because strings and booleans are the same type internally",
+        "This is actually false, not true"
+      ],
+      "correctIndex": 1,
+      "explanation": "== applies a coercion algorithm when operand types differ; both \"0\" and false ultimately compare as the number 0."
+    },
+    {
+      "question": "What is the reliable way to check whether a value is NaN?",
+      "options": [
+        "value === NaN",
+        "Number.isNaN(value)",
+        "value == NaN",
+        "typeof value === \"NaN\""
+      ],
+      "correctIndex": 1,
+      "explanation": "NaN is never equal to anything, including itself, so equality checks always fail; Number.isNaN is the dedicated, coercion-free check."
+    }
+  ]
+}

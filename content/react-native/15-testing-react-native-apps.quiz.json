@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does RNTL's `fireEvent.press` play the same role as `userEvent.click` on the web?",
+      "options": [
+        "They are unrelated APIs with no shared purpose",
+        "Both simulate a real user interaction (a touch vs a click) on an element, driving the test from the user's perspective rather than calling internal handlers directly",
+        "fireEvent.press only works in Detox, not Jest",
+        "press is a deprecated alias for click"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both APIs exist to simulate how a real user would interact with the rendered UI, keeping the test focused on behavior rather than implementation."
+    },
+    {
+      "question": "Why must a native module like AsyncStorage be mocked in Jest tests?",
+      "options": [
+        "Mocking is only a style preference with no functional necessity",
+        "The real module is backed by native Swift/Kotlin code that doesn't exist in the Node.js environment Jest runs tests in, so importing it directly would crash",
+        "Jest cannot import any npm package",
+        "AsyncStorage is always synchronous in tests"
+      ],
+      "correctIndex": 1,
+      "explanation": "Native modules bridge to platform-specific code; outside a real app runtime (like Jest's Node environment), that native implementation simply isn't present, so a JS-level mock stands in for it."
+    },
+    {
+      "question": "What can Detox catch that a Jest + RNTL component test cannot?",
+      "options": [
+        "Nothing — they test exactly the same things",
+        "Issues that only appear on a real device/simulator, like native permission dialogs, real navigation transitions, or actual screen-size layout bugs",
+        "Syntax errors in JavaScript code",
+        "Whether a component re-renders too often"
+      ],
+      "correctIndex": 1,
+      "explanation": "Component tests run entirely in Node and never touch real native behavior; Detox drives an actual simulator/emulator, exercising the full native + JS stack together."
+    },
+    {
+      "question": "What's the recommended balance between component tests and Detox end-to-end tests?",
+      "options": [
+        "Write only Detox tests and skip component tests entirely",
+        "Many fast component tests for broad coverage, with a much smaller number of slower Detox tests reserved for critical end-to-end flows",
+        "Write only component tests; Detox is never necessary",
+        "They should always be written in a 1:1 ratio"
+      ],
+      "correctIndex": 1,
+      "explanation": "Detox tests are slower and more brittle due to real device/timing dependencies, so they're best reserved for a small set of critical flows, while component tests handle broad day-to-day coverage."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Besides its own state or props changing, what else causes a component to re-render?",
+      "options": [
+        "Nothing else — only its own state/props changes trigger a re-render",
+        "Its parent re-rendering, even if the child's own props look unchanged",
+        "The browser window resizing",
+        "Only a manual call to forceUpdate()"
+      ],
+      "correctIndex": 1,
+      "explanation": "React re-renders a whole subtree by default when a parent re-renders, regardless of whether a given child's props actually changed."
+    },
+    {
+      "question": "What does `React.memo` do?",
+      "options": [
+        "Caches the result of an expensive function call",
+        "Skips re-rendering a component if a shallow comparison finds none of its props changed",
+        "Prevents a component from ever re-rendering",
+        "Automatically debounces event handlers"
+      ],
+      "correctIndex": 1,
+      "explanation": "React.memo shallow-compares the new props to the previous ones and bails out of re-rendering if they're equal."
+    },
+    {
+      "question": "Why can `useCallback` be necessary alongside `React.memo`?",
+      "options": [
+        "React.memo doesn't work at all without useCallback",
+        "A new inline function is created on every parent render, which breaks React.memo's shallow prop comparison on the child",
+        "useCallback makes functions run faster",
+        "It's needed to satisfy the Rules of Hooks"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without useCallback, a function prop is a new reference every render, so a memoized child sees its onClick prop as 'changed' even though the behavior is identical."
+    },
+    {
+      "question": "What is the recommended approach before reaching for useMemo/useCallback everywhere?",
+      "options": [
+        "Apply them to every function and computed value by default",
+        "Identify an actual slow render or expensive calculation first, e.g. via the DevTools Profiler",
+        "Avoid using them at all, ever",
+        "Only use them in class components"
+      ],
+      "correctIndex": 1,
+      "explanation": "Memoization hooks add their own overhead and complexity; they should be applied to a measured bottleneck, not sprinkled everywhere preemptively."
+    }
+  ]
+}

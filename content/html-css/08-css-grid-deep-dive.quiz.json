@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does the `fr` unit in `grid-template-columns: 1fr 2fr` represent?",
+      "options": [
+        "A fixed pixel value",
+        "A fraction of the remaining space after fixed-size tracks are laid out, so the second column gets twice the leftover space of the first",
+        "A percentage of the viewport width",
+        "The number of grid items allowed in that column"
+      ],
+      "correctIndex": 1,
+      "explanation": "fr units divide up whatever space is left over once any fixed-width tracks (like 240px) are accounted for."
+    },
+    {
+      "question": "What is the main benefit of `grid-template-areas` over positioning items with numeric `grid-column`/`grid-row` values?",
+      "options": [
+        "It renders faster in the browser",
+        "The template string visually maps out the layout, making the structure self-documenting and easier to read at a glance",
+        "It's required for responsive design to work",
+        "It uses less CSS overall"
+      ],
+      "correctIndex": 1,
+      "explanation": "A named grid-template-areas string literally looks like the layout, which is easier for a reader to parse than tracking numeric line positions."
+    },
+    {
+      "question": "What does `grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))` achieve without any media queries?",
+      "options": [
+        "A fixed 3-column layout on all screen sizes",
+        "As many 240px-minimum columns as fit the container, stretched evenly to fill leftover space, automatically dropping columns as the container narrows",
+        "A single column on every screen size",
+        "It has no effect without an explicit column count"
+      ],
+      "correctIndex": 1,
+      "explanation": "auto-fit with minmax lets the browser calculate how many columns fit at the minimum size and stretch them to fill the rest — a fully responsive grid with zero breakpoints."
+    },
+    {
+      "question": "According to general guidance, when should you reach for Grid instead of Flexbox?",
+      "options": [
+        "Never — Flexbox can always do everything Grid can",
+        "When rows and columns both need to align together, such as a dashboard or card gallery, versus Flexbox's strength in single-row/column, content-driven layouts like a toolbar",
+        "Only when building a page with no responsive requirements",
+        "Grid and Flexbox are fully interchangeable with no tradeoffs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Grid is suited to two-dimensional layout where rows and columns need to align; Flexbox suits one-dimensional arrangement, and real UIs often combine both."
+    }
+  ]
+}

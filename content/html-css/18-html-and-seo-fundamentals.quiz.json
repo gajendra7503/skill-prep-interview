@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does a correct heading hierarchy (one h1, no skipped levels) matter for screen reader users specifically?",
+      "options": [
+        "It doesn't affect screen readers at all, only visual styling",
+        "Screen reader users frequently navigate a page by jumping between headings, so a broken hierarchy makes that navigation confusing or misleading",
+        "Screen readers cannot read a page without an h1",
+        "It only matters for search engine rankings, not accessibility"
+      ],
+      "correctIndex": 1,
+      "explanation": "Jumping by heading level is a common screen-reader navigation pattern, so the heading structure needs to accurately reflect the page's real content outline."
+    },
+    {
+      "question": "What does the viewport meta tag actually control?",
+      "options": [
+        "The page's title shown in the browser tab",
+        "How mobile browsers size and scale the page — without it, mobile browsers render at a fixed desktop-like width and zoom out",
+        "Which fonts are loaded",
+        "The page's social media preview image"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without a viewport meta tag, responsive CSS breakpoints don't work as intended on mobile, since the browser assumes a desktop viewport width by default."
+    },
+    {
+      "question": "What are the `og:title`/`og:description`/`og:image` meta tags used for?",
+      "options": [
+        "They control search engine ranking directly",
+        "Platforms like Twitter/X, Slack, and LinkedIn read them to build the preview card shown when a link is shared",
+        "They are required for the page to load at all",
+        "They control the page's favicon"
+      ],
+      "correctIndex": 1,
+      "explanation": "Open Graph tags specifically target link-preview generation on social and messaging platforms, separate from standard search engine indexing."
+    },
+    {
+      "question": "Why is a client-side-only rendered page potentially risky for SEO and link previews?",
+      "options": [
+        "Client-side rendering is always slower, which is the only issue",
+        "Its initial HTML response is nearly empty, and not every crawler or social-preview bot executes JavaScript reliably or promptly to see the real content",
+        "Search engines refuse to index any JavaScript-based website",
+        "It has no actual impact on SEO"
+      ],
+      "correctIndex": 1,
+      "explanation": "Some crawlers do run JavaScript, but inconsistently; content present in the initial HTML response is the most reliably indexed and previewed, which is why server rendering/static generation is the safer default for SEO-sensitive content."
+    }
+  ]
+}

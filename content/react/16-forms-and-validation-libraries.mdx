@@ -1,0 +1,105 @@
+---
+title: "Forms & Validation Libraries"
+description: "Why hand-rolled controlled forms stop scaling, and how React Hook Form + Zod fix it."
+module: "Forms"
+order: 16
+---
+
+The controlled-input pattern from earlier in this course (value + onChange,
+driven by `useState`) works well for a login form with two fields. It starts
+to hurt once a form has a dozen fields, nested arrays, or cross-field
+validation.
+
+## The cost of fully controlled forms at scale
+
+```jsx
+function SignupForm() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  // ...repeated for every field, each one re-rendering the whole form on every keystroke
+}
+```
+
+Every keystroke in any field re-renders the entire form component. For a
+small form this is irrelevant; for a large one with expensive child
+components (rich selects, conditional sections) it becomes a measurable
+performance problem, on top of the sheer boilerplate of one `useState` pair
+per field.
+
+## React Hook Form: uncontrolled by default
+
+React Hook Form keeps inputs uncontrolled (reading their value via refs
+instead of state) and only re-renders on submit or validation, not on every
+keystroke:
+
+```jsx
+import { useForm } from "react-hook-form";
+
+function SignupForm() {
+  const { register, handleSubmit, formState: { errors } } = useForm();
+
+  function onSubmit(data) {
+    console.log(data); // { name, email, password }
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <input {...register("name", { required: "Name is required" })} />
+      {errors.name && <p>{errors.name.message}</p>}
+
+      <input {...register("email", { required: true, pattern: /^\S+@\S+$/ })} />
+      {errors.email && <p>Enter a valid email</p>}
+
+      <button type="submit">Sign up</button>
+    </form>
+  );
+}
+```
+
+`register("name", {...})` wires an input to the form's internal state via
+ref and spreads the right `name`/`onChange`/`onBlur` props onto it — no
+`useState` per field, and no re-render while the user types.
+
+## Schema validation with Zod
+
+Inline validation rules (`{ required: true, pattern: ... }`) get unwieldy
+fast. A schema library like Zod centralizes validation logic and gives you a
+single source of truth you can reuse for both the client form and a server-
+side check:
+
+```ts
+import { z } from "zod";
+
+const signupSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+type SignupData = z.infer<typeof signupSchema>; // TypeScript type derived from the schema
+```
+
+```jsx
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+function SignupForm() {
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(signupSchema),
+  });
+  // errors.name.message, errors.email.message, etc. now come from the schema
+}
+```
+
+The `zodResolver` plugs Zod's validation into React Hook Form's error state,
+so `errors` is populated from the same schema you'd reuse to validate the
+same payload again on the server (e.g. inside a Server Action), instead of
+duplicating validation rules in two places.
+
+### Try it yourself
+
+Rewrite this app's own sign-up form (`src/components/auth-form.tsx`) using
+`react-hook-form` and a Zod schema requiring the password to be at least 8
+characters, and compare how much of the manual `useState`-per-field
+boilerplate disappears.

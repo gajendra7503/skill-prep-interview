@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why can't you pass a plain function as a prop from a Server Component to a Client Component?",
+      "options": [
+        "Functions are too large to send over the network",
+        "Props crossing the server-client boundary must serialize like JSON, and functions/class instances can't serialize (Server Actions are a special case)",
+        "It's a security restriction with no technical reason",
+        "You actually can, this is a myth"
+      ],
+      "correctIndex": 1,
+      "explanation": "There's no way to send executable code from server to client as plain data. Server Actions work because Next.js wires them up as special callable references, not as ordinary functions."
+    },
+    {
+      "question": "Why pass a Server Component as `children` into a Client Component instead of making the whole tree a Client Component?",
+      "options": [
+        "It has no real benefit, it's just a style preference",
+        "It keeps the server-rendered content (and its server-only dependencies) out of the client JS bundle while still nesting it inside interactive UI",
+        "Client Components cannot accept children at all",
+        "It's required by TypeScript"
+      ],
+      "correctIndex": 1,
+      "explanation": "The interactive shell stays a small Client Component; the expensive/server-only content is rendered on the server and passed down as already-resolved JSX, never becoming part of the client bundle."
+    },
+    {
+      "question": "What happens if you try to use `useState` inside a Server Component?",
+      "options": [
+        "It works exactly like in a Client Component",
+        "It fails — hooks require a client-side lifecycle that a Server Component, which is just an async function returning JSX, doesn't have",
+        "It works, but only in production builds",
+        "It silently becomes a Client Component automatically"
+      ],
+      "correctIndex": 1,
+      "explanation": "Hooks like useState, useEffect, and useContext only work in Client Components; a Server Component has no client-side lifecycle to hook into."
+    },
+    {
+      "question": "What's the risk of importing a server-only module (like a database client) into a file marked \"use client\"?",
+      "options": [
+        "There is no risk, imports are always safe",
+        "It can fail to bundle, or worse, leak server secrets into client-shipped JavaScript",
+        "It only affects build time, never runtime",
+        "It automatically gets stripped out safely by Next.js"
+      ],
+      "correctIndex": 1,
+      "explanation": "Server-only code and secrets are not meant to reach the browser; importing them into client code risks exposing credentials or logic that should stay server-side."
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "question": "What does `@Injectable({ providedIn: 'root' })` do?",
+      "options": [
+        "Registers the service as a singleton available app-wide",
+        "Makes the class instantiate immediately on app start",
+        "Prevents the service from being unit tested",
+        "Only allows the service to be used in one component"
+      ],
+      "correctIndex": 0,
+      "explanation": "`providedIn: 'root'` registers a single shared instance with Angular's injector, given to every component or service that injects it."
+    },
+    {
+      "question": "What is the idiomatic way to get a service instance inside a component?",
+      "options": [
+        "Call `new ServiceName()` directly",
+        "Use `inject()` or constructor injection",
+        "Import it as a global variable",
+        "Use `document.querySelector`"
+      ],
+      "correctIndex": 1,
+      "explanation": "Angular's dependency injector, not manual instantiation, is responsible for providing service instances — this is what makes services mockable in tests."
+    },
+    {
+      "question": "What type do `HttpClient` methods like `.get()` return?",
+      "options": ["A Promise", "An Observable", "A plain JS object", "A synchronous array"],
+      "correctIndex": 1,
+      "explanation": "HttpClient is built on RxJS, so its methods return Observables, which you subscribe to or consume via the `async` pipe."
+    },
+    {
+      "question": "What does the `async` pipe do in a template like `*ngFor=\"let p of products$ | async\"`?",
+      "options": [
+        "Converts the Observable to a Promise",
+        "Subscribes to the Observable and automatically unsubscribes when the component is destroyed",
+        "Runs the template asynchronously for better performance",
+        "Has no effect without RxJS operators"
+      ],
+      "correctIndex": 1,
+      "explanation": "The `async` pipe handles subscription and cleanup automatically, which is why it's preferred over manually calling `.subscribe()` in the component class."
+    }
+  ]
+}

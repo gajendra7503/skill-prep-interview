@@ -1,0 +1,107 @@
+---
+title: "Concurrent Rendering"
+description: "useTransition and useDeferredValue for keeping the UI responsive during expensive updates."
+module: "Advanced Patterns"
+order: 13
+---
+
+Concurrent rendering is the capability, built on the Fiber architecture
+(covered earlier in this course), for React to work on a render without
+blocking the browser from handling more urgent things like a keystroke. Two
+hooks let you opt into this directly.
+
+## The problem: one slow update blocks everything
+
+```jsx
+function SearchPage() {
+  const [query, setQuery] = useState("");
+  const results = useMemo(() => expensiveFilter(allItems, query), [query]);
+
+  return (
+    <>
+      <input value={query} onChange={(e) => setQuery(e.target.value)} />
+      <ResultsList results={results} /> {/* rendering 10,000 rows is slow */}
+    </>
+  );
+}
+```
+
+If `expensiveFilter` and rendering `ResultsList` are slow, every keystroke
+feels laggy — the input's re-render is stuck behind the expensive list
+re-render because, by default, React treats all updates from one event as
+equally urgent.
+
+## `useTransition`: marking an update as non-urgent
+
+```jsx
+function SearchPage() {
+  const [query, setQuery] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const [results, setResults] = useState([]);
+
+  function handleChange(e) {
+    const value = e.target.value;
+    setQuery(value); // urgent: the input must feel instant
+
+    startTransition(() => {
+      setResults(expensiveFilter(allItems, value)); // non-urgent: can be interrupted
+    });
+  }
+
+  return (
+    <>
+      <input value={query} onChange={handleChange} />
+      {isPending && <span>Updating…</span>}
+      <ResultsList results={results} />
+    </>
+  );
+}
+```
+
+`setQuery` updates immediately so the input stays responsive. The state
+update inside `startTransition` is marked low-priority — if the user types
+again before it finishes, React abandons the stale render and starts over
+with the new value, rather than finishing an update the user has already
+made obsolete.
+
+## `useDeferredValue`: deferring a derived value
+
+When you don't control the state update itself (e.g. it comes from a prop
+or another hook), `useDeferredValue` lets a value "lag behind" during
+expensive re-renders:
+
+```jsx
+function SearchPage() {
+  const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
+  const results = useMemo(() => expensiveFilter(allItems, deferredQuery), [deferredQuery]);
+
+  return (
+    <>
+      <input value={query} onChange={(e) => setQuery(e.target.value)} />
+      <ResultsList results={results} />
+    </>
+  );
+}
+```
+
+`query` updates immediately (the input stays snappy), while
+`deferredQuery` trails behind during heavy renders and catches up once
+React has spare capacity. `useTransition` wraps a *state update you
+trigger*; `useDeferredValue` wraps a *value you already have* — use
+whichever fits how the data reaches you.
+
+## What this doesn't do
+
+Concurrent features don't make the expensive work itself faster — filtering
+10,000 items still takes the same CPU time. What changes is *scheduling*:
+React can pause that work to handle a more urgent update (like the next
+keystroke) and resume or restart it afterward, instead of blocking the
+main thread until it's done.
+
+### Try it yourself
+
+Take the Task Tracker project from this course, render a large generated
+list (1,000+ items) filtered by a text input, and compare the typing
+experience with and without wrapping the filtered-list state update in
+`useTransition`.

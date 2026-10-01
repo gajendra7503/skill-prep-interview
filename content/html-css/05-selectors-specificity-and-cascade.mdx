@@ -1,0 +1,95 @@
+---
+title: "Selectors, Specificity & the Cascade"
+description: "How the browser decides which of several conflicting CSS rules actually wins."
+module: "CSS Fundamentals"
+order: 5
+---
+
+When two CSS rules target the same element with conflicting declarations,
+the browser needs a deterministic way to pick a winner. That mechanism —
+specificity, then source order — is one of the most-tested CSS fundamentals
+in interviews, precisely because it causes real "why isn't my style
+applying" bugs.
+
+## Selector types and what they target
+
+```css
+div            { }  /* element selector */
+.card          { }  /* class selector */
+#header        { }  /* ID selector */
+[data-active]  { }  /* attribute selector */
+a:hover        { }  /* pseudo-class selector */
+```
+
+Each selector type carries a different specificity **weight**, and a
+selector can combine several of them (`div.card#header:hover` has all four).
+
+## How specificity is calculated
+
+Specificity is commonly expressed as three numbers, (IDs, classes, elements),
+compared left to right:
+
+```text
+#header                  -> (1, 0, 0)
+.card .title             -> (0, 2, 0)
+div.card                 -> (0, 1, 1)
+div                      -> (0, 0, 1)
+```
+
+Comparison works like comparing version numbers: any number of classes can
+never outweigh a single ID, and any number of elements can never outweigh a
+single class. `#header` beats `.card.title.active.large` every time,
+regardless of how many classes pile up on the second selector, because the
+comparison stops at the first column where they differ.
+
+## Inline styles and `!important` sit outside this scale entirely
+
+```html
+<p style="color: blue;">...</p>
+```
+
+```css
+p { color: red !important; }
+```
+
+An inline `style` attribute beats **any** selector-based rule, no matter its
+specificity — except a rule marked `!important`, which overrides
+*everything* else, including inline styles. This is exactly why
+`!important` is discouraged as a habit: once overused, the only way to
+override an `!important` rule is with another, even-more-specific
+`!important` rule, which escalates quickly into unmaintainable CSS.
+
+## The cascade: the tiebreaker when specificity is equal
+
+```css
+.button { color: blue; }
+.button { color: green; } /* wins — same specificity, declared later */
+```
+
+When two rules have identical specificity, **source order** decides: the
+rule that appears later in the stylesheet (or later in the cascade of linked
+stylesheets) wins. This is why the order you write/import CSS files matters,
+independent of how "specific" any individual selector looks.
+
+## Worked example
+
+```css
+.card .title { color: navy; }       /* (0, 2, 0) */
+#post-123 .title { color: orange; } /* (1, 1, 0) */
+```
+
+```html
+<div id="post-123" class="card">
+  <h2 class="title">Which color wins?</h2>
+</div>
+```
+
+`#post-123 .title` wins — its specificity `(1, 1, 0)` beats `(0, 2, 0)`
+because it has an ID, regardless of which rule appears later in the file.
+
+### Try it yourself
+
+Write three conflicting rules for the same element with specificities
+`(0, 0, 1)`, `(0, 1, 0)`, and `(0, 1, 1)`, in a random order in your
+stylesheet, and predict which one wins before checking in DevTools' "Computed"
+panel.

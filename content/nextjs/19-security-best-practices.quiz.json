@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does the NEXT_PUBLIC_ prefix actually do to an environment variable?",
+      "options": [
+        "It encrypts the value before sending it to the browser",
+        "It inlines the value into the client-side JavaScript bundle, making it readable by anyone who opens dev tools",
+        "It restricts the variable to server-only code",
+        "It has no effect unless combined with another flag"
+      ],
+      "correctIndex": 1,
+      "explanation": "NEXT_PUBLIC_ variables are bundled into client JS at build time — the prefix means 'exposed to the browser,' not 'protected.'"
+    },
+    {
+      "question": "Why is it safe for this app to expose NEXT_PUBLIC_SUPABASE_ANON_KEY to the browser?",
+      "options": [
+        "Because the NEXT_PUBLIC_ prefix encrypts it",
+        "Because Supabase's anon key is designed to be public, and real data protection comes from Row Level Security policies enforced at the database",
+        "Because it expires after 24 hours automatically",
+        "It isn't actually safe and should be changed"
+      ],
+      "correctIndex": 1,
+      "explanation": "The anon key only identifies the project; RLS policies on the database are what actually restrict which rows a request can read or write."
+    },
+    {
+      "question": "How does Next.js protect Server Actions from cross-site request forgery (CSRF) by default?",
+      "options": [
+        "It doesn't — you must implement CSRF tokens manually",
+        "It checks that the request's Origin header matches the deployment's own host before executing the action",
+        "It requires every Server Action to be behind a login",
+        "It encrypts all form data automatically"
+      ],
+      "correctIndex": 1,
+      "explanation": "Next.js verifies the Origin header matches the app's own host, rejecting cross-origin Server Action calls before the action code runs — no manual token needed."
+    },
+    {
+      "question": "Does Server Actions' built-in CSRF protection mean you can skip validating/sanitizing the submitted data itself?",
+      "options": [
+        "Yes, CSRF protection covers all input safety concerns",
+        "No — CSRF protection only verifies the request's origin; the content still needs validation (shape/length, parameterized queries) and sanitization before being rendered as HTML",
+        "Only if the user is logged in",
+        "Yes, as long as NEXT_PUBLIC_ variables aren't involved"
+      ],
+      "correctIndex": 1,
+      "explanation": "CSRF protection is about who can call the action; it says nothing about whether the submitted content is safe to store or render, which remains the developer's responsibility."
+    }
+  ]
+}

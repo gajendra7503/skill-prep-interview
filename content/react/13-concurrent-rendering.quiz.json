@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "By default, how does React treat all state updates triggered within one event handler?",
+      "options": [
+        "As equally urgent, which can make an expensive update block a simple one like updating an input",
+        "It automatically defers all of them",
+        "It only processes the first one",
+        "It runs them on a background thread"
+      ],
+      "correctIndex": 0,
+      "explanation": "Without opting into a transition, every update from an event is treated with the same priority, so a slow render can make even a text input feel laggy."
+    },
+    {
+      "question": "What does wrapping a state update in `startTransition` actually change?",
+      "options": [
+        "It makes the underlying computation run faster",
+        "It marks that update as low-priority/interruptible, so React can abandon a stale in-progress render if a newer update arrives",
+        "It delays the update by a fixed number of milliseconds",
+        "It moves the update to a Web Worker"
+      ],
+      "correctIndex": 1,
+      "explanation": "Transitions don't speed up the work itself — they change scheduling, letting React interrupt and restart a non-urgent update in favor of something more urgent, like the next keystroke."
+    },
+    {
+      "question": "When should you reach for `useDeferredValue` instead of `useTransition`?",
+      "options": [
+        "When you don't control the state update directly, but have a value (e.g. a prop) you want to let 'lag behind' during expensive renders",
+        "They are interchangeable in every situation with no difference",
+        "Only inside class components",
+        "Only when working with CSS animations"
+      ],
+      "correctIndex": 0,
+      "explanation": "`useTransition` wraps a state update you trigger yourself; `useDeferredValue` wraps a value you've already received and lets a derived render trail behind it."
+    },
+    {
+      "question": "What do concurrent features like `useTransition` NOT do?",
+      "options": [
+        "They don't make the expensive computation itself any faster — filtering 10,000 items still takes the same CPU time",
+        "They don't work with React 19",
+        "They don't work with useState",
+        "They eliminate the need for keys in lists"
+      ],
+      "correctIndex": 0,
+      "explanation": "Concurrent rendering changes scheduling/prioritization of renders, not the raw cost of the computation being performed."
+    }
+  ]
+}

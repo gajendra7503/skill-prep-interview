@@ -1,0 +1,107 @@
+---
+title: "React Navigation"
+description: "Stack, tab, and drawer navigators, passing route params, and nesting navigators."
+module: "Navigation"
+order: 4
+---
+
+There's no URL bar or browser history in a mobile app, so React Native has no
+built-in router — screen-to-screen navigation is handled by a separate
+library, almost always **React Navigation**, which models navigation as a
+stack (or set of stacks) of screens.
+
+## The Stack Navigator
+
+```jsx
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+
+const Stack = createNativeStackNavigator();
+
+function App() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator>
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+```
+
+Each `Stack.Screen` receives a `navigation` prop automatically. Navigating
+pushes a new screen onto the stack, with a native back gesture/button
+unwinding it — this is the mobile equivalent of pushing a new route in a web
+router, except the "back" affordance is a platform convention, not something
+you build yourself.
+
+## Passing and reading route params
+
+```jsx
+function HomeScreen({ navigation }) {
+  return (
+    <Button
+      title="View profile"
+      onPress={() => navigation.navigate("Profile", { userId: 42 })}
+    />
+  );
+}
+
+function ProfileScreen({ route }) {
+  const { userId } = route.params;
+  return <Text>Profile for user {userId}</Text>;
+}
+```
+
+`route.params` is how data flows between screens — there's no shared URL, so
+whatever the pushing screen passes as the second argument to `navigate()` is
+exactly what the receiving screen reads off `route.params`.
+
+## Tab and Drawer navigators
+
+```jsx
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+
+const Tab = createBottomTabNavigator();
+
+function App() {
+  return (
+    <NavigationContainer>
+      <Tab.Navigator>
+        <Tab.Screen name="Feed" component={FeedStack} />
+        <Tab.Screen name="Settings" component={SettingsScreen} />
+      </Tab.Navigator>
+    </NavigationContainer>
+  );
+}
+```
+
+## Nesting navigators
+
+Real apps almost always nest navigators — a bottom tab bar where one tab is
+itself a full stack of screens, as `FeedStack` above implies:
+
+```jsx
+const FeedStackNav = createNativeStackNavigator();
+
+function FeedStack() {
+  return (
+    <FeedStackNav.Navigator>
+      <FeedStackNav.Screen name="FeedList" component={FeedListScreen} />
+      <FeedStackNav.Screen name="PostDetail" component={PostDetailScreen} />
+    </FeedStackNav.Navigator>
+  );
+}
+```
+
+Tapping a post in `FeedListScreen` pushes `PostDetail` onto the **feed tab's
+own stack**, while the bottom tab bar stays visible and the other tab's stack
+is preserved untouched in the background — each tab remembers its own
+navigation history independently.
+
+### Try it yourself
+
+Add a third screen to the stack navigator that receives a `postId` param, and
+add a header button (via `options={{ headerRight: () => ... }}` on the
+`Stack.Screen`) that calls `navigation.goBack()`.

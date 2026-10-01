@@ -1,0 +1,85 @@
+---
+title: "Rendering Performance"
+description: "The critical rendering path, why CSS blocks rendering on purpose, and reflow vs repaint vs composite."
+module: "Performance"
+order: 13
+---
+
+Understanding what the browser actually does between receiving HTML/CSS and
+showing pixels explains a lot of CSS performance advice that otherwise
+sounds like folklore.
+
+## The critical rendering path
+
+1. **HTML → DOM** — the browser parses HTML into the DOM tree.
+2. **CSS → CSSOM** — the browser parses all CSS into the CSSOM, a tree of
+   every computed style rule.
+3. **DOM + CSSOM → Render Tree** — the two are combined into only the
+   visible nodes (elements with `display: none` are excluded entirely).
+4. **Layout** — the browser computes the exact size and position of every
+   node in the render tree.
+5. **Paint** — pixels are actually filled in (text, colors, images, shadows)
+   onto layers.
+6. **Composite** — layers are combined in the right order and drawn to the
+   screen, with GPU acceleration for operations like `transform`.
+
+Every one of these steps depends on the one before it — layout can't happen
+until the render tree exists, which can't happen until the CSSOM is
+complete.
+
+## Why CSS is render-blocking by default
+
+```html
+<head>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+```
+
+The browser won't paint anything until it has the complete CSSOM, which
+means a `<link rel="stylesheet">` in the `<head>` blocks rendering until that
+file downloads and parses. This sounds bad, but it's almost always the
+*correct* trade-off: without it, the browser would paint content using
+no styles first, then suddenly re-paint once CSS arrives — a visible "flash
+of unstyled content" that looks far worse than a brief blank screen. This is
+also why render-blocking CSS should be kept small and why non-critical
+styles are sometimes loaded asynchronously or deferred.
+
+## Reflow vs. repaint vs. composite
+
+Not every style change re-runs the whole pipeline — the browser does only as
+much work as the change actually requires:
+
+```css
+/* Triggers layout (reflow) + paint + composite — the most expensive path */
+.box { width: 200px; }
+.box:hover { width: 300px; }
+
+/* Triggers paint + composite only — geometry is unaffected */
+.box2 { background: blue; }
+.box2:hover { background: red; }
+
+/* Triggers composite only — handled entirely on the GPU */
+.box3 { transform: scale(1); }
+.box3:hover { transform: scale(1.1); }
+```
+
+- **Reflow (layout)** — triggered by anything that can change an element's
+  size or position (`width`, `height`, `top`, `margin`, adding/removing DOM
+  nodes, even reading certain layout properties like `offsetHeight` in
+  JavaScript). The browser has to recompute geometry for that element and
+  potentially everything affected by it — expensive, and it cascades.
+- **Repaint** — triggered by a visual change that doesn't affect layout
+  (`background-color`, `visibility`, `box-shadow`). Cheaper than reflow,
+  since geometry doesn't need recalculating, but the browser still has to
+  redraw pixels.
+- **Composite** — triggered by changes the GPU can handle by just
+  recombining already-painted layers (`transform`, `opacity`). The cheapest
+  path, and why these two properties are the standard recommendation for
+  animation, as covered in the previous lesson.
+
+### Try it yourself
+
+Open any website's DevTools, go to the Performance or Rendering panel,
+enable "Paint flashing," and hover over a few interactive elements — watch
+which ones highlight (indicating a repaint) and compare that to one styled
+with only `transform`/`opacity` on hover.

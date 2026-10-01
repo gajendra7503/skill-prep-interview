@@ -1,0 +1,80 @@
+---
+title: "Edge vs Node.js Runtime"
+description: "Choosing where a route executes, and the real tradeoffs between speed and capability."
+module: "Backend"
+order: 17
+---
+
+Every route in Next.js runs in one of two JavaScript runtimes, and picking
+the wrong one for the job either costs you performance or crashes on a
+missing API.
+
+## Declaring a route's runtime
+
+```ts
+// app/api/health/route.ts
+export const runtime = "edge"; // or "nodejs" (the default)
+
+export async function GET() {
+  return new Response("ok");
+}
+```
+
+The proxy (`src/proxy.ts`) always runs on the Edge runtime — that's not
+configurable — but individual Route Handlers, pages, and Server Actions can
+each opt into either runtime independently.
+
+## What the Edge runtime gives you
+
+- **Fast cold starts** — Edge functions are lightweight and start in
+  milliseconds, versus a heavier Node.js process spin-up.
+- **Geographic distribution** — a request is handled by the server
+  closest to the visitor, cutting network latency, especially valuable for
+  something that runs on every request like a proxy.
+
+## What the Edge runtime takes away
+
+- **No full Node.js API** — no `fs`, no raw TCP sockets, no native addons.
+  Only Web-standard APIs (`fetch`, `Request`/`Response`, `crypto.subtle`) and
+  a curated subset of Node APIs are available.
+- **Most database drivers won't work** — traditional drivers for Postgres/
+  MySQL that rely on persistent TCP connections generally require the
+  Node.js runtime (or an HTTP-based driver built specifically for Edge).
+- **A tighter execution time limit** — Edge functions are built for quick,
+  latency-sensitive work, not long-running jobs.
+
+## Choosing per route
+
+| Scenario | Runtime | Why |
+|---|---|---|
+| This app's `src/proxy.ts` (session refresh check) | Edge (fixed) | Runs on every request; needs to be fast everywhere |
+| A Route Handler doing a simple auth/geolocation check | Edge | Latency-sensitive, no heavy dependencies |
+| A Route Handler querying Postgres via a traditional driver | Node.js | Needs a persistent TCP connection the Edge runtime doesn't support |
+| A Server Action processing an uploaded file or calling a Node-only SDK | Node.js | Needs full Node.js APIs or native packages |
+
+```ts
+// app/api/geo-check/route.ts — simple, latency-sensitive, no heavy deps
+export const runtime = "edge";
+
+export async function GET(request: Request) {
+  const country = request.headers.get("x-vercel-ip-country") ?? "unknown";
+  return Response.json({ country });
+}
+```
+
+```ts
+// app/api/export-report/route.ts — needs a full database driver
+export const runtime = "nodejs"; // the default, but explicit here for clarity
+
+export async function GET() {
+  const rows = await db.query("select * from reports");
+  return Response.json(rows);
+}
+```
+
+### Try it yourself
+
+Look at this app's Server Actions in `src/app/courses/[course]/[lesson]/actions.ts`
+— they use the Supabase JS client, which works over plain HTTP (not a raw
+TCP driver). Would these be reasonable candidates to run on the Edge
+runtime? What would you check before deciding?

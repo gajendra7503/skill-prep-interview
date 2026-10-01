@@ -1,0 +1,86 @@
+---
+title: "State & Events"
+description: "Making components interactive with useState and DOM event handlers."
+module: "Fundamentals"
+order: 2
+---
+
+Props make components configurable; **state** makes them interactive. State
+is data a component owns and can change over time, triggering a re-render
+whenever it updates.
+
+```jsx
+import { useState } from "react";
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <button onClick={() => setCount(count + 1)}>
+      Clicked {count} times
+    </button>
+  );
+}
+```
+
+`useState(initialValue)` returns a `[value, setter]` pair. Calling the setter
+schedules a re-render with the new value — it does **not** mutate the
+variable in place.
+
+## Updater functions
+
+When the next state depends on the previous state, pass a function instead of
+a value to avoid stale-state bugs (especially with rapid clicks or async
+code):
+
+```jsx
+setCount((prev) => prev + 1);
+```
+
+## Handling form input
+
+```jsx
+function NameForm() {
+  const [name, setName] = useState("");
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    alert(`Hello, ${name}`);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input value={name} onChange={(e) => setName(e.target.value)} />
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+This pattern — value driven by state, updated via `onChange` — is called a
+**controlled input**. It's the standard way to work with forms in React.
+
+## Lifting state up
+
+When two sibling components need to share state, move it to their closest
+common parent and pass it down via props, along with a callback to update it:
+
+```jsx
+function App() {
+  const [items, setItems] = useState([]);
+
+  return (
+    <>
+      <AddItemForm onAdd={(item) => setItems((prev) => [...prev, item])} />
+      <ItemList items={items} />
+    </>
+  );
+}
+```
+
+This is the foundation for the Task Tracker project later in this course.
+
+### Try it yourself
+
+Build a small "like" button that toggles between a filled and outline heart
+icon, and keeps a running like count.

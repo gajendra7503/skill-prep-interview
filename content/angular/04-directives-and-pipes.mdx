@@ -1,0 +1,105 @@
+---
+title: "Directives & Pipes"
+description: "Control template rendering with @if/@for, style dynamically with attribute directives, and transform data with pipes."
+module: "Fundamentals"
+order: 4
+---
+
+Directives and pipes are how Angular templates do more than static
+interpolation — directives control *what* renders, pipes control *how it's
+displayed*.
+
+## Structural control flow: `@if` and `@for`
+
+Modern Angular (v17+) replaced the `*ngIf`/`*ngFor` structural directives with
+built-in control-flow syntax that's faster and doesn't require importing
+`CommonModule`:
+
+```ts
+@Component({
+  selector: "app-employee-list",
+  standalone: true,
+  template: `
+    @if (employees().length > 0) {
+      <ul>
+        @for (emp of employees(); track emp.id) {
+          <li>{{ emp.name }}</li>
+        } @empty {
+          <li>No employees match.</li>
+        }
+      </ul>
+    } @else {
+      <p>Loading…</p>
+    }
+  `,
+})
+export class EmployeeListComponent {
+  employees = signal<Employee[]>([]);
+}
+```
+
+The `track` expression is required on `@for` — Angular uses it (similar to
+React's `key`) to match items across re-renders instead of recreating DOM
+nodes. Always track by a stable id, never the array index.
+
+## Attribute directives: `ngClass` and `ngStyle`
+
+Attribute directives change the appearance or behavior of an existing
+element without adding new elements to the DOM:
+
+```html
+<div [ngClass]="{ active: isActive, disabled: !canEdit }">
+  Status
+</div>
+
+<div [ngStyle]="{ color: isOverdue ? 'red' : 'inherit' }">
+  Due date
+</div>
+```
+
+For a single conditional class, prefer the lighter `[class.active]="isActive"`
+binding over `ngClass` — it avoids importing `NgClass` at all.
+
+## Pipes: transforming values in the template
+
+Pipes take a value and transform it for display, chained with `|`:
+
+```html
+<p>{{ order.total | currency:"INR" }}</p>
+<p>{{ order.placedAt | date:"mediumDate" }}</p>
+<p>{{ notifications$ | async }}</p>
+```
+
+`async` is the most important built-in pipe — it subscribes to an Observable
+or Promise and automatically unsubscribes when the component is destroyed,
+which is why you'll see it constantly alongside `HttpClient` and RxJS.
+
+## Writing a custom pipe
+
+```ts
+import { Pipe, PipeTransform } from "@angular/core";
+
+@Pipe({ name: "initials", standalone: true })
+export class InitialsPipe implements PipeTransform {
+  transform(fullName: string): string {
+    return fullName
+      .split(" ")
+      .map((part) => part[0]?.toUpperCase())
+      .join("");
+  }
+}
+```
+
+```html
+<span class="avatar">{{ employee.name | initials }}</span>
+```
+
+By default, pipes are **pure** — Angular only re-runs `transform` when the
+input reference changes, which keeps them cheap even inside large `@for`
+loops.
+
+### Try it yourself
+
+Write a `timeAgo` pipe that takes a `Date` and returns a string like "3
+minutes ago" or "2 days ago", then use it to display `emp.hiredAt` in the
+employee list.

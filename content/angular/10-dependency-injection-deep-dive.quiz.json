@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "question": "If a component declares `providers: [CartService]`, what happens when that component's children inject `CartService`?",
+      "options": [
+        "They get the same root singleton as the rest of the app",
+        "They get a new instance scoped to that component and its subtree, separate from the root instance",
+        "Angular throws an error for redeclaring a provider",
+        "The root instance is destroyed"
+      ],
+      "correctIndex": 1,
+      "explanation": "A provider declared on a component creates a new injector for that subtree, so descendants resolve to that scoped instance instead of walking further up to root."
+    },
+    {
+      "question": "What is an `InjectionToken` used for?",
+      "options": [
+        "Only for injecting Angular's built-in services",
+        "Providing a unique, type-safe key for injecting values that aren't classes, like plain config objects",
+        "Replacing @Injectable entirely",
+        "Encrypting service data"
+      ],
+      "correctIndex": 1,
+      "explanation": "Since a plain object or primitive can't be used as a DI token the way a class can, InjectionToken gives you a unique identifier to provide and inject non-class values."
+    },
+    {
+      "question": "Which provider option lets you supply an already-constructed value directly, with no instantiation?",
+      "options": ["useClass", "useValue", "useFactory", "useExisting"],
+      "correctIndex": 1,
+      "explanation": "useValue hands Angular a ready-made value to return whenever that token is injected — ideal for constants and configuration objects."
+    },
+    {
+      "question": "Why is `useClass` particularly useful in testing?",
+      "options": [
+        "It disables dependency injection during tests",
+        "It lets you swap in a fake/mock implementation under the same token, so components under test never need to know the difference",
+        "It only works in production builds",
+        "It automatically generates test data"
+      ],
+      "correctIndex": 1,
+      "explanation": "By providing a FakeCartService under the CartService token in a test module, components that inject CartService transparently receive the fake instead."
+    }
+  ]
+}

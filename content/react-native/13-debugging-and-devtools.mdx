@@ -1,0 +1,61 @@
+---
+title: "Debugging & Developer Tools"
+description: "What Metro actually does, inspecting a running app with React DevTools/Flipper, and reading a real stack trace."
+module: "Tooling"
+order: 13
+---
+
+Debugging a React Native app means reasoning about two worlds at once — your
+JavaScript and the native layer running it — and knowing which tool answers
+which kind of question saves enormous time.
+
+## Metro: more than "just a bundler"
+
+Metro is React Native's JS bundler and dev server. Beyond producing the
+JS bundle your app runs, it's also what powers **Fast Refresh** — when you
+save a file, Metro recompiles just the changed module and the running app
+hot-swaps it in place, preserving most component state instead of fully
+restarting. When something seems "stuck" (an old error keeps appearing after
+you've clearly fixed it, or a new native module isn't picked up), clearing
+Metro's cache (`npx react-native start --reset-cache`, or `expo start -c`)
+resolves a surprising fraction of mysterious issues, because it forces a
+truly clean rebuild of the bundle.
+
+## Inspecting a running app
+
+React DevTools (the same tool used for web React) connects to a running
+React Native app and shows the component tree, props, and hooks state
+exactly as it would in a browser — invaluable for "why did this re-render"
+or "what prop value is actually here right now" questions.
+
+**Flipper** goes further: it's a desktop app that connects to the running
+app process and layers on native-level inspection — network request
+logging, a layout inspector that shows the actual native view hierarchy
+(not just the React tree), and crash/log viewing, all from one place. It's
+the tool to reach for when the bug might be happening *below* the JS layer.
+
+## Reading a React Native error
+
+A crash in a React Native app often shows a stack trace that interleaves
+your actual JS frames with internal React Native/Metro frames:
+
+```text
+ERROR  TypeError: Cannot read property 'map' of undefined
+  at NotesListScreen (NotesListScreen.js:14:22)
+  at renderWithHooks (react-dom... internal frame)
+  at updateFunctionComponent (internal frame)
+  ...
+```
+
+The skill is scanning past the internal framework frames to find the first
+line that's actually *your* file — here, `NotesListScreen.js:14:22` — which
+is where to start looking. Source maps (enabled by default in development
+builds) are what make this possible at all; without them you'd see a
+minified bundle location instead of your original source line.
+
+### Try it yourself
+
+Deliberately introduce a bug (reference a property on `undefined`, like
+`route.params.id.toUpperCase()` when `id` might not exist yet) in a real or
+sample React Native project, trigger it, and practice reading the resulting
+red-screen stack trace to locate the exact line before fixing it.

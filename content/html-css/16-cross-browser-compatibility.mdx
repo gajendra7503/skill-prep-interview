@@ -1,0 +1,72 @@
+---
+title: "Cross-Browser Compatibility"
+description: "Feature detection with @supports, progressive enhancement vs graceful degradation, and checking real support data before you ship."
+module: "Compatibility"
+order: 16
+---
+
+Not every browser your users run supports every CSS feature on the day you
+want to ship it. The question interviewers care about isn't "do you
+memorize browser support tables" — it's whether you know how to write CSS
+that fails safely when a feature isn't supported.
+
+## Feature detection with `@supports`
+
+```css
+.layout {
+  display: block; /* fallback for browsers without grid support */
+}
+
+@supports (display: grid) {
+  .layout {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+```
+
+`@supports` checks whether the **browser itself** understands a given
+property/value pair, and only applies the block if it does. This is
+fundamentally different from browser-sniffing (checking the user agent
+string) — `@supports` asks "can you do this?" directly, rather than guessing
+based on a brittle, spoofable string.
+
+## Progressive enhancement vs. graceful degradation
+
+These are two directions of the same idea, and interviewers often ask you to
+distinguish them:
+
+- **Progressive enhancement**: start from a baseline that works everywhere
+  (often just semantic HTML and basic CSS), then layer on enhancements for
+  browsers capable of more. A form submits via a normal page load by default;
+  JavaScript intercepts it for a smoother AJAX experience where supported.
+- **Graceful degradation**: start from the full, modern experience, and add
+  fallbacks for when something isn't supported — the `@supports` example
+  above is graceful degradation, since the "real" design is the Grid layout,
+  with `display: block` as the fallback.
+
+Progressive enhancement is generally considered the more robust default,
+because the baseline is guaranteed to work rather than hoped to degrade
+cleanly — but in practice, most real projects use a mix of both depending on
+how critical a given feature is.
+
+## Checking real support data
+
+```css
+/* "Can I actually ship this yet?" */
+.card {
+  aspect-ratio: 16 / 9; /* check caniuse.com/?search=aspect-ratio before relying on it */
+}
+```
+
+Before shipping a newer CSS feature, checking [caniuse.com](https://caniuse.com)
+against your project's actual supported-browser list (often defined in a
+`browserslist` config, the same one Autoprefixer reads) tells you concretely
+whether you need a fallback at all, rather than guessing or over-engineering
+support for browsers your analytics show nobody uses.
+
+### Try it yourself
+
+Pick a CSS feature you're unsure about (`:has()`, `aspect-ratio`, container
+queries), look it up on caniuse.com, and write a small `@supports` block
+that provides a sensible fallback for browsers that don't support it.

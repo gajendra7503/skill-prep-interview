@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the main performance downside of a fully controlled form with one useState per field?",
+      "options": [
+        "It can't validate input at all",
+        "Every keystroke in any field re-renders the entire form component",
+        "It only works with class components",
+        "It can't submit data to a server"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each controlled input's onChange updates state, triggering a re-render of the whole form on every keystroke — fine for small forms, costly for large ones."
+    },
+    {
+      "question": "How does React Hook Form avoid re-rendering the form on every keystroke?",
+      "options": [
+        "It disables the browser's input events",
+        "It keeps inputs uncontrolled, reading their values via refs instead of state, and only re-renders on submit or validation",
+        "It debounces every keystroke by 500ms",
+        "It requires inputs to be read-only"
+      ],
+      "correctIndex": 1,
+      "explanation": "register() wires an input via ref rather than controlled state, so typing doesn't trigger a React re-render of the form."
+    },
+    {
+      "question": "What advantage does centralizing validation in a Zod schema give you over inline rules like `{ required: true, pattern: /.../ }`?",
+      "options": [
+        "It makes the form submit faster over the network",
+        "A single schema can be reused for both client-side validation and a server-side check, avoiding duplicated validation logic",
+        "It removes the need for a submit button",
+        "It's required for React Hook Form to work at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "A Zod schema is just a plain object describing the shape and constraints of the data — the same schema can validate a Server Action's input, not just the client form."
+    },
+    {
+      "question": "What does `zodResolver` do when passed to `useForm({ resolver: zodResolver(schema) })`?",
+      "options": [
+        "It converts the form into a Server Action automatically",
+        "It plugs the Zod schema's validation into React Hook Form's error state, so `errors` is populated from the schema",
+        "It styles the form according to the schema",
+        "It disables all built-in HTML validation attributes"
+      ],
+      "correctIndex": 1,
+      "explanation": "The resolver bridges Zod's schema validation results into React Hook Form's formState.errors object automatically."
+    }
+  ]
+}

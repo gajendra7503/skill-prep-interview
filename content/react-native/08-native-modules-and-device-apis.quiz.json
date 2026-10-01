@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the practical difference between declaring a permission in AndroidManifest.xml and the Info.plist usage-description string on iOS?",
+      "options": [
+        "They are functionally identical with no real difference",
+        "The Info.plist string is actually shown to the user in the system permission dialog explaining why it's needed, while the manifest entry is just a build-time declaration",
+        "AndroidManifest.xml entries show a prompt to the user, Info.plist does not",
+        "Only Android requires any permission declaration at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "iOS surfaces the Info.plist usage-description text directly to the user when requesting the permission; omitting it causes an instant crash rather than a silent failure."
+    },
+    {
+      "question": "Why should you call `check()` before `request()` for a given permission?",
+      "options": [
+        "check() is required syntax and has no functional purpose",
+        "Repeatedly calling request() after a user has already denied a permission can fail to re-prompt, since the OS often stops showing the dialog after a denial",
+        "request() always crashes if called twice",
+        "check() grants the permission automatically"
+      ],
+      "correctIndex": 1,
+      "explanation": "Once a user denies a permission, the OS may stop presenting the native prompt again, so checking current status first lets the app decide whether to direct the user to Settings instead of re-requesting."
+    },
+    {
+      "question": "What is the typical first step when a React Native app needs to access a device capability like the camera?",
+      "options": [
+        "Always write a custom native module from scratch",
+        "Look for an existing, well-maintained community library before writing custom native code",
+        "Device APIs are not accessible from React Native at all",
+        "Request the permission before installing any library"
+      ],
+      "correctIndex": 1,
+      "explanation": "Common device APIs (camera, location, biometrics) almost always have existing, well-supported libraries — custom native modules are reserved for capabilities with no existing wrapper."
+    },
+    {
+      "question": "When would writing a custom native module genuinely be necessary?",
+      "options": [
+        "For any feature involving the camera",
+        "When integrating a native SDK or capability (e.g. a proprietary payment SDK) that has no existing React Native library wrapping it",
+        "Every React Native app requires at least one custom native module",
+        "Only when targeting Android, never iOS"
+      ],
+      "correctIndex": 1,
+      "explanation": "Custom native modules are for the narrower case where no community library already exposes the needed native functionality to JavaScript."
+    }
+  ]
+}

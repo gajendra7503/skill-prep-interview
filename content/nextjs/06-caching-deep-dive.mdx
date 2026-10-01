@@ -1,0 +1,76 @@
+---
+title: "Caching Deep Dive"
+description: "The four layers Next.js caches at, and how revalidatePath/revalidateTag invalidate them correctly."
+module: "Rendering"
+order: 6
+---
+
+The previous rendering lesson covered *when* a page renders (static, ISR, or
+dynamic) at a high level. Under the hood, Next.js actually caches at **four
+distinct layers** — knowing which one you're dealing with is what makes
+"why isn't my data updating?" bugs solvable instead of mysterious.
+
+## The four caches
+
+1. **Request Memoization** — within a single render pass, calling the same
+   `fetch` (same URL + options) more than once only actually hits the
+   network once; React deduplicates it automatically. Scoped to one request.
+2. **Data Cache** — the result of a `fetch` call persists **across requests
+   and deployments** until it's revalidated or explicitly opted out of
+   (`cache: "no-store"`). This is what powers static rendering and ISR.
+3. **Full Route Cache** — the rendered HTML/RSC payload for a route is
+   cached at build time for static routes, so a repeat visit doesn't
+   re-render React at all.
+4. **Router Cache** (client-side) — the Next.js client keeps a short-lived,
+   per-session cache of visited route segments so back/forward navigation
+   feels instant without a server round-trip.
+
+Most day-to-day cache bugs come down to layers 2 and 3: a `fetch` result
+that's stale, or a static route that hasn't been regenerated.
+
+## Invalidating on demand
+
+Rather than waiting for a `revalidate: N` timer, you can invalidate
+immediately after a mutation — this is the pattern every Server Action in
+this app already uses:
+
+```ts
+"use server";
+
+import { revalidatePath, revalidateTag } from "next/cache";
+
+export async function publishPost(id: string) {
+  await db.posts.update(id, { published: true });
+
+  revalidatePath("/blog");          // re-render this exact route on next visit
+  revalidateTag("posts");           // invalidate every fetch() tagged "posts", anywhere
+}
+```
+
+- `revalidatePath(path)` clears the Full Route Cache entry (and Data Cache
+  entries used by it) for one specific route.
+- `revalidateTag(tag)` clears every cached `fetch` call across the whole app
+  that was tagged with `next: { tags: ["posts"] }` — useful when the same
+  data backs multiple routes (a post's page *and* the blog index).
+
+## The classic gotcha
+
+```ts
+// mutates the database...
+await db.posts.update(id, { title: newTitle });
+// ...but forgets to invalidate anything
+```
+
+Without a `revalidatePath`/`revalidateTag` call, the Data Cache and Full
+Route Cache still hold the **old** rendered output — visitors (and even you,
+testing right after your own mutation) will keep seeing stale data until the
+next scheduled `revalidate` window or a full redeploy. If a mutation feels
+like "it didn't save" but the database is actually correct, this is almost
+always the cause.
+
+### Try it yourself
+
+In the `toggleLessonComplete` Server Action in this app
+(`src/app/courses/[course]/[lesson]/actions.ts`), identify which cache layer
+each `revalidatePath` call is clearing, and why three separate paths are
+revalidated instead of just one.

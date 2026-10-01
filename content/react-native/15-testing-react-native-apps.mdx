@@ -1,0 +1,84 @@
+---
+title: "Testing React Native Apps"
+description: "Jest + React Native Testing Library for components, mocking native modules, and Detox for real end-to-end runs."
+module: "Testing"
+order: 15
+---
+
+The same "test behavior, not implementation" philosophy from testing web
+React components applies here — React Native Testing Library (RNTL) is
+deliberately modeled on its web counterpart, with one extra wrinkle: some of
+what your component touches isn't JavaScript at all.
+
+## Component tests look almost identical to web RTL
+
+```jsx
+import { render, screen, fireEvent } from "@testing-library/react-native";
+import { Counter } from "./Counter";
+
+test("increments the count when the button is pressed", () => {
+  render(<Counter />);
+
+  fireEvent.press(screen.getByText("Clicked 0 times"));
+
+  expect(screen.getByText("Clicked 1 times")).toBeTruthy();
+});
+```
+
+`getByText`/`getByRole` query the rendered output the same way a user (or
+screen reader) perceives it, and `fireEvent.press` stands in for a real
+touch the same way `userEvent.click` does on the web — the mental model
+transfers directly from the React Testing Library lesson.
+
+## Why native modules need mocking
+
+A library like a camera, push notifications, or `AsyncStorage` is backed by
+real native (Swift/Kotlin) code. That native code doesn't exist in the
+Node.js environment Jest runs in — so importing it directly in a test would
+crash, not just return unexpected data. The fix is mocking the module at the
+boundary:
+
+```js
+// __mocks__/@react-native-async-storage/async-storage.js
+export default {
+  getItem: jest.fn(() => Promise.resolve(null)),
+  setItem: jest.fn(() => Promise.resolve()),
+  removeItem: jest.fn(() => Promise.resolve()),
+};
+```
+
+Most popular libraries ship their own Jest mock (check the library's docs
+for a `jest-setup` snippet) — you rarely have to hand-write one, but it's
+important to understand *why* it's necessary: you're testing your JS logic's
+correctness, not re-testing that AsyncStorage itself works.
+
+## Detox: testing against the real thing
+
+Component tests run in Node and never touch an actual device — great for
+speed, but they can't catch issues that only show up on a real OS (a
+permission dialog, a native navigation transition, a layout bug on an actual
+screen size). **Detox** addresses this by driving your app on a real
+simulator or emulator, interacting with it the way a user physically would:
+
+```js
+describe("Login flow", () => {
+  it("should navigate to the home screen after login", async () => {
+    await element(by.id("email-input")).typeText("user@example.com");
+    await element(by.id("password-input")).typeText("secret");
+    await element(by.id("login-button")).tap();
+
+    await expect(element(by.id("home-screen"))).toBeVisible();
+  });
+});
+```
+
+Detox tests are slower and more brittle than component tests (they depend on
+a running simulator and real timing), so the usual strategy is: many fast
+Jest + RNTL component tests, a much smaller number of Detox tests covering
+only the critical end-to-end flows (login, checkout, onboarding).
+
+### Try it yourself
+
+Write a component test for the notes list screen from this course's
+capstone project: render it with a mocked `useNotes` hook returning two
+fake notes, and assert both note texts appear on screen.

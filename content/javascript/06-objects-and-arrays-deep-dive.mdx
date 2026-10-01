@@ -1,0 +1,96 @@
+---
+title: "Objects & Arrays Deep Dive"
+description: "Destructuring, spread/rest, and the map/filter/reduce trio that shows up in every interview."
+module: "Core Concepts"
+order: 6
+---
+
+Modern JavaScript code leans heavily on a handful of syntax features and
+array methods for working with data — fluently reading and writing these is
+less about knowing obscure tricks and more about not stumbling over the
+basics in a live coding interview.
+
+## Destructuring
+
+```js
+const user = { name: "Asha", role: "Engineer", location: { city: "Pune" } };
+
+const { name, role: jobTitle, location: { city } } = user;
+// name = "Asha", jobTitle = "Engineer", city = "Pune"
+
+const [first, second, ...rest] = [1, 2, 3, 4, 5];
+// first = 1, second = 2, rest = [3, 4, 5]
+
+function greet({ name, greeting = "Hello" } = {}) {
+  return `${greeting}, ${name}`;
+}
+```
+
+Destructuring can rename variables (`role: jobTitle`), reach into nested
+objects in one step, and provide default values — all of which compose
+directly with function parameters, which is why you'll see it constantly in
+real codebases (including this app's own `params` handling in Next.js
+routes).
+
+## Spread and rest
+
+```js
+const base = { theme: "dark", fontSize: 14 };
+const overridden = { ...base, fontSize: 16 }; // shallow copy + override
+
+const nums = [1, 2, 3];
+const withMore = [...nums, 4, 5]; // new array, nums is untouched
+
+function sum(...numbers) { // rest parameter — collects remaining args into an array
+  return numbers.reduce((total, n) => total + n, 0);
+}
+sum(1, 2, 3); // 6
+```
+
+Spread (`...` used to expand) and rest (`...` used to collect) use the same
+syntax for opposite purposes, distinguished entirely by position. Spread is
+also the standard way to copy an object or array **shallowly** — nested
+objects are still shared by reference, which is a frequent source of bugs
+when people assume `{ ...obj }` makes a deep copy.
+
+## `map`, `filter`, `reduce`
+
+```js
+const orders = [
+  { id: 1, status: "shipped", total: 250 },
+  { id: 2, status: "pending", total: 80 },
+  { id: 3, status: "shipped", total: 120 },
+];
+
+const totals = orders.map((o) => o.total);              // [250, 80, 120]
+const shipped = orders.filter((o) => o.status === "shipped"); // 2 orders
+const grandTotal = orders.reduce((sum, o) => sum + o.total, 0); // 450
+```
+
+`map` transforms each element into something new (same length, new values),
+`filter` keeps only elements matching a condition (shorter or equal length,
+same values), and `reduce` folds the whole array down into a single
+accumulated value — it's the most general of the three, and can actually
+implement `map` and `filter` itself.
+
+### `reduce` beyond summing: grouping by a key
+
+```js
+const grouped = orders.reduce((groups, order) => {
+  const key = order.status;
+  if (!groups[key]) groups[key] = [];
+  groups[key].push(order);
+  return groups;
+}, {});
+// { shipped: [order1, order3], pending: [order2] }
+```
+
+This "group by" pattern is one of the most useful `reduce` idioms in
+practice — the accumulator doesn't have to be a number, it can be any shape
+you build up across the array, here an object keyed by status.
+
+### Try it yourself
+
+Given the `orders` array above, use `filter` + `reduce` together to compute
+the total value of only the `"shipped"` orders — then try writing it as a
+single `reduce` call instead, without `filter`, and compare readability.

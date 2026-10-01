@@ -1,0 +1,95 @@
+---
+title: "Testing & Deployment"
+description: "Unit and end-to-end testing strategies, environment variables, and shipping to Vercel."
+module: "Testing & Deployment"
+order: 8
+---
+
+Shipping a Next.js app confidently means testing at a couple of different
+levels, being deliberate about environment variables, and understanding
+what actually happens when you deploy.
+
+## Unit/component tests with Vitest + React Testing Library
+
+For a single component's behavior — does clicking a button call the right
+handler, does a form show a validation error — Vitest (a fast Jest
+alternative) paired with React Testing Library is the standard combo:
+
+```tsx
+// mark-complete-button.test.tsx
+import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { MarkCompleteButton } from "./mark-complete-button";
+
+describe("MarkCompleteButton", () => {
+  it("shows a sign-in prompt when the user isn't authenticated", () => {
+    render(
+      <MarkCompleteButton courseSlug="react" lessonSlug="01" completed={false} signedIn={false} />
+    );
+    expect(screen.getByText(/sign in to track progress/i)).toBeInTheDocument();
+  });
+});
+```
+
+Testing Library deliberately queries the DOM the way a user would (by text,
+label, or role) rather than by implementation details like class names —
+tests stay valid even if you restyle the component.
+
+## End-to-end tests with Playwright
+
+Unit tests can't catch "does clicking Log In actually navigate to the
+dashboard after a real form submission." Playwright drives a real browser
+against a running instance of your app:
+
+```ts
+// e2e/login.spec.ts
+import { test, expect } from "@playwright/test";
+
+test("a user can log in and reach the dashboard", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("test@example.com");
+  await page.getByLabel("Password").fill("password123");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL("/dashboard");
+});
+```
+
+Reach for Playwright for critical user flows (sign-up, checkout,
+publishing) — it's slower than a unit test but catches real integration
+bugs across routing, Server Actions, and the database together.
+
+## Environment variables: public vs. server-only
+
+```bash
+# .env.local
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co   # bundled into client JS
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...                          # safe to expose — protected by RLS
+SUPABASE_SERVICE_ROLE_KEY=eyJ...                              # server-only, NEVER prefix with NEXT_PUBLIC_
+```
+
+Only variables prefixed `NEXT_PUBLIC_` are inlined into the browser bundle
+at build time. Anything without that prefix stays server-only — meaning
+secrets like a service-role key or a third-party API secret must **never**
+carry the `NEXT_PUBLIC_` prefix, or they'll ship to every visitor's browser.
+
+## Deploying to Vercel
+
+```bash
+git push origin main
+```
+
+Pushing to a connected Git repository is usually the entire deploy step:
+Vercel runs `next build`, and:
+
+- Every **pull request** gets its own **preview deployment** with a unique
+  URL — a real, working environment to review before merging.
+- Merging to the production branch promotes a build to the production
+  domain, atomically (no partial-deploy window).
+- Environment variables are configured per-environment (Production,
+  Preview, Development) in the project dashboard, not committed to the repo.
+
+### Try it yourself
+
+Write a Vitest test for the `Quiz` component in this app: render it with two
+sample questions, click an answer, and assert the explanation text appears
+and the option is visually locked in.

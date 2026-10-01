@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the core philosophy behind React Testing Library?",
+      "options": [
+        "Test components by inspecting their internal state directly",
+        "Test components the way a user would interact with them, not implementation details",
+        "Only test pure functions, never components",
+        "Snapshot every component's rendered HTML"
+      ],
+      "correctIndex": 1,
+      "explanation": "RTL encourages querying and interacting with the DOM the way a real user (or assistive technology) would, so tests don't break on harmless internal refactors."
+    },
+    {
+      "question": "Why is `userEvent` generally preferred over the lower-level `fireEvent`?",
+      "options": [
+        "It's faster to type",
+        "It fires a realistic sequence of DOM events (e.g. pointerdown, focus, click) instead of one synthetic event",
+        "fireEvent is deprecated and no longer works",
+        "userEvent doesn't require async/await"
+      ],
+      "correctIndex": 1,
+      "explanation": "userEvent more closely simulates what actually happens in a browser during a real interaction, catching bugs a single fireEvent call would miss."
+    },
+    {
+      "question": "Why is `getByRole` generally preferred over `getByTestId`?",
+      "options": [
+        "getByTestId doesn't exist in modern RTL",
+        "getByRole matches the same way assistive technology does, and failure to query by role often signals missing semantic HTML",
+        "getByRole is faster to execute",
+        "There's no meaningful difference"
+      ],
+      "correctIndex": 1,
+      "explanation": "Preferring accessible queries pushes you toward more accessible markup, and avoids tests coupled to arbitrary test-only attributes."
+    },
+    {
+      "question": "In a well-written RTL test for a form component, what should the test generally NOT reference?",
+      "options": [
+        "The visible label text of an input",
+        "The component's internal useState variable names",
+        "The accessible name of a submit button",
+        "The callback prop's arguments after submission"
+      ],
+      "correctIndex": 1,
+      "explanation": "Testing behavior, not implementation, means the test shouldn't know or care about internal state variables — only what the user can see and do."
+    }
+  ]
+}

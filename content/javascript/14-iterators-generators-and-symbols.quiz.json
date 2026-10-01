@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What makes an object \"iterable\" in JavaScript?",
+      "options": [
+        "Having a .length property",
+        "Implementing a method keyed by Symbol.iterator that returns an iterator object with a .next() method",
+        "Being created with the Array constructor",
+        "Any plain object is automatically iterable"
+      ],
+      "correctIndex": 1,
+      "explanation": "The iterable protocol requires a Symbol.iterator method returning an object whose .next() yields { value, done } pairs — plain objects don't implement this by default."
+    },
+    {
+      "question": "Why does `for (const x of plainObject)` throw an error while `for (const x of someArray)` works fine?",
+      "options": [
+        "for...of only works with numbers",
+        "Arrays implement Symbol.iterator built in; plain objects don't implement the iterable protocol unless you add it yourself",
+        "This is a bug that will eventually be fixed",
+        "Objects can never be looped over in JavaScript"
+      ],
+      "correctIndex": 1,
+      "explanation": "for...of requires the iterable protocol; built-ins like arrays, strings, Maps, and Sets implement it, but plain object literals do not unless explicitly given a Symbol.iterator method."
+    },
+    {
+      "question": "What does calling a generator function (`function*`) do, compared to a regular function?",
+      "options": [
+        "It immediately runs the entire function body, just like a regular function",
+        "It returns an iterator without running the body yet; execution happens incrementally, pausing at each `yield`",
+        "It throws an error unless awaited",
+        "It behaves identically to a regular function in every way"
+      ],
+      "correctIndex": 1,
+      "explanation": "Calling a generator function returns an iterator object; the function body only executes up to the next yield each time .next() is called."
+    },
+    {
+      "question": "Why can a generator represent an infinite sequence (like all natural numbers) without crashing or hanging?",
+      "options": [
+        "Because it pre-computes a very large but finite array in memory",
+        "Because it only computes the next value lazily when the consumer asks for it, rather than producing all values upfront",
+        "Because infinite loops are optimized away by the engine",
+        "It actually cannot — this always crashes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Generators are lazy — each yield pauses until the next value is explicitly requested, so a consumer can take as many or as few values as it wants without the generator ever needing to finish."
+    }
+  ]
+}

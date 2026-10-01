@@ -1,0 +1,38 @@
+{
+  "questions": [
+    {
+      "question": "In the App Router, what makes a route segment publicly accessible?",
+      "options": [
+        "Adding a `route.json` file",
+        "Adding a `page.tsx` file in that folder",
+        "Naming the folder `public`",
+        "Any file at all in the folder"
+      ],
+      "correctIndex": 1,
+      "explanation": "A `page.tsx` file is what turns a folder in `app/` into a navigable route."
+    },
+    {
+      "question": "What is the key behavior of a `layout.tsx` file?",
+      "options": [
+        "It only applies to the root of the app",
+        "It wraps its segment and persists across navigations without remounting",
+        "It replaces `page.tsx`",
+        "It must be a Client Component"
+      ],
+      "correctIndex": 1,
+      "explanation": "Layouts wrap nested routes and stay mounted between navigations, which is why UI like a navbar or sidebar in a layout doesn't flicker/remount."
+    },
+    {
+      "question": "By default, what kind of component is everything under `app/`?",
+      "options": ["Client Component", "Server Component", "Static HTML only, no components", "Edge Function"],
+      "correctIndex": 1,
+      "explanation": "Server Components are the default in the App Router — they run only on the server and ship no JS to the client unless you opt in."
+    },
+    {
+      "question": "What directive is required to use `useState` or `onClick` in a component?",
+      "options": ["\"use client\"", "\"use server\"", "\"use effect\"", "No directive is needed"],
+      "correctIndex": 0,
+      "explanation": "`\"use client\"` at the top of a file opts that component (and its imports) into client-side rendering, which is required for hooks and browser event handlers."
+    }
+  ]
+}

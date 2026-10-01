@@ -1,0 +1,105 @@
+---
+title: "Error Handling"
+description: "error.tsx, global-error.tsx, not-found.tsx, and handling failures inside Server Actions."
+module: "Fundamentals"
+order: 12
+---
+
+Errors happen at different levels of an app — a single route segment, the
+entire app shell, a missing resource, or a failed mutation — and the App
+Router has a dedicated convention for each.
+
+## `error.tsx`: catching render errors in a segment
+
+```tsx
+// app/courses/[course]/error.tsx
+"use client"; // error.tsx must always be a Client Component
+
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  return (
+    <div className="p-6">
+      <p>Something went wrong loading this course.</p>
+      <button onClick={() => reset()}>Try again</button>
+    </div>
+  );
+}
+```
+
+`error.tsx` automatically wraps its segment in a React error boundary. It
+must be a Client Component — error boundaries rely on class-component-style
+lifecycle behavior under the hood, which only works client-side — and it
+receives a `reset()` function that attempts to re-render the segment without a
+full page reload.
+
+## `global-error.tsx`: when the root layout itself throws
+
+A regular `error.tsx` can't catch an error thrown by the root `layout.tsx`,
+since the layout wraps the boundary itself. `global-error.tsx` at the app
+root covers that case, and must render its own `<html>`/`<body>` since it
+replaces the entire root layout when active.
+
+## `not-found.tsx` and `notFound()`
+
+```tsx
+// app/courses/[course]/not-found.tsx
+export default function NotFound() {
+  return <p className="p-6">That course doesn't exist.</p>;
+}
+```
+
+```tsx
+// app/courses/[course]/page.tsx
+import { notFound } from "next/navigation";
+
+export default async function CoursePage({ params }: { params: Promise<{ course: string }> }) {
+  const { course: slug } = await params;
+  const course = getCourse(slug);
+  if (!course) notFound(); // renders the nearest not-found.tsx, with a 404 status
+  // ...
+}
+```
+
+This is exactly the pattern this app's own course and lesson pages use —
+calling `notFound()` when `getCourse`/`getLessonContent` return `null` renders
+the nearest `not-found.tsx` (or Next.js's built-in default) with a proper 404
+status code, rather than crashing or showing broken content.
+
+## Errors inside Server Actions: return, don't just throw
+
+A thrown error inside a Server Action still triggers the nearest
+`error.tsx`, which is often *too heavy-handed* for an expected failure like
+invalid form input. The more common pattern is to catch it and return a
+plain error value the calling component can render inline:
+
+```ts
+"use server";
+
+export async function createComment(formData: FormData) {
+  const body = formData.get("body");
+  if (typeof body !== "string" || !body.trim()) {
+    return { error: "Comment cannot be empty." }; // expected failure — return, don't throw
+  }
+
+  try {
+    await db.comments.create({ body });
+    return { error: null };
+  } catch {
+    return { error: "Something went wrong saving your comment." }; // unexpected, but still recoverable
+  }
+}
+```
+
+Reserve an actual `throw` for truly exceptional, unrecoverable failures where
+falling back to the nearest `error.tsx` boundary is the right outcome.
+
+### Try it yourself
+
+Add an `error.tsx` to this app's `app/courses/[course]/[lesson]/` route, then
+temporarily throw an error inside `getLessonContent` to confirm it renders
+instead of a raw stack trace.

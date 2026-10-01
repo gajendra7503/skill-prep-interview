@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Compared to a plain `<img>` tag, what does `next/image` do automatically?",
+      "options": [
+        "Nothing different, it's just a wrapper for styling",
+        "Serves a correctly sized modern format, lazy-loads offscreen images, and reserves layout space to prevent shift",
+        "Converts all images to SVG",
+        "Only works with images hosted on Vercel"
+      ],
+      "correctIndex": 1,
+      "explanation": "next/image handles responsive resizing/format selection, lazy loading, and layout-shift prevention out of the box."
+    },
+    {
+      "question": "When should you add the `priority` prop to an Image?",
+      "options": [
+        "On every image in the app",
+        "On an above-the-fold image, like a hero image, so it loads immediately instead of being lazy-loaded",
+        "Only on decorative images",
+        "It has no effect on loading behavior"
+      ],
+      "correctIndex": 1,
+      "explanation": "priority skips lazy loading for images that are immediately visible, improving perceived load time for critical content."
+    },
+    {
+      "question": "Why does `next/font` avoid a flash of unstyled or swapped-in text?",
+      "options": [
+        "It disables text rendering until the font loads",
+        "It self-hosts the font and knows its metrics ahead of time, so it can reserve correct spacing at build time",
+        "It only supports monospace fonts",
+        "It loads fonts from a CDN faster than any other method"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because the font is downloaded at build time and self-hosted with known metrics, there's no runtime request to an external font provider and no layout jump when it swaps in."
+    },
+    {
+      "question": "When should you use `generateMetadata` instead of a static `metadata` export?",
+      "options": [
+        "Never, static metadata always works",
+        "When the page's title/description depends on dynamically fetched data, like a blog post's own title",
+        "Only in the root layout",
+        "Only for pages with no SEO requirements"
+      ],
+      "correctIndex": 1,
+      "explanation": "generateMetadata is async and can fetch data first, letting a dynamic route (e.g. a blog post's [slug] page) generate SEO tags per item."
+    }
+  ]
+}

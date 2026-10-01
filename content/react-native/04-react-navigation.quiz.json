@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does React Native need a separate library like React Navigation instead of a built-in router?",
+      "options": [
+        "React Native apps don't support navigating between screens at all",
+        "There's no URL bar or browser history in a mobile app — navigation has to be modeled explicitly as a stack of screens instead",
+        "React Navigation is built into React Native core, just under a different import",
+        "It's purely a historical choice with no technical reason"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without a browser, there's no concept of a URL or history stack to piggyback on, so navigation state has to be managed explicitly by a library like React Navigation."
+    },
+    {
+      "question": "How does data get passed from one screen to another in React Navigation?",
+      "options": [
+        "Through global variables only",
+        "Via the second argument to navigation.navigate(), read on the receiving screen through route.params",
+        "Through URL query strings, exactly like the web",
+        "Screens cannot receive any data from the screen that navigated to them"
+      ],
+      "correctIndex": 1,
+      "explanation": "navigation.navigate(\"Screen\", { data }) and route.params on the destination screen is the standard way values flow between screens."
+    },
+    {
+      "question": "In a bottom tab navigator where one tab renders its own stack navigator, what happens when you switch away to a different tab and then back?",
+      "options": [
+        "The tab's stack resets to its first screen every time",
+        "The tab's navigation history is preserved — it shows whatever screen was last active in that tab's own stack",
+        "The whole app navigation state resets",
+        "Nested navigators are not supported by React Navigation"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each tab maintains its own independent navigation stack; switching tabs doesn't reset or affect the history of the other tabs."
+    },
+    {
+      "question": "What does calling `navigation.navigate(\"Profile\")` from within a stack do?",
+      "options": [
+        "Replaces the current screen entirely with no way to go back",
+        "Pushes a new screen onto the stack, with the platform's native back gesture/button available to unwind it",
+        "Opens Profile in a new app window",
+        "Reloads the entire app"
+      ],
+      "correctIndex": 1,
+      "explanation": "Stack navigation pushes screens, mirroring how a physical stack works — the most recently pushed screen is on top, and back navigation pops it off."
+    }
+  ]
+}

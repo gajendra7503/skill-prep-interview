@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is `<button onClick={...}>` preferred over `<div onClick={...}>` for a clickable action?",
+      "options": [
+        "Divs cannot have onClick handlers at all",
+        "A native button is focusable and keyboard-activatable (Enter/Space) and is announced correctly by screen readers, without extra code",
+        "Buttons render faster than divs",
+        "It's purely a stylistic convention with no functional difference"
+      ],
+      "correctIndex": 1,
+      "explanation": "A div requires manually adding tabIndex, keydown handling, and a role to match what a native button provides automatically."
+    },
+    {
+      "question": "When should you reach for an ARIA attribute like `aria-expanded`?",
+      "options": [
+        "On every element, as a best practice",
+        "To describe state or relationships that semantic HTML alone can't express, such as whether a collapsible section is open",
+        "Only to override CSS styles",
+        "Instead of using semantic HTML elements"
+      ],
+      "correctIndex": 1,
+      "explanation": "ARIA should supplement semantic HTML for cases HTML can't express alone, not replace choosing the correct element in the first place."
+    },
+    {
+      "question": "What should happen to keyboard focus when a modal dialog closes?",
+      "options": [
+        "Nothing — focus state doesn't matter for modals",
+        "Focus should return to whatever element triggered the modal, so it isn't lost behind the now-hidden content",
+        "Focus should move to the top of the page",
+        "The page should reload"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without returning focus to the trigger, a keyboard user loses their place entirely once the modal (which held focus) disappears."
+    },
+    {
+      "question": "What does a tool like `jest-axe` actually verify, and what does it NOT replace?",
+      "options": [
+        "It fully replaces manual keyboard and screen-reader testing",
+        "It automatically catches a subset of issues like missing labels and invalid ARIA usage in CI, but doesn't replace manual keyboard/screen-reader testing",
+        "It only checks color contrast and nothing else",
+        "It tests server response times"
+      ],
+      "correctIndex": 1,
+      "explanation": "Automated accessibility checks catch cheap regressions (missing aria-label, contrast issues) but can't verify the full experience of navigating with a keyboard or screen reader."
+    }
+  ]
+}

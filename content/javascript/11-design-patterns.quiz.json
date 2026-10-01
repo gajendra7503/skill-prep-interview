@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In the module pattern IIFE example, why is `count` truly private rather than just a naming convention?",
+      "options": [
+        "Because it's declared with const instead of let",
+        "Because it only exists inside the closure created by the IIFE, and the returned object never exposes a reference to it",
+        "Because it starts with an underscore",
+        "JavaScript doesn't actually support private state at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "The variable lives only inside the IIFE's scope; since the returned object doesn't expose it directly, there is no way to reach it from outside — true closure-based encapsulation."
+    },
+    {
+      "question": "What guarantee does the Singleton pattern provide?",
+      "options": [
+        "That a function can only be called once",
+        "That only one instance of a class/resource exists, with every subsequent construction attempt returning that same instance",
+        "That the class cannot be extended",
+        "That the class has no constructor"
+      ],
+      "correctIndex": 1,
+      "explanation": "A singleton ensures a single shared instance app-wide, which the Database example achieves by returning the existing instance from the constructor if one was already created."
+    },
+    {
+      "question": "In the observer/pub-sub pattern, what is the key benefit of the publisher not knowing who's subscribed?",
+      "options": [
+        "It makes the code run faster",
+        "It decouples the event source from its consumers, so subscribers can be added or removed independently without the publisher needing any changes",
+        "It prevents more than one listener from ever being registered",
+        "It removes the need for functions entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "Decoupling publisher from subscriber is the whole point of pub-sub — the emitter just broadcasts, and any number of independent listeners can react without it knowing anything about them."
+    },
+    {
+      "question": "Why does `bus.on(...)` return a function in the EventEmitter example?",
+      "options": [
+        "To provide a convenient way to unsubscribe that specific listener later, without needing to keep a separate reference to the original callback",
+        "It's a mistake — on() should return nothing",
+        "To immediately invoke the callback",
+        "To allow chaining multiple .on() calls together"
+      ],
+      "correctIndex": 0,
+      "explanation": "Returning an unsubscribe closure is a common ergonomic pattern — the caller can call the returned function later to remove exactly that listener."
+    }
+  ]
+}

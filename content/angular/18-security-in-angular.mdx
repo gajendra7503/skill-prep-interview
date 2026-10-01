@@ -1,0 +1,75 @@
+---
+title: "Security in Angular"
+description: "Angular's built-in HTML sanitization, the DomSanitizer escape hatch, and general XSS/CSRF considerations."
+module: "Security"
+order: 18
+---
+
+A framework can't prevent every security mistake, but Angular removes an
+entire class of them by default. Understanding what's automatic — and where
+the deliberate escape hatches are — is standard interview territory.
+
+## Sanitization happens automatically
+
+```ts
+@Component({
+  standalone: true,
+  template: `<div [innerHTML]="userComment"></div>`,
+})
+export class CommentComponent {
+  userComment = '<img src="x" onerror="alert(1)">'; // attacker-controlled input
+}
+```
+
+Binding untrusted HTML via `[innerHTML]` does **not** execute that
+`onerror` handler. Angular runs every value passed into a security-sensitive
+context (`innerHTML`, `style`, `src`, `href`, and a few others) through a
+built-in sanitizer that strips dangerous content before it reaches the DOM
+— this is why most Angular apps never need to think about XSS for ordinary
+template bindings.
+
+## `DomSanitizer`: the explicit, dangerous escape hatch
+
+Sometimes you genuinely need to render markup Angular would otherwise strip
+— trusted, server-rendered rich text, for example. `DomSanitizer` lets you
+opt out explicitly:
+
+```ts
+import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
+import { inject } from "@angular/core";
+
+export class ArticleComponent {
+  private sanitizer = inject(DomSanitizer);
+
+  trustedHtml: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
+    "<p>Content from our own CMS, already reviewed</p>"
+  );
+}
+```
+
+The name is intentionally alarming: `bypassSecurityTrust*` tells Angular
+"skip sanitization, I've already verified this is safe." Calling it on
+**user-supplied** content defeats the protection Angular gives you for
+free — only call it on content from a source you fully control and trust
+(your own CMS, your own backend after its own sanitization step), never on
+raw user input.
+
+## CSRF considerations with an API backend
+
+Cross-Site Request Forgery matters when your app relies on cookies for
+authentication, since a browser attaches cookies to requests automatically
+regardless of which site triggered them. Angular's `HttpClient` has
+built-in support for the common mitigation: if your backend sets a
+readable CSRF cookie, `HttpClient` can automatically read it and echo it
+back as a header on same-origin requests, which the server then verifies
+matches. This only applies if your API uses cookie-based auth — a
+token-based setup (an `Authorization: Bearer` header attached via an
+interceptor, as in the earlier lesson) isn't vulnerable to CSRF in the same
+way, since the browser doesn't attach bearer tokens automatically.
+
+### Try it yourself
+
+Find every `[innerHTML]` binding in a hypothetical app and classify each one
+as either "safe to leave sanitized" or "needs a `bypassSecurityTrustHtml`
+call" — and for each one needing the bypass, identify exactly where that
+HTML originates and whether that source is actually trustworthy.

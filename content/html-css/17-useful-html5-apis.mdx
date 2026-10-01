@@ -1,0 +1,89 @@
+---
+title: "Useful HTML5 Elements & APIs"
+description: "Responsive images with picture/srcset, the native dialog element, and data-* attributes."
+module: "HTML APIs"
+order: 17
+---
+
+A handful of native HTML features quietly replace what used to require
+significant hand-rolled JavaScript. Knowing them is a strong, concrete signal
+in an interview that you keep up with the platform rather than reaching for
+a library by default.
+
+## Responsive images: `srcset` and `<picture>`
+
+```html
+<!-- same image, browser picks the best resolution for the device -->
+<img
+  src="hero-800.jpg"
+  srcset="hero-400.jpg 400w, hero-800.jpg 800w, hero-1600.jpg 1600w"
+  sizes="(max-width: 600px) 100vw, 50vw"
+  alt="Team collaborating around a laptop"
+/>
+
+<!-- art direction: genuinely different crops per breakpoint, not just resolution -->
+<picture>
+  <source media="(max-width: 600px)" srcset="hero-mobile.jpg" />
+  <source media="(min-width: 601px)" srcset="hero-desktop.jpg" />
+  <img src="hero-desktop.jpg" alt="Team collaborating around a laptop" />
+</picture>
+```
+
+`srcset`/`sizes` on a plain `<img>` solves **resolution switching** — same
+image, different sizes, browser picks based on viewport and device pixel
+ratio. `<picture>` solves **art direction** — genuinely different images
+(different crops, not just different sizes) per condition, with the `<img>`
+inside it as the required fallback.
+
+## The native `<dialog>` element
+
+```html
+<dialog id="confirm-dialog">
+  <p>Delete this item?</p>
+  <form method="dialog">
+    <button value="cancel">Cancel</button>
+    <button value="confirm">Delete</button>
+  </form>
+</dialog>
+
+<script>
+  const dialog = document.getElementById("confirm-dialog");
+  document.getElementById("open-btn").addEventListener("click", () => dialog.showModal());
+  dialog.addEventListener("close", () => console.log(dialog.returnValue));
+</script>
+```
+
+```css
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+```
+
+`showModal()` gives you, for free, what a hand-rolled modal usually requires
+real effort to get right: it traps focus inside the dialog, blocks
+interaction with the rest of the page, closes on the Escape key, and exposes
+a `::backdrop` pseudo-element to style the dimmed overlay — no portal/focus-trap
+library required for the common case.
+
+## `data-*` attributes
+
+```html
+<button data-action="delete" data-item-id="42">Delete</button>
+```
+
+```js
+button.addEventListener("click", (e) => {
+  const { action, itemId } = e.target.dataset; // "delete", "42"
+});
+```
+
+`data-*` is the standards-based way to attach custom data to an element that
+JavaScript can read without inventing non-standard attributes — the browser
+automatically exposes every `data-foo-bar` attribute as `element.dataset.fooBar`
+(camelCased), with no parsing required.
+
+### Try it yourself
+
+Convert a modal you've built (or imagine building) with a `<div>` + CSS +
+manual focus-trap JavaScript into a native `<dialog>`, and list exactly which
+lines of JavaScript you get to delete.

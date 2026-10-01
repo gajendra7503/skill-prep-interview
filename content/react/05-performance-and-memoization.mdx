@@ -1,0 +1,98 @@
+---
+title: "Performance & Memoization"
+description: "Why components re-render, and how React.memo, useMemo, and useCallback control it."
+module: "Performance"
+order: 5
+---
+
+Before reaching for any optimization, it helps to know exactly when React
+re-renders a component: **whenever its state changes, its props change, or
+its parent re-renders** — even if the props look "the same" on the surface.
+
+```jsx
+function Parent() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div>
+      <button onClick={() => setCount(count + 1)}>{count}</button>
+      <ExpensiveChild /> {/* re-renders every time count changes, even though it uses no props */}
+    </div>
+  );
+}
+```
+
+`ExpensiveChild` re-renders on every click here, purely because its parent
+re-rendered — React re-renders a whole subtree by default.
+
+## `React.memo`: skip re-rendering when props haven't changed
+
+```jsx
+const ExpensiveChild = React.memo(function ExpensiveChild({ label }) {
+  console.log("rendering ExpensiveChild");
+  return <p>{label}</p>;
+});
+```
+
+`React.memo` does a shallow comparison of props between renders and skips
+re-rendering if none changed. It only helps if the component actually
+receives props — a memoized component with no props (like above) still
+won't re-render, but one is rare in practice.
+
+## `useMemo`: cache an expensive calculation
+
+```jsx
+function ProductList({ products, query }) {
+  const filtered = useMemo(
+    () => products.filter((p) => p.name.toLowerCase().includes(query.toLowerCase())),
+    [products, query]
+  );
+
+  return <ul>{filtered.map((p) => <li key={p.id}>{p.name}</li>)}</ul>;
+}
+```
+
+`useMemo` recomputes `filtered` only when `products` or `query` change,
+instead of on every render of `ProductList` for unrelated reasons.
+
+## `useCallback`: stable function identity for memoized children
+
+```jsx
+function Parent() {
+  const [count, setCount] = useState(0);
+
+  // without useCallback, this is a NEW function every render,
+  // which breaks React.memo on MemoizedButton below
+  const handleClick = useCallback(() => {
+    console.log("clicked");
+  }, []);
+
+  return (
+    <div>
+      <span>{count}</span>
+      <MemoizedButton onClick={handleClick} />
+    </div>
+  );
+}
+
+const MemoizedButton = React.memo(function Button({ onClick }) {
+  return <button onClick={onClick}>Click</button>;
+});
+```
+
+Without `useCallback`, `handleClick` would be a brand-new function on every
+render of `Parent`, which defeats `React.memo` on `MemoizedButton` — its
+`onClick` prop would "change" every time even though the logic is identical.
+
+## Don't over-optimize
+
+`useMemo` and `useCallback` aren't free — they add complexity and a small
+amount of overhead themselves. Reach for them when you've identified an
+actual slow render (via the React DevTools Profiler) or a genuinely
+expensive calculation, not by default on every component.
+
+### Try it yourself
+
+Take the `TaskList` component from the Task Tracker project and wrap it in
+`React.memo`. Then verify with `console.log` that it stops re-rendering when
+you type in an unrelated filter/search input elsewhere in the app.

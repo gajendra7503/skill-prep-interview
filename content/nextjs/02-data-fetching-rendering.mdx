@@ -1,0 +1,91 @@
+---
+title: "Data Fetching & Rendering Strategies"
+description: "Static rendering, dynamic rendering, and incremental static regeneration explained with fetch."
+module: "Rendering"
+order: 2
+---
+
+Next.js extends the native `fetch` API with caching semantics that decide
+**when** a page is rendered: at build time, on every request, or somewhere in
+between.
+
+## Static rendering (default)
+
+```tsx
+async function getPosts() {
+  const res = await fetch("https://api.example.com/posts"); // cached indefinitely by default
+  return res.json();
+}
+
+export default async function BlogPage() {
+  const posts = await getPosts();
+  return (
+    <ul>
+      {posts.map((post: { id: string; title: string }) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+With no extra options, this page is rendered **once at build time** and
+served as static HTML to every visitor — fastest possible response, but data
+won't update until the next deploy.
+
+## Incremental Static Regeneration (ISR)
+
+```tsx
+async function getPosts() {
+  const res = await fetch("https://api.example.com/posts", {
+    next: { revalidate: 60 }, // seconds
+  });
+  return res.json();
+}
+```
+
+The page is still served from the static cache, but Next.js will
+regenerate it in the background **at most once every 60 seconds** — a good
+middle ground for content like blog posts or product listings that change
+occasionally.
+
+## Dynamic rendering
+
+```tsx
+async function getUserOrders(userId: string) {
+  const res = await fetch(`https://api.example.com/orders?user=${userId}`, {
+    cache: "no-store",
+  });
+  return res.json();
+}
+```
+
+`cache: "no-store"` (or reading cookies/headers, or using a dynamic route
+param in the request) forces the page to render **fresh on every request** —
+required for anything personalized, like an orders page or a dashboard.
+
+## `generateStaticParams`: pre-building dynamic routes
+
+```tsx
+export async function generateStaticParams() {
+  const courses = await getAllCourseSlugs();
+  return courses.map((slug) => ({ course: slug }));
+}
+```
+
+This tells Next.js which `[course]` values exist ahead of time, so
+`/courses/react`, `/courses/angular`, etc. are all pre-rendered at build time
+instead of on first visit.
+
+## Choosing a strategy
+
+| Use case | Strategy |
+|---|---|
+| Marketing pages, docs, course content | Static (default) |
+| Blog, product catalog | ISR (`revalidate`) |
+| User dashboard, cart, search results | Dynamic (`no-store`) |
+
+### Try it yourself
+
+Take the course listing page in this app and add `generateStaticParams` so
+every course page is pre-rendered at build time instead of on first request.

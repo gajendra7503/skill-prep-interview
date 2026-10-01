@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `useNotes` track a separate `loaded` boolean instead of just checking if `notes.length === 0`?",
+      "options": [
+        "It doesn't matter, both are equivalent",
+        "Because AsyncStorage reads are asynchronous, so an empty array could mean 'genuinely no notes' or 'still loading' — loaded distinguishes the two",
+        "loaded is required syntax for AsyncStorage",
+        "It makes the component re-render faster"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without a distinct loading flag, the UI would briefly show 'No notes yet' on every launch before the real data arrives from AsyncStorage, even for a user with existing notes."
+    },
+    {
+      "question": "Why use `FlatList` instead of mapping over `notes` inside a `ScrollView`?",
+      "options": [
+        "ScrollView cannot render lists at all",
+        "FlatList only renders items on or near screen, which keeps scrolling smooth as the list grows, unlike ScrollView which renders everything upfront",
+        "FlatList is required for AsyncStorage to work",
+        "There's no actual performance difference"
+      ],
+      "correctIndex": 1,
+      "explanation": "ScrollView renders all its children immediately regardless of what's visible; FlatList virtualizes rendering, which matters a lot once a list has more than a handful of items."
+    },
+    {
+      "question": "Why does `keyExtractor` use `item.id` instead of the array index?",
+      "options": [
+        "Index-based keys are faster",
+        "A stable, content-based key lets FlatList correctly recycle and track row components across re-renders and reordering, avoiding flicker",
+        "keyExtractor is purely cosmetic and has no effect on behavior",
+        "FlatList doesn't support custom keys"
+      ],
+      "correctIndex": 1,
+      "explanation": "This is the same stable-key principle from the React fundamentals course — an index-based key breaks identity tracking whenever items are deleted, inserted, or reordered."
+    },
+    {
+      "question": "What does the project's hook design (notes/addNote/updateNote/deleteNote as the public API) make easy to swap out later?",
+      "options": [
+        "Nothing — the storage mechanism is hard-coded throughout the app",
+        "The underlying storage (AsyncStorage) for something like SQLite, since screens only ever interact with the hook's public API, not AsyncStorage directly",
+        "The navigation library",
+        "The React version being used"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because screens never call AsyncStorage directly, swapping the persistence layer only requires changing the inside of useNotes — callers are unaffected, which is the whole point of the abstraction."
+    }
+  ]
+}

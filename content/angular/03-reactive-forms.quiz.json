@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is a key advantage of reactive forms over template-driven forms?",
+      "options": [
+        "They require less TypeScript",
+        "The form's shape and validation live in the component class, making them easier to test and manage dynamically",
+        "They don't need Angular's forms module at all",
+        "They automatically style invalid fields"
+      ],
+      "correctIndex": 1,
+      "explanation": "Defining the form in the class (via FormBuilder) makes its value and validity synchronously accessible and straightforward to unit test."
+    },
+    {
+      "question": "How do you access a form control's value and validity synchronously?",
+      "options": [
+        "Only through a template reference variable",
+        "Via `form.value` and `form.valid` on the FormGroup",
+        "By subscribing to a separate service",
+        "It requires calling an async HTTP request"
+      ],
+      "correctIndex": 1,
+      "explanation": "A reactive FormGroup exposes `.value` and `.valid` directly, no DOM digesting required."
+    },
+    {
+      "question": "What is a cross-field validator used for, such as `passwordsMatch`?",
+      "options": [
+        "Validating a single control in isolation",
+        "Validating a relationship between two or more controls in the same group",
+        "Styling form fields",
+        "Disabling the submit button permanently"
+      ],
+      "correctIndex": 1,
+      "explanation": "Cross-field validators are attached at the FormGroup level and compare values across multiple controls, like confirming a password match."
+    },
+    {
+      "question": "What is `FormArray` used for?",
+      "options": [
+        "Storing an array of unrelated services",
+        "Managing a dynamic, variable-length list of form controls (e.g. 'add another item')",
+        "Replacing FormGroup entirely",
+        "Only working with checkbox inputs"
+      ],
+      "correctIndex": 1,
+      "explanation": "FormArray lets you push/remove controls at runtime, which is how you build UIs like adding multiple skills or line items without tracking indices manually."
+    }
+  ]
+}

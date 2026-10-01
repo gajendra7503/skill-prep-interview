@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is a Higher-Order Component (HOC)?",
+      "options": [
+        "A component rendered at the top of the tree",
+        "A function that takes a component and returns a new, enhanced component",
+        "A hook that returns JSX",
+        "A component that can only have one child"
+      ],
+      "correctIndex": 1,
+      "explanation": "A HOC wraps a given component with additional behavior and returns the wrapped result, e.g. `withLoading(UserList)`."
+    },
+    {
+      "question": "What is a common downside of stacking multiple HOCs, like `withLoading(withAuth(withTheme(Component)))`?",
+      "options": [
+        "It's impossible in JavaScript",
+        "'Wrapper hell' — deeply nested components in DevTools, plus the risk of prop name collisions between HOCs",
+        "It makes the component faster",
+        "It removes the need for props entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each HOC adds another layer of wrapping, making the component tree harder to read in DevTools and increasing the chance that two HOCs pass a prop with the same name."
+    },
+    {
+      "question": "In the render props pattern, how does the wrapped data reach the UI?",
+      "options": [
+        "Via a global variable",
+        "The component calls a function passed as a prop, handing it the data to render",
+        "Through CSS custom properties",
+        "It cannot pass data, only markup"
+      ],
+      "correctIndex": 1,
+      "explanation": "A render prop is a function prop the component invokes with its internal data (e.g. `render({ x, y })`), letting the caller decide what to render with it."
+    },
+    {
+      "question": "What problem do compound components (like `<Tabs><Tabs.Tab/></Tabs>`) solve that a custom hook alone cannot?",
+      "options": [
+        "Fetching data from an API",
+        "Letting the consumer freely arrange related markup pieces while internally coordinating state via Context — a hook only returns data, not structure",
+        "Handling form validation",
+        "Avoiding the use of Context entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "A hook can return shared state/logic, but not JSX structure — compound components let the consumer control layout while the pieces still share implicit state."
+    }
+  ]
+}

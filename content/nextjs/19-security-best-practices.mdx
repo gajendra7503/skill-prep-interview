@@ -1,0 +1,86 @@
+---
+title: "Security Best Practices"
+description: "The NEXT_PUBLIC_ gotcha, Server Actions' built-in CSRF protection, and sanitizing user input."
+module: "Security"
+order: 19
+---
+
+Next.js removes a lot of boilerplate security concerns by default, but a
+few require understanding exactly what the framework does and doesn't
+protect you from.
+
+## The `NEXT_PUBLIC_` prefix is not a secrecy mechanism
+
+Any environment variable prefixed `NEXT_PUBLIC_` is inlined into the
+client-side JavaScript bundle at build time — it is **readable by anyone**
+who opens your site's dev tools, prefix or no prefix. This app uses
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (see
+`.env.local.example`), and that's safe — but *not* because of the naming
+convention. It's safe because:
+
+- Supabase's **anon key is explicitly designed to be public** — it identifies
+  your project, it doesn't grant privileged access.
+- Actual data protection comes from **Row Level Security policies** (see
+  `supabase/schema.sql`), enforced on the database itself regardless of
+  which key a request presents.
+
+A genuine secret — a service-role key, a private API token, a database
+password — must **never** get a `NEXT_PUBLIC_` prefix. It belongs in a
+plain, server-only environment variable, read only inside Server Components,
+Server Actions, or Route Handlers, which never ship their code to the
+browser.
+
+```ts
+// WRONG — this leaks a privileged key into every visitor's browser bundle
+const supabaseAdmin = createClient(url, process.env.NEXT_PUBLIC_SERVICE_ROLE_KEY!);
+
+// RIGHT — server-only variable, never bundled client-side
+const supabaseAdmin = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+```
+
+## Server Actions have built-in CSRF protection
+
+A Server Action is a real HTTP POST under the hood, which would normally be
+a cross-site request forgery risk — a malicious site tricking a logged-in
+visitor's browser into submitting a request to yours. Next.js mitigates
+this automatically by checking that the request's `Origin` header matches
+the deployment's own host before executing the action; a request from a
+different origin is rejected before your action code ever runs. This is why
+this app's `toggleLessonComplete` and `markLessonComplete` actions don't
+need any manual CSRF token handling.
+
+## Sanitize and validate user input, still
+
+CSRF protection on Server Actions says nothing about whether the *content*
+of a submission is safe. Two risks remain entirely your responsibility:
+
+```ts
+"use server";
+
+export async function postComment(slug: string, formData: FormData) {
+  const body = formData.get("body");
+
+  // Validate shape/length before it ever reaches the database
+  if (typeof body !== "string" || body.length === 0 || body.length > 2000) {
+    return { error: "Invalid comment." };
+  }
+
+  // Let the database driver parameterize the query — never string-concatenate
+  // user input directly into SQL.
+  await db.query("insert into comments (slug, body) values ($1, $2)", [slug, body]);
+
+  return { error: null };
+}
+```
+
+And if that comment is ever rendered with `dangerouslySetInnerHTML` instead
+of as plain text, it must be sanitized first (e.g. with a library like
+`sanitize-html`) — otherwise a comment containing `<script>` tags executes
+in every other visitor's browser, a classic stored XSS vulnerability.
+
+### Try it yourself
+
+Grep this app's codebase for every environment variable read with
+`process.env` and confirm which ones are prefixed `NEXT_PUBLIC_`. For each
+one, ask: would it be a problem if this value were visible in a browser's
+dev tools right now?

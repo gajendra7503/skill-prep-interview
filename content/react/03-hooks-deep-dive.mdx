@@ -1,0 +1,96 @@
+---
+title: "Hooks Deep Dive"
+description: "useEffect for side effects, useContext for shared state, and writing your own custom hooks."
+module: "Hooks"
+order: 3
+---
+
+## `useEffect`: syncing with the outside world
+
+Effects run code after render to synchronize a component with something
+outside React — fetching data, subscribing to an event, or manually touching
+the DOM.
+
+```jsx
+import { useEffect, useState } from "react";
+
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`/api/users/${userId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setUser(data);
+      });
+
+    return () => {
+      cancelled = true; // cleanup avoids setting state on an unmounted component
+    };
+  }, [userId]); // re-run only when userId changes
+
+  if (!user) return <p>Loading…</p>;
+  return <h2>{user.name}</h2>;
+}
+```
+
+Key rules:
+
+- The **dependency array** controls when the effect re-runs. Omitting it runs
+  the effect after every render; `[]` runs it once on mount.
+- Always return a **cleanup function** for subscriptions, timers, or
+  in-flight requests to prevent memory leaks and race conditions.
+
+## `useContext`: avoiding prop drilling
+
+When many nested components need the same value (theme, current user,
+locale), wrap them in a `Context.Provider` instead of threading props through
+every level:
+
+```jsx
+const ThemeContext = createContext("light");
+
+function App() {
+  return (
+    <ThemeContext.Provider value="dark">
+      <Toolbar />
+    </ThemeContext.Provider>
+  );
+}
+
+function Toolbar() {
+  const theme = useContext(ThemeContext);
+  return <div className={theme}>...</div>;
+}
+```
+
+## Writing a custom hook
+
+A custom hook is just a function starting with `use` that calls other hooks.
+It's the standard way to extract and reuse stateful logic:
+
+```jsx
+function useLocalStorage(key, initialValue) {
+  const [value, setValue] = useState(() => {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : initialValue;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+
+  return [value, setValue];
+}
+```
+
+Now any component can persist state to `localStorage` with one line:
+`const [tasks, setTasks] = useLocalStorage("tasks", [])`. We'll use exactly
+this hook in the project below.
+
+### Try it yourself
+
+Write a `useWindowWidth` hook that tracks `window.innerWidth` via a `resize`
+listener, with proper cleanup.

@@ -1,0 +1,100 @@
+---
+title: "Virtual DOM & Reconciliation"
+description: "What the virtual DOM actually is, how React decides what changed, and why keys matter."
+module: "Core Concepts"
+order: 9
+---
+
+This is one of the most commonly asked React interview topics, and also one
+of the most commonly misunderstood. The virtual DOM isn't magic — it's a
+plain JavaScript data structure, and the algorithm that uses it is just a
+diffing strategy tuned for how UIs actually change.
+
+## What the virtual DOM is
+
+Every time a component renders, React doesn't touch the real DOM directly.
+Instead, JSX compiles down to `React.createElement(...)` calls that produce
+a tree of plain objects describing what the UI *should* look like:
+
+```jsx
+const element = <h1 className="title">Hello</h1>;
+
+// roughly compiles to:
+const element = React.createElement("h1", { className: "title" }, "Hello");
+// which produces an object shaped like:
+// { type: "h1", props: { className: "title", children: "Hello" } }
+```
+
+That object tree is the virtual DOM — a lightweight, in-memory
+representation. Real DOM mutations (inserting nodes, updating attributes)
+are comparatively expensive, so React tries to do as few of them as
+possible.
+
+## Reconciliation: how React finds what changed
+
+When state updates, React builds a *new* virtual DOM tree and compares it to
+the previous one — this comparison process is called **reconciliation**. It
+follows a few heuristics rather than a full, expensive tree-diff:
+
+- **Different element types produce different trees.** If `<div>` becomes
+  `<span>` at the same position, React tears down the old subtree entirely
+  and builds a new one — it doesn't try to patch a `div` into a `span`.
+- **Same element type is updated in place.** If `<div className="a">`
+  becomes `<div className="b">`, React keeps the same DOM node and just
+  updates the changed attribute.
+- **Lists are matched by key**, not by position — which is where most
+  real-world bugs come from.
+
+## Why keys matter
+
+Without keys, React compares list items by index. Consider re-ordering:
+
+```jsx
+// Before
+<li>Apple</li>
+<li>Banana</li>
+
+// After (Banana moved to the front)
+<li>Banana</li>
+<li>Apple</li>
+```
+
+With index-based comparison, React sees "item at index 0 changed text from
+Apple to Banana" and "item at index 1 changed text from Banana to Apple" —
+it patches both DOM nodes' text instead of realizing the elements just
+swapped places. This gets worse when list items hold their own state (like
+an input's cursor position or a checkbox), because that internal state stays
+attached to the DOM node at that *index*, not the logical item — so it can
+appear to jump to the wrong row.
+
+A stable, unique `key` (a database ID, not `Math.random()` or the array
+index) tells React which element is which across renders, so it can match
+them correctly, move the real DOM node instead of re-creating it, and keep
+each item's internal state attached to the right row:
+
+```jsx
+{items.map((item) => (
+  <li key={item.id}>{item.label}</li> // not key={index}
+))}
+```
+
+Using the array index as a key is only safe when the list is static — never
+reordered, filtered, or has items inserted/removed.
+
+## Fiber: making rendering interruptible
+
+Older React (pre-16) walked the tree recursively and synchronously — once
+started, a render couldn't be paused, which could block the main thread on
+large updates and make typing or scrolling feel janky. The **Fiber**
+architecture rewrote this as an incremental, unit-of-work-based process:
+React can pause a render, let the browser handle something more urgent
+(like a keystroke), and resume later. This is also the foundation that makes
+concurrent features like `useTransition` possible (covered later in this
+course).
+
+### Try it yourself
+
+Render a list of text inputs using the array index as the key, then add a
+button that inserts a new item at the *front* of the list. Type into one of
+the inputs, click the button, and watch which input the text ends up in —
+then fix it by switching to a stable `id`-based key.

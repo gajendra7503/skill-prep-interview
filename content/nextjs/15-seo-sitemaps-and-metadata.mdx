@@ -1,0 +1,122 @@
+---
+title: "SEO: Sitemaps, Robots & Open Graph"
+description: "Generating sitemap.xml and robots.txt, rich social previews, and dynamic Open Graph images."
+module: "SEO"
+order: 15
+---
+
+Good SEO in the App Router is mostly a handful of file conventions that
+Next.js turns into the right output automatically — no hand-written XML.
+
+## `sitemap.ts`: generating `/sitemap.xml`
+
+```ts
+// app/sitemap.ts
+import type { MetadataRoute } from "next";
+import { getAllCourses, getLessons } from "@/lib/content";
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  const courses = getAllCourses();
+
+  const courseEntries = courses.map((course) => ({
+    url: `https://skillprep.example.com/courses/${course.slug}`,
+    lastModified: new Date(),
+  }));
+
+  const lessonEntries = courses.flatMap((course) =>
+    getLessons(course.slug).map((lesson) => ({
+      url: `https://skillprep.example.com/courses/${course.slug}/${lesson.slug}`,
+      lastModified: new Date(),
+    }))
+  );
+
+  return [{ url: "https://skillprep.example.com" }, ...courseEntries, ...lessonEntries];
+}
+```
+
+A `sitemap.ts` file exporting a default function returning `MetadataRoute.Sitemap`
+is automatically served at `/sitemap.xml` — no manual XML generation, and it
+stays in sync with your actual routes since it reads from the same content
+source the pages do.
+
+## `robots.ts`: generating `/robots.txt`
+
+```ts
+// app/robots.ts
+import type { MetadataRoute } from "next";
+
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: { userAgent: "*", allow: "/", disallow: "/dashboard" },
+    sitemap: "https://skillprep.example.com/sitemap.xml",
+  };
+}
+```
+
+Useful for keeping crawlers out of authenticated-only sections (like this
+app's `/dashboard`) while still letting them discover and index public
+course content.
+
+## Rich social previews with `openGraph`/`twitter`
+
+The `generateMetadata` function from earlier in this course can return
+platform-specific preview data, which is what makes a shared link render as
+a card with an image and description instead of a bare URL:
+
+```tsx
+export async function generateMetadata({ params }: { params: Promise<{ course: string }> }) {
+  const { course: slug } = await params;
+  const course = getCourse(slug);
+
+  return {
+    title: course?.title,
+    description: course?.description,
+    openGraph: {
+      title: course?.title,
+      description: course?.description,
+      images: [`/courses/${slug}/opengraph-image`],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: course?.title,
+    },
+  };
+}
+```
+
+## Dynamic Open Graph images with `next/og`
+
+Rather than hand-designing a static preview image per page, `opengraph-image.tsx`
+generates one on demand using JSX and CSS, rendered to a PNG at request time:
+
+```tsx
+// app/courses/[course]/opengraph-image.tsx
+import { ImageResponse } from "next/og";
+import { getCourse } from "@/lib/content";
+
+export const size = { width: 1200, height: 630 };
+export const contentType = "image/png";
+
+export default async function Image({ params }: { params: { course: string } }) {
+  const course = getCourse(params.course);
+
+  return new ImageResponse(
+    (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", background: "#09090b", color: "white", fontSize: 64 }}>
+        {course?.icon} {course?.title}
+      </div>
+    ),
+    size
+  );
+}
+```
+
+Next.js automatically wires this up as the `opengraph-image` referenced by
+`generateMetadata` — every course gets a unique, on-brand preview image
+without maintaining a folder of static assets.
+
+### Try it yourself
+
+Add a `sitemap.ts` to this app that lists every course and lesson URL, then
+add a `robots.ts` that disallows `/dashboard` and `/login` while allowing
+everything else.

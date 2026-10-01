@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `setTimeout(fn, 0)` actually guarantee?",
+      "options": [
+        "fn runs immediately, before any other code",
+        "fn is scheduled to run as a macrotask, only after the current call stack is empty and all pending microtasks have been drained",
+        "fn runs exactly 0 milliseconds after the current function returns, ahead of Promises",
+        "fn never actually runs if there is other code queued"
+      ],
+      "correctIndex": 1,
+      "explanation": "A 0ms timeout still places its callback in the macrotask queue, which is only processed after the stack clears and the entire microtask queue is drained."
+    },
+    {
+      "question": "Given `console.log(\"1\"); setTimeout(() => console.log(\"2\"), 0); Promise.resolve().then(() => console.log(\"3\")); console.log(\"4\");` what is the output order?",
+      "options": [
+        "1, 2, 3, 4",
+        "1, 4, 3, 2",
+        "1, 3, 4, 2",
+        "4, 1, 3, 2"
+      ],
+      "correctIndex": 1,
+      "explanation": "Synchronous logs (1, 4) run first; then the microtask queue (Promise then, logging 3) is fully drained; only then does the macrotask queue run (setTimeout, logging 2)."
+    },
+    {
+      "question": "If a microtask callback schedules another microtask while it runs, what happens?",
+      "options": [
+        "The new microtask is deferred until after the next macrotask",
+        "The new microtask is also executed before the event loop moves on to the next macrotask, since the microtask queue is drained completely each cycle",
+        "It causes an infinite loop error",
+        "It is silently dropped"
+      ],
+      "correctIndex": 1,
+      "explanation": "The event loop keeps processing microtasks — including ones added during microtask execution — until the microtask queue is completely empty, before touching the next macrotask."
+    },
+    {
+      "question": "Which of the following is processed as a macrotask, not a microtask?",
+      "options": [
+        "A .then() callback on a resolved Promise",
+        "A setTimeout callback",
+        "An async function's code after an awaited Promise resolves",
+        "A queueMicrotask callback"
+      ],
+      "correctIndex": 1,
+      "explanation": "setTimeout/setInterval callbacks go to the macrotask (task) queue; Promise continuations and queueMicrotask callbacks go to the microtask queue, which has priority."
+    }
+  ]
+}

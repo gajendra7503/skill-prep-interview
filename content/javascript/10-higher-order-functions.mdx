@@ -1,0 +1,95 @@
+---
+title: "Higher-Order Functions & Functional Programming"
+description: "Functions as values, pure functions, composition, and currying."
+module: "Advanced Patterns"
+order: 10
+---
+
+JavaScript treats functions as **first-class values** — they can be stored
+in variables, passed as arguments, and returned from other functions. A
+**higher-order function** is simply a function that takes another function as
+an argument, returns one, or both.
+
+```js
+function withLogging(fn) {
+  return function (...args) {
+    console.log(`Calling ${fn.name} with`, args);
+    return fn(...args);
+  };
+}
+
+const loggedAdd = withLogging((a, b) => a + b);
+loggedAdd(2, 3); // logs "Calling  with [2, 3]", returns 5
+```
+
+`map`, `filter`, and `reduce` (covered in an earlier lesson) are all
+higher-order functions — they take a callback and decide when and how to
+call it.
+
+## Pure functions: predictable by construction
+
+A function is **pure** if, given the same inputs, it always returns the same
+output, and causes no observable side effects (no mutating arguments, no
+network calls, no writing to outer-scope variables):
+
+```js
+// Impure: depends on and mutates external state
+let total = 0;
+function addToTotal(n) {
+  total += n;
+  return total;
+}
+
+// Pure: output depends only on inputs, no side effects
+function add(a, b) {
+  return a + b;
+}
+```
+
+Pure functions are easier to test (no setup/teardown of external state),
+easier to reason about (no hidden dependencies), and safe to memoize or run
+in any order.
+
+## Composition: building pipelines from small functions
+
+```js
+const compose = (...fns) => (input) =>
+  fns.reduceRight((acc, fn) => fn(acc), input);
+
+const double = (n) => n * 2;
+const increment = (n) => n + 1;
+const square = (n) => n * n;
+
+const pipeline = compose(square, increment, double);
+pipeline(3); // double(3)=6 -> increment(6)=7 -> square(7)=49
+```
+
+Composition is the functional alternative to writing one large function that
+does everything — instead, small single-purpose functions are combined, each
+independently testable.
+
+## Currying: pre-filling arguments one at a time
+
+```js
+function multiply(a) {
+  return function (b) {
+    return a * b;
+  };
+}
+
+const double = multiply(2);
+double(5); // 10
+double(10); // 20
+```
+
+Currying transforms a function that takes multiple arguments into a sequence
+of functions that each take one, letting you create specialized, reusable
+versions by "locking in" the first argument — useful for things like a
+validator factory (`isAtLeast(18)` built from a general `isAtLeast(min, value)`).
+
+### Try it yourself
+
+Write a curried `isValidLength(min)` function that returns a function
+checking whether a given string meets that minimum length, then use it to
+create `isValidPassword` (min 8) and `isValidUsername` (min 3) from the same
+base function.

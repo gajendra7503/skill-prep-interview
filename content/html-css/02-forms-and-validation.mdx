@@ -1,0 +1,104 @@
+---
+title: "Forms & Validation"
+description: "Semantic form structure, picking the right input type, and native HTML validation vs JavaScript."
+module: "HTML Fundamentals"
+order: 2
+---
+
+Forms are where sloppy HTML costs the most — a form that's hard to use on a
+phone, inaccessible to screen readers, or silently fails to validate loses
+you real users and real signups.
+
+## `<label for>` is not optional
+
+```html
+<label for="email">Email address</label>
+<input id="email" name="email" type="email" required />
+```
+
+The `for`/`id` pairing does two things a placeholder or nearby text never
+can: clicking the label text focuses the input (a bigger, easier-to-hit
+tap target on mobile), and a screen reader announces the label whenever the
+input receives focus. Wrapping the input inside the label works too and
+removes the need for matching `for`/`id` values:
+
+```html
+<label>
+  Email address
+  <input name="email" type="email" required />
+</label>
+```
+
+## Grouping related fields with `<fieldset>`/`<legend>`
+
+```html
+<fieldset>
+  <legend>Shipping address</legend>
+  <label for="street">Street</label>
+  <input id="street" name="street" />
+  <label for="city">City</label>
+  <input id="city" name="city" />
+</fieldset>
+```
+
+For a group of radio buttons especially, `<fieldset>`/`<legend>` is how a
+screen reader announces "Shipping method, group of 3" instead of three
+unrelated radio inputs with no indication they belong together.
+
+## Choosing the right `type` is not cosmetic
+
+```html
+<input type="email" />   <!-- mobile keyboards show @ and .com shortcuts -->
+<input type="tel" />     <!-- numeric phone keypad on mobile -->
+<input type="number" />  <!-- numeric keypad, spinner arrows, step behavior -->
+<input type="date" />    <!-- native date picker UI -->
+<input type="url" />     <!-- mobile keyboard optimized for URLs -->
+```
+
+Beyond the mobile keyboard adapting, most of these types trigger built-in
+browser validation — `type="email"` rejects a value without an `@` on form
+submission, with zero JavaScript required.
+
+## Native validation attributes
+
+```html
+<input
+  type="text"
+  required
+  minlength="3"
+  maxlength="20"
+  pattern="[A-Za-z0-9_]+"
+  title="Letters, numbers, and underscores only"
+/>
+```
+
+`required`, `minlength`/`maxlength`, `pattern` (a regular expression), and
+type-specific constraints like `min`/`max` on `type="number"` all trigger the
+browser's built-in validation UI on submit — the input gets focused and a
+native tooltip-style message appears, with zero JavaScript.
+
+## Why you still usually need JavaScript too
+
+Native validation has real limits: its error message styling can't be
+customized to match your design, it can't express cross-field rules
+("password and confirm-password must match"), and some constraints (an
+async check that a username isn't already taken) can only be done with a
+network request. The practical pattern is to use native attributes as a
+first line of defense (so a non-JS page still partially works and mobile
+keyboards still adapt) and layer JavaScript validation for everything native
+HTML can't express:
+
+```html
+<form novalidate id="signup-form">
+  <!-- novalidate turns off the native tooltip UI so your JS can own
+       the error display entirely, while the type/pattern/required
+       attributes are still readable by your own validation code -->
+</form>
+```
+
+### Try it yourself
+
+Build a small "create account" form with email, password, and confirm
+password fields, using the correct `type`/`required`/`minlength` attributes
+on each, then add a JavaScript check (on submit) that the two password
+fields match.

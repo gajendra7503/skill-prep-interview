@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What determines which direction is the 'main axis' in a flex container?",
+      "options": [
+        "It's always horizontal, no matter what",
+        "The flex-direction property — row makes it horizontal, column makes it vertical",
+        "The order of the HTML elements",
+        "The width of the browser window"
+      ],
+      "correctIndex": 1,
+      "explanation": "flex-direction defines the main axis; every other Flexbox alignment property is interpreted relative to whichever axis that currently is."
+    },
+    {
+      "question": "In a `flex-direction: row` container, what does `align-items: center` do?",
+      "options": [
+        "Centers items along the main (horizontal) axis",
+        "Centers items along the cross (vertical) axis",
+        "Has no effect in a row layout",
+        "Centers the entire container on the page"
+      ],
+      "correctIndex": 1,
+      "explanation": "align-items operates on the cross axis, which is vertical when the main axis (set by flex-direction: row) is horizontal."
+    },
+    {
+      "question": "In the shorthand `flex: 1 1 0`, what does the first `1` control?",
+      "options": [
+        "flex-basis — the item's starting size",
+        "flex-grow — how much leftover space this item claims relative to siblings",
+        "flex-shrink — how much this item shrinks under pressure",
+        "The item's z-index"
+      ],
+      "correctIndex": 1,
+      "explanation": "The shorthand order is flex-grow, flex-shrink, flex-basis — so the first value is flex-grow."
+    },
+    {
+      "question": "What layout does `flex: 0 0 240px` on a sidebar combined with `flex: 1 1 0` on the main content area produce?",
+      "options": [
+        "Both elements shrink to 0 width",
+        "A fixed-width 240px sidebar, with the main content area expanding to fill all remaining space",
+        "The sidebar grows to fill the page",
+        "Both elements end up exactly 240px wide"
+      ],
+      "correctIndex": 1,
+      "explanation": "flex-grow: 0 and flex-shrink: 0 lock the sidebar at its 240px basis, while the main content's flex-grow: 1 lets it absorb all remaining space."
+    }
+  ]
+}

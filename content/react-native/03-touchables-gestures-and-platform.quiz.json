@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why can `Pressable`'s `style` prop be a function instead of a plain object?",
+      "options": [
+        "It's just a stylistic alternative with no functional purpose",
+        "The function receives the current pressed state, letting you apply conditional styles (like reduced opacity) without manually tracking press state with useState",
+        "Function styles are required for performance reasons",
+        "Only function styles work with StyleSheet.create"
+      ],
+      "correctIndex": 1,
+      "explanation": "Pressable passes { pressed } into style and children functions, which is how you get press-feedback styling without wiring up your own onPressIn/onPressOut state."
+    },
+    {
+      "question": "Why does the React Native team recommend `Pressable` over `TouchableOpacity`/`TouchableHighlight` for new code?",
+      "options": [
+        "The older Touchable components have been completely removed",
+        "Pressable unifies their capabilities and adds finer-grained control over different press states",
+        "TouchableOpacity doesn't support onPress at all",
+        "There is no actual recommendation, they are fully interchangeable with no trade-offs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Pressable is the newer, more capable API; the older Touchable components still work and appear in many codebases/libraries but are considered legacy for new development."
+    },
+    {
+      "question": "Why does the card shadow example use `Platform.select({ ios: ..., android: ... })` instead of one shared style?",
+      "options": [
+        "iOS and Android use completely different APIs for drop shadows — shadow* properties on iOS vs elevation on Android",
+        "Platform.select is required for every style object",
+        "Android doesn't support shadows under any circumstances",
+        "It's purely a code style preference with no functional need"
+      ],
+      "correctIndex": 0,
+      "explanation": "Shadow rendering is one of the areas where iOS and Android diverge at the native level, so a single cross-platform style property doesn't exist — Platform.select picks the right implementation per OS."
+    },
+    {
+      "question": "What does naming two files `Header.ios.js` and `Header.android.js` achieve, compared to a single file with `Platform.OS` checks?",
+      "options": [
+        "Nothing different — it's purely a naming convention with no effect on bundling",
+        "Metro (the bundler) automatically picks the matching file at import time based on the running platform, avoiding in-file branching for substantially different implementations",
+        "It disables the component on whichever platform's file is missing",
+        "It's required syntax whenever Platform.OS is used anywhere in the app"
+      ],
+      "correctIndex": 1,
+      "explanation": "The .ios.js/.android.js extension convention is resolved automatically by the bundler, which is cleaner than Platform.OS branching when two platform implementations are different enough to warrant separate files entirely."
+    }
+  ]
+}

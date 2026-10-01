@@ -1,0 +1,76 @@
+---
+title: "Streaming & Suspense"
+description: "Sending HTML in chunks instead of all at once — loading.tsx and <Suspense> boundaries for instant-feeling pages."
+module: "Rendering"
+order: 10
+---
+
+Traditional server rendering waits for **everything** a page needs before
+sending any HTML — one slow query blocks the whole response. The App Router
+can instead **stream** a page: send the shell immediately, then fill in
+slower parts as their data resolves.
+
+## `loading.tsx`: instant navigation feedback
+
+Adding a `loading.tsx` next to a `page.tsx` automatically wraps that route in
+a `<Suspense>` boundary, so Next.js shows it the instant you navigate there,
+before the page's own data fetching has resolved:
+
+```tsx
+// app/courses/[course]/loading.tsx
+export default function Loading() {
+  return <p className="p-6 text-sm text-zinc-500">Loading course…</p>;
+}
+```
+
+No manual state, no spinner logic in the page itself — the file convention
+handles it, and it's replaced automatically once `page.tsx` finishes
+rendering with real data.
+
+## `<Suspense>`: streaming part of a page, not the whole thing
+
+`loading.tsx` covers the whole route. For finer control — say, a fast page
+where only *one* section is slow — wrap just that section in `<Suspense>`:
+
+```tsx
+import { Suspense } from "react";
+
+export default async function DashboardPage() {
+  return (
+    <div>
+      <h1>Dashboard</h1>
+      {/* renders immediately */}
+      <QuickStats />
+
+      {/* the rest of the page doesn't wait for this */}
+      <Suspense fallback={<p>Loading recent activity…</p>}>
+        <RecentActivity />
+      </Suspense>
+    </div>
+  );
+}
+
+async function RecentActivity() {
+  const activity = await getSlowActivityFeed(); // takes 2 seconds
+  return <ActivityList items={activity} />;
+}
+```
+
+The browser receives the page shell and `<QuickStats>` right away; the server
+streams in `<RecentActivity>`'s real HTML the moment `getSlowActivityFeed`
+resolves, swapping out the fallback in place — no client-side refetch, no
+layout jump if the fallback reserves the right space.
+
+## Why this matters over "just show a spinner"
+
+A traditional client-fetched spinner means: send an empty shell, wait for JS
+to hydrate, *then* start fetching. Streaming Server Components means the data
+fetching starts on the server immediately, and the resolved HTML arrives
+already-rendered — no client-server round trip after the fact, and content is
+indexable by search engines even for the slower sections.
+
+### Try it yourself
+
+Add a `loading.tsx` to this app's `app/courses/[course]/[lesson]/` route,
+then artificially slow down `getLessonContent` with a `setTimeout`-based delay
+to see the fallback appear during navigation.

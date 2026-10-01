@@ -1,0 +1,98 @@
+---
+title: "Touchables, Gestures & Platform Differences"
+description: "Pressable vs the older Touchable components, and writing code that adapts to iOS vs Android."
+module: "Fundamentals"
+order: 3
+---
+
+Nothing in React Native is clickable by default — there's no native `<button>`
+or `:hover` state, since touch and mouse interaction are fundamentally
+different. React Native provides dedicated components for making anything
+respond to touch.
+
+## `Pressable`: the modern, recommended API
+
+```jsx
+import { Pressable, Text } from "react-native";
+
+function LikeButton({ liked, onToggle }) {
+  return (
+    <Pressable
+      onPress={onToggle}
+      style={({ pressed }) => [
+        { padding: 10, borderRadius: 8 },
+        pressed && { opacity: 0.6 },
+      ]}
+    >
+      <Text>{liked ? "♥ Liked" : "♡ Like"}</Text>
+    </Pressable>
+  );
+}
+```
+
+`Pressable` exposes `onPressIn`/`onPressOut`/`onLongPress`, and lets `style`
+and `children` be **functions** that receive the current `pressed` state —
+which is how you build a pressed-visual-feedback effect without manually
+tracking that state yourself with `useState`.
+
+## The older `TouchableOpacity` / `TouchableHighlight`
+
+You'll still see these in existing codebases and some libraries:
+
+```jsx
+import { TouchableOpacity, Text } from "react-native";
+
+<TouchableOpacity onPress={onToggle} activeOpacity={0.6}>
+  <Text>Like</Text>
+</TouchableOpacity>;
+```
+
+`TouchableOpacity` dims its child on press; `TouchableHighlight` overlays a
+background color instead. Both are older, more limited APIs — `Pressable` is
+the one the React Native team recommends for new code, since it unifies
+their capabilities and adds finer-grained press-state control.
+
+## `Platform.OS` and platform-specific code
+
+Despite "write once," some things genuinely need to differ between iOS and
+Android — shadow styling, status bar behavior, specific native UI
+conventions. `Platform.OS` lets you branch directly:
+
+```jsx
+import { Platform, StyleSheet } from "react-native";
+
+const styles = StyleSheet.create({
+  card: {
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 8 },
+      android: { elevation: 4 },
+    }),
+  },
+});
+```
+
+`Platform.select({ ios: ..., android: ... })` picks the right value for the
+running platform — necessary here because iOS and Android use entirely
+different APIs for drop shadows (`shadow*` properties vs `elevation`).
+
+## File-extension-based platform splitting
+
+For a bigger platform difference — an entire component implemented
+differently per platform — React Native's bundler (Metro) supports naming
+convention instead of in-file branching:
+
+```text
+Header.ios.js       <- used automatically on iOS
+Header.android.js   <- used automatically on Android
+```
+
+Importing `./Header` picks whichever file matches the running platform
+automatically, with no `Platform.OS` check needed at the import site — useful
+when the two versions are different enough that keeping them in one file with
+branches would be harder to read than just having two files.
+
+### Try it yourself
+
+Convert the `LikeButton` above from `TouchableOpacity` to `Pressable`, adding
+a scale-down visual effect only while `pressed` is true, then add a
+`Platform.select` call that uses a different `fontFamily` on iOS vs Android.

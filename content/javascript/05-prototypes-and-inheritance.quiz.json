@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What happens when you access a property that doesn't exist directly on an object?",
+      "options": [
+        "JavaScript immediately returns undefined with no further lookup",
+        "The engine walks up the object's prototype chain looking for the property before giving up and returning undefined",
+        "It always throws a ReferenceError",
+        "It checks global variables with the same name"
+      ],
+      "correctIndex": 1,
+      "explanation": "Property lookup checks the object itself first, then follows the chain of prototypes until the property is found or the chain ends."
+    },
+    {
+      "question": "What is the difference between an object's \"prototype\" and a function's `.prototype` property?",
+      "options": [
+        "They are exactly the same thing with two names",
+        "An object's prototype is the object it delegates to for lookups; a function's `.prototype` property is the template object used to set up instances created with `new` from that function",
+        "Only arrow functions have a .prototype property",
+        "Prototypes were removed in modern JavaScript"
+      ],
+      "correctIndex": 1,
+      "explanation": "These are related but distinct: `.prototype` on a constructor function becomes the prototype of objects it constructs via `new`."
+    },
+    {
+      "question": "What three things does `new Animal(\"Rex\")` do?",
+      "options": [
+        "It only calls the Animal function with no side effects",
+        "Creates a new empty object, links that object's prototype to Animal.prototype, and runs Animal with `this` bound to the new object",
+        "It copies all of Animal's methods directly onto the new object",
+        "It creates a completely independent copy of the Animal function"
+      ],
+      "correctIndex": 1,
+      "explanation": "The `new` operator creates an object, wires up the prototype link, then invokes the constructor function with that object as `this`."
+    },
+    {
+      "question": "What does `class ... extends ...` fundamentally compile down to?",
+      "options": [
+        "A brand-new inheritance model unrelated to prototypes",
+        "The same constructor-function-and-prototype-chain mechanism, just with cleaner, stricter syntax",
+        "Multiple independent copies of the parent class's methods",
+        "A runtime-only feature with no connection to how `new` and prototypes work"
+      ],
+      "correctIndex": 1,
+      "explanation": "class/extends links prototype objects together exactly as manually chaining constructor functions via Object.create would — it's syntactic sugar, not a separate object model."
+    }
+  ]
+}

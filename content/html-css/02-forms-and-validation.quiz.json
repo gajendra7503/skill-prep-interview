@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does pairing <label for=\"email\"> with <input id=\"email\"> provide that placeholder text does not?",
+      "options": [
+        "Nothing meaningfully different — placeholders are an equivalent substitute",
+        "Clicking the label focuses the input (a larger tap target), and screen readers announce the label when the input receives focus",
+        "It makes the input submit automatically",
+        "It is only useful for styling purposes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Placeholder text disappears once typing starts and isn't reliably announced the same way; a properly associated label persists and is read by assistive technology on focus."
+    },
+    {
+      "question": "Why does <fieldset>/<legend> matter for a group of radio buttons specifically?",
+      "options": [
+        "It changes how the radio buttons are submitted to the server",
+        "It lets a screen reader announce the group's purpose and count (e.g. 'Shipping method, group of 3') instead of three unrelated inputs",
+        "It is purely a visual border with no accessibility effect",
+        "It is required for radio buttons to function at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without fieldset/legend, a screen reader has no indication that the radio inputs are related choices within a single question."
+    },
+    {
+      "question": "Beyond triggering the right mobile keyboard, what else does choosing `type=\"email\"` over `type=\"text\"` give you for free?",
+      "options": [
+        "Automatic password hashing",
+        "Built-in browser validation that rejects a value without an @ on form submission, with no JavaScript required",
+        "Automatic translation of the input value",
+        "It has no functional difference from type=\"text\""
+      ],
+      "correctIndex": 1,
+      "explanation": "Type-specific native validation (email format, number ranges, etc.) runs on submission automatically, independent of any JavaScript."
+    },
+    {
+      "question": "Why would a form still need JavaScript validation even after using required/pattern/minlength attributes?",
+      "options": [
+        "Native validation attributes don't actually work in any browser",
+        "Native validation can't express cross-field rules (like matching two password fields) or custom-styled error messages, and can't perform async checks like a uniqueness lookup",
+        "JavaScript validation is required by HTML5 specification",
+        "Using both is redundant and one should always be removed"
+      ],
+      "correctIndex": 1,
+      "explanation": "Native attributes are a good first line of defense but have real limits — cross-field validation, custom error UI, and async checks all require JavaScript."
+    }
+  ]
+}

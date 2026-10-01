@@ -1,0 +1,140 @@
+---
+title: "Real Project: Task Tracker"
+description: "Combine components, state, effects, and a custom hook into a working, persisted app."
+module: "Real-World Project"
+order: 20
+---
+
+Time to tie everything together into a small but complete app: a task
+tracker with add, complete, delete, and filtering — persisted to
+`localStorage` so refreshing the page doesn't lose data.
+
+## 1. Data model and persistence
+
+Reuse the `useLocalStorage` hook from the previous lesson:
+
+```jsx
+function useLocalStorage(key, initialValue) {
+  const [value, setValue] = useState(() => {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : initialValue;
+  });
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+  return [value, setValue];
+}
+```
+
+## 2. Lifting state to the top-level component
+
+```jsx
+function TaskTracker() {
+  const [tasks, setTasks] = useLocalStorage("tasks", []);
+  const [filter, setFilter] = useState("all"); // all | active | completed
+
+  function addTask(title) {
+    setTasks((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), title, completed: false },
+    ]);
+  }
+
+  function toggleTask(id) {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+    );
+  }
+
+  function deleteTask(id) {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  const visibleTasks = tasks.filter((t) => {
+    if (filter === "active") return !t.completed;
+    if (filter === "completed") return t.completed;
+    return true;
+  });
+
+  return (
+    <div className="max-w-md mx-auto">
+      <TaskForm onAdd={addTask} />
+      <FilterBar filter={filter} onChange={setFilter} />
+      <TaskList tasks={visibleTasks} onToggle={toggleTask} onDelete={deleteTask} />
+    </div>
+  );
+}
+```
+
+Notice the pattern: **all mutations happen in the parent**, child components
+only receive data and callbacks. This keeps the data flow predictable.
+
+## 3. The presentational children
+
+```jsx
+function TaskForm({ onAdd }) {
+  const [title, setTitle] = useState("");
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onAdd(title.trim());
+    setTitle("");
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex gap-2 mb-4">
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="What needs doing?"
+        className="flex-1 border rounded px-3 py-2"
+      />
+      <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
+        Add
+      </button>
+    </form>
+  );
+}
+
+function TaskList({ tasks, onToggle, onDelete }) {
+  if (tasks.length === 0) return <p className="text-sm text-gray-500">No tasks here.</p>;
+
+  return (
+    <ul className="space-y-2">
+      {tasks.map((task) => (
+        <li key={task.id} className="flex items-center gap-2 border rounded px-3 py-2">
+          <input
+            type="checkbox"
+            checked={task.completed}
+            onChange={() => onToggle(task.id)}
+          />
+          <span className={task.completed ? "line-through text-gray-400 flex-1" : "flex-1"}>
+            {task.title}
+          </span>
+          <button onClick={() => onDelete(task.id)} className="text-red-500 text-sm">
+            Delete
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## What this project demonstrates
+
+- **Lists need a stable `key`** (`task.id`, not array index) so React can
+  track identity across re-renders correctly.
+- **Immutable updates** — `map`/`filter` return new arrays rather than
+  mutating `tasks` directly, which is what lets React detect the change.
+- **Single source of truth** — `tasks` lives in one place; every other
+  component is derived or receives callbacks.
+
+### Extend it yourself
+
+- Add an "edit task" feature (double-click to rename).
+- Show a counter of remaining active tasks.
+- Add a "Clear completed" button.
+- Once you've connected Supabase (see the Dashboard in this app), consider
+  how you'd swap `useLocalStorage` for a real database table per user.

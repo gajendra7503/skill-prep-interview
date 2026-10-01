@@ -1,0 +1,77 @@
+---
+title: "Accessibility Fundamentals"
+description: "Semantic HTML first, ARIA only when you have to, and the attributes that actually come up in interviews."
+module: "HTML Fundamentals"
+order: 3
+---
+
+Accessibility is often treated as something you bolt on at the end with ARIA
+attributes. The first and most important rule is almost the opposite: use
+the right native HTML element, and most accessibility comes free.
+
+## Native elements are accessible by default
+
+```html
+<!-- Needs extra JavaScript AND extra ARIA to become keyboard-accessible -->
+<div onclick="submitForm()">Submit</div>
+
+<!-- Already keyboard-focusable, already announced as a button, already
+     triggerable with Enter/Space — zero extra work -->
+<button onclick="submitForm()">Submit</button>
+```
+
+A `<div>` with a click handler isn't in the keyboard tab order, isn't
+announced as anything interactive by a screen reader, and doesn't respond to
+Enter or Space. Making it accessible requires manually adding `tabindex="0"`,
+`role="button"`, and keydown handlers for Enter/Space — all of which
+`<button>` gives you automatically. This is "the first rule of ARIA" in
+practice: **no ARIA is better than bad ARIA**, and a native element is almost
+always less code and more correct than a styled `<div>` plus ARIA patches.
+
+## When ARIA is actually the right tool
+
+ARIA exists for exactly the cases where no native HTML element expresses
+what you need — a custom dropdown, a tab panel, a toast notification. Three
+attributes come up constantly:
+
+```html
+<!-- aria-label: an accessible name when there's no visible text -->
+<button aria-label="Close dialog">✕</button>
+
+<!-- aria-hidden: hide purely decorative content from assistive tech -->
+<span aria-hidden="true">🎉</span> Congratulations!
+
+<!-- role: tells assistive tech what a non-semantic element behaves as -->
+<div role="alert">Your changes were saved.</div>
+```
+
+- **`aria-label`** overrides the accessible name of an element — essential
+  for icon-only buttons where there's no text for a screen reader to read.
+- **`aria-hidden="true"`** removes an element from the accessibility tree
+  entirely; use it for decorative icons/emoji that would otherwise be
+  announced redundantly alongside adjacent text.
+- **`role`** tells assistive technology what kind of control an element is
+  when the tag itself doesn't say — `role="alert"` makes a screen reader
+  announce new content immediately, without the user needing to navigate to
+  it.
+
+## The trap: ARIA that contradicts the native role
+
+```html
+<!-- Confusing: a real button with a role that re-declares what it already is
+     adds nothing, but a role that CONTRADICTS the element is actively harmful -->
+<button role="link">Submit</button> <!-- announced as a link, behaves as a button -->
+```
+
+Overriding a native element's implicit role to something else creates a
+mismatch between what assistive tech announces and how the element actually
+behaves — confusing in exactly the way ARIA is supposed to prevent.
+
+### Try it yourself
+
+Find a custom-styled checkbox, toggle, or dropdown in a codebase you've
+worked on (or imagine a typical one) and check: is it built from a
+`<div>`/`<span>` with a click handler, or from a real `<input>`/`<button>`
+styled to look custom? If it's the former, list the ARIA attributes and
+keyboard handlers it would need to match what the native element gives for
+free.

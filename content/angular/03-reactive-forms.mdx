@@ -1,0 +1,93 @@
+---
+title: "Reactive Forms"
+description: "Type-safe, testable forms built with FormGroup, FormControl, and validators."
+module: "Forms"
+order: 3
+---
+
+Angular has two form APIs: template-driven (`ngModel`) and **reactive
+forms**. Reactive forms define the form's shape in the component class,
+which makes validation, testing, and dynamic fields much easier to manage.
+
+```ts
+import { Component } from "@angular/core";
+import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
+
+@Component({
+  selector: "app-login-form",
+  standalone: true,
+  imports: [ReactiveFormsModule],
+  template: `
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <input formControlName="email" placeholder="Email" />
+      @if (form.controls.email.invalid && form.controls.email.touched) {
+        <p class="error">Enter a valid email.</p>
+      }
+
+      <input formControlName="password" type="password" placeholder="Password" />
+      @if (form.controls.password.hasError('minlength')) {
+        <p class="error">Password must be at least 8 characters.</p>
+      }
+
+      <button type="submit" [disabled]="form.invalid">Log in</button>
+    </form>
+  `,
+})
+export class LoginFormComponent {
+  private fb = new FormBuilder();
+
+  form = this.fb.group({
+    email: ["", [Validators.required, Validators.email]],
+    password: ["", [Validators.required, Validators.minLength(8)]],
+  });
+
+  submit() {
+    if (this.form.invalid) return;
+    console.log(this.form.value); // { email, password }
+  }
+}
+```
+
+## Why reactive forms scale better
+
+- The whole form's value and validity is available synchronously via
+  `form.value` / `form.valid` — no digesting the DOM.
+- Validators are pure functions, so **custom validators** are trivial to
+  unit test in isolation:
+
+```ts
+import { AbstractControl, ValidationErrors } from "@angular/forms";
+
+export function passwordsMatch(control: AbstractControl): ValidationErrors | null {
+  const { password, confirm } = control.value;
+  return password === confirm ? null : { mismatch: true };
+}
+```
+
+Attach a cross-field validator at the group level:
+`this.fb.group({ password: [...], confirm: [...] }, { validators: passwordsMatch })`.
+
+## Dynamic fields with `FormArray`
+
+```ts
+form = this.fb.group({
+  skills: this.fb.array([this.fb.control("")]),
+});
+
+get skills() {
+  return this.form.get("skills") as FormArray;
+}
+
+addSkill() {
+  this.skills.push(this.fb.control(""));
+}
+```
+
+`FormArray` is how you build "add another item" UIs — invoice line items,
+tags, additional phone numbers — without manually tracking indices.
+
+### Try it yourself
+
+Build a sign-up form with `email`, `password`, `confirmPassword`, and the
+`passwordsMatch` cross-field validator above, showing an error only after
+both fields have been touched.

@@ -1,0 +1,100 @@
+---
+title: "Styling Approaches"
+description: "CSS Modules, utility-first CSS, and CSS-in-JS — what each trades off, and how to choose."
+module: "Styling"
+order: 17
+---
+
+There's no single "correct" way to style a React app — the right choice
+depends on team size, performance constraints, and how much you value
+colocating styles with components versus a shared design-system vocabulary.
+
+## CSS Modules: scoped plain CSS
+
+```css
+/* Button.module.css */
+.primary {
+  background: #2563eb;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+}
+```
+
+```jsx
+import styles from "./Button.module.css";
+
+function Button({ children }) {
+  return <button className={styles.primary}>{children}</button>;
+}
+```
+
+The build tool rewrites `.primary` into a unique generated class name per
+module, so styles never leak between components — you get plain CSS (full
+language support, zero runtime cost) with automatic scoping.
+
+## Utility-first CSS: Tailwind
+
+```jsx
+function Button({ children }) {
+  return (
+    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+      {children}
+    </button>
+  );
+}
+```
+
+This is the approach this app itself uses throughout. Styles live directly
+on the element as composable utility classes instead of in a separate file —
+no naming decisions (no inventing `.primary` vs `.btn-primary`), and unused
+styles are automatically purged at build time. The trade-off is visually
+noisier JSX and a learning curve for the utility vocabulary.
+
+## CSS-in-JS: styled-components / Emotion
+
+```jsx
+import styled from "styled-components";
+
+const Button = styled.button`
+  background: #2563eb;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  &:hover {
+    background: #1d4ed8;
+  }
+`;
+
+function App() {
+  return <Button>Click me</Button>;
+}
+```
+
+Styles are colocated with the component and can directly reference props
+(`styled.button\`color: ${props => props.color}\``) for dynamic styling.
+The trade-off: a runtime cost (style objects are parsed and injected into
+the DOM at render time, though some libraries now support build-time
+extraction), and historically some friction with server-side rendering
+(streaming SSR in particular) that CSS Modules/Tailwind don't have, since
+those compile to plain `.css` files ahead of time.
+
+## How to choose
+
+| Priority | Good fit |
+|---|---|
+| Zero runtime cost, full SSR/streaming compatibility | CSS Modules or Tailwind |
+| Fast iteration without inventing class names | Tailwind |
+| Dynamic, prop-driven styles colocated with the component | CSS-in-JS |
+| A large team that wants a shared, constrained design vocabulary | Tailwind (utility classes act as the constraint) |
+
+In practice, most new Next.js projects default to Tailwind or CSS Modules
+specifically because they avoid any runtime styling cost during server
+rendering — a meaningful consideration now that Server Components are the
+default.
+
+### Try it yourself
+
+Take the `CourseCard` component in this app (currently styled with
+Tailwind) and rewrite just its outer card styling using a CSS Module
+instead, to feel the difference in ergonomics.

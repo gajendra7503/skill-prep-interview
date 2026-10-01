@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the key limitation of a Sass variable (`$radius`) compared to a CSS custom property (`var(--radius)`)?",
+      "options": [
+        "Sass variables are slower to parse in the browser",
+        "Sass variables are compiled away at build time and cannot be read or changed by JavaScript at runtime, unlike custom properties",
+        "Sass variables cannot hold color values",
+        "There is no real difference between them"
+      ],
+      "correctIndex": 1,
+      "explanation": "Sass compiles to plain CSS before it ever reaches the browser, so $radius simply becomes a literal value — there's no live variable left for JS to interact with, unlike a custom property."
+    },
+    {
+      "question": "What does Autoprefixer actually do?",
+      "options": [
+        "It minifies CSS file sizes",
+        "It reads a browserslist config and adds exactly the vendor prefixes still needed for your targeted browsers",
+        "It converts Sass to plain CSS",
+        "It adds all possible vendor prefixes to every property, regardless of target browsers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Autoprefixer is a PostCSS plugin that targets prefixes based on real browser support data for the browsers you've configured, not a blanket catch-all."
+    },
+    {
+      "question": "What best describes PostCSS itself?",
+      "options": [
+        "A CSS preprocessor language like Sass",
+        "A tool that parses CSS into an AST and runs a pipeline of plugins over it — Autoprefixer being the most common one",
+        "A CSS-in-JS runtime library",
+        "A replacement for CSS Modules"
+      ],
+      "correctIndex": 1,
+      "explanation": "PostCSS itself defines no new syntax; its plugins (Autoprefixer, and others) are what actually transform the CSS."
+    },
+    {
+      "question": "According to the lesson, where do Sass mixins still earn their place in a modern project that already uses Tailwind?",
+      "options": [
+        "Nowhere — Sass should never be used alongside Tailwind",
+        "For genuinely complex, repeated patterns that would be verbose to express as utility classes",
+        "Only for defining colors",
+        "Sass and Tailwind cannot be used in the same project"
+      ],
+      "correctIndex": 1,
+      "explanation": "The two solve different problems — utility classes handle most day-to-day styling, while a mixin can still be the cleaner choice for a complex, reused rule set."
+    }
+  ]
+}

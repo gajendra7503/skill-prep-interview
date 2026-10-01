@@ -1,0 +1,128 @@
+---
+title: "Advanced Hooks"
+description: "useReducer for complex state, useRef for mutable values and the DOM, and useLayoutEffect timing."
+module: "Hooks"
+order: 10
+---
+
+`useState` covers most cases, but three hooks handle situations it
+doesn't: state transitions with clear rules, values that shouldn't trigger a
+re-render, and effects that must run before the browser paints.
+
+## `useReducer`: state transitions as a pure function
+
+When a piece of state has multiple related sub-values that change together,
+or the "next state" depends on more than a simple replacement, a reducer
+makes the transitions explicit and centralized:
+
+```jsx
+function reducer(state, action) {
+  switch (action.type) {
+    case "increment":
+      return { count: state.count + 1 };
+    case "decrement":
+      return { count: state.count - 1 };
+    case "reset":
+      return { count: action.payload };
+    default:
+      throw new Error(`Unknown action: ${action.type}`);
+  }
+}
+
+function Counter() {
+  const [state, dispatch] = useReducer(reducer, { count: 0 });
+
+  return (
+    <>
+      <p>{state.count}</p>
+      <button onClick={() => dispatch({ type: "increment" })}>+1</button>
+      <button onClick={() => dispatch({ type: "reset", payload: 0 })}>Reset</button>
+    </>
+  );
+}
+```
+
+Prefer `useReducer` over several `useState` calls when: updates depend on
+the previous state in non-trivial ways, one action needs to update multiple
+fields together, or you want the "what can happen" logic testable as a pure
+function completely separate from the component.
+
+## `useRef`: values that persist without re-rendering
+
+A ref is a mutable box (`{ current: value }`) that survives re-renders but,
+unlike state, updating it does **not** trigger one. Two common uses:
+
+**1. Storing a mutable value that isn't part of the rendered output:**
+
+```jsx
+function Stopwatch() {
+  const intervalRef = useRef(null);
+  const [seconds, setSeconds] = useState(0);
+
+  function start() {
+    intervalRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+  }
+
+  function stop() {
+    clearInterval(intervalRef.current); // reading the ref doesn't cause a render
+  }
+
+  return <button onClick={start} onDoubleClick={stop}>{seconds}s</button>;
+}
+```
+
+**2. Direct access to a DOM node:**
+
+```jsx
+function TextInputWithFocus() {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    inputRef.current.focus(); // imperative DOM access, an escape hatch from React's declarative model
+  }, []);
+
+  return <input ref={inputRef} />;
+}
+```
+
+Reach for a ref only when you need to step outside React's declarative
+model — for anything that affects what's rendered, use state instead.
+
+## `useLayoutEffect` vs `useEffect`: timing
+
+Both run after render, but at different points relative to the browser
+painting the screen:
+
+- **`useEffect`** runs *after* the browser has painted — the user may
+  briefly see the pre-effect UI.
+- **`useLayoutEffect`** runs *before* the browser paints, synchronously —
+  it blocks painting until it finishes.
+
+```jsx
+function Tooltip({ targetRef }) {
+  const [position, setPosition] = useState(null);
+
+  useLayoutEffect(() => {
+    const rect = targetRef.current.getBoundingClientRect();
+    setPosition({ top: rect.bottom, left: rect.left }); // measure + adjust before paint
+  }, [targetRef]);
+
+  if (!position) return null;
+  return <div style={{ position: "absolute", ...position }}>Tip</div>;
+}
+```
+
+If this used `useEffect` instead, the tooltip could flash at position
+`(0, 0)` for one frame before snapping to the correct spot, because the DOM
+had already been painted once with the stale position. Use
+`useLayoutEffect` specifically for reading layout (sizes, positions) and
+synchronously adjusting the DOM before the user sees it — for everything
+else (fetching data, subscriptions, logging), `useEffect` is the right
+default since it doesn't block painting.
+
+### Try it yourself
+
+Build a component that measures its own width with `useRef` +
+`useLayoutEffect` and renders that width as text. Then swap
+`useLayoutEffect` for `useEffect` and resize the window quickly to see if
+you can spot any visual flicker.

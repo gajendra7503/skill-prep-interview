@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is a key structural difference between CommonJS's `require()` and ES Modules' `import`?",
+      "options": [
+        "They are functionally identical, just different syntax",
+        "require() is dynamic and can be called conditionally anywhere in code; import statements are static and resolved before any code runs",
+        "import only works in the browser, never in Node.js",
+        "require() cannot export more than one value"
+      ],
+      "correctIndex": 1,
+      "explanation": "import declarations are hoisted and statically analyzable at the top of a file, while require() is a normal function call that can appear anywhere, including inside conditionals."
+    },
+    {
+      "question": "What is the main practical difference between a named export and a default export when importing?",
+      "options": [
+        "Named exports can be imported under any local name; default exports must match exactly",
+        "Default exports can be imported under any local name since there's no name to match; named exports must match (or be explicitly renamed with `as`)",
+        "There is no functional difference",
+        "A module can have unlimited default exports"
+      ],
+      "correctIndex": 1,
+      "explanation": "A default export has no fixed name, so the importer can call it anything; named exports are matched by their exported name unless aliased."
+    },
+    {
+      "question": "What does tree-shaking do?",
+      "options": [
+        "It reorders your functions alphabetically",
+        "It removes exported code that is never actually imported/used anywhere, shrinking the final bundle",
+        "It converts ES Modules into CommonJS",
+        "It compresses image assets"
+      ],
+      "correctIndex": 1,
+      "explanation": "Tree-shaking analyzes the import graph and strips out unused exports from the final bundle."
+    },
+    {
+      "question": "Why does tree-shaking work reliably with ES Modules but not with CommonJS?",
+      "options": [
+        "CommonJS doesn't support exports at all",
+        "ES Module imports/exports are static, top-level, and analyzable without running code; CommonJS's require() can be dynamic/conditional, which defeats static analysis",
+        "Tree-shaking actually works equally well with both",
+        "Bundlers refuse to process CommonJS files entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "Static analysis needs to know exactly what's imported from where without executing anything — ES Modules guarantee this structurally, while CommonJS's dynamic require() calls don't."
+    }
+  ]
+}

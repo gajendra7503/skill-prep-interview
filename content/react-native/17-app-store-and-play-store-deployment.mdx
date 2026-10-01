@@ -1,0 +1,79 @@
+---
+title: "App Store & Play Store Deployment"
+description: "Code signing, version numbering, and what OTA updates can and can't ship without a store review."
+module: "Deployment"
+order: 17
+---
+
+Shipping a React Native app involves a release process neither web nor
+backend deployment has an equivalent of — both app stores require signed
+binaries and a review process before users ever see an update.
+
+## Code signing: the biggest first-time hurdle
+
+Both platforms require every build to be cryptographically signed before it
+can run on a real device or be submitted to a store:
+
+- **iOS**: a provisioning profile plus a signing certificate, managed
+  through an Apple Developer account. The profile ties together your app's
+  bundle identifier, the certificate, and which devices/capabilities are
+  allowed.
+- **Android**: a keystore file containing your app's signing key. Losing
+  this keystore is serious — without it, you cannot publish an update to an
+  app already on the Play Store under the same package name; you'd have to
+  ship an entirely new app listing.
+
+Tools like Expo Application Services (EAS Build) can manage signing
+credentials for you, which removes most of the manual certificate/keystore
+juggling for teams that don't want to manage it directly.
+
+## Version numbers: two numbers, both must increase
+
+```json
+// app.json (Expo-managed example)
+{
+  "expo": {
+    "version": "1.2.0",         // human-readable version shown to users
+    "ios": { "buildNumber": "14" },
+    "android": { "versionCode": 27 }
+  }
+}
+```
+
+The user-facing `version` string ("1.2.0") can repeat across builds, but
+**`versionCode` (Android) and the build number (iOS) must strictly increase
+with every single submission** — even a bug-fix resubmission with no
+feature changes. Forgetting to bump this is one of the most common first
+rejection reasons for new teams.
+
+## Over-the-air (OTA) updates: what they can and can't ship
+
+Tools like **Expo Updates** or CodePush let you push a new JS bundle
+directly to installed apps, skipping the store review entirely:
+
+```bash
+eas update --branch production --message "Fix checkout crash"
+```
+
+This works because your app's JS/assets are just data the native shell
+downloads and runs — but it only covers what's inside that bundle:
+
+| Can ship via OTA | Requires a full store submission |
+|---|---|
+| JS logic changes, bug fixes | Any native module added/changed |
+| Updated images/assets | New permissions (camera, location, etc.) |
+| Styling/UI tweaks | Native SDK version bumps |
+| Copy/text changes | App icon or splash screen changes (platform-level) |
+
+Relying on OTA updates for anything beyond JS-level fixes is a common
+mistake — if a fix requires touching native code (adding a new native
+dependency, changing a permission), it has to go through the normal
+review process, OTA or not.
+
+### Try it yourself
+
+Look up your platform's current App Store/Play Store review-time
+expectations (both publish rough guidance), and sketch how that timeline
+would change your team's plan for shipping a critical bug fix: would you
+reach for an OTA update, or does the nature of the fix force a full
+resubmission?

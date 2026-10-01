@@ -1,0 +1,69 @@
+---
+title: "The Bridge, JSI & the New Architecture"
+description: "How JavaScript and native code actually talk to each other, and why React Native rebuilt that mechanism."
+module: "Native Integration"
+order: 7
+---
+
+A React Native app is really two runtimes working together: your JavaScript
+running in an engine, and the native iOS/Android views and APIs it controls.
+How those two sides communicate has gone through a fundamental redesign, and
+it's a frequent interview topic because it explains *why* certain things in
+React Native are slow or awkward.
+
+## The legacy Bridge
+
+Originally, JS and native code couldn't call each other directly — they
+communicated by passing **serialized JSON messages across an asynchronous
+"Bridge"**, batched and processed once per frame:
+
+```text
+JS thread  --[JSON message]-->  Bridge  --[JSON message]-->  Native thread
+```
+
+Every interaction — rendering a `View`, reading a device sensor, responding
+to a touch — meant serializing data to JSON, sending it across, and
+deserializing it on the other side. This is asynchronous by construction:
+JS can never make a direct, synchronous call to native code. That has two
+consequences that show up constantly in real apps:
+
+- **Overhead on high-frequency interactions** — something like a
+  drag-gesture or scroll-linked animation sends a flood of bridge messages
+  every frame, which can cause visible jank.
+- **No synchronous layout measurement** — asking "how tall is this native
+  view right now?" requires an async round-trip, because the answer lives on
+  the other side of the bridge.
+
+## JSI: a direct line between JS and native
+
+The **JavaScript Interface (JSI)** replaces the bridge with something much
+simpler conceptually: it lets JavaScript hold a direct reference to a native
+C++ object and call methods on it **synchronously**, in the same way you'd
+call a method on a JS object — no serialization, no async round-trip, no
+batching delay.
+
+## TurboModules and Fabric: JSI applied to the rest of RN
+
+- **TurboModules** are the New Architecture's replacement for native modules
+  (camera, storage, etc.) — they're loaded lazily (only when first used,
+  improving startup time) and called through JSI instead of the bridge.
+- **Fabric** is the New Architecture's renderer, using JSI to let React
+  directly and synchronously manipulate the native view tree, instead of
+  batching view updates across the bridge — this is what enables smoother
+  animations and more consistent measurement of native component layout.
+
+## What this means practically
+
+You don't write JSI code directly in typical app development — this is
+framework/library-internals knowledge. What matters for building real apps
+is knowing *why* a library might require "New Architecture enabled" (it's
+built on TurboModules/Fabric and won't work with the legacy bridge), and
+being able to explain, in an interview, why synchronous native calls are a
+meaningful architectural improvement over asynchronous, serialized ones.
+
+### Try it yourself
+
+Find a React Native library you've used or heard of (react-native-reanimated
+is a good example) and look up whether its documentation mentions JSI or the
+New Architecture — notice how libraries doing heavy animation or gesture work
+are exactly the ones that benefit most from bypassing the old bridge.

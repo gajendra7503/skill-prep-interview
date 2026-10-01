@@ -1,0 +1,97 @@
+---
+title: "Preprocessors & PostCSS"
+description: "What Sass adds over plain CSS, what PostCSS/Autoprefixer actually do, and whether they still matter alongside Tailwind."
+module: "Tooling"
+order: 15
+---
+
+Before custom properties, nesting, and `@media` ranges existed natively in
+CSS, preprocessors filled the gap. Interviewers still ask about them because
+most real codebases — even modern ones — have at least one preprocessor or
+PostCSS plugin running somewhere in the build.
+
+## What Sass/SCSS adds
+
+Sass compiles to plain CSS at build time — browsers never see Sass syntax,
+only its output:
+
+```scss
+$radius: 12px;
+
+@mixin card-shadow {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+  border-radius: $radius;
+  @include card-shadow;
+
+  .card__title {
+    font-weight: 600; // nesting: compiles to `.card .card__title`
+  }
+
+  &:hover {
+    @include card-shadow; // `&` refers to the parent selector, `.card`
+  }
+}
+```
+
+The features that made Sass popular — variables, nesting, mixins for reusable
+property groups, and splitting styles across partials with `@use` — mostly
+have native equivalents today (`var(--radius)`, native CSS nesting, utility
+classes instead of mixins). But it's **compile-time only**: `$radius` can't
+be read or changed by JavaScript at runtime the way `var(--radius)` can,
+which is the core trade-off to know for an interview answer.
+
+## PostCSS: a plugin pipeline, not a language
+
+PostCSS doesn't add new syntax of its own — it's a tool that parses CSS into
+an AST and runs plugins over it. The plugin almost everyone uses, often
+without realizing it, is **Autoprefixer**:
+
+```css
+/* you write */
+.box {
+  display: flex;
+  user-select: none;
+}
+
+/* Autoprefixer outputs, based on your browserslist config */
+.box {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+```
+
+Autoprefixer reads a `browserslist` config (a list of target browsers/versions)
+and adds exactly the vendor prefixes those browsers still need — no more
+manually tracking which property needs `-webkit-` this year.
+
+## Do these still matter next to Tailwind or CSS Modules?
+
+Yes, just in a smaller role:
+
+- **Autoprefixer runs under the hood of most build tools already** (including
+  Tailwind's own pipeline), so you're very likely using PostCSS even if you
+  never configured it directly.
+- **Sass mixins still earn their place** for genuinely complex, repeated
+  patterns that utility classes make verbose — a mixin generating a full set
+  of responsive typography rules, for example.
+- **CSS Modules solve scoping, not authoring ergonomics** — a project can use
+  CSS Modules *and* Sass together (`.module.scss`) to get both local class
+  names and nesting/mixins.
+
+The honest framing for an interview: reach for Tailwind/custom properties
+first for new code, but expect to read and maintain Sass in existing
+codebases for a long time yet.
+
+### Try it yourself
+
+Take the `.card` Sass example above and rewrite it using only native CSS
+nesting and a custom property instead of a Sass variable and mixin. Note
+which parts translate directly and which (like `&:hover` nesting) now need a
+browser recent enough to support native CSS nesting.

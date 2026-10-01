@@ -1,0 +1,87 @@
+---
+title: "Change Detection & Signals"
+description: "How Angular decides when to re-render, OnPush for performance, and the newer signal-based reactivity model."
+module: "Performance"
+order: 7
+---
+
+Angular needs to know when *something* changed so it can update the DOM.
+How it detects that has evolved significantly.
+
+## The traditional model: Zone.js
+
+By default, Angular patches async browser APIs (`setTimeout`, `addEventListener`,
+promises, HTTP calls) via **Zone.js**. Whenever any of these fire, Angular
+runs change detection across the *entire component tree*, checking every
+binding for changes — simple to reason about, but potentially wasteful in
+large apps.
+
+## `ChangeDetectionStrategy.OnPush`
+
+```ts
+@Component({
+  selector: "app-employee-card",
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `<h3>{{ employee.name }}</h3>`,
+})
+export class EmployeeCardComponent {
+  @Input() employee!: Employee;
+}
+```
+
+With `OnPush`, Angular skips checking this component (and its children)
+unless one of these happens:
+
+- An `@Input()` reference changes (not a mutation — replacing the object,
+  not mutating a property on it).
+- An event originates from within the component itself (a click, etc.).
+- An Observable bound via the `async` pipe emits.
+- Change detection is triggered manually (`ChangeDetectorRef.markForCheck()`).
+
+This is why `OnPush` requires **immutable data patterns** — mutating an
+`@Input()` object in place won't trigger a re-check, since the reference
+never changed.
+
+## Signals: reactivity without Zone.js
+
+Angular's `signal()` API tracks dependencies automatically and only
+re-renders exactly what depends on a changed value — no zone patching, no
+tree-wide checks:
+
+```ts
+import { signal, computed } from "@angular/core";
+
+export class CartComponent {
+  items = signal<CartItem[]>([]);
+
+  total = computed(() =>
+    this.items().reduce((sum, item) => sum + item.price * item.qty, 0)
+  );
+
+  addItem(item: CartItem) {
+    this.items.update((current) => [...current, item]);
+  }
+}
+```
+
+`computed()` is automatically memoized and only recalculates when a signal
+it reads (`items`) actually changes — you never need to manually declare
+dependencies, unlike `useMemo` in React.
+
+## Why this matters for performance
+
+- Zone.js + default change detection: simplest to write, but checks the
+  whole tree on every async event — can get slow in large apps.
+- Zone.js + `OnPush` everywhere: fewer checks, but requires disciplined
+  immutability and remembering to mark components `OnPush`.
+- Signals: fine-grained reactivity by default — components using only
+  signals can skip Zone.js entirely (`provideExperimentalZonelessChangeDetection()`
+  in recent Angular versions), the direction the framework is moving toward.
+
+### Try it yourself
+
+Take the `EmployeeCardComponent` above, mark it `OnPush`, and verify (by
+adding a `console.log` in the template) that mutating a property on the
+`employee` object in the parent does *not* trigger a re-render, while
+replacing the whole object does.

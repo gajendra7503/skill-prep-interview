@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What determines whether an object is eligible for garbage collection?",
+      "options": [
+        "How many references to it were ever created during the program's lifetime",
+        "Whether it is still reachable by following references starting from a root (global variables, active function scopes)",
+        "How old the object is",
+        "Whether it has a name"
+      ],
+      "correctIndex": 1,
+      "explanation": "Modern garbage collectors use reachability (mark-and-sweep) — an object with zero paths back to a root is collected, regardless of its past reference count."
+    },
+    {
+      "question": "Why don't two objects that reference each other (a circular reference) necessarily cause a memory leak?",
+      "options": [
+        "JavaScript engines special-case circular references and always ignore them",
+        "If nothing outside that circular pair still references either object, neither is reachable from a root, so both are still collected together",
+        "Circular references are a syntax error",
+        "Because they are both automatically converted to null"
+      ],
+      "correctIndex": 1,
+      "explanation": "Reachability-based garbage collection doesn't care if objects reference each other — what matters is whether a root can still reach them, directly or indirectly."
+    },
+    {
+      "question": "What is the standard fix for a memory leak caused by an event listener that's never removed?",
+      "options": [
+        "Avoid using event listeners entirely",
+        "Pair every addEventListener with a matching removeEventListener once the listener is no longer needed",
+        "Wrap the listener in a Promise",
+        "Use var instead of let inside the handler"
+      ],
+      "correctIndex": 1,
+      "explanation": "An unremoved listener keeps its closure (and everything captured in it) alive indefinitely — the fix is always to tear it down when it's no longer needed, which is exactly what cleanup functions in useEffect or ngOnDestroy exist for."
+    },
+    {
+      "question": "You're implementing a search-as-you-type input that calls an API. Which technique should you use to avoid firing a request on every keystroke?",
+      "options": [
+        "Throttle, so it fires at a fixed interval",
+        "Debounce, so it fires only after the user pauses typing for a set delay",
+        "Neither — always call the API on every keystroke",
+        "Promise.race between keystrokes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Debounce delays execution until the triggering event stops firing for a period, which is exactly the desired behavior for search-as-you-type."
+    }
+  ]
+}

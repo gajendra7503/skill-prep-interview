@@ -1,0 +1,147 @@
+---
+title: "Real Project: Employee Directory"
+description: "Combine routing, a service layer, and reactive forms into a searchable directory app."
+module: "Real-World Project"
+order: 20
+---
+
+We'll build an employee directory: a routed list/detail view backed by a
+service, with a reactive form to add new employees and a live search filter.
+
+## 1. The service layer
+
+```ts
+import { Injectable, signal } from "@angular/core";
+
+export interface Employee {
+  id: number;
+  name: string;
+  role: string;
+  department: string;
+}
+
+@Injectable({ providedIn: "root" })
+export class EmployeeService {
+  private employees = signal<Employee[]>([
+    { id: 1, name: "Priya Nair", role: "Engineer", department: "Platform" },
+    { id: 2, name: "Rohan Mehta", role: "Designer", department: "Product" },
+  ]);
+
+  readonly all = this.employees.asReadonly();
+
+  add(employee: Omit<Employee, "id">) {
+    this.employees.update((list) => [
+      ...list,
+      { ...employee, id: Math.max(0, ...list.map((e) => e.id)) + 1 },
+    ]);
+  }
+
+  getById(id: number) {
+    return this.employees().find((e) => e.id === id);
+  }
+}
+```
+
+Using `signal` here means every component reading `employees.all` re-renders
+automatically when the list changes — no manual change detection calls.
+
+## 2. Routing between list and detail
+
+```ts
+// app.routes.ts
+export const routes: Routes = [
+  { path: "", component: EmployeeListComponent },
+  { path: "employees/:id", component: EmployeeDetailComponent },
+];
+```
+
+```ts
+// employee-detail.component.ts
+@Component({
+  standalone: true,
+  template: `
+    @if (employee) {
+      <h2>{{ employee.name }}</h2>
+      <p>{{ employee.role }} — {{ employee.department }}</p>
+    } @else {
+      <p>Employee not found.</p>
+    }
+  `,
+})
+export class EmployeeDetailComponent {
+  private route = inject(ActivatedRoute);
+  private service = inject(EmployeeService);
+  employee = this.service.getById(Number(this.route.snapshot.paramMap.get("id")));
+}
+```
+
+## 3. Search filter + add-employee form, in the list component
+
+```ts
+@Component({
+  standalone: true,
+  imports: [ReactiveFormsModule, RouterLink],
+  template: `
+    <input [formControl]="search" placeholder="Search by name or department" />
+
+    <ul>
+      @for (emp of filtered(); track emp.id) {
+        <li><a [routerLink]="['/employees', emp.id]">{{ emp.name }}</a> — {{ emp.department }}</li>
+      }
+    </ul>
+
+    <form [formGroup]="form" (ngSubmit)="addEmployee()">
+      <input formControlName="name" placeholder="Name" />
+      <input formControlName="role" placeholder="Role" />
+      <input formControlName="department" placeholder="Department" />
+      <button [disabled]="form.invalid">Add employee</button>
+    </form>
+  `,
+})
+export class EmployeeListComponent {
+  private service = inject(EmployeeService);
+  private fb = inject(FormBuilder);
+
+  search = new FormControl("", { nonNullable: true });
+  employees = this.service.all;
+
+  filtered = computed(() => {
+    const term = this.search.value.toLowerCase();
+    return this.employees().filter(
+      (e) => e.name.toLowerCase().includes(term) || e.department.toLowerCase().includes(term)
+    );
+  });
+
+  form = this.fb.group({
+    name: ["", Validators.required],
+    role: ["", Validators.required],
+    department: ["", Validators.required],
+  });
+
+  addEmployee() {
+    if (this.form.invalid) return;
+    this.service.add(this.form.getRawValue());
+    this.form.reset();
+  }
+}
+```
+
+Note `filtered` is a `computed()` signal reacting to both the service's
+`employees` signal and the search `FormControl`'s value — wire it via
+`toSignal(this.search.valueChanges)` in a real app so it updates on every
+keystroke, not just on re-render.
+
+## What this project demonstrates
+
+- **Services as the single source of truth**, shared across routed
+  components without prop-drilling.
+- **Router params** driving which employee's detail view renders.
+- **Reactive forms** for structured, validated input, decoupled from the
+  template.
+
+### Extend it yourself
+
+- Add an "edit employee" route reusing the same form.
+- Persist employees via `HttpClient` against a real API instead of an
+  in-memory signal.
+- Add route guards so only authenticated users can add employees.

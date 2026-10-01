@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does a page built entirely from <div> elements cause problems for screen reader users specifically?",
+      "options": [
+        "Screen readers cannot render div elements at all",
+        "div elements create no landmarks, so a screen reader announces everything generically and the user must listen through content linearly instead of jumping to a region",
+        "div elements are slower to load than semantic elements",
+        "It only affects users on mobile devices"
+      ],
+      "correctIndex": 1,
+      "explanation": "Landmarks like <nav> and <main> let screen reader users jump directly to a page region, the audio equivalent of a sighted user's eye jumping straight to the navbar."
+    },
+    {
+      "question": "What is the key distinguishing test for choosing <article> over <section>?",
+      "options": [
+        "article is for anything with a heading, section is for anything without one",
+        "Whether the content would still make sense if distributed or syndicated completely on its own, independent of the page around it",
+        "article only works inside <main>",
+        "There is no real difference, they are interchangeable"
+      ],
+      "correctIndex": 1,
+      "explanation": "article is for self-contained content (a blog post, a product card); section is for a thematic grouping that's part of a larger whole, not standalone."
+    },
+    {
+      "question": "Why does skipping heading levels (e.g. <h1> directly to <h4>) cause a problem?",
+      "options": [
+        "It's purely a visual/font-size issue with no other consequence",
+        "It breaks the document outline that both screen readers (heading navigation) and search engines rely on to understand content hierarchy",
+        "Browsers will refuse to render the page",
+        "It only matters for pages longer than one screen"
+      ],
+      "correctIndex": 1,
+      "explanation": "Heading levels form a nested outline; skipping levels (or using them purely for font size) breaks that structure for anyone or anything navigating by heading hierarchy."
+    },
+    {
+      "question": "When is it appropriate to use a plain <div> instead of a semantic element?",
+      "options": [
+        "Never — div should always be avoided entirely",
+        "When no semantic element (header, nav, main, article, section, footer, etc.) accurately describes the content's role, and the element exists purely for styling/layout",
+        "Only inside a <footer>",
+        "Only when building forms"
+      ],
+      "correctIndex": 1,
+      "explanation": "div is semantically neutral — appropriate as a last resort for styling hooks, not as the default building block for every piece of structure."
+    }
+  ]
+}

@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SkillPrep
 
-## Getting Started
+A learning platform with practical courses on **React**, **Angular**, and
+**Next.js** — each course walks through important topics and ends in a
+real-world project. Logged-in users can mark lessons complete and track
+progress per course on a dashboard.
 
-First, run the development server:
+## Stack
+
+- Next.js (App Router) + TypeScript + Tailwind CSS
+- Course content as MDX files under `content/<course>/*.mdx`, rendered with `next-mdx-remote`
+- Supabase (Postgres + Auth) for accounts and progress tracking
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The course content works
+immediately with no setup. Login and progress tracking require Supabase —
+without it configured, the site shows a "connect Supabase" notice on the
+login/signup/dashboard pages but everything else works.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Setting up accounts & progress tracking (Supabase)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the Supabase dashboard, open **SQL Editor** and run the contents of
+   [`supabase/schema.sql`](./supabase/schema.sql) — this creates the
+   `lesson_progress` table with row-level security so users can only read/write
+   their own rows.
+3. In **Project Settings → API**, copy the **Project URL** and **anon public**
+   key.
+4. Copy `.env.local.example` to `.env.local` and fill in those two values.
+5. Restart `npm run dev`.
+6. (Optional, for quick local testing) In **Authentication → Providers →
+   Email**, turn off "Confirm email" so sign-up logs you in immediately
+   instead of requiring an email link.
 
-## Learn More
+## Adding a new course or lesson
 
-To learn more about Next.js, take a look at the following resources:
+- New course: add `content/<slug>/meta.json` with `title`, `description`,
+  `icon`, `accent`.
+- New lesson: add `content/<slug>/NN-lesson-name.mdx` with frontmatter
+  (`title`, `description`, `module`, `order`). Lessons are sorted by `order`
+  and grouped in the sidebar by `module`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```text
+content/<course>/            course metadata + MDX lessons
+src/lib/content/             loads and sorts course/lesson content from disk
+src/lib/supabase/            Supabase browser/server clients + middleware
+src/lib/progress.ts          reads a signed-in user's completed lessons
+src/app/courses/[course]/    course overview + lesson pages
+src/app/(auth)/              login/signup pages + auth server actions
+src/app/dashboard/           per-course progress overview
+supabase/schema.sql          the lesson_progress table + RLS policies
+```
 
-## Deploy on Vercel
+## Deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deploy on [Vercel](https://vercel.com/new) as with any Next.js app — add the
+two `NEXT_PUBLIC_SUPABASE_*` environment variables in the project settings.

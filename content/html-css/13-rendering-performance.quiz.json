@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does the browser combine to build the Render Tree?",
+      "options": [
+        "Only the DOM",
+        "The DOM and the CSSOM, excluding nodes that are not visible (e.g. display: none)",
+        "Only the CSSOM",
+        "JavaScript's call stack and the DOM"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Render Tree merges the DOM's structure with the CSSOM's computed styles, keeping only the nodes that will actually be rendered."
+    },
+    {
+      "question": "Why is a stylesheet in `<head>` render-blocking by default, and why is that usually the right trade-off?",
+      "options": [
+        "It's a bug browsers haven't fixed yet",
+        "The browser needs the complete CSSOM before painting; blocking avoids painting unstyled content and then jarringly re-painting once styles arrive",
+        "Render-blocking CSS makes pages load faster overall",
+        "It only blocks images, not text"
+      ],
+      "correctIndex": 1,
+      "explanation": "Painting before CSS is ready would cause a visible flash of unstyled content, which is normally worse than a brief delay before the styled page appears."
+    },
+    {
+      "question": "Which of these changes triggers a reflow (layout recalculation)?",
+      "options": [
+        "Changing `opacity`",
+        "Changing `transform: scale()`",
+        "Changing an element's `width`",
+        "Changing `background-color`"
+      ],
+      "correctIndex": 2,
+      "explanation": "Any property that can affect an element's size or position — like width — forces the browser to recompute layout, which is the most expensive of the three rendering stages."
+    },
+    {
+      "question": "Why do `transform` and `opacity` only trigger composite, skipping layout and paint entirely?",
+      "options": [
+        "They are special-cased to be ignored by the rendering pipeline",
+        "They can be applied by the GPU directly to an already-painted layer, without needing to recompute geometry or redraw pixels",
+        "They only work inside @keyframes animations",
+        "Modern browsers disable layout entirely for all CSS"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because transform and opacity don't affect element geometry or require redrawing pixel content, the browser can let the GPU recombine existing painted layers, the cheapest of the three rendering stages."
+    }
+  ]
+}

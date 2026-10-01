@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What specificity problem does strict BEM (one class per selector, no nesting) solve?",
+      "options": [
+        "It makes CSS files smaller",
+        "It keeps every selector at the same specificity level (0,1,0), so source order determines the cascade predictably instead of selectors fighting to 'out-specify' each other",
+        "It removes the need for a build tool",
+        "It automatically generates unique class names"
+      ],
+      "correctIndex": 1,
+      "explanation": "Specificity wars happen when selectors of different specificity override each other unpredictably; BEM avoids this by convention, keeping every rule equally specific."
+    },
+    {
+      "question": "How does utility-first CSS (Tailwind) avoid the 'what do I name this class?' problem that BEM still has?",
+      "options": [
+        "It doesn't — naming is still required",
+        "Styles are composed directly in markup from small, pre-existing utility classes, so there's no custom class to invent or name at all",
+        "It auto-generates BEM-style names for you",
+        "It only works with inline styles, not classes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Utility classes are reused and composed rather than authored per component, removing the naming-invention step entirely — at the cost of more verbose markup."
+    },
+    {
+      "question": "How does a CSS Module guarantee that `.title` in one component's stylesheet never collides with `.title` in another's?",
+      "options": [
+        "By convention — developers must remember not to reuse names",
+        "The build tool rewrites each class name into a unique generated identifier scoped to that file, enforced automatically rather than by discipline",
+        "CSS Modules don't actually prevent collisions",
+        "By wrapping styles in a unique ID on every page"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unlike BEM, which relies on a team following a naming convention, CSS Modules enforce scoping mechanically at build time, so a naming mistake can't cause an actual collision."
+    },
+    {
+      "question": "What is the main trade-off utility-first CSS makes compared to BEM or CSS Modules?",
+      "options": [
+        "It cannot be purged of unused styles",
+        "More verbose markup and a vocabulary of utility class names to learn, in exchange for eliminating naming/file-organization decisions",
+        "It requires a runtime JavaScript library to work",
+        "It cannot be combined with any other CSS approach"
+      ],
+      "correctIndex": 1,
+      "explanation": "Utility-first CSS trades visually noisier HTML/JSX for removing an entire category of decisions (naming, file structure) that the other two approaches still require."
+    }
+  ]
+}

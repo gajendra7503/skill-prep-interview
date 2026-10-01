@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is a key difference between an Observable and a Promise?",
+      "options": [
+        "A Promise can emit multiple values over time; an Observable cannot",
+        "An Observable is lazy and only starts executing when subscribed to; a Promise starts eagerly",
+        "Observables cannot be used with HTTP requests",
+        "There is no meaningful difference"
+      ],
+      "correctIndex": 1,
+      "explanation": "Observables don't do anything until subscribe() is called, and they can emit zero, one, or many values over time — unlike a Promise, which starts immediately and resolves once."
+    },
+    {
+      "question": "In a type-ahead search, why is `switchMap` preferred over `mergeMap`?",
+      "options": [
+        "switchMap is faster to type",
+        "switchMap cancels the previous in-flight request when a new value arrives, preventing a stale response from overwriting a newer one",
+        "mergeMap doesn't support HTTP calls",
+        "There is no difference between them"
+      ],
+      "correctIndex": 1,
+      "explanation": "switchMap switches to the latest inner Observable and unsubscribes from the previous one, which is exactly what's needed to avoid race conditions in search-as-you-type."
+    },
+    {
+      "question": "What does `combineLatest([a$, b$])` do?",
+      "options": [
+        "Waits for both to complete, then emits once",
+        "Emits a new combined value whenever either source observable emits, using each one's latest value",
+        "Merges the two streams into one without pairing values",
+        "Only works with two Promises"
+      ],
+      "correctIndex": 1,
+      "explanation": "combineLatest re-emits an array of the latest values whenever any one of its source observables produces a new value."
+    },
+    {
+      "question": "Why use `takeUntilDestroyed()` when subscribing manually inside a component class?",
+      "options": [
+        "It makes the Observable synchronous",
+        "It automatically unsubscribes when the component is destroyed, preventing memory leaks",
+        "It replaces the need for the async pipe entirely",
+        "It only works with HttpClient observables"
+      ],
+      "correctIndex": 1,
+      "explanation": "takeUntilDestroyed() ties the subscription's lifetime to the component's lifecycle so it's cleaned up automatically, avoiding leaks from forgotten manual unsubscribes."
+    }
+  ]
+}

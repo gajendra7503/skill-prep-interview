@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which of these transfers directly, unchanged, from web React to React Native?",
+      "options": [
+        "CSS class names and the box model",
+        "Hooks like useState/useEffect/useContext and the unidirectional props-down/events-up data flow model",
+        "Semantic HTML elements like <button> and <article>",
+        "The DOM and its event system"
+      ],
+      "correctIndex": 1,
+      "explanation": "Hooks and React's core composition/data-flow model are identical in both environments — they're part of React itself, not the web platform."
+    },
+    {
+      "question": "How does React Native express accessibility semantics without HTML elements like <button>?",
+      "options": [
+        "It doesn't support accessibility at all",
+        "Through explicit props like accessibilityRole and accessibilityLabel on generic components like Pressable/View",
+        "By automatically inferring roles from component names",
+        "ARIA attributes work identically in React Native"
+      ],
+      "correctIndex": 1,
+      "explanation": "Since there's no underlying HTML semantics to lean on, React Native requires explicitly setting accessibility props to convey the same information ARIA attributes would on the web."
+    },
+    {
+      "question": "What does React Native Web actually do?",
+      "options": [
+        "It lets a React web app directly import native mobile code",
+        "It renders React Native's core components (View, Text, StyleSheet, etc.) to real DOM elements and CSS, enabling code sharing between mobile and web",
+        "It converts HTML into React Native components automatically",
+        "It replaces the need for React Native entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "React Native Web implements the same component/API surface on top of the DOM, so components written against View/Text/StyleSheet can run in a browser too."
+    },
+    {
+      "question": "What replaces CSS's :hover and mouse events as the primary interaction model in React Native?",
+      "options": [
+        "There is no interaction model; React Native apps are read-only",
+        "Touch-based interactions like press and long-press, since mobile devices don't have a persistent mouse cursor",
+        "Keyboard shortcuts only",
+        "React Native still uses :hover identically to CSS"
+      ],
+      "correctIndex": 1,
+      "explanation": "Mobile devices are primarily touch-driven, so React Native's interaction primitives (onPress, onLongPress, gesture handlers) replace mouse-oriented web concepts like hover."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In NgRx, what is a reducer responsible for?",
+      "options": [
+        "Making HTTP calls",
+        "Computing the next state from the current state and a dispatched action, as a pure function",
+        "Rendering the template",
+        "Subscribing to observables"
+      ],
+      "correctIndex": 1,
+      "explanation": "Reducers must be pure and synchronous — given the same state and action, they always return the same new state, with no side effects."
+    },
+    {
+      "question": "Why can't a reducer directly call an API to fetch data?",
+      "options": [
+        "Reducers must be pure, synchronous functions with no side effects — async work belongs in an Effect",
+        "Reducers don't have access to HttpClient",
+        "It's technically possible and commonly done",
+        "NgRx doesn't support async operations at all"
+      ],
+      "correctIndex": 0,
+      "explanation": "Side effects like API calls violate the purity reducers require; NgRx Effects exist specifically to handle async work and dispatch a follow-up action with the result."
+    },
+    {
+      "question": "What does a selector do?",
+      "options": [
+        "Dispatches actions to the store",
+        "Reads and derives a specific slice of state from the store, typically used with the async pipe in a template",
+        "Defines the shape of an action",
+        "Replaces the need for reducers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Selectors are how components read state out of the store, often composing multiple slices or deriving computed values."
+    },
+    {
+      "question": "What's a reasonable guideline for deciding whether to adopt NgRx?",
+      "options": [
+        "Always use NgRx, even for a single counter",
+        "Start with component state or a signal-based service; reach for NgRx when state is shared across many distant parts of the app with complex async coordination",
+        "Never use NgRx — it's deprecated",
+        "Only use NgRx if the app has no services"
+      ],
+      "correctIndex": 1,
+      "explanation": "NgRx's structure and boilerplate pay off at scale, but for smaller or localized state, simpler approaches (component state, signal-based services) are usually sufficient and much less overhead."
+    }
+  ]
+}

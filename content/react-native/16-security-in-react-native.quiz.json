@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is hard-coding a privileged API secret directly in a React Native app's JS code dangerous?",
+      "options": [
+        "It isn't dangerous, since mobile apps are compiled binaries",
+        "The JS bundle ships inside the installed app package and can be extracted and read as plain JavaScript by anyone",
+        "JS code automatically encrypts itself when bundled for mobile",
+        "Only Android apps have this issue, not iOS"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unlike compiled native code, the JS bundle is just (minified) JavaScript, extractable from the app package — anything in it should be treated as fully public."
+    },
+    {
+      "question": "Why should an auth token be stored with something like react-native-keychain instead of AsyncStorage?",
+      "options": [
+        "AsyncStorage cannot store strings",
+        "AsyncStorage persists data as unencrypted plain text on the filesystem, while Keychain/Keystore provide hardware-backed encrypted storage designed for credentials",
+        "Keychain is faster for all types of data",
+        "There is no meaningful difference between the two"
+      ],
+      "correctIndex": 1,
+      "explanation": "AsyncStorage prioritizes simplicity over security; sensitive values like tokens need the OS-level secure storage that Keychain (iOS) and Keystore (Android) provide."
+    },
+    {
+      "question": "What specific attack does certificate pinning defend against that plain HTTPS alone does not?",
+      "options": [
+        "SQL injection",
+        "A man-in-the-middle attacker presenting a certificate that is technically valid (e.g. from a compromised or coerced certificate authority) but isn't the server's real certificate",
+        "Cross-site scripting",
+        "Brute-force password attacks"
+      ],
+      "correctIndex": 1,
+      "explanation": "HTTPS alone trusts any certificate signed by a trusted CA; pinning adds a check against the server's actual known fingerprint, catching a validly-signed-but-wrong certificate."
+    },
+    {
+      "question": "What operational risk does certificate pinning introduce?",
+      "options": [
+        "None — it's entirely risk-free once implemented",
+        "If the server's real certificate is rotated without first shipping an app update with the new pinned fingerprint, the app will start rejecting legitimate connections",
+        "It makes all network requests significantly slower",
+        "It prevents the app from using HTTPS at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "Pinning ties the app to a specific certificate fingerprint, so certificate rotation must be coordinated with an app release, or existing installs will start failing to connect."
+    }
+  ]
+}

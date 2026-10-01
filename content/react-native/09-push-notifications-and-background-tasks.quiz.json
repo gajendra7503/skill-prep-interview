@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the key difference between a local and a remote (push) notification?",
+      "options": [
+        "Local notifications require a backend server; remote notifications do not",
+        "Local notifications are scheduled entirely on-device with no server involved; remote notifications are sent from a server through a push service like APNs/FCM",
+        "There is no real difference, both terms describe the same mechanism",
+        "Remote notifications only work when the app is open"
+      ],
+      "correctIndex": 1,
+      "explanation": "A local notification is purely a device-side timer; a remote notification requires a backend, a push service, and network delivery to reach the device."
+    },
+    {
+      "question": "What is a device push token, and why does your backend need it?",
+      "options": [
+        "A password the user enters to enable notifications",
+        "A unique identifier for a specific app install on a specific device, obtained from FCM/APNs, which the backend needs to target that device when sending a push",
+        "An encryption key used only for local notifications",
+        "A setting stored only in the app's local storage, never sent anywhere"
+      ],
+      "correctIndex": 1,
+      "explanation": "The backend uses the device's token to tell the push service (FCM/APNs) exactly which installed app instance should receive a given notification."
+    },
+    {
+      "question": "Why do production apps need to handle token-refresh events, not just the initial token fetch?",
+      "options": [
+        "Tokens expire every few seconds and must be constantly polled",
+        "A device's push token can change (e.g. after reinstall or an OS-level refresh), and failing to re-send the new token means notifications silently stop reaching that device",
+        "Token refresh is only relevant for local notifications",
+        "It's purely optional and has no real consequence if skipped"
+      ],
+      "correctIndex": 1,
+      "explanation": "If the backend keeps using a stale token after it's rotated, push sends to that user will fail without any obvious error on the client side."
+    },
+    {
+      "question": "Why do iOS and Android both restrict what an app can do while running in the background?",
+      "options": [
+        "It's a React Native-specific limitation that doesn't apply to native apps",
+        "It's deliberate platform policy primarily aimed at preserving battery life, not a framework limitation",
+        "Background execution is technically impossible on mobile hardware",
+        "Only Android restricts background work; iOS has no such restrictions"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both platforms intentionally limit background execution for battery and resource reasons, and this applies equally regardless of whether the app is built natively or with React Native."
+    }
+  ]
+}

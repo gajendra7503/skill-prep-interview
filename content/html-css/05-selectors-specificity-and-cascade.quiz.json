@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which has higher specificity: `.card.title.active.large` (four classes) or `#header` (one ID)?",
+      "options": [
+        "The four-class selector, because it has more selectors overall",
+        "#header always wins — any number of classes can never outweigh a single ID",
+        "They are exactly equal",
+        "It depends on which one appears later in the stylesheet"
+      ],
+      "correctIndex": 1,
+      "explanation": "Specificity comparison is like comparing version numbers column by column (IDs, then classes, then elements) — it stops at the first column where they differ, so no number of classes can outweigh one ID."
+    },
+    {
+      "question": "What can override a CSS rule marked `!important`?",
+      "options": [
+        "Nothing can ever override it",
+        "Only another rule that is also marked !important (with equal or higher specificity/later source order among !important rules)",
+        "Any selector with higher specificity, even without !important",
+        "Inline styles always override !important"
+      ],
+      "correctIndex": 1,
+      "explanation": "!important overrides normal specificity rules entirely, including inline styles — the only way to beat it is with another !important declaration."
+    },
+    {
+      "question": "When two CSS rules have exactly equal specificity, what determines which one applies?",
+      "options": [
+        "The one with the shorter selector",
+        "Source order — whichever rule appears later in the cascade (stylesheet order) wins",
+        "They are both applied simultaneously, merging their declarations",
+        "The browser picks randomly"
+      ],
+      "correctIndex": 1,
+      "explanation": "Specificity is compared first; only when it's a tie does source order (which rule comes later) act as the deciding factor."
+    },
+    {
+      "question": "Given `.card .title { color: navy; }` (specificity 0,2,0) and `#post-123 .title { color: orange; }` (specificity 1,1,0) targeting the same element, which color applies?",
+      "options": [
+        "navy, because it has more classes",
+        "orange, because having an ID in the selector outweighs having more classes",
+        "Whichever rule is declared later in the file, regardless of specificity",
+        "Neither — the browser would throw an error"
+      ],
+      "correctIndex": 1,
+      "explanation": "(1,1,0) beats (0,2,0) because specificity compares the ID count first — one ID outweighs any number of extra classes in the other selector."
+    }
+  ]
+}

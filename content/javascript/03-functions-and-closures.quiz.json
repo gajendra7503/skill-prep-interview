@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is a closure?",
+      "options": [
+        "A function that has no parameters",
+        "A function that retains access to variables from its enclosing scope even after that scope has finished executing",
+        "A method that closes a database connection",
+        "A function that can only be called once"
+      ],
+      "correctIndex": 1,
+      "explanation": "Closures let an inner function keep a live reference to variables from the scope it was defined in, which is what allows patterns like counters and memoization."
+    },
+    {
+      "question": "Why does the classic `for (var i ...) { setTimeout(() => console.log(i)) }` loop log `3, 3, 3` instead of `0, 1, 2`?",
+      "options": [
+        "setTimeout always runs synchronously",
+        "var creates a single shared binding for the entire loop, so by the time the callbacks run, i has already reached its final value",
+        "Arrow functions cannot close over loop variables",
+        "This is a bug in the example and would actually log 0, 1, 2"
+      ],
+      "correctIndex": 1,
+      "explanation": "All three callbacks close over the same var i; since callbacks run after the loop finishes, they all see the final value, 3."
+    },
+    {
+      "question": "Why does switching the loop variable to `let` fix the logging order to `0, 1, 2`?",
+      "options": [
+        "let is always faster than var",
+        "let creates a fresh binding for each loop iteration, so each callback closes over its own separate copy of i",
+        "let automatically awaits setTimeout",
+        "It doesn't actually fix anything"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unlike var's single shared binding, let gives each iteration of a for-loop its own distinct variable, so each closure captures a different value."
+    },
+    {
+      "question": "What is a key difference between arrow functions and regular functions relevant to closures and `this`?",
+      "options": [
+        "Arrow functions cannot be used inside closures at all",
+        "Arrow functions don't have their own `this` (or `arguments`) — they inherit it from the enclosing lexical scope",
+        "Arrow functions are hoisted exactly like function declarations",
+        "There is no difference whatsoever"
+      ],
+      "correctIndex": 1,
+      "explanation": "Arrow functions deliberately omit their own `this`/`arguments` bindings, inheriting them from the surrounding scope instead — this is central to how they behave differently from regular functions."
+    }
+  ]
+}

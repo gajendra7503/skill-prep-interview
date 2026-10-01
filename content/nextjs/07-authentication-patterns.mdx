@@ -1,0 +1,102 @@
+---
+title: "Authentication Patterns"
+description: "Protecting routes with Server Components, the proxy layer, and shared layouts via route groups."
+module: "Backend"
+order: 7
+---
+
+Next.js doesn't ship its own auth system — instead, it gives you the pieces
+(Server Components, the proxy layer, route groups) to build auth checks
+exactly where they belong. This app's own login/signup flow is a working
+example of every pattern below.
+
+## Protecting a route in a Server Component
+
+The most straightforward check: read the session at the top of a page, and
+redirect if there isn't one.
+
+```tsx
+// app/dashboard/page.tsx
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/progress";
+
+export default async function DashboardPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  return <p>Welcome back, {user.email}</p>;
+}
+```
+
+`getCurrentUser` here wraps a Supabase server client call
+(`supabase.auth.getUser()`) — the same helper is reused by every page and
+Server Action in this app that needs to know who's signed in, rather than
+each page re-implementing the check.
+
+## Protecting a route at the proxy layer
+
+The Server Component check above still lets the request reach the page
+before redirecting. For routes you want to reject *before* any rendering
+starts, do the check in `proxy.ts` instead (see the previous lesson):
+
+```ts
+export function proxy(request: NextRequest) {
+  const hasSession = request.cookies.has("sb-access-token");
+  if (request.nextUrl.pathname.startsWith("/dashboard") && !hasSession) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+  return NextResponse.next();
+}
+```
+
+In practice, many apps use **both**: the proxy check as a fast, coarse
+gate, and the Server Component check as the source of truth (since the
+proxy runs in a restricted Edge runtime and shouldn't be trusted with
+sensitive logic alone).
+
+## Sharing a layout for auth pages with a route group
+
+Login and signup pages usually want the same centered, chrome-free layout —
+but shouldn't affect the URL. A route group (a folder wrapped in
+parentheses) achieves both:
+
+```text
+app/
+  (auth)/
+    login/
+      page.tsx      -> /login
+    signup/
+      page.tsx      -> /signup
+    actions.ts       -> shared "use server" login/signup/logout functions
+```
+
+The `(auth)` folder name **doesn't appear in the URL** — it exists purely to
+group routes and let you add a `layout.tsx` inside it that only wraps those
+two pages, without also wrapping the rest of the site.
+
+## Server Actions for the actual sign-in/sign-out logic
+
+```ts
+// app/(auth)/actions.ts
+"use server";
+
+export async function login(_prevState: { error: string | null }, formData: FormData) {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email: String(formData.get("email")),
+    password: String(formData.get("password")),
+  });
+  if (error) return { error: error.message };
+  redirect("/dashboard");
+}
+```
+
+Keeping `login`/`signup`/`logout` as Server Actions means the password is
+never handled by client-side JavaScript at all — the form posts directly to
+server code.
+
+### Try it yourself
+
+Add a proxy-layer check that protects every `/courses/*` route the same way
+`/dashboard` is protected in this lesson, and compare: which failure mode
+does each layer catch that the other doesn't?

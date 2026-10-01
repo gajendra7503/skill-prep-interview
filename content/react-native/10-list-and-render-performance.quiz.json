@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `getItemLayout` let `FlatList` skip, and what constraint makes it usable?",
+      "options": [
+        "It skips rendering entirely; it requires no constraints",
+        "It skips measuring each row's position by computing it mathematically, which only works when every row has a fixed, known height",
+        "It skips the keyExtractor requirement",
+        "It disables virtualization entirely for better performance"
+      ],
+      "correctIndex": 1,
+      "explanation": "getItemLayout trades the ability to handle variable-height rows for avoiding per-row layout measurement, which is only valid when row height is fixed and known ahead of time."
+    },
+    {
+      "question": "Why does wrapping list row components in `React.memo` tend to matter more on React Native than on the web?",
+      "options": [
+        "React.memo doesn't work at all in React Native without this",
+        "Mobile devices generally have less CPU/GPU headroom than desktop browsers, so unnecessary re-renders of visible rows are more likely to visibly drop frames",
+        "FlatList requires React.memo to function at all",
+        "It has exactly the same impact on both platforms"
+      ],
+      "correctIndex": 1,
+      "explanation": "The same unnecessary re-render that's imperceptible on a powerful desktop browser can cause noticeable jank on more constrained mobile hardware."
+    },
+    {
+      "question": "What is Hermes?",
+      "options": [
+        "A state management library for React Native",
+        "A JavaScript engine built specifically for React Native, used in place of a general-purpose engine like JSC or V8",
+        "A native navigation library",
+        "A testing framework for React Native apps"
+      ],
+      "correctIndex": 1,
+      "explanation": "Hermes is an engine optimized for React Native's specific needs, trading some things for faster startup and lower memory use."
+    },
+    {
+      "question": "How does Hermes improve app startup time?",
+      "options": [
+        "It skips running JavaScript entirely on first launch",
+        "It can precompile JavaScript to bytecode ahead of time at build, so the app doesn't need to parse and compile raw JS on every cold start",
+        "It caches API responses between launches",
+        "It reduces the number of components rendered on startup"
+      ],
+      "correctIndex": 1,
+      "explanation": "Ahead-of-time bytecode compilation removes the parse/compile step that would otherwise happen fresh on every cold app start."
+    }
+  ]
+}

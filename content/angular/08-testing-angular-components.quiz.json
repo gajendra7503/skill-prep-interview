@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is `fixture.detectChanges()` necessary after creating a component in a test?",
+      "options": [
+        "It's optional and only affects performance",
+        "It triggers the initial data binding and rendering — without it, the template hasn't rendered yet",
+        "It destroys the component",
+        "It only matters for OnPush components"
+      ],
+      "correctIndex": 1,
+      "explanation": "TestBed.createComponent doesn't render the template automatically; detectChanges() runs the first change detection pass so nativeElement reflects the bound data."
+    },
+    {
+      "question": "How do standalone components get registered in a TestBed test?",
+      "options": [
+        "They're declared in the `declarations` array",
+        "They're listed in the `imports` array, since standalone components import their own dependencies",
+        "They require a special testing decorator",
+        "They can't be tested with TestBed"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because standalone components already declare their dependencies, TestBed treats them like any other importable unit — placed in `imports`, not `declarations`."
+    },
+    {
+      "question": "What does `fixture.debugElement.query(By.css('button.delete'))` return?",
+      "options": [
+        "A raw string of HTML",
+        "A DebugElement wrapping the matched native DOM node with Angular-aware helpers like triggerEventHandler",
+        "An array of all buttons on the page",
+        "Nothing — By.css only works with directives"
+      ],
+      "correctIndex": 1,
+      "explanation": "DebugElement wraps the native element and exposes helpers useful for tests, such as triggering events without constructing raw DOM Event objects."
+    },
+    {
+      "question": "Why provide a fake/mock for an injected service in a component test instead of the real one?",
+      "options": [
+        "Angular requires mocks in all tests",
+        "It isolates the test from real network calls and lets you control the service's return values deterministically",
+        "Real services can't be injected into tests at all",
+        "It has no benefit over the real service"
+      ],
+      "correctIndex": 1,
+      "explanation": "Swapping a real service for a fake via TestBed's `providers` keeps the test fast, deterministic, and independent of external systems — and works cleanly because the component depends on the service via DI."
+    }
+  ]
+}

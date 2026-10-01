@@ -1,0 +1,89 @@
+---
+title: "Performance Optimization"
+description: "Code-splitting with next/dynamic, measuring bundle size, and tying together everything from the Image/Font lesson."
+module: "Performance"
+order: 13
+---
+
+Server Components already remove a huge amount of client JS by default —
+this lesson covers the tools for optimizing what's left: the Client
+Components that genuinely need to ship to the browser.
+
+## `next/dynamic`: splitting out heavy client code
+
+A large client-side library (a rich text editor, a charting library, a map)
+shouldn't be part of the initial JS bundle if it's not needed until the user
+interacts with something:
+
+```tsx
+"use client";
+
+import dynamic from "next/dynamic";
+
+const RichTextEditor = dynamic(() => import("./rich-text-editor"), {
+  ssr: false, // this library touches `window` on import and can't render on the server at all
+  loading: () => <p>Loading editor…</p>,
+});
+
+export function CommentForm() {
+  const [showEditor, setShowEditor] = useState(false);
+  return (
+    <>
+      <button onClick={() => setShowEditor(true)}>Write a comment</button>
+      {showEditor && <RichTextEditor />}
+    </>
+  );
+}
+```
+
+`import()` creates a separate JS chunk that only downloads once
+`RichTextEditor` actually renders — the initial page load never pays for it.
+`ssr: false` is specifically for libraries that assume a browser environment
+(reading `window`/`document` at module scope) and would crash during server
+rendering.
+
+## Measuring what's actually in your bundle
+
+```bash
+npm install @next/bundle-analyzer
+```
+
+```ts
+// next.config.ts
+import withBundleAnalyzer from "@next/bundle-analyzer";
+
+const withAnalyzer = withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" });
+
+export default withAnalyzer({
+  // ...rest of your Next.js config
+});
+```
+
+Running `ANALYZE=true npm run build` opens an interactive treemap of every
+route's JS — the fastest way to spot an accidentally-imported heavy
+dependency (a whole icon library imported instead of one icon, a moment.js
+import that could be a lighter date library, and so on).
+
+## Tying it together
+
+Performance in a Next.js app comes from several lessons working together,
+not one silver bullet:
+
+- **Server Components by default** — the biggest lever; most of a typical
+  page ships zero JS for content that never needed to be interactive.
+- **`next/image` and `next/font`** (from the earlier lesson) — eliminate
+  layout shift and ship correctly-sized, modern-format images without manual
+  work.
+- **Route-level code splitting** — the App Router already splits JS per
+  route automatically; `next/dynamic` extends that splitting *within* a page
+  for components that aren't needed immediately.
+- **Caching** (from the caching deep-dive lesson) — avoids redundant work on
+  the server side, which is a performance concern even though it doesn't
+  show up in a client bundle analysis.
+
+### Try it yourself
+
+Pick the heaviest third-party client component you can think of adding to
+this app (a chart library for the dashboard, say), and sketch how you'd load
+it with `next/dynamic` so it never affects the initial load of `/dashboard`
+for users who don't scroll to that chart.

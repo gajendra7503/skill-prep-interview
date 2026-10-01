@@ -1,0 +1,85 @@
+---
+title: "Styling with Flexbox"
+description: "StyleSheet.create, why column is the default flex direction, and density-independent pixels instead of CSS units."
+module: "Fundamentals"
+order: 2
+---
+
+There is no CSS file, no cascade, and no selectors in React Native —
+every component is styled directly via a `style` prop holding a plain
+JavaScript object. But the underlying layout algorithm is the same Flexbox
+you'd use on the web, which makes most of your CSS layout knowledge transfer
+directly.
+
+## `StyleSheet.create` vs inline objects
+
+```jsx
+import { StyleSheet, View, Text } from "react-native";
+
+function Badge({ label }) {
+  return (
+    <View style={styles.badge}>
+      <Text style={styles.label}>{label}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  badge: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: "#4f46e5",
+  },
+  label: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+});
+```
+
+`StyleSheet.create` doesn't do anything magical to the values — it mainly
+validates the shape of your style objects during development and lets
+React Native reference styles by a lightweight ID instead of re-sending the
+whole object across the bridge on every render. Inline style objects
+(`style={{ padding: 4 }}`) work too, just without that small optimization —
+fine for one-off or dynamic styles, less ideal for large static style sheets.
+
+## Flexbox is the only layout system
+
+There is no CSS Grid, no `float`, and no `display: block` — **everything** is
+laid out with Flexbox, and every `View` is a flex container by default. The
+one surprising difference from web CSS: React Native's default
+`flexDirection` is `"column"`, not `"row"`.
+
+```jsx
+<View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+  <Text>Left</Text>
+  <Text>Right</Text>
+</View>
+```
+
+If you're used to needing `display: flex; flex-direction: row` explicitly on
+the web, remember that in React Native the "stack things vertically by
+default" behavior you'd associate with block-level elements is actually just
+Flexbox's column default — there's no separate block layout mode underneath.
+
+## Numbers are density-independent pixels, not CSS units
+
+```jsx
+<View style={{ width: 200, height: 48, marginTop: 12 }} />
+```
+
+Unitless numbers like `200` aren't CSS pixels — they're density-independent
+points that the platform scales appropriately for the device's screen
+density, which is why you never write `px`, `em`, or `rem` in a React Native
+stylesheet. Percentages (`width: "50%"`) are supported and work relative to
+the parent, same as on the web.
+
+### Try it yourself
+
+Build a row of three equal-width boxes using `flex: 1` on each child inside a
+`flexDirection: "row"` parent, then change the parent to the default column
+direction and see how the same children lay out without changing their own
+styles at all.

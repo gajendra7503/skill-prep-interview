@@ -1,0 +1,117 @@
+---
+title: "Content Projection & Component Communication"
+description: "Projecting markup into a component with ng-content, reaching into children with ViewChild, and choosing the right communication technique."
+module: "Fundamentals"
+order: 11
+---
+
+So far, components have communicated through `@Input()`/`@Output()` and
+shared services. Angular has two more tools worth knowing: projecting
+external markup *into* a component, and a parent reaching directly into a
+child's API.
+
+## Basic content projection with `ng-content`
+
+A component can declare a "slot" where a parent's markup gets rendered,
+similar to `children` in React:
+
+```ts
+@Component({
+  selector: "app-panel",
+  standalone: true,
+  template: `
+    <div class="panel">
+      <ng-content></ng-content>
+    </div>
+  `,
+})
+export class PanelComponent {}
+```
+
+```html
+<app-panel>
+  <h3>Account settings</h3>
+  <p>Manage your profile and preferences.</p>
+</app-panel>
+```
+
+## Multi-slot projection with `select`
+
+Multiple `<ng-content>` outlets can each claim a different piece of the
+parent's markup using a CSS-selector-like `select` attribute:
+
+```ts
+@Component({
+  selector: "app-card",
+  standalone: true,
+  template: `
+    <div class="card">
+      <header><ng-content select="[card-header]"></ng-content></header>
+      <div class="body"><ng-content></ng-content></div>
+      <footer><ng-content select="[card-footer]"></ng-content></footer>
+    </div>
+  `,
+})
+export class CardComponent {}
+```
+
+```html
+<app-card>
+  <h2 card-header>Invoice #4021</h2>
+  <p>Line items go here — this lands in the unnamed, default slot.</p>
+  <button card-footer>Pay now</button>
+</app-card>
+```
+
+## Reaching into a child with `@ViewChild`
+
+Sometimes a parent needs to call a method on a child directly, rather than
+only communicating through inputs/outputs — for example, imperatively
+focusing an input or triggering an animation:
+
+```ts
+@Component({
+  selector: "app-search-box",
+  standalone: true,
+  template: `<input #inputEl />`,
+})
+export class SearchBoxComponent {
+  @ViewChild("inputEl") inputEl!: ElementRef<HTMLInputElement>;
+
+  focus() {
+    this.inputEl.nativeElement.focus();
+  }
+}
+```
+
+```ts
+@Component({
+  standalone: true,
+  imports: [SearchBoxComponent],
+  template: `<app-search-box #search /> <button (click)="search.focus()">Focus</button>`,
+})
+export class ToolbarComponent {}
+```
+
+`@ContentChild` works the same way but queries **projected** content (what
+was passed via `ng-content`) instead of the component's own template.
+
+## Choosing the right technique
+
+| Need | Use |
+|---|---|
+| Pass data down to a child | `@Input()` |
+| Notify a parent of an event | `@Output()` + `EventEmitter` |
+| Share state across unrelated components | A shared service (injected in both) |
+| Let a parent render arbitrary markup inside a child's layout | `ng-content` |
+| Imperatively call a method on a child instance | `@ViewChild` |
+
+Reach for the simplest option first — `@Input()`/`@Output()` covers the vast
+majority of cases. `@ViewChild` couples the parent to the child's internal
+API, so it's best kept for genuinely imperative needs like focus management.
+
+### Try it yourself
+
+Build a `TabsComponent` with `<ng-content select="[tab]">` for each tab
+label and a default slot for content, then add a `@ViewChild` on a parent
+that calls a `selectTab(index)` method exposed by `TabsComponent`.

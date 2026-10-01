@@ -1,0 +1,117 @@
+---
+title: "TypeScript with React"
+description: "Typing props, state, events, children, and custom hooks so mistakes get caught before runtime."
+module: "Type Safety"
+order: 4
+---
+
+TypeScript doesn't change how React works — it just lets you describe the
+shape of your props, state, and event handlers so the compiler (and your
+editor) can catch mistakes before they ever hit the browser.
+
+## Typing props
+
+The most common pattern is an `interface` (or `type`) describing the
+component's props:
+
+```tsx
+interface ProfileCardProps {
+  name: string;
+  role: string;
+  isOnline?: boolean; // optional prop
+}
+
+function ProfileCard({ name, role, isOnline = false }: ProfileCardProps) {
+  return (
+    <div className="card">
+      <h2>{name}</h2>
+      <p>{role} {isOnline && "· online"}</p>
+    </div>
+  );
+}
+```
+
+Now calling `<ProfileCard role="Engineer" />` without `name` is a compile
+error, not a silent `undefined` in production.
+
+## Typing state with generics
+
+`useState` infers the type from its initial value, but for values that start
+empty, be explicit with a generic:
+
+```tsx
+const [tags, setTags] = useState<string[]>([]);
+const [user, setUser] = useState<User | null>(null);
+```
+
+Without the generic, `useState([])` would infer `never[]`, and TypeScript
+would reject any attempt to push a real value into it later.
+
+## Typing event handlers
+
+DOM events have specific types depending on the element and event kind:
+
+```tsx
+function SearchBox() {
+  const [query, setQuery] = useState("");
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setQuery(e.target.value);
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input value={query} onChange={handleChange} />
+    </form>
+  );
+}
+```
+
+Getting the generic right (`HTMLInputElement` vs `HTMLButtonElement`, etc.)
+is what makes `e.target.value` type-safe instead of `any`.
+
+## Typing `children`
+
+Use React's built-in `ReactNode` type — it covers strings, elements,
+fragments, arrays of nodes, and `null`:
+
+```tsx
+interface CardProps {
+  children: React.ReactNode;
+}
+
+function Card({ children }: CardProps) {
+  return <div className="rounded-lg border p-4">{children}</div>;
+}
+```
+
+## Typing a custom hook's return value
+
+Custom hooks often return a tuple (like `useState` does). Annotate the
+return type explicitly so consumers get correct tuple inference instead of a
+generic array:
+
+```tsx
+function useToggle(initial = false): [boolean, () => void] {
+  const [value, setValue] = useState(initial);
+  const toggle = () => setValue((v) => !v);
+  return [value, toggle];
+}
+
+// consumers get `isOpen: boolean` and `toggleOpen: () => void`, correctly ordered
+const [isOpen, toggleOpen] = useToggle();
+```
+
+Without the explicit `[boolean, () => void]` return type, TypeScript would
+widen this to `(boolean | (() => void))[]`, losing the fixed order and
+specific types at each position.
+
+### Try it yourself
+
+Convert the `TaskForm` component from the Task Tracker project to
+TypeScript: give it a typed `onAdd: (title: string) => void` prop, and type
+the input's `onChange` handler correctly.

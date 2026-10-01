@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "When does a `finally` block run?",
+      "options": [
+        "Only if the try block throws an error",
+        "Only if the try block succeeds without errors",
+        "Always — regardless of whether the try block succeeds, throws, or executes a return statement",
+        "Only if there is no catch block present"
+      ],
+      "correctIndex": 2,
+      "explanation": "finally is guaranteed to run no matter what happens in try/catch, which is why it's the right place for unconditional cleanup."
+    },
+    {
+      "question": "What is the benefit of extending the built-in `Error` class to create a custom error type?",
+      "options": [
+        "It makes the error disappear from stack traces",
+        "It preserves proper stack traces and instanceof Error behavior, while letting you attach extra context and distinguish error types with instanceof",
+        "It is required for try/catch to work at all",
+        "Custom error classes cannot carry any extra data"
+      ],
+      "correctIndex": 1,
+      "explanation": "Extending Error keeps standard error behavior intact while allowing custom properties (like a field name) and type-checking via instanceof."
+    },
+    {
+      "question": "What is the key difference between an \"operational error\" and a \"programmer error\"?",
+      "options": [
+        "There is no meaningful difference; all errors should be handled the same way",
+        "Operational errors are expected failure modes (bad input, network timeout) that should be caught and handled; programmer errors are bugs that generally should not be silently swallowed",
+        "Programmer errors only happen in development, never in production",
+        "Operational errors cannot be caught with try/catch"
+      ],
+      "correctIndex": 1,
+      "explanation": "Distinguishing expected failures from actual bugs matters because silently catching programmer errors (e.g. with an empty catch block) hides real problems instead of surfacing them."
+    },
+    {
+      "question": "Why is an empty `catch {}` block generally considered an anti-pattern?",
+      "options": [
+        "It's a syntax error in modern JavaScript",
+        "It swallows both operational errors AND programmer errors alike, silently hiding real bugs instead of letting them be noticed and fixed",
+        "It makes code run slower",
+        "catch blocks must always log something by specification"
+      ],
+      "correctIndex": 1,
+      "explanation": "An empty catch block suppresses all errors indiscriminately, including genuine bugs that should have surfaced loudly rather than vanished silently."
+    }
+  ]
+}

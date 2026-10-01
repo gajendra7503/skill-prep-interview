@@ -1,0 +1,94 @@
+---
+title: "Variables, Scope & Hoisting"
+description: "var vs let vs const, how hoisting actually works, and the Temporal Dead Zone."
+module: "Fundamentals"
+order: 1
+---
+
+Before anything else in JavaScript makes sense — closures, `this`, async code —
+you need a precise mental model of how variables are declared, where they
+live, and when they become usable. This is also one of the most common
+interview screening topics, because the wrong mental model produces
+confidently wrong answers.
+
+## `var` vs `let`/`const`: function scope vs block scope
+
+```js
+function example() {
+  if (true) {
+    var fromVar = "I leak out of the block";
+    let fromLet = "I stay inside the block";
+  }
+  console.log(fromVar);  // "I leak out of the block"
+  console.log(fromLet);  // ReferenceError: fromLet is not defined
+}
+```
+
+`var` is scoped to the nearest enclosing **function** (or the global scope if
+there isn't one) — the `if` block does nothing to contain it. `let` and
+`const` are scoped to the nearest enclosing **block** (`{}`), which matches
+how most other languages behave and is why modern code defaults to them.
+
+## Hoisting: declarations are processed before code runs
+
+JavaScript scans each scope for declarations before executing any code in
+it. This is "hoisting" — but `var` and `let`/`const` are hoisted
+*differently*:
+
+```js
+console.log(x); // undefined — declaration hoisted, not the assignment
+var x = 5;
+
+console.log(y); // ReferenceError: Cannot access 'y' before initialization
+let y = 5;
+```
+
+`var x` is hoisted and initialized to `undefined` immediately, so reading it
+early just gives `undefined` rather than an error. `let`/`const` declarations
+are hoisted too — the engine knows `y` exists in that scope — but they stay
+**uninitialized** until their declaration line actually executes.
+
+Function *declarations* are hoisted completely (name and body), so you can
+call them before their line in the source:
+
+```js
+greet(); // works fine
+function greet() {
+  console.log("hi");
+}
+```
+
+Function *expressions* assigned to a `let`/`const`/`var` only hoist the
+variable, not the function body, so calling them early fails the same way
+accessing the variable would.
+
+## The Temporal Dead Zone
+
+The gap between entering a scope and a `let`/`const` variable's declaration
+line actually running is called the **Temporal Dead Zone (TDZ)**. Accessing
+the variable anywhere in that gap throws, which is the behavior you saw with
+`y` above. This is a deliberate design choice — it catches a whole class of
+bugs where `var`'s silent `undefined` would mask a real mistake, like reading
+a variable before you meant to.
+
+```js
+{
+  // TDZ for `score` starts here
+  console.log(typeof score); // ReferenceError, NOT "undefined"
+  let score = 10;
+  // TDZ ends here
+}
+```
+
+Notice this is different from referencing a variable that was never declared
+at all — `typeof undeclaredVar` safely returns `"undefined"` with no error.
+`typeof` on a TDZ variable throws, because the engine knows the binding
+exists in this scope, it's just not ready yet.
+
+### Try it yourself
+
+Write a function with a `for (var i = 0; ...)` loop that pushes a function
+into an array on each iteration, then one with `for (let i = 0; ...)` doing
+the same. Call every pushed function afterward and compare what each prints
+— this is the classic interview warm-up for explaining closures and scope
+together.

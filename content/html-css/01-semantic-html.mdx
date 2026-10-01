@@ -1,0 +1,102 @@
+---
+title: "Semantic HTML"
+description: "Why <header>, <nav>, <main>, and <article> matter beyond styling — landmarks, SEO, and readable markup."
+module: "HTML Fundamentals"
+order: 1
+---
+
+It's entirely possible to build a page out of nothing but `<div>` and `<span>`
+tags styled to look like anything you want. Browsers will render it fine.
+The cost shows up everywhere else: screen readers, search engines, and the
+next developer reading your markup all lose information that semantic
+elements would have given them for free.
+
+## What "semantic" actually buys you
+
+```html
+<!-- div soup: visually correct, structurally meaningless -->
+<div class="header">
+  <div class="nav">
+    <div class="nav-item">Home</div>
+    <div class="nav-item">Docs</div>
+  </div>
+</div>
+<div class="content">
+  <div class="post">
+    <div class="post-title">Shipping faster with CI</div>
+    <div class="post-body">...</div>
+  </div>
+</div>
+<div class="footer">© 2026</div>
+```
+
+```html
+<!-- semantic: the tags themselves describe the structure -->
+<header>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/docs">Docs</a>
+  </nav>
+</header>
+<main>
+  <article>
+    <h1>Shipping faster with CI</h1>
+    <p>...</p>
+  </article>
+</main>
+<footer>© 2026</footer>
+```
+
+Both examples can be styled identically with CSS — semantics are completely
+independent of appearance. The difference only shows up when something
+*other than a sighted browser user* reads the page.
+
+## Screen readers navigate by landmark, not by looking
+
+A screen reader user doesn't read a page top to bottom like prose; they jump
+between **landmarks** — `<header>`, `<nav>`, `<main>`, `<footer>`,
+`<aside>` — the same way a sighted user's eye jumps straight to the nav bar
+or the main content, skipping the boilerplate. A page built entirely from
+`<div>`s has zero landmarks: a screen reader announces every one of them
+identically as a generic "group," forcing the user to listen through
+everything linearly to find what they need.
+
+## The document outline, and why heading levels matter
+
+`<h1>`–`<h6>` create a nested outline of the page, similar to a table of
+contents. `<article>` and `<section>` are meant to contain their own heading,
+establishing a sub-section of that outline:
+
+```html
+<article>
+  <h1>Shipping faster with CI</h1>
+  <section>
+    <h2>Why we switched</h2>
+    <p>...</p>
+  </section>
+  <section>
+    <h2>The new pipeline</h2>
+    <p>...</p>
+  </section>
+</article>
+```
+
+Skipping levels (going from `<h1>` straight to `<h4>`) or using heading tags
+purely for their default font size (instead of to express structure) breaks
+this outline for both screen reader users navigating by heading and search
+engines trying to understand your content's hierarchy.
+
+## `<article>` vs `<section>` vs `<div>`
+
+- **`<article>`** — content that would make sense distributed/syndicated on
+  its own: a blog post, a product card, a forum comment.
+- **`<section>`** — a thematic grouping of content, usually with its own
+  heading, that's part of a larger whole rather than standalone.
+- **`<div>`** — no semantic meaning at all; reach for it only when nothing
+  above applies and you need an element purely for styling/layout hooks.
+
+### Try it yourself
+
+Take a page you've built recently (or picture one) and audit it: for every
+`<div>`, ask whether `<header>`, `<nav>`, `<main>`, `<article>`, `<section>`,
+or `<footer>` would describe it more accurately.

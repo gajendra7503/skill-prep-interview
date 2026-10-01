@@ -1,0 +1,105 @@
+---
+title: "React 19 Features"
+description: "The use() hook, useActionState, and useOptimistic — React's newest primitives for async UI and optimistic updates."
+module: "Modern React"
+order: 15
+---
+
+React 19 added a handful of hooks that address a recurring pattern: showing
+pending/error state around an async operation, and showing a result before
+the server has actually confirmed it.
+
+## `use()`: reading a promise or context conditionally
+
+`use()` lets a component read the resolved value of a promise (or a Context)
+directly during render — and unlike other hooks, it can be called
+conditionally or in a loop, because it isn't a traditional hook under the
+rules-of-hooks restrictions:
+
+```jsx
+import { use, Suspense } from "react";
+
+function UserProfile({ userPromise }) {
+  const user = use(userPromise); // suspends until the promise resolves
+  return <h2>{user.name}</h2>;
+}
+
+function Page({ userPromise }) {
+  return (
+    <Suspense fallback={<p>Loading…</p>}>
+      <UserProfile userPromise={userPromise} />
+    </Suspense>
+  );
+}
+```
+
+Reading a promise with `use()` automatically triggers the nearest `<Suspense>`
+boundary while it's pending — no manual `isLoading` state required.
+
+## `useActionState`: wiring an async action into form state
+
+```jsx
+import { useActionState } from "react";
+
+async function updateName(prevState, formData) {
+  const name = formData.get("name");
+  if (!name.trim()) return { error: "Name is required" };
+  await saveName(name);
+  return { error: null };
+}
+
+function NameForm() {
+  const [state, formAction, isPending] = useActionState(updateName, { error: null });
+
+  return (
+    <form action={formAction}>
+      <input name="name" />
+      {state.error && <p className="text-red-500">{state.error}</p>}
+      <button disabled={isPending}>{isPending ? "Saving…" : "Save"}</button>
+    </form>
+  );
+}
+```
+
+`useActionState` takes an async function and an initial state, and returns
+the latest state, a wrapped action to pass to `<form action={...}>`, and a
+`isPending` flag — no manual `useState` + `useTransition` wiring needed. This
+is exactly the hook this app's own login/signup forms use (see
+`src/components/auth-form.tsx`) to show pending/error state around a Server
+Action.
+
+## `useOptimistic`: showing the result before it's confirmed
+
+```jsx
+import { useOptimistic } from "react";
+
+function TaskItem({ task, onToggle }) {
+  const [optimisticTask, setOptimisticTask] = useOptimistic(task, (current, completed) => ({
+    ...current,
+    completed,
+  }));
+
+  async function handleToggle() {
+    setOptimisticTask(!optimisticTask.completed); // reflected immediately
+    await onToggle(task.id); // real mutation, may take a moment
+  }
+
+  return (
+    <label>
+      <input type="checkbox" checked={optimisticTask.completed} onChange={handleToggle} />
+      {optimisticTask.title}
+    </label>
+  );
+}
+```
+
+`useOptimistic` renders the optimistic value immediately, then automatically
+reverts to the real value once the underlying state update (from the parent,
+after the mutation settles) comes back — giving instant-feeling UI without
+hand-rolling rollback logic for a failed request.
+
+### Try it yourself
+
+Take the Mark Complete button pattern in this app's lesson pages and sketch
+how `useOptimistic` could show the checkmark instantly on click, before the
+Server Action's response comes back.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `provideRouter(routes)` do?",
+      "options": [
+        "Declares a component as routable",
+        "Registers the router and its route configuration with the application, replacing RouterModule.forRoot",
+        "Only works with lazy-loaded routes",
+        "Creates a new browser tab"
+      ],
+      "correctIndex": 1,
+      "explanation": "provideRouter is the standalone-API equivalent of RouterModule.forRoot(routes), wiring the router into the app's providers."
+    },
+    {
+      "question": "When should you read route params via the Observable form (`route.paramMap`) instead of the snapshot?",
+      "options": [
+        "Always — the snapshot is deprecated",
+        "When the same component instance stays active while only the param changes (e.g. navigating between similar detail pages)",
+        "Only for the root route",
+        "Snapshots and observables behave identically"
+      ],
+      "correctIndex": 1,
+      "explanation": "The snapshot is read once at creation; if Angular reuses the same component instance across a param change, you need the observable form to react to that update."
+    },
+    {
+      "question": "What is the main benefit of `loadComponent: () => import(...)` in a route definition?",
+      "options": [
+        "It disables the route until manually enabled",
+        "It code-splits that component into its own chunk, downloaded only when the route is visited",
+        "It forces the component to render server-side",
+        "It replaces the need for a template"
+      ],
+      "correctIndex": 1,
+      "explanation": "Lazy-loading via dynamic import keeps the initial bundle smaller by deferring that route's code until it's actually navigated to."
+    },
+    {
+      "question": "What is a functional route guard like `authGuard` in the lesson?",
+      "options": [
+        "A class implementing CanActivate",
+        "A plain function using inject() that returns true/false (or navigates) to allow or block activating a route",
+        "A directive applied to the route's component template",
+        "A pipe that formats the URL"
+      ],
+      "correctIndex": 1,
+      "explanation": "Functional guards are just functions (using CanActivateFn) that use inject() to access services, replacing the older class-based guard interfaces."
+    }
+  ]
+}

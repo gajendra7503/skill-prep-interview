@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "question": "Why write `useState<string[]>([])` instead of just `useState([])`?",
+      "options": [
+        "There is no difference; the generic is only stylistic",
+        "Without the generic, TypeScript infers the array type as `never[]`, rejecting later pushes of real values",
+        "The generic makes the state update synchronously",
+        "It is required syntax for all arrays in React"
+      ],
+      "correctIndex": 1,
+      "explanation": "An empty array gives TypeScript nothing to infer from, so it defaults to `never[]`. The explicit generic tells it what the array will eventually hold."
+    },
+    {
+      "question": "What type should the `onChange` handler for a text `<input>` use for its event parameter?",
+      "options": [
+        "React.FormEvent<HTMLFormElement>",
+        "React.MouseEvent<HTMLButtonElement>",
+        "React.ChangeEvent<HTMLInputElement>",
+        "Event"
+      ],
+      "correctIndex": 2,
+      "explanation": "`React.ChangeEvent<HTMLInputElement>` correctly types `e.target` as an `HTMLInputElement`, giving you a typed `e.target.value`."
+    },
+    {
+      "question": "What is the appropriate type for a `children` prop that could be text, elements, or nothing?",
+      "options": ["any", "React.ReactNode", "JSX.IntrinsicElement", "string"],
+      "correctIndex": 1,
+      "explanation": "`React.ReactNode` is the built-in union type covering strings, numbers, elements, fragments, arrays of nodes, and null/undefined."
+    },
+    {
+      "question": "Why annotate a custom hook's return type explicitly, e.g. `(): [boolean, () => void] => { ... }`?",
+      "options": [
+        "It's required for the hook to work at runtime",
+        "Without it, TypeScript may widen a returned array to an unordered union type instead of a fixed tuple",
+        "It disables type checking for the hook's internals",
+        "It makes the hook run faster"
+      ],
+      "correctIndex": 1,
+      "explanation": "An explicit tuple return type preserves the fixed order and distinct types of each returned value, so destructuring consumers get correct inference."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is distinctive about the `use()` hook compared to other hooks like useState?",
+      "options": [
+        "It can be called conditionally or in a loop, unlike hooks bound by the rules of hooks",
+        "It can only be used in class components",
+        "It replaces useEffect entirely",
+        "It must be the first line of every component"
+      ],
+      "correctIndex": 0,
+      "explanation": "use() is designed to be called conditionally, which is why it can read a promise or Context inside an if-statement or loop where useState/useEffect could not."
+    },
+    {
+      "question": "What happens when a component reads a pending promise with `use()`?",
+      "options": [
+        "It throws an unrecoverable error",
+        "It automatically suspends, triggering the nearest Suspense boundary's fallback",
+        "It returns undefined silently",
+        "It blocks the entire browser tab until the promise resolves"
+      ],
+      "correctIndex": 1,
+      "explanation": "use() integrates with Suspense directly — no manual isLoading state is needed, since the nearest Suspense boundary's fallback shows while the promise is pending."
+    },
+    {
+      "question": "What three things does `useActionState` return?",
+      "options": [
+        "Only the current state",
+        "The latest state, a wrapped action to pass to a form, and a pending flag",
+        "A promise, an error, and a loading boolean",
+        "A ref, a dispatch function, and a cleanup function"
+      ],
+      "correctIndex": 1,
+      "explanation": "useActionState(action, initialState) returns [state, formAction, isPending] — state/pending tracking around an async action without manually combining useState and useTransition."
+    },
+    {
+      "question": "What problem does `useOptimistic` solve?",
+      "options": [
+        "It caches expensive calculations",
+        "It shows a provisional UI update immediately, before the real mutation has been confirmed by the server",
+        "It prevents all network requests from failing",
+        "It replaces the need for a backend entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "useOptimistic renders an optimistic value right away and automatically reconciles back to the real value once the underlying state settles, without hand-rolled rollback logic."
+    }
+  ]
+}

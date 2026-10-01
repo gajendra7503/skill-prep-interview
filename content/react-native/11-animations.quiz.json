@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why doesn't updating an `Animated.Value` trigger a React re-render on every animation frame?",
+      "options": [
+        "It does trigger a re-render every frame, that's expected",
+        "Animated.Value is intentionally kept outside React state, since re-rendering the component tree 60 times a second would be far too slow",
+        "Animated.Value can only be used outside of components",
+        "React Native disables re-renders while any animation is active"
+      ],
+      "correctIndex": 1,
+      "explanation": "Animated values live outside the normal React render cycle specifically so the animation can run smoothly without the overhead of a full component re-render on every frame."
+    },
+    {
+      "question": "What does `useNativeDriver: true` actually change about how an animation runs?",
+      "options": [
+        "It makes the animation duration shorter",
+        "It hands the whole animation to the native UI thread upfront, so it runs independently of the JS thread instead of requiring a bridge round-trip every frame",
+        "It disables the animation on Android only",
+        "It has no real effect, it's just a deprecated flag"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without it, each frame requires sending the next value across the bridge from JS to native; with it, the native side drives the entire animation on its own."
+    },
+    {
+      "question": "Why can't the native driver animate a property like `width` or `flex`?",
+      "options": [
+        "Those properties don't exist in React Native",
+        "Changing them requires re-running JS-side layout logic, which only the JS thread can do — the native driver only handles properties like opacity/transform that don't affect layout",
+        "It's an arbitrary restriction with no technical reason",
+        "Native driver animations are always layout-safe"
+      ],
+      "correctIndex": 1,
+      "explanation": "Layout-affecting properties require recalculating the layout tree, which is JS-side work; the native driver is limited to properties (opacity, transform) that can be applied directly without touching layout."
+    },
+    {
+      "question": "What is the key idea behind Reanimated's 'worklets' that makes gesture-driven animations smoother than the base Animated API?",
+      "options": [
+        "Worklets run on a separate JS thread with higher priority",
+        "Worklets are small functions compiled to run directly on the UI thread, so a gesture can update the animation every frame with zero bridge round-trips",
+        "Worklets precompute every possible animation frame ahead of time",
+        "Worklets disable the JS thread entirely while active"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because the worklet itself executes on the UI thread, gesture updates can drive the animation in real time without ever needing to communicate back to the JS thread mid-gesture."
+    }
+  ]
+}

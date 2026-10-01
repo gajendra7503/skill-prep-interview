@@ -1,0 +1,96 @@
+---
+title: "Memory Management & Performance"
+description: "How garbage collection works, common memory leaks, and debounce vs throttle."
+module: "Advanced Patterns"
+order: 12
+---
+
+JavaScript manages memory automatically, which mostly lets you ignore it —
+until a leak builds up over time or a hot code path (like a scroll handler)
+runs far more often than it needs to.
+
+## Garbage collection: reachability, not reference counting
+
+Modern engines use a **mark-and-sweep** algorithm: starting from a set of
+"roots" (global variables, currently executing function scopes), the engine
+marks every object reachable by following references, then sweeps away
+(frees) anything left unmarked:
+
+```js
+let user = { name: "Asha" };
+user = null; // the original object is no longer reachable from any root
+             // -> eligible for garbage collection
+```
+
+An object is collected when **nothing reachable from a root points to it
+anymore** — it doesn't matter how many references it used to have, only
+whether a path from a root still exists right now. This is also why
+circular references between two objects don't leak on their own, as long as
+nothing *outside* that circle still references either of them.
+
+## Common memory leak causes
+
+```js
+// 1. Forgotten event listeners/timers keep their closure (and everything it
+//    captured) alive indefinitely, even after the related UI is gone.
+function setupWidget(data) {
+  const handler = () => console.log(data);
+  window.addEventListener("resize", handler);
+  // if this widget is later removed but removeEventListener is never called,
+  // `data` is kept alive forever by the still-registered listener
+}
+
+// 2. Accidental globals — forgetting a declaration keyword attaches to the
+//    global object, which never gets garbage collected for the app's lifetime.
+function leak() {
+  accidentallyGlobal = "oops"; // no let/const/var — becomes a global in non-strict mode
+}
+
+// 3. Closures capturing more than they need, e.g. a large array kept alive
+//    just because a tiny function defined alongside it still exists.
+```
+
+The fix for case 1 is always the same shape: whatever sets something up
+(`addEventListener`, `setInterval`) needs a matching teardown
+(`removeEventListener`, `clearInterval`) called when that thing is no longer
+needed — this is exactly why React's `useEffect` cleanup function and
+Angular's `ngOnDestroy` exist as dedicated lifecycle hooks for this purpose.
+
+## Debounce vs throttle
+
+Both limit how often a function runs in response to frequent events, but
+with different goals:
+
+```js
+function debounce(fn, delay) {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId); // cancel any pending call
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
+function throttle(fn, interval) {
+  let lastCall = 0;
+  return (...args) => {
+    const now = Date.now();
+    if (now - lastCall >= interval) {
+      lastCall = now;
+      fn(...args);
+    }
+  };
+}
+```
+
+**Debounce** waits until the event stops firing for `delay` ms before
+running once — ideal for a search input, where you only want to fire the API
+call after the user pauses typing, not on every keystroke. **Throttle** runs
+at most once every `interval` ms no matter how often the event fires — ideal
+for a scroll or resize handler, where you want regular updates but not one
+per pixel scrolled.
+
+### Try it yourself
+
+Attach both a debounced and a throttled version of the same `console.log`
+to a `window.addEventListener("scroll", ...)` handler, scroll the page, and
+compare how often each one actually logs.

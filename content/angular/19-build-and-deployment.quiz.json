@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the key difference between AOT and JIT compilation?",
+      "options": [
+        "AOT compiles templates to JavaScript during the build; JIT ships the compiler to the browser and compiles templates at runtime",
+        "JIT is only used in production builds",
+        "AOT is slower to start up than JIT",
+        "There is no real difference, just different names for the same process"
+      ],
+      "correctIndex": 0,
+      "explanation": "AOT does the template-to-JS compilation ahead of time at build, avoiding the need to ship the compiler itself or compile in the browser."
+    },
+    {
+      "question": "What is one practical benefit of AOT catching template errors at build time instead of JIT catching them at runtime?",
+      "options": [
+        "A broken binding fails the build instead of shipping a runtime error to real users",
+        "AOT makes templates render with different HTML",
+        "AOT removes the need for component classes",
+        "AOT disables change detection"
+      ],
+      "correctIndex": 0,
+      "explanation": "Since AOT compiles templates ahead of time, a typo in a binding surfaces as a build failure the developer sees immediately, rather than a runtime bug users encounter."
+    },
+    {
+      "question": "What is the purpose of having both `environment.ts` and `environment.prod.ts`?",
+      "options": [
+        "They are both required and loaded together at runtime",
+        "The CLI's fileReplacements swaps one for the other at build time, so the same code can point at different config (like API URLs) per environment",
+        "They control which browser the app supports",
+        "They are unused legacy files from older Angular versions"
+      ],
+      "correctIndex": 1,
+      "explanation": "Using fileReplacements, the production build configuration substitutes environment.prod.ts in place of environment.ts, swapping config values without branching logic in the app code."
+    },
+    {
+      "question": "What does a bundle budget in angular.json do?",
+      "options": [
+        "Limits how many components a project can have",
+        "Warns or fails the build if the output JavaScript exceeds a configured size threshold",
+        "Sets a maximum number of HTTP requests per page",
+        "Controls the app's color theme"
+      ],
+      "correctIndex": 1,
+      "explanation": "Budgets act as a build-time guardrail against bundle size regressions, failing or warning once the output exceeds the configured thresholds."
+    }
+  ]
+}

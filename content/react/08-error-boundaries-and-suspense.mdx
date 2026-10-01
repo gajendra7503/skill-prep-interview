@@ -1,0 +1,102 @@
+---
+title: "Error Boundaries & Suspense"
+description: "Catching render errors gracefully, and showing loading states with Suspense."
+module: "Advanced Patterns"
+order: 8
+---
+
+Left unhandled, a single thrown error during render can crash your entire
+React tree to a blank white screen. Error boundaries and Suspense are
+React's two built-in mechanisms for degrading gracefully instead.
+
+## What error boundaries catch (and don't)
+
+An error boundary catches errors thrown **during rendering**, in lifecycle
+methods, and in constructors of the tree below it. It does **not** catch
+errors in:
+
+- Event handlers (use a regular `try/catch` there instead)
+- Asynchronous code (`setTimeout`, `fetch` callbacks)
+- Server-side rendering
+- Errors thrown in the boundary itself
+
+## Writing an error boundary
+
+As of React 19, error boundaries must still be class components — there is
+no hook equivalent, since the underlying lifecycle methods
+(`getDerivedStateFromError`, `componentDidCatch`) only exist on classes:
+
+```jsx
+class ErrorBoundary extends React.Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("Caught by ErrorBoundary:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <p>Something went wrong. Please refresh the page.</p>;
+    }
+    return this.props.children;
+  }
+}
+```
+
+Wrap it around any subtree you want isolated from a full app crash:
+
+```jsx
+<ErrorBoundary>
+  <UserProfile userId={id} />
+</ErrorBoundary>
+```
+
+If `UserProfile` throws during render, only that section falls back to the
+error message — the rest of the app (navbar, sidebar, etc.) keeps working.
+
+## `Suspense`: declarative loading states
+
+`<Suspense>` lets a component "pause" rendering while something it depends
+on is still loading, showing a fallback in the meantime:
+
+```jsx
+const ProductDetails = React.lazy(() => import("./ProductDetails"));
+
+function App() {
+  return (
+    <Suspense fallback={<p>Loading…</p>}>
+      <ProductDetails />
+    </Suspense>
+  );
+}
+```
+
+`React.lazy` code-splits `ProductDetails` into its own bundle, loaded only
+when it's actually rendered. `Suspense` shows the `fallback` until that
+chunk (and any data the component suspends on) is ready, then swaps in the
+real content.
+
+## Combining both
+
+A common production pattern nests them together: `Suspense` handles the
+loading state, and an `ErrorBoundary` around it handles the case where
+loading — or the component itself — fails:
+
+```jsx
+<ErrorBoundary>
+  <Suspense fallback={<Spinner />}>
+    <ProductDetails />
+  </Suspense>
+</ErrorBoundary>
+```
+
+### Try it yourself
+
+Wrap the Task Tracker's `TaskList` in an `ErrorBoundary`, then temporarily
+throw an error inside it (e.g. `if (tasks.length > 100) throw new
+Error("too many tasks")`) to confirm the fallback UI appears instead of a
+blank page.

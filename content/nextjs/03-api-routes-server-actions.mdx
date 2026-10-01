@@ -1,0 +1,91 @@
+---
+title: "Route Handlers & Server Actions"
+description: "Building a backend inside your Next.js app: API endpoints and form mutations without an API layer."
+module: "Backend"
+order: 3
+---
+
+Next.js lets you write backend code in the same project as your UI, two
+ways: **Route Handlers** (traditional REST-style endpoints) and **Server
+Actions** (functions callable directly from forms/components).
+
+## Route Handlers
+
+```ts
+// app/api/courses/route.ts
+import { NextResponse } from "next/server";
+import { getAllCourses } from "@/lib/content";
+
+export async function GET() {
+  const courses = getAllCourses();
+  return NextResponse.json(courses);
+}
+
+export async function POST(request: Request) {
+  const body = await request.json();
+  // validate + persist body...
+  return NextResponse.json({ ok: true }, { status: 201 });
+}
+```
+
+A `route.ts` file exports one function per HTTP verb (`GET`, `POST`, `PATCH`,
+`DELETE`...). Useful when you need a real HTTP endpoint — for a public API,
+a webhook receiver, or a client-side library that expects to call `fetch`.
+
+## Server Actions: mutations without an API layer
+
+For form submissions inside your own app, **Server Actions** skip the need
+for a separate endpoint entirely. Mark a function `"use server"` and call it
+directly as a form's `action`:
+
+```tsx
+// app/courses/[course]/[lesson]/actions.ts
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+
+export async function markLessonComplete(courseSlug: string, lessonSlug: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+
+  await supabase.from("lesson_progress").upsert({
+    user_id: user.id,
+    course_slug: courseSlug,
+    lesson_slug: lessonSlug,
+    completed: true,
+  });
+
+  revalidatePath(`/courses/${courseSlug}/${lessonSlug}`);
+}
+```
+
+```tsx
+// used directly in a Server Component, no client JS or fetch required
+<form action={markLessonComplete.bind(null, "nextjs", "01-app-router-fundamentals")}>
+  <button type="submit">Mark complete</button>
+</form>
+```
+
+This is exactly the pattern the "Mark as complete" button on every lesson in
+this app uses.
+
+## Why Server Actions over a hand-rolled API + fetch
+
+- No manual `fetch` wiring, loading states, or JSON parsing for simple
+  mutations — the browser's native form submission handles progressive
+  enhancement.
+- `revalidatePath` / `revalidateTag` invalidate exactly the cached data that
+  changed, without a full page reload.
+- TypeScript types flow end-to-end between the action and the component
+  calling it — no API contract to keep in sync manually.
+
+Reach for a Route Handler instead when something *outside* your Next.js app
+needs to call the endpoint (a webhook, a mobile client, a third-party
+integration).
+
+### Try it yourself
+
+Add a Server Action that deletes a task, wired to a "Delete" button in a
+form, and call `revalidatePath` so the list updates immediately.

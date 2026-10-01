@@ -1,0 +1,45 @@
+{
+  "questions": [
+    {
+      "question": "What problem does `srcset`/`sizes` on a plain `<img>` solve, as opposed to `<picture>`?",
+      "options": [
+        "Art direction — showing a genuinely different image crop per breakpoint",
+        "Resolution switching — serving the same image at different sizes based on viewport and device pixel ratio",
+        "Lazy loading images below the fold",
+        "Converting images between file formats"
+      ],
+      "correctIndex": 1,
+      "explanation": "srcset/sizes lets the browser pick the best-sized version of the SAME image; <picture> is for when the image content itself should differ (different crops), not just its resolution."
+    },
+    {
+      "question": "What does calling `dialog.showModal()` give you automatically, without extra JavaScript?",
+      "options": [
+        "Automatic form validation",
+        "Focus trapping inside the dialog, blocking interaction with the rest of the page, and closing on Escape",
+        "Automatic network request batching",
+        "CSS animations by default"
+      ],
+      "correctIndex": 1,
+      "explanation": "The native dialog element handles the modal behaviors that typically require a focus-trap library and manual event wiring when building a modal from a plain div."
+    },
+    {
+      "question": "What CSS pseudo-element lets you style the dimmed overlay behind an open `<dialog>`?",
+      "options": [
+        "::before", "::backdrop", "::overlay", "::modal"
+      ],
+      "correctIndex": 1,
+      "explanation": "::backdrop specifically targets the layer the browser renders behind a dialog opened with showModal()."
+    },
+    {
+      "question": "How does a `data-item-id=\"42\"` attribute become accessible in JavaScript?",
+      "options": [
+        "Via `element.getAttribute('data-item-id')` only — there is no other way",
+        "Automatically exposed as `element.dataset.itemId`, camelCased, with no manual parsing required",
+        "It must be manually parsed out of element.outerHTML",
+        "data-* attributes are not accessible from JavaScript for security reasons"
+      ],
+      "correctIndex": 1,
+      "explanation": "The browser automatically maps every data-foo-bar attribute onto the element's .dataset object as a camelCased property (dataset.fooBar)."
+    }
+  ]
+}

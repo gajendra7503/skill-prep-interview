@@ -1,0 +1,165 @@
+---
+title: "Real Project: Responsive Pricing Page"
+description: "Semantic markup, CSS Grid + Flexbox together, custom properties for theming, and a mobile-first responsive layout."
+module: "Real-World Project"
+order: 19
+---
+
+Pricing pages are a great capstone because they force you to combine almost
+everything from this course: semantic structure, Grid for the overall
+layout, Flexbox for the card internals, custom properties for consistent
+theming, and a responsive breakpoint so three columns become one on mobile.
+
+## 1. Semantic structure first
+
+```html
+<section class="pricing" aria-labelledby="pricing-heading">
+  <h2 id="pricing-heading">Choose your plan</h2>
+
+  <div class="pricing__grid">
+    <article class="plan">
+      <h3 class="plan__name">Starter</h3>
+      <p class="plan__price"><span class="plan__amount">₹0</span>/mo</p>
+      <ul class="plan__features">
+        <li>1 project</li>
+        <li>Community support</li>
+      </ul>
+      <a class="plan__cta" href="/signup?plan=starter">Get started</a>
+    </article>
+
+    <article class="plan plan--featured">
+      <p class="plan__badge">Most popular</p>
+      <h3 class="plan__name">Pro</h3>
+      <p class="plan__price"><span class="plan__amount">₹999</span>/mo</p>
+      <ul class="plan__features">
+        <li>Unlimited projects</li>
+        <li>Priority support</li>
+      </ul>
+      <a class="plan__cta" href="/signup?plan=pro">Get started</a>
+    </article>
+
+    <article class="plan">
+      <h3 class="plan__name">Team</h3>
+      <p class="plan__price"><span class="plan__amount">₹2,499</span>/mo</p>
+      <ul class="plan__features">
+        <li>Everything in Pro</li>
+        <li>Team roles &amp; permissions</li>
+      </ul>
+      <a class="plan__cta" href="/signup?plan=team">Get started</a>
+    </article>
+  </div>
+</section>
+```
+
+`<article>` for each plan is deliberate — each card is independently
+meaningful content (it would still make sense syndicated on its own), which
+is exactly the semantic test `<article>` is for. `aria-labelledby` ties the
+section to its heading for screen readers, satisfying the landmark/labeling
+pattern from the accessibility lesson without adding any visually-hidden
+duplicate text.
+
+## 2. Custom properties for a single source of truth on theming
+
+```css
+:root {
+  --color-primary: #4f46e5;
+  --color-text: #18181b;
+  --color-muted: #71717a;
+  --color-border: #e4e4e7;
+  --radius-card: 12px;
+  --space-card: 1.5rem;
+}
+
+.plan {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+}
+
+.plan--featured {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+```
+
+Every card references the same handful of variables, so a rebrand (new
+primary color, more rounded corners) is a one-line change at `:root` instead
+of a find-and-replace across every selector.
+
+## 3. Grid for the overall layout, Flexbox inside each card
+
+```css
+.pricing__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+.plan {
+  display: flex;
+  flex-direction: column;
+}
+
+.plan__features {
+  flex: 1; /* pushes the CTA button to the bottom even if feature lists differ in length */
+  margin-block: 1rem;
+}
+
+.plan__cta {
+  display: block;
+  text-align: center;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: white;
+  text-decoration: none;
+}
+```
+
+This is the canonical "Grid for the page, Flexbox for the component" split
+from the layout lessons: Grid naturally expresses "three equal columns,"
+while Flexbox's `flex: 1` on `.plan__features` solves the classic
+"uneven content, buttons not aligned" problem that's awkward with Grid alone.
+
+## 4. Mobile-first responsive breakpoint
+
+```css
+.pricing__grid {
+  grid-template-columns: 1fr; /* one column by default (mobile-first) */
+}
+
+@media (min-width: 768px) {
+  .pricing__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+```
+
+Writing the single-column layout as the *default* and widening at a
+`min-width` media query — rather than starting from three columns and
+narrowing — is the mobile-first approach from the responsive design lesson:
+small screens get a simple, unconditional layout, and larger screens opt
+into more columns.
+
+### What this project demonstrates
+
+- **Semantic HTML chosen for meaning, not default appearance** — `<article>`,
+  heading levels, and `aria-labelledby` all come from the accessibility and
+  semantics lessons, not from how anything looks.
+- **Custom properties as the single source of truth** for colors and spacing,
+  from the modern CSS lesson.
+- **Grid + Flexbox used together, each for what it's good at**, rather than
+  forcing one layout system to do both jobs.
+- **Mobile-first media queries**, widening the layout as space allows instead
+  of cramming a desktop layout into a small screen with overrides.
+
+### Extend it yourself
+
+- Add a `prefers-color-scheme: dark` block that redefines the custom
+  properties in `:root` for dark mode — no other CSS needs to change.
+- Use `:has()` to style `.pricing__grid` differently when it contains a
+  `.plan--featured` card (from the advanced selectors lesson).
+- Swap the two breakpoints for a CSS Grid `auto-fit`/`minmax()` approach and
+  compare how many media queries you still need.

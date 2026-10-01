@@ -1,0 +1,80 @@
+---
+title: "Promises"
+description: "States, chaining, and choosing between Promise.all, allSettled, and race."
+module: "Asynchronous JavaScript"
+order: 8
+---
+
+A Promise represents a value that isn't available yet but will be at some
+point — the result of a network request, a timer, or any other asynchronous
+operation. They replaced deeply nested "callback hell" with something that
+can be chained and composed.
+
+## The three states
+
+A Promise is always in exactly one of three states, and once it leaves
+**pending** it can never change again:
+
+```js
+const promise = new Promise((resolve, reject) => {
+  const success = Math.random() > 0.5;
+  setTimeout(() => {
+    if (success) resolve("done!");   // pending -> fulfilled
+    else reject(new Error("failed")); // pending -> rejected
+  }, 1000);
+});
+```
+
+`pending` → `fulfilled` (resolved with a value) or `pending` → `rejected`
+(failed with a reason) — this one-way transition is what makes a Promise's
+result stable and safe to hand off to multiple consumers.
+
+## Chaining
+
+```js
+fetchUser(id)
+  .then((user) => fetchOrders(user.id)) // returning a new promise here...
+  .then((orders) => {                   // ...means this .then waits for IT to resolve
+    console.log(orders);
+    return orders.length;
+  })
+  .then((count) => console.log(`Order count: ${count}`))
+  .catch((error) => console.error("Something failed:", error))
+  .finally(() => console.log("Request finished, one way or another"));
+```
+
+Each `.then()` returns a **new Promise**. If the callback returns a plain
+value, the next `.then()` receives that value immediately; if it returns
+*another Promise*, the chain automatically waits for that one too — which is
+exactly what makes sequential async steps (`fetchUser` then `fetchOrders`)
+readable instead of nested. A single `.catch()` at the end catches a
+rejection from *any* step above it, and `.finally()` runs regardless of
+success or failure, useful for cleanup like hiding a loading spinner.
+
+## Running multiple promises together
+
+```js
+const [user, settings] = await Promise.all([fetchUser(id), fetchSettings(id)]);
+// Promise.all: resolves when ALL succeed; rejects immediately if ANY one rejects
+
+const results = await Promise.allSettled([fetchUser(id), fetchSettings(id)]);
+// Promise.allSettled: always resolves, with a status + value/reason per promise —
+// use this when you want partial results even if some requests fail
+
+const fastest = await Promise.race([fetchFromCDN(url), fetchFromOrigin(url)]);
+// Promise.race: settles as soon as the FIRST promise settles (fulfilled or rejected)
+```
+
+Choosing between them is about failure semantics: use `Promise.all` when
+every result is required and any single failure should abort the whole
+operation; use `Promise.allSettled` when you want to know the outcome of
+every request even if some fail (e.g. submitting several independent forms);
+use `Promise.race` when you only care about whichever source responds
+first, like racing a request against a timeout.
+
+### Try it yourself
+
+Write a `withTimeout(promise, ms)` helper using `Promise.race` that rejects
+with a `"Timed out"` error if the given promise doesn't settle within `ms`
+milliseconds — a real pattern used to prevent a hung network request from
+blocking a UI indefinitely.

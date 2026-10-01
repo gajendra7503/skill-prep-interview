@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What problem do CSS Modules solve compared to plain global CSS?",
+      "options": [
+        "They make CSS run faster in the browser",
+        "They automatically scope class names to the component that imports them, preventing styles from leaking between components",
+        "They replace the need for a build tool",
+        "They add TypeScript types to CSS properties"
+      ],
+      "correctIndex": 1,
+      "explanation": "The build tool rewrites a class like .primary into a unique generated name per module, so the same class name in two files never collides."
+    },
+    {
+      "question": "What is a key trade-off of a utility-first approach like Tailwind?",
+      "options": [
+        "It requires a runtime CSS-in-JS engine",
+        "JSX becomes visually noisier with many utility classes, and there's a learning curve for the class vocabulary",
+        "It cannot be used with Server Components",
+        "It only works with class components"
+      ],
+      "correctIndex": 1,
+      "explanation": "Utility classes live directly on elements, trading some visual density in JSX for not having to invent or maintain separate class names."
+    },
+    {
+      "question": "What has historically been a friction point for traditional CSS-in-JS libraries (like styled-components) specifically with streaming server rendering?",
+      "options": [
+        "They cannot style buttons",
+        "They inject styles at render time, which doesn't align cleanly with content streaming in chunks before all styles are known",
+        "They don't support hover states",
+        "They require Node.js version 20 or higher"
+      ],
+      "correctIndex": 1,
+      "explanation": "Classic CSS-in-JS computes and injects styles during render, which is harder to reconcile with a server streaming HTML in chunks — unlike CSS Modules/Tailwind, which compile to static CSS files ahead of time."
+    },
+    {
+      "question": "Why do many new Next.js projects default to Tailwind or CSS Modules specifically?",
+      "options": [
+        "Because styled-components doesn't support React at all",
+        "Because they have zero runtime styling cost and compile to plain CSS, which fits cleanly with Server Components and streaming",
+        "Because Next.js refuses to bundle any other styling library",
+        "Because they are the only options that support dark mode"
+      ],
+      "correctIndex": 1,
+      "explanation": "With Server Components as the default rendering model, avoiding any client-side runtime cost for styling (as CSS Modules/Tailwind do) is a meaningful advantage."
+    }
+  ]
+}

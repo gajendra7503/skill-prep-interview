@@ -1,0 +1,94 @@
+---
+title: "State Management & AsyncStorage"
+description: "Why React state works exactly like the web here, and how async, string-only persistence changes the patterns you use."
+module: "Data & State"
+order: 5
+---
+
+Nothing about `useState`, `useReducer`, or Context changes in React Native —
+it's the same React, running the same reconciliation and hook rules. What
+*does* change is persistence: there's no `localStorage`, because there's no
+browser and no synchronous storage API available on the main thread.
+
+## `AsyncStorage`: a key-value store, but asynchronous
+
+```jsx
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+await AsyncStorage.setItem("theme", "dark");
+const theme = await AsyncStorage.getItem("theme"); // "dark"
+await AsyncStorage.removeItem("theme");
+```
+
+Two important differences from the web's `localStorage`:
+
+- **Every method returns a Promise.** Native storage I/O can't block the JS
+  thread the way `localStorage` blocks the main thread on web, so there is no
+  synchronous equivalent at all.
+- **Only strings can be stored.** Just like `localStorage`, any non-string
+  value must be serialized with `JSON.stringify` before storing and parsed
+  back out with `JSON.parse` after reading.
+
+## Porting the `useLocalStorage` pattern to `useAsyncStorage`
+
+The web course's `useLocalStorage` hook loads synchronously inside
+`useState`'s initializer function. That's not possible here — reading from
+AsyncStorage *is* an effect, not something you can do while computing initial
+state:
+
+```jsx
+import { useEffect, useState, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+function useAsyncStorage(key, initialValue) {
+  const [value, setValue] = useState(initialValue);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(key).then((raw) => {
+      setValue(raw ? JSON.parse(raw) : initialValue);
+      setLoaded(true);
+    });
+  }, [key]);
+
+  const update = useCallback(
+    (next) => {
+      setValue(next);
+      AsyncStorage.setItem(key, JSON.stringify(next));
+    },
+    [key]
+  );
+
+  return [value, update, loaded];
+}
+```
+
+The extra `loaded` flag is the key addition compared to the web version —
+callers need a way to know whether `value` is still the initial placeholder
+or the real, restored value, since that restoration is no longer instant.
+
+## Context still works exactly the same way
+
+```jsx
+const ThemeContext = createContext("light");
+
+function App() {
+  const [theme] = useAsyncStorage("theme", "light");
+  return (
+    <ThemeContext.Provider value={theme}>
+      <RootNavigator />
+    </ThemeContext.Provider>
+  );
+}
+```
+
+Everything about Context — avoiding prop drilling, the re-render fan-out
+trade-off covered in the state management patterns lesson — applies
+unchanged, because Context has nothing to do with the DOM or storage; it's
+pure React.
+
+### Try it yourself
+
+Use `useAsyncStorage` to persist a user's font-size preference, showing a
+loading spinner (from the `loaded` flag) until the stored value has been
+restored, so the UI never flashes the default size first.

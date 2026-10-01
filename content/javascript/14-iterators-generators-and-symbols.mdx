@@ -1,0 +1,113 @@
+---
+title: "Iterators, Generators & Symbols"
+description: "What makes something iterable, and how generator functions pause and resume."
+module: "Modern JavaScript"
+order: 14
+---
+
+`for...of`, spread (`...`), and destructuring all work on arrays, strings,
+Maps, and Sets — but not plain objects. The reason is a specific protocol
+any of these types can opt into, and generators are the easiest way to
+implement it yourself.
+
+## The iterable protocol
+
+An object is "iterable" if it has a method keyed by the well-known symbol
+`Symbol.iterator` that returns an **iterator** — an object with a `.next()`
+method returning `{ value, done }`:
+
+```js
+const range = {
+  from: 1,
+  to: 3,
+  [Symbol.iterator]() {
+    let current = this.from;
+    const last = this.to;
+    return {
+      next() {
+        if (current <= last) {
+          return { value: current++, done: false };
+        }
+        return { value: undefined, done: true };
+      },
+    };
+  },
+};
+
+[...range]; // [1, 2, 3] — spread works because range implements Symbol.iterator
+for (const n of range) console.log(n); // 1, 2, 3
+```
+
+Plain objects don't implement `Symbol.iterator` by default, which is exactly
+why `for (const x of plainObject)` throws `plainObject is not iterable`
+while `for (const x of someArray)` works fine — arrays, strings, Maps, and
+Sets all implement this protocol built in.
+
+## Generators: a much simpler way to write iterators
+
+Writing the `next()`/`done` bookkeeping by hand, as above, is tedious.
+**Generator functions** (`function*`) do it for you — calling one doesn't
+run its body immediately, it returns an iterator, and each `yield` pauses
+execution until the consumer asks for the next value:
+
+```js
+function* rangeGenerator(from, to) {
+  for (let i = from; i <= to; i++) {
+    yield i; // pause here, handing `i` back to the caller
+  }
+}
+
+for (const n of rangeGenerator(1, 3)) console.log(n); // 1, 2, 3
+[...rangeGenerator(1, 3)]; // [1, 2, 3] — generators are automatically iterable
+```
+
+A generator function can also implement an object's `Symbol.iterator`
+directly, which is the idiomatic, far shorter version of the `range` example
+above:
+
+```js
+const range = {
+  from: 1,
+  to: 3,
+  *[Symbol.iterator]() {
+    for (let i = this.from; i <= this.to; i++) yield i;
+  },
+};
+```
+
+## Why pausability matters: lazy, infinite sequences
+
+Because a generator only computes the next value when asked, it can model
+sequences that would be impossible to create as a full array upfront:
+
+```js
+function* naturalNumbers() {
+  let n = 1;
+  while (true) {
+    yield n++;
+  }
+}
+
+function take(iterable, count) {
+  const result = [];
+  for (const value of iterable) {
+    if (result.length >= count) break;
+    result.push(value);
+  }
+  return result;
+}
+
+take(naturalNumbers(), 5); // [1, 2, 3, 4, 5] — the infinite generator never actually runs forever
+```
+
+`naturalNumbers()` never finishes and never allocates an infinite array — it
+just produces the next value on demand, which `take` pulls exactly 5 times
+before stopping. This "lazy evaluation" is the same underlying idea used by
+paginated API clients that generate one page at a time.
+
+### Try it yourself
+
+Write a generator function `paginate(items, pageSize)` that yields one page
+(an array of `pageSize` items) at a time from a larger array, so a consumer
+can process pages one by one with `for...of` without loading them all into
+memory conceptually at once.

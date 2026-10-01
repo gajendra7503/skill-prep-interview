@@ -1,0 +1,91 @@
+---
+title: "NgModules vs Standalone Components"
+description: "What NgModules used to do, why Angular moved away from them, and how a standalone app bootstraps today."
+module: "Architecture"
+order: 16
+---
+
+Every lesson in this course has used standalone components. That's the
+current default — but most Angular codebases in production today still use
+`NgModule`, and interviewers often ask about both, so it's worth
+understanding what you're *not* writing anymore and why.
+
+## What an `NgModule` did
+
+```ts
+@NgModule({
+  declarations: [EmployeeListComponent, EmployeeDetailComponent],
+  imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],
+  providers: [EmployeeService],
+  exports: [EmployeeListComponent],
+})
+export class EmployeeModule {}
+```
+
+An `NgModule` bundled four things together: which components/directives/
+pipes it **declares** (and therefore compiles together), which other
+modules it **imports** to use their exported pieces, which **providers** it
+registers with the injector, and which of its own declarations it
+**exports** for other modules to use. Every component had to be declared in
+*exactly one* module before it could be used anywhere.
+
+## Why this got replaced
+
+- **Indirection.** To know whether `FormsModule` was available inside a
+  given component, you had to go find that component's module and check its
+  `imports` — the dependency wasn't visible on the component itself.
+  Standalone components list their own `imports` directly, right where
+  they're used.
+- **Boilerplate for small pieces.** A single reusable component often needed
+  its own module just to be shared across features.
+- **Tree-shaking friction.** Because modules grouped things together, it was
+  easier to accidentally pull in more than a given route actually needed.
+
+## Standalone components: self-contained dependencies
+
+```ts
+@Component({
+  selector: "app-employee-list",
+  standalone: true, // the default in recent Angular versions; shown here for clarity
+  imports: [CommonModule, FormsModule, RouterLink],
+  template: `...`,
+})
+export class EmployeeListComponent {}
+```
+
+Each standalone component declares exactly what it needs to compile its own
+template — no separate module file required, and the dependency is visible
+right where it's consumed.
+
+## Bootstrapping then vs now
+
+```ts
+// the NgModule way
+platformBrowserDynamic().bootstrapModule(AppModule);
+```
+
+```ts
+// the standalone way, used throughout this course
+bootstrapApplication(AppComponent, {
+  providers: [provideRouter(routes), provideHttpClient()],
+});
+```
+
+`bootstrapApplication` takes a single root **component** instead of a root
+module, and app-wide providers (router, HTTP client, etc.) are supplied
+directly as an array via `provide*()` functions instead of being assembled
+through a module's `imports`.
+
+## Do you still need to know NgModules?
+
+Yes — for two practical reasons: a large share of existing production
+Angular apps are NgModule-based and won't be rewritten overnight, and some
+older third-party libraries still ship an `NgModule` you import rather than
+a standalone API. Angular supports both styles together in the same app
+during a migration.
+
+### Try it yourself
+
+Take the `EmployeeModule` example above and rewrite `EmployeeDetailComponent`
+as a standalone component with its own `imports` array, then delete the
+module file entirely.

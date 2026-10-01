@@ -1,0 +1,90 @@
+---
+title: "Async/Await"
+description: "Syntax sugar over Promises, error handling with try/catch, and a common concurrency bug."
+module: "Asynchronous JavaScript"
+order: 9
+---
+
+`async`/`await` doesn't introduce a new concurrency model — it's syntax that
+makes Promise-based code *read* like synchronous code, which is why it's
+almost always preferred over raw `.then()` chains for anything beyond a
+single step.
+
+## The basics
+
+```js
+async function getUser(id) {
+  const response = await fetch(`/api/users/${id}`); // pauses here until the promise settles
+  const user = await response.json();
+  return user; // an async function always returns a Promise, wrapping this value
+}
+```
+
+Every `async function` implicitly returns a Promise — `return user` really
+means "resolve the returned Promise with `user`." `await` pauses execution
+of *that function* (not the whole program — other code keeps running via
+the event loop) until the awaited Promise settles, then either gives you its
+resolved value or throws if it rejected.
+
+## Error handling with try/catch
+
+```js
+async function getUser(id) {
+  try {
+    const response = await fetch(`/api/users/${id}`);
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to load user:", error);
+    throw error; // re-throw if the caller also needs to know
+  }
+}
+```
+
+A rejected `await`ed Promise behaves exactly like a thrown error, so ordinary
+`try`/`catch` works — this is the main ergonomic win over `.then()`/`.catch()`
+chains, since error handling reads the same way it would for synchronous
+code.
+
+## The sequential-await performance bug
+
+```js
+// SLOW: each request waits for the previous one to fully finish first
+async function loadDashboard(userId) {
+  const user = await fetchUser(userId);       // waits ~300ms
+  const orders = await fetchOrders(userId);   // THEN waits another ~300ms
+  const stats = await fetchStats(userId);     // THEN waits another ~300ms
+  return { user, orders, stats };             // total: ~900ms
+}
+```
+
+If `fetchOrders` and `fetchStats` don't actually depend on each other or on
+`user`, awaiting them one after another wastes time — each `await` blocks
+that function until its own Promise resolves before even *starting* the
+next request.
+
+```js
+// FAST: start all three requests immediately, then wait for all of them
+async function loadDashboard(userId) {
+  const [user, orders, stats] = await Promise.all([
+    fetchUser(userId),
+    fetchOrders(userId),
+    fetchStats(userId),
+  ]);                                          // total: ~300ms, the slowest one
+  return { user, orders, stats };
+}
+```
+
+Calling all three fetch functions first (without awaiting each individually)
+starts them concurrently; wrapping them in `Promise.all` then waits for all
+three to finish, taking roughly as long as the *slowest* single request
+instead of the sum of all three. This exact bug — sequential `await` on
+independent operations — is one of the most common real-world performance
+mistakes in async code, and a frequent interview question.
+
+### Try it yourself
+
+Write an `async` function that fetches a list of user IDs one at a time (an
+array), then for each ID fetches that user's details — first write it with
+a sequential `for...of` loop with `await` inside, then rewrite it using
+`Promise.all` with `.map()` to fetch all users concurrently instead.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the virtual DOM?",
+      "options": [
+        "A faster, alternative browser rendering engine",
+        "A lightweight in-memory object tree describing what the UI should look like",
+        "A cache of previously rendered HTML strings",
+        "A separate thread that runs alongside the main JS thread"
+      ],
+      "correctIndex": 1,
+      "explanation": "It's plain JavaScript objects (produced by createElement/JSX), not a browser feature — React diffs these objects instead of touching the real DOM on every change."
+    },
+    {
+      "question": "When the element type at a given position changes (e.g. `<div>` becomes `<span>`), what does React do?",
+      "options": [
+        "Patches the existing DOM node's tag name in place",
+        "Tears down the old subtree and builds a new one from scratch",
+        "Throws an error requiring a full page reload",
+        "Ignores the change until the next render"
+      ],
+      "correctIndex": 1,
+      "explanation": "Reconciliation assumes different element types produce fundamentally different trees, so React discards and rebuilds rather than trying to patch across types."
+    },
+    {
+      "question": "Why does using the array index as a `key` cause bugs when a list can be reordered or filtered?",
+      "options": [
+        "React ignores index-based keys entirely",
+        "Each list item's internal state stays attached to its position (index) rather than following the logical item, so state can appear to jump to the wrong row",
+        "It causes a compile-time error",
+        "It only affects performance, never correctness"
+      ],
+      "correctIndex": 1,
+      "explanation": "React matches by key across renders; with index keys, an item that moved from index 2 to index 0 is treated as 'the item that was at index 0 changed', dragging along any state (like an input's value) tied to that position."
+    },
+    {
+      "question": "What capability does the Fiber architecture provide that the older recursive renderer did not?",
+      "options": [
+        "The ability to skip virtual DOM diffing entirely",
+        "The ability to pause, prioritize, and resume rendering work instead of blocking the main thread until a render finishes",
+        "Server-side rendering support",
+        "Automatic code splitting"
+      ],
+      "correctIndex": 1,
+      "explanation": "Fiber breaks rendering into interruptible units of work, which is also the foundation that makes concurrent features like useTransition possible."
+    }
+  ]
+}

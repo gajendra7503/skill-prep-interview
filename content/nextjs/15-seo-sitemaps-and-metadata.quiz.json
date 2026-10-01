@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does a `sitemap.ts` file exporting a default function do?",
+      "options": [
+        "Nothing unless manually imported elsewhere",
+        "Next.js automatically serves it at /sitemap.xml, generated from whatever entries the function returns",
+        "It only works in the Pages Router",
+        "It replaces generateMetadata entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "The sitemap.ts convention is picked up automatically and rendered as XML at /sitemap.xml — no manual XML writing required."
+    },
+    {
+      "question": "Why would you use robots.ts to disallow a route like /dashboard?",
+      "options": [
+        "To make the route load faster",
+        "To tell well-behaved crawlers not to index an authenticated-only section, while still allowing public content to be discovered",
+        "It's required for the route to function at all",
+        "To disable the route entirely for all visitors"
+      ],
+      "correctIndex": 1,
+      "explanation": "robots.ts communicates crawling rules to search engines; it doesn't block access, just discourages indexing of pages that shouldn't appear in search results."
+    },
+    {
+      "question": "What is the purpose of the `openGraph` field inside `generateMetadata`?",
+      "options": [
+        "It controls the page's CSS",
+        "It supplies the title/description/image used when the page link is shared and rendered as a rich preview card on social platforms",
+        "It sets the page's primary color theme",
+        "It is only used for analytics tracking"
+      ],
+      "correctIndex": 1,
+      "explanation": "openGraph metadata is what platforms like Slack, Twitter/X, and Facebook read to render a shared link as a preview card instead of a bare URL."
+    },
+    {
+      "question": "What does the `opengraph-image.tsx` file convention let you do?",
+      "options": [
+        "Statically compress existing images",
+        "Generate a per-page preview image on demand using JSX/CSS via next/og's ImageResponse, instead of maintaining static design assets",
+        "Only works for the root layout, not individual routes",
+        "Automatically translate images into other languages"
+      ],
+      "correctIndex": 1,
+      "explanation": "opengraph-image.tsx renders a dynamic image per route (e.g. a unique card per course) using next/og, avoiding a folder of hand-designed static previews."
+    }
+  ]
+}

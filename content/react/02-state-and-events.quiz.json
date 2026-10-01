@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does calling a `useState` setter function actually do?",
+      "options": [
+        "Mutates the existing variable in place",
+        "Schedules a re-render with the new value on the next render pass",
+        "Immediately updates the DOM before returning",
+        "Throws an error if called more than once per render"
+      ],
+      "correctIndex": 1,
+      "explanation": "State setters don't mutate anything synchronously — they schedule React to re-render the component with the new value."
+    },
+    {
+      "question": "Why use the updater-function form `setCount(prev => prev + 1)` instead of `setCount(count + 1)`?",
+      "options": [
+        "It's required syntax in React 19",
+        "It avoids stale-state bugs when updates are batched or based on rapid/async events",
+        "It's faster because it skips a render",
+        "There is no difference"
+      ],
+      "correctIndex": 1,
+      "explanation": "When the next state depends on the previous state, the updater form guarantees you're building on the latest value rather than a stale closure."
+    },
+    {
+      "question": "What makes an `<input>` a 'controlled' input in React?",
+      "options": [
+        "It has a `required` attribute",
+        "Its value is driven by React state and updated via an onChange handler",
+        "It uses `useRef` instead of `useState`",
+        "It cannot be edited by the user"
+      ],
+      "correctIndex": 1,
+      "explanation": "A controlled input's displayed value always comes from state, and user edits flow back into that state through onChange — React is the single source of truth."
+    },
+    {
+      "question": "When two sibling components need to share and coordinate state, what's the standard React pattern?",
+      "options": [
+        "Use global variables outside React",
+        "Duplicate the state in both siblings and sync them with useEffect",
+        "Lift the state up to their closest common parent and pass it down via props",
+        "Use browser localStorage as the source of truth"
+      ],
+      "correctIndex": 2,
+      "explanation": "'Lifting state up' moves shared state to the nearest common ancestor, which then passes the value and update callbacks down as props."
+    }
+  ]
+}

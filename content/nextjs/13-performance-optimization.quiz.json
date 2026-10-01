@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why use `next/dynamic` to import a heavy client library like a rich text editor?",
+      "options": [
+        "It makes the library's own code execute faster",
+        "It splits the library into a separate JS chunk that only downloads once the component actually renders, instead of bloating the initial page load",
+        "It converts the library into a Server Component automatically",
+        "It is required for all third-party npm packages"
+      ],
+      "correctIndex": 1,
+      "explanation": "`next/dynamic` defers loading a component's code until it's actually needed, keeping it out of the initial bundle for users who never trigger it."
+    },
+    {
+      "question": "When should you pass `ssr: false` to `next/dynamic`?",
+      "options": [
+        "Always, for every dynamically imported component",
+        "For libraries that touch `window`/`document` at module scope and would crash if rendered on the server",
+        "Only for Server Components",
+        "Never — it's deprecated"
+      ],
+      "correctIndex": 1,
+      "explanation": "`ssr: false` skips server rendering entirely for components that assume a browser environment is already present at import time."
+    },
+    {
+      "question": "What does `@next/bundle-analyzer` help you find?",
+      "options": [
+        "Runtime errors in production",
+        "An interactive treemap of each route's JS, useful for spotting accidentally-imported heavy dependencies",
+        "Database query performance",
+        "CSS specificity conflicts"
+      ],
+      "correctIndex": 1,
+      "explanation": "It visualizes what's actually inside each route's bundle, making it easy to spot something like an entire icon library imported for one icon."
+    },
+    {
+      "question": "According to the lesson, what is the single biggest performance lever in a Next.js app?",
+      "options": [
+        "Using next/dynamic everywhere",
+        "Server Components by default — most of a typical page ships zero JS for content that never needed to be interactive",
+        "Manually minifying CSS",
+        "Disabling TypeScript"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because Server Components don't ship their code to the client at all, defaulting to them removes far more JS than any later optimization step."
+    }
+  ]
+}

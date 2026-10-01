@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which of these errors WILL an error boundary catch?",
+      "options": [
+        "An error thrown inside an onClick event handler",
+        "An error thrown inside a setTimeout callback",
+        "An error thrown during a child component's render",
+        "A rejected Promise from a fetch call"
+      ],
+      "correctIndex": 2,
+      "explanation": "Error boundaries only catch errors thrown during rendering, lifecycle methods, and constructors in the tree below them — not in event handlers or async callbacks."
+    },
+    {
+      "question": "Why must an error boundary still be written as a class component?",
+      "options": [
+        "Class components render faster",
+        "The required lifecycle methods, getDerivedStateFromError and componentDidCatch, have no hook equivalent",
+        "It's just a historical convention with no technical reason",
+        "Function components cannot render children"
+      ],
+      "correctIndex": 1,
+      "explanation": "There is no hook version of getDerivedStateFromError/componentDidCatch, so error boundaries remain one of the few cases where a class component is required."
+    },
+    {
+      "question": "What does `<Suspense fallback={<Spinner />}>` do?",
+      "options": [
+        "Catches and displays render errors",
+        "Shows the fallback while a wrapped component (e.g. lazy-loaded) is still loading, then swaps in the real content",
+        "Retries a failed network request automatically",
+        "Delays rendering for a fixed timeout"
+      ],
+      "correctIndex": 1,
+      "explanation": "Suspense lets a component 'pause' rendering until its dependency (like a lazy-loaded chunk) is ready, showing the fallback in the meantime."
+    },
+    {
+      "question": "What does `React.lazy(() => import(\"./ProductDetails\"))` achieve?",
+      "options": [
+        "It disables the component entirely in production",
+        "It code-splits ProductDetails into a separate bundle loaded only when it's rendered",
+        "It converts ProductDetails into a Server Component",
+        "It memoizes ProductDetails like React.memo"
+      ],
+      "correctIndex": 1,
+      "explanation": "React.lazy defers loading a component's code until it's actually needed, reducing the initial bundle size — paired with Suspense to show a loading state meanwhile."
+    }
+  ]
+}

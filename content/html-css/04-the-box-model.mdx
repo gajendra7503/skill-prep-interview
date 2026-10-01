@@ -1,0 +1,96 @@
+---
+title: "The Box Model"
+description: "Content, padding, border, and margin — and the box-sizing switch that changes what width actually means."
+module: "CSS Fundamentals"
+order: 4
+---
+
+Every element in CSS is a rectangular box made of four layers. Misreading
+this model is one of the most common sources of "why is this 20px wider than
+I expected" bugs.
+
+## The four layers
+
+```text
+┌─────────────────────────────┐
+│          margin              │  (space outside the border, not part of the box itself)
+│  ┌─────────────────────────┐ │
+│  │        border            │ │
+│  │  ┌─────────────────────┐ │ │
+│  │  │      padding          │ │ │
+│  │  │  ┌─────────────────┐ │ │ │
+│  │  │  │     content       │ │ │ │
+│  │  │  └─────────────────┘ │ │ │
+│  │  └─────────────────────┘ │ │
+│  └─────────────────────────┘ │
+└─────────────────────────────┘
+```
+
+From the inside out: **content** (where text/children render), **padding**
+(space inside the border), **border**, and **margin** (space outside the
+border, used for separating elements from their neighbors — margins between
+block elements can even collapse into each other, a frequent source of
+"why is there only one gap, not two" confusion).
+
+## `box-sizing`: what does "width" actually measure?
+
+```css
+.content-box {
+  box-sizing: content-box; /* the default */
+  width: 200px;
+  padding: 20px;
+  border: 2px solid;
+  /* actual rendered width = 200 + 20*2 + 2*2 = 244px */
+}
+
+.border-box {
+  box-sizing: border-box;
+  width: 200px;
+  padding: 20px;
+  border: 2px solid;
+  /* actual rendered width = 200px — padding and border are carried INSIDE it */
+}
+```
+
+With the default `content-box`, `width`/`height` only measure the content
+area — adding padding or a border makes the element visually bigger than the
+`width` you set, which is rarely what you want when building a layout with
+fixed-width columns. `border-box` redefines `width`/`height` to include
+padding and border, so the box you set is the box you get. This is why
+nearly every modern CSS reset includes:
+
+```css
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+```
+
+applied globally, once, at the top of a stylesheet.
+
+## `display`: block, inline, and inline-block
+
+```css
+span { display: inline; }        /* flows with text, ignores width/height, no vertical margin */
+div  { display: block; }         /* takes its own line, respects width/height and all margins */
+img  { display: inline-block; }  /* flows with text, BUT respects width/height/margin like a block */
+```
+
+- **`inline`** elements (like a default `<span>` or `<a>`) flow within a line
+  of text, ignore `width`/`height` entirely, and only apply horizontal
+  margin/padding visually (vertical margin doesn't push other content away).
+- **`block`** elements (`<div>`, `<p>`, headings) always start on a new line
+  and take the full width available by default, fully respecting
+  `width`/`height` and margin on all sides.
+- **`inline-block`** is the hybrid: flows inline with surrounding content
+  like `inline`, but respects `width`/`height` and full margin like `block`
+  — useful for things like a row of fixed-size badges that should still wrap
+  with text.
+- **`display: none`** removes the element from layout entirely, as if it
+  didn't exist — different from `visibility: hidden`, which hides it
+  visually but still reserves its space.
+
+### Try it yourself
+
+Build two boxes side by side, both with `width: 150px; padding: 20px; border: 5px solid;` —
+one with `box-sizing: content-box` and one with `border-box` — and measure
+their actual rendered widths in DevTools to confirm the difference.

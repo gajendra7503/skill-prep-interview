@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What happens by default when you bind untrusted, attacker-controlled HTML to `[innerHTML]` in Angular?",
+      "options": [
+        "The HTML executes exactly as written, including any script-like handlers",
+        "Angular's built-in sanitizer strips dangerous content before it reaches the DOM",
+        "Angular throws a compile-time error and refuses to build",
+        "The binding silently does nothing at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "Angular automatically sanitizes values passed into security-sensitive bindings like innerHTML, removing dangerous constructs like inline event handlers."
+    },
+    {
+      "question": "What does calling `sanitizer.bypassSecurityTrustHtml(...)` actually do?",
+      "options": [
+        "It sanitizes the HTML more strictly than the default",
+        "It tells Angular to skip sanitization entirely for that value, trusting the developer that it's safe",
+        "It encrypts the HTML before rendering",
+        "It has no real effect; it's purely for documentation"
+      ],
+      "correctIndex": 1,
+      "explanation": "The bypassSecurityTrust* methods are an explicit opt-out of Angular's sanitization — they should never be used on raw, unreviewed user input."
+    },
+    {
+      "question": "Why is calling `bypassSecurityTrustHtml` on raw user-submitted content dangerous?",
+      "options": [
+        "It has a performance cost but no security impact",
+        "It disables the protection Angular normally provides against XSS, potentially allowing a user-submitted script-like payload to execute",
+        "It only affects styling, not security",
+        "It's dangerous only in development mode, not production"
+      ],
+      "correctIndex": 1,
+      "explanation": "Bypassing sanitization on attacker-controlled input re-opens the exact XSS vector that automatic sanitization exists to close."
+    },
+    {
+      "question": "Why is a token-based auth setup (Authorization header via an interceptor) generally less vulnerable to CSRF than cookie-based auth?",
+      "options": [
+        "Tokens can't be stolen under any circumstances",
+        "Browsers don't automatically attach custom headers like Authorization to cross-site requests the way they automatically attach cookies",
+        "CSRF only affects GET requests, and tokens are only used for POST",
+        "There is no actual difference in CSRF exposure"
+      ],
+      "correctIndex": 1,
+      "explanation": "CSRF relies on the browser automatically including credentials (cookies) on cross-site requests; a bearer token in a header must be explicitly attached by your own JS, which a malicious site cannot do on your behalf."
+    }
+  ]
+}

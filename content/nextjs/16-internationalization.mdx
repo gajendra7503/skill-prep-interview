@@ -1,0 +1,104 @@
+---
+title: "Internationalization (i18n) Routing"
+description: "Locale-prefixed routes, detecting a visitor's preferred language, and loading per-locale content."
+module: "Routing"
+order: 16
+---
+
+Serving a site in multiple languages mostly comes down to one question: how
+does the URL communicate which locale the visitor is in? The App Router has
+no built-in i18n system — instead, it gives you the routing primitives to
+build one yourself.
+
+## Locale-prefixed routes with a dynamic segment
+
+```text
+app/
+  [locale]/
+    layout.tsx
+    page.tsx
+    courses/
+      [course]/
+        page.tsx
+```
+
+Every route now lives under a `[locale]` segment, so `/en/courses/react` and
+`/fr/courses/react` both resolve to the same `page.tsx`, with `locale`
+available as a route param:
+
+```tsx
+// app/[locale]/courses/[course]/page.tsx
+export default async function CoursePage({
+  params,
+}: {
+  params: Promise<{ locale: string; course: string }>;
+}) {
+  const { locale, course } = await params;
+  const dict = await getDictionary(locale);
+  // ...render using dict.courseHeading, etc.
+}
+```
+
+## Detecting and redirecting to the right locale
+
+A visitor hitting `/` with no locale prefix needs to be redirected to their
+preferred one. This logic belongs in the proxy, since it should run before
+any page renders:
+
+```ts
+// src/proxy.ts (extending this app's existing proxy)
+import { NextResponse, type NextRequest } from "next/server";
+
+const SUPPORTED_LOCALES = ["en", "fr", "hi"];
+const DEFAULT_LOCALE = "en";
+
+function getPreferredLocale(request: NextRequest): string {
+  const header = request.headers.get("accept-language") ?? "";
+  const preferred = header.split(",")[0]?.split("-")[0];
+  return SUPPORTED_LOCALES.includes(preferred) ? preferred : DEFAULT_LOCALE;
+}
+
+export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const hasLocale = SUPPORTED_LOCALES.some(
+    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
+  );
+
+  if (!hasLocale) {
+    const locale = getPreferredLocale(request);
+    return NextResponse.redirect(new URL(`/${locale}${pathname}`, request.url));
+  }
+}
+```
+
+The `Accept-Language` header is what the browser sends on every request to
+indicate the user's language preferences — reading it here means a French
+browser lands on `/fr/...` without the visitor doing anything.
+
+## Loading per-locale content
+
+Translation strings are usually loaded per-request based on the `locale`
+param, not bundled all at once:
+
+```ts
+// lib/dictionaries.ts
+const dictionaries = {
+  en: () => import("./dictionaries/en.json").then((m) => m.default),
+  fr: () => import("./dictionaries/fr.json").then((m) => m.default),
+};
+
+export async function getDictionary(locale: string) {
+  return (dictionaries[locale as keyof typeof dictionaries] ?? dictionaries.en)();
+}
+```
+
+Each `import()` here is a dynamic import, so a visitor browsing in French
+never downloads the English (or Hindi) dictionary — only the one their
+locale actually needs.
+
+### Try it yourself
+
+Sketch the `[locale]` folder restructuring this app's `app/courses/[course]/[lesson]/`
+route would need to support English and Hindi, and write the proxy
+redirect logic that would send a browser with `Accept-Language: hi-IN` to
+the `/hi/...` prefix.

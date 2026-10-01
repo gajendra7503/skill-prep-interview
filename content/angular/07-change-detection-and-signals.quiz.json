@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "By default (without OnPush), what triggers Angular's change detection?",
+      "options": [
+        "Only explicit calls to detectChanges()",
+        "Zone.js patches common async APIs (setTimeout, events, promises, HTTP) and triggers a full tree check when they fire",
+        "A timer that runs once per second",
+        "Change detection never runs automatically"
+      ],
+      "correctIndex": 1,
+      "explanation": "Zone.js monkey-patches async browser APIs so Angular knows something might have changed, then checks the whole component tree by default."
+    },
+    {
+      "question": "Under `ChangeDetectionStrategy.OnPush`, why doesn't mutating a property on an `@Input()` object trigger a re-render?",
+      "options": [
+        "OnPush disables rendering completely",
+        "OnPush only re-checks when the @Input() reference itself changes, not when a property inside it is mutated",
+        "Mutations are automatically detected some other way",
+        "OnPush is unrelated to @Input()"
+      ],
+      "correctIndex": 1,
+      "explanation": "OnPush skips checking a component unless the input reference changes (among a few other triggers), so mutating the object in place is invisible to it — you must replace the object."
+    },
+    {
+      "question": "What is the key advantage of `computed()` over manually memoizing a derived value?",
+      "options": [
+        "It requires no import",
+        "It automatically tracks which signals it reads and recalculates only when one of them changes",
+        "It only works inside templates",
+        "It disables change detection entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "computed() figures out its own dependencies at runtime — no manual dependency array needed, unlike useMemo in React."
+    },
+    {
+      "question": "What direction is Angular moving toward with signals?",
+      "options": [
+        "Removing OnPush entirely",
+        "Fine-grained reactivity that can eventually run without Zone.js",
+        "Replacing TypeScript with plain JavaScript",
+        "Deprecating standalone components"
+      ],
+      "correctIndex": 1,
+      "explanation": "Signals track dependencies precisely and update only what's affected, which is why Angular now supports running zoneless for components built entirely on signals."
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+---
+title: "State Management Patterns"
+description: "Why Context doesn't scale to everything, and how to choose between colocated state, Context, and libraries like Redux or Zustand."
+module: "State Management"
+order: 11
+---
+
+"Where should this state live?" is one of the most common real-world React
+design questions — and interview questions. The answer is rarely "put
+everything in global state."
+
+## Start local: colocate state where it's used
+
+The default should be `useState` inside the component that needs it, or
+lifted only as high as its actual consumers require (see the Task Tracker
+project earlier in this course). Reaching for global state before it's
+needed adds indirection and makes a component's behavior harder to trace —
+you can no longer tell what a component does just by reading its props.
+
+## Why Context alone struggles with frequently-changing state
+
+Context is great for state that changes rarely and is read widely — theme,
+locale, the current authenticated user. It's a poor fit for state that
+changes often and is read by many components, because **every consumer of a
+Context re-renders whenever the Provider's value changes**, even if a given
+consumer only cares about one field of it:
+
+```jsx
+const AppContext = createContext();
+
+function AppProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [cart, setCart] = useState([]);
+  // Any update to `cart` re-renders every consumer of AppContext,
+  // including components that only read `user`.
+  return (
+    <AppContext.Provider value={{ user, setUser, cart, setCart }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+```
+
+Splitting into separate, narrower contexts (`UserContext`, `CartContext`)
+reduces unnecessary re-renders, but for state that changes on every
+keystroke or frame, even that isn't enough — this is where a dedicated state
+library earns its cost.
+
+## Context + `useReducer`: a lightweight alternative to a library
+
+For moderate complexity, pairing Context with `useReducer` gives you a
+Redux-like pattern (dispatch actions, centralized reducer) without adding a
+dependency:
+
+```jsx
+const CartContext = createContext(null);
+
+function CartProvider({ children }) {
+  const [state, dispatch] = useReducer(cartReducer, { items: [] });
+  return <CartContext.Provider value={{ state, dispatch }}>{children}</CartContext.Provider>;
+}
+```
+
+## When to reach for a library (Redux Toolkit, Zustand)
+
+Consider an external store when:
+
+- **Many unrelated components across the tree** need to read or write the
+  same state, and Context's re-render fan-out becomes a measured problem.
+- You want **time-travel debugging, middleware, or persistence** out of the
+  box (Redux Toolkit's DevTools integration is a common reason teams pick
+  it).
+- You want to **read state outside of React** (in a non-component utility
+  function) — libraries like Zustand expose a plain `getState()` that
+  Context cannot.
+
+Zustand in particular is popular because it avoids the Provider
+re-render-fan-out problem entirely — components subscribe only to the
+specific slice of the store they read, so unrelated state changes don't
+re-render them:
+
+```jsx
+import { create } from "zustand";
+
+const useCartStore = create((set) => ({
+  items: [],
+  addItem: (item) => set((state) => ({ items: [...state.items, item] })),
+}));
+
+function CartBadge() {
+  const itemCount = useCartStore((state) => state.items.length); // only re-renders when items.length changes
+  return <span>{itemCount}</span>;
+}
+```
+
+## A practical decision order
+
+1. Can this live as local state in one component? Use `useState`.
+2. Do a few nearby components need it? Lift state up to their common parent.
+3. Do many distant components need it, but it changes rarely? Use Context.
+4. Does it change often and is read widely, or do you need to read/write it
+   outside React? Reach for Zustand, Redux Toolkit, or similar.
+
+### Try it yourself
+
+Take the Context + `cart`/`user` example above and split it into two
+separate contexts, then use React DevTools' profiler to compare how many
+components re-render on a cart update before and after the split.

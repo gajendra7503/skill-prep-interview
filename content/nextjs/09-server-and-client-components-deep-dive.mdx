@@ -1,0 +1,94 @@
+---
+title: "Server & Client Components Deep Dive"
+description: "The serialization boundary between the two component types, composition patterns, and the mistakes that trip everyone up."
+module: "Core Concepts"
+order: 9
+---
+
+Lesson one introduced the basic split: Server Components by default, `"use
+client"` to opt in. That's enough to get started, but interviewers (and real
+bugs) probe deeper — specifically, **what actually crosses the boundary**
+between the two, and how to compose them without accidentally turning your
+whole tree into client-rendered code.
+
+## The serialization boundary
+
+When a Server Component renders a Client Component, whatever it passes as
+props has to travel from the server to the browser as serialized data — the
+same rules as `JSON.stringify`, roughly:
+
+```tsx
+// ✅ fine — strings, numbers, plain objects/arrays, and JSX itself all serialize
+<ClientWidget title="Hello" count={3} items={["a", "b"]} />
+
+// ❌ breaks — functions, class instances, and Dates can't cross the boundary
+<ClientWidget onSave={() => db.save()} createdAt={new Date()} />
+```
+
+Functions can't serialize because there's no way to send executable code from
+server to client as data — the exception is a **Server Action**, which Next.js
+specially wires up to become a callable reference on the client, not a plain
+function. A `Date` object arrives as a string once serialized, so components
+expecting a real `Date` need to `new Date(value)` it again on the client side.
+
+## Composing: pass Server Components as `children`
+
+A common instinct is "this needs interactivity, so the whole thing becomes a
+Client Component" — but that drags everything nested inside it, including
+expensive server-only data-fetching descendants, into the client bundle. The
+fix is to keep the interactive shell as a small Client Component and pass the
+server-rendered content in as `children`:
+
+```tsx
+// ClientTabs.tsx
+"use client";
+
+export function ClientTabs({ children }: { children: React.ReactNode }) {
+  const [active, setActive] = useState(0);
+  return (
+    <div>
+      <button onClick={() => setActive((a) => (a === 0 ? 1 : 0))}>Toggle</button>
+      {children}
+    </div>
+  );
+}
+```
+
+```tsx
+// page.tsx — a Server Component
+export default async function Page() {
+  const data = await getExpensiveServerData();
+  return (
+    <ClientTabs>
+      <ExpensiveServerRenderedPanel data={data} />
+    </ClientTabs>
+  );
+}
+```
+
+`ExpensiveServerRenderedPanel` is rendered on the server and passed down as
+already-resolved JSX — `ClientTabs` never needs to know how it was produced,
+and it doesn't become part of the client JS bundle. This is exactly how this
+app's own `layout.tsx` (Server Component) renders `<Navbar>` alongside
+`{children}` without the page content becoming client-rendered.
+
+## Mistakes that break the build (or silently misbehave)
+
+- **Importing a server-only module into a Client Component** — e.g. pulling
+  `fs`, a database client, or `src/lib/supabase/server.ts` into a file marked
+  `"use client"`. It either fails to bundle or, worse, leaks server secrets
+  into client JS.
+- **Calling hooks in a Server Component** — `useState`, `useEffect`, `useContext`
+  only work in Client Components; a Server Component is just an async function
+  that returns JSX, with no client-side lifecycle at all.
+- **Marking a component `"use client"` "just in case"** — every Client
+  Component and everything it imports ships to the browser. Push the
+  directive as far down the tree as the interactivity actually requires.
+
+### Try it yourself
+
+Take the `MarkCompleteButton` component in this app
+(`src/components/mark-complete-button.tsx`) — it's currently a plain Server
+Component that renders a `<form action={...}>`. Identify why it *doesn't*
+need `"use client"` even though it's a button, and what would force it to
+become one (hint: think about `onClick` vs `action`, and pending/loading UI).

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does React Testing Library encourage querying by text/label/role instead of class names?",
+      "options": [
+        "Class name queries are faster",
+        "Querying the way a user would interacts with the DOM keeps tests valid even after restyling the component",
+        "Class names are not supported in JSX",
+        "It's required by Vitest"
+      ],
+      "correctIndex": 1,
+      "explanation": "Testing Library's philosophy is to test what the user sees/does, so tests don't break from unrelated implementation changes like renamed CSS classes."
+    },
+    {
+      "question": "What kind of bug is Playwright end-to-end testing best suited to catch that a unit test typically can't?",
+      "options": [
+        "A typo in a single component's prop type",
+        "An integration failure across a real user flow, like routing + a Server Action + the database together",
+        "A CSS color contrast issue",
+        "A missing semicolon"
+      ],
+      "correctIndex": 1,
+      "explanation": "E2E tests drive a real browser against a running app, exercising full flows (e.g. login navigating to a protected dashboard) that unit tests, which isolate one component, don't cover."
+    },
+    {
+      "question": "What determines whether an environment variable is exposed to client-side JavaScript in Next.js?",
+      "options": [
+        "Whether it's defined in .env or .env.local",
+        "Whether its name is prefixed with NEXT_PUBLIC_",
+        "Whether it's used inside a Server Component",
+        "All environment variables are exposed to the client by default"
+      ],
+      "correctIndex": 1,
+      "explanation": "Only NEXT_PUBLIC_-prefixed variables get inlined into the browser bundle; anything else stays server-only, which is why secrets must never carry that prefix."
+    },
+    {
+      "question": "What does Vercel typically create for every pull request on a connected repository?",
+      "options": [
+        "Nothing, until it's merged to production",
+        "A unique preview deployment for reviewing that PR's changes before merging",
+        "A new production domain",
+        "A rollback of the previous deployment"
+      ],
+      "correctIndex": 1,
+      "explanation": "Preview deployments give every PR its own working environment with a unique URL, separate from the production deployment."
+    }
+  ]
+}

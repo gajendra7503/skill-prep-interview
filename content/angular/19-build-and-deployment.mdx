@@ -1,0 +1,91 @@
+---
+title: "Build & Deployment"
+description: "Production builds, AOT compilation, environment-specific config, and keeping an eye on bundle size."
+module: "Deployment"
+order: 19
+---
+
+Writing the app is half the job — shipping it correctly matters just as
+much, and build configuration is a common source of "why does this behave
+differently in production?" bugs.
+
+## Production builds
+
+```bash
+ng build --configuration production
+```
+
+This is more than just minification. A production build enables **Ahead-of-
+Time (AOT) compilation**: Angular compiles your component templates into
+efficient JavaScript *during the build*, rather than shipping the template
+compiler itself and compiling templates in the browser at runtime (Just-in-
+Time, or JIT compilation).
+
+## AOT vs JIT
+
+- **JIT** (the default for `ng serve` in dev) ships the Angular compiler to
+  the browser and compiles templates on first load — slower startup, and a
+  larger bundle since the compiler itself is included.
+- **AOT** compiles templates to JavaScript ahead of time, so the browser
+  never needs the compiler at all. This means a smaller bundle, faster
+  startup, and template errors are caught **at build time** instead of
+  surfacing as a runtime error for a user.
+
+Production builds use AOT by default — if a template has a typo in a
+property binding, `ng build --configuration production` will fail to build
+rather than ship a broken page.
+
+## Environment-specific configuration
+
+```ts
+// environment.ts (development)
+export const environment = {
+  production: false,
+  apiUrl: "http://localhost:3000/api",
+};
+
+// environment.prod.ts (production)
+export const environment = {
+  production: true,
+  apiUrl: "https://api.example.com",
+};
+```
+
+```ts
+import { environment } from "./environments/environment";
+
+@Injectable({ providedIn: "root" })
+export class ApiService {
+  private baseUrl = environment.apiUrl;
+}
+```
+
+The Angular CLI's `fileReplacements` configuration swaps `environment.ts`
+for `environment.prod.ts` when building with the production configuration,
+so the same source code points at different API URLs (or feature flags, or
+logging levels) per environment without an `if` check scattered everywhere.
+
+## Bundle budgets
+
+```json
+// angular.json
+"budgets": [
+  {
+    "type": "initial",
+    "maximumWarning": "500kb",
+    "maximumError": "1mb"
+  }
+]
+```
+
+Budgets fail or warn a build if the output JavaScript exceeds a size
+threshold — a guardrail against bundle size creeping up unnoticed as
+dependencies and features accumulate, catching the regression at build time
+rather than after users start complaining about load times.
+
+### Try it yourself
+
+Find (or imagine) a component with a deliberately broken property binding,
+like `[value]="user.nmae"` (a typo). Explain why `ng serve` in dev might not
+immediately surface this clearly, while `ng build --configuration
+production` would fail the build outright.

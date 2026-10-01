@@ -1,0 +1,105 @@
+---
+title: "Transitions & Animations"
+description: "transition vs @keyframes, and which CSS properties are actually cheap to animate."
+module: "Modern CSS"
+order: 12
+---
+
+CSS gives you two distinct tools for motion, built for different jobs, plus
+one critical performance rule that determines whether an animation feels
+smooth or janky regardless of which tool you use.
+
+## `transition`: interpolating between two states
+
+A transition needs something to react to — it has no effect on its own,
+only when a property's value actually changes (via `:hover`, a class toggle,
+a media query match, etc.):
+
+```css
+.button {
+  background: #2563eb;
+  transition: background 150ms ease-out;
+}
+
+.button:hover {
+  background: #1d4ed8; /* the transition animates between these two colors */
+}
+```
+
+If nothing ever changes `background`, `transition` does nothing — it's
+purely "when this property's value changes, interpolate smoothly instead of
+jumping instantly."
+
+## `@keyframes` + `animation`: a self-running sequence
+
+An animation doesn't need a triggering state change — it runs on its own
+once applied, and can define multiple intermediate steps, not just a start
+and end:
+
+```css
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.loading-dot {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+```
+
+Use `transition` for "this element reacts differently when hovered/focused/
+toggled." Use `animation` for "this element should move/pulse/spin
+continuously or on mount, independent of user interaction."
+
+## The rule that actually matters: what you animate
+
+Not all CSS properties cost the same to animate. The browser's rendering
+pipeline has three stages that a style change can trigger — **layout**
+(recalculating geometry), **paint** (filling in pixels), and **composite**
+(combining already-painted layers on the GPU):
+
+```css
+/* Expensive: triggers layout on every frame */
+.slow-animation {
+  transition: width 300ms, top 300ms, margin-left 300ms;
+}
+
+/* Cheap: triggers composite only — handled by the GPU, skips layout and paint */
+.fast-animation {
+  transition: transform 300ms, opacity 300ms;
+}
+```
+
+Animating `width`, `top`, `left`, or `margin` forces the browser to
+recompute layout for that element (and potentially its neighbors) on every
+single frame of the animation — expensive, and the usual cause of animations
+that stutter on lower-end devices. Animating `transform` (`translate`,
+`scale`, `rotate`) and `opacity` instead achieves the same visual result —
+moving, resizing, fading — without touching layout or paint at all, since
+the compositor can handle both entirely on the GPU.
+
+```css
+/* Instead of animating left/top to move an element: */
+.card {
+  transition: transform 200ms ease-out;
+}
+.card:hover {
+  transform: translateY(-4px); /* same visual effect as `top: -4px`, far cheaper */
+}
+```
+
+### Try it yourself
+
+Take a card component with a hover effect that currently animates `width`
+or `margin`, and rewrite it to achieve the same visual result using only
+`transform` and `opacity`.

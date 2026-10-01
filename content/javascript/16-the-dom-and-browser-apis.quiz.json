@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the default phase in which an event listener added via `addEventListener(\"click\", handler)` fires?",
+      "options": [
+        "The capturing phase",
+        "The bubbling phase",
+        "Both phases simultaneously",
+        "Neither — it fires only during the target phase"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without passing { capture: true }, listeners are registered for the bubbling phase, which runs after the target phase, from the target outward to ancestors."
+    },
+    {
+      "question": "If a parent and its child both have click listeners (both default, bubbling), and the child is clicked, what is the firing order?",
+      "options": [
+        "Parent's listener fires first, then the child's",
+        "The child's listener fires first, then the parent's, because the event bubbles outward from the target",
+        "Only the child's listener fires; the parent never sees it",
+        "They fire in a random order"
+      ],
+      "correctIndex": 1,
+      "explanation": "After the target phase (the child), the event bubbles upward through ancestors, so the child's handler runs before the parent's."
+    },
+    {
+      "question": "What problem does event delegation solve?",
+      "options": [
+        "It makes CSS selectors faster",
+        "It avoids attaching a separate listener to every individual item (expensive, and broken for items added later) by listening once on a stable parent and using event.target",
+        "It prevents events from bubbling at all",
+        "It replaces the need for querySelector"
+      ],
+      "correctIndex": 1,
+      "explanation": "A single listener on a parent, combined with checking event.target, handles all current and future children without needing to attach/remove listeners per item."
+    },
+    {
+      "question": "In an event-delegation click handler, why use `event.target.closest(\".task-item\")` instead of just `event.target`?",
+      "options": [
+        "closest() is required syntax and has no functional purpose",
+        "The actual click might land on a nested child element (like an icon or span) inside the task item, and closest() finds the nearest matching ancestor (or the element itself)",
+        "event.target never works inside delegated handlers",
+        "closest() is faster than querySelector for unrelated reasons"
+      ],
+      "correctIndex": 1,
+      "explanation": "A click often lands on a descendant of the intended item (e.g. an icon inside a list item); closest() walks up from the exact clicked element to find the enclosing item you actually care about."
+    }
+  ]
+}

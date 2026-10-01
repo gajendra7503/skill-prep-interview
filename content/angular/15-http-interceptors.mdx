@@ -1,0 +1,93 @@
+---
+title: "HTTP Interceptors"
+description: "Intercepting every outgoing request and incoming response — auth tokens, error handling, and logging in one place."
+module: "Backend"
+order: 15
+---
+
+Every `HttpClient` call in an app eventually needs the same things done to
+it: attach an auth token, handle a 401 consistently, log slow requests.
+Repeating that logic in every service method doesn't scale. **Interceptors**
+let you write it once and apply it to every request and response that
+passes through `HttpClient`.
+
+## The functional interceptor API
+
+Modern Angular (v15+) favors plain functions over the older class-based
+`HttpInterceptor` interface. A functional interceptor receives the outgoing
+request and a `next` function representing the rest of the chain:
+
+```ts
+import { HttpInterceptorFn } from "@angular/common/http";
+
+export const authInterceptor: HttpInterceptorFn = (req, next) => {
+  const token = localStorage.getItem("authToken");
+
+  if (!token) {
+    return next(req);
+  }
+
+  const cloned = req.clone({
+    setHeaders: { Authorization: `Bearer ${token}` },
+  });
+
+  return next(cloned);
+};
+```
+
+Requests are **immutable** — you can't mutate `req` directly, so `req.clone()`
+returns a new request with the header added, which is what actually gets
+sent.
+
+## Handling errors in one place
+
+```ts
+import { HttpInterceptorFn } from "@angular/common/http";
+import { inject } from "@angular/core";
+import { Router } from "@angular/router";
+import { catchError, throwError } from "rxjs";
+
+export const errorInterceptor: HttpInterceptorFn = (req, next) => {
+  const router = inject(Router);
+
+  return next(req).pipe(
+    catchError((error) => {
+      if (error.status === 401) {
+        router.navigate(["/login"]);
+      }
+      return throwError(() => error);
+    })
+  );
+};
+```
+
+Note that `inject()` works here even though this is a plain function, not a
+class — Angular runs interceptors within an injection context. Centralizing
+this means no individual service needs its own try/catch for "redirect on
+401" logic.
+
+## Registering interceptors
+
+```ts
+// app.config.ts
+import { provideHttpClient, withInterceptors } from "@angular/common/http";
+import { authInterceptor } from "./auth.interceptor";
+import { errorInterceptor } from "./error.interceptor";
+
+export const appConfig = {
+  providers: [
+    provideHttpClient(withInterceptors([authInterceptor, errorInterceptor])),
+  ],
+};
+```
+
+Interceptors run in the array order on the way out (request) and the
+reverse order on the way back (response) — so `authInterceptor` attaches the
+token first, and `errorInterceptor` gets the last look at an incoming error
+before it reaches the calling code.
+
+### Try it yourself
+
+Add a third interceptor that logs the duration of every request (using
+`tap` and `Date.now()` before/after), and register it so it runs around the
+other two.

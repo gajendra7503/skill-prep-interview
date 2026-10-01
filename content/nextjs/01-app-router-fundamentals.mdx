@@ -1,0 +1,87 @@
+---
+title: "App Router Fundamentals"
+description: "File-based routing, layouts, and the difference between Server and Client Components."
+module: "Fundamentals"
+order: 1
+---
+
+Next.js's App Router (the `app/` directory) maps the **file system directly
+to routes**. This entire site you're reading right now is built with it.
+
+```text
+app/
+  page.tsx           -> /
+  about/
+    page.tsx         -> /about
+  courses/
+    [course]/
+      page.tsx       -> /courses/react (dynamic segment)
+      [lesson]/
+        page.tsx     -> /courses/react/hooks-deep-dive
+```
+
+- `page.tsx` makes a route segment publicly accessible.
+- `layout.tsx` wraps a segment (and everything nested inside it) with shared
+  UI that **persists across navigations** — a navbar won't remount when you
+  click between pages.
+- `[folderName]` creates a **dynamic segment**; its value is available as a
+  route param.
+
+## Server Components by default
+
+Every component under `app/` is a **Server Component** unless you opt out.
+Server Components run only on the server, never ship their JS to the
+browser, and can directly do async work like reading a database or the file
+system:
+
+```tsx
+// app/courses/[course]/page.tsx — a Server Component
+export default async function CoursePage({ params }: { params: Promise<{ course: string }> }) {
+  const { course } = await params;
+  const data = await getCourse(course); // runs on the server, not the client
+  return <h1>{data.title}</h1>;
+}
+```
+
+## Opting into Client Components
+
+Anything interactive — `useState`, `onClick`, browser APIs — needs the
+`"use client"` directive at the top of the file:
+
+```tsx
+"use client";
+
+import { useState } from "react";
+
+export function Counter() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>{count}</button>;
+}
+```
+
+The rule of thumb: **push `"use client"` as far down the tree as possible**.
+A page can be a Server Component that fetches data, while just the small
+interactive widget inside it is a Client Component.
+
+## Layouts and nested routes
+
+```tsx
+// app/courses/layout.tsx
+export default function CoursesLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex">
+      <Sidebar />
+      <main className="flex-1">{children}</main>
+    </div>
+  );
+}
+```
+
+Every route under `app/courses/*` now renders inside this shared shell
+automatically — no need to repeat the `<Sidebar />` on every page.
+
+### Try it yourself
+
+Add a `app/about/page.tsx` route with static content, then add a
+`app/blog/[slug]/page.tsx` dynamic route that just prints the slug it
+received.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "How did the legacy Bridge let JavaScript and native code communicate?",
+      "options": [
+        "Through direct, synchronous function calls",
+        "By passing serialized JSON messages asynchronously between the JS and native threads, batched per frame",
+        "Through a shared memory buffer with no serialization",
+        "JavaScript compiled directly to native machine code"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Bridge required every interaction to be serialized to JSON, sent across asynchronously, and deserialized on the receiving side."
+    },
+    {
+      "question": "Why could high-frequency interactions like drag gestures or scroll-linked animations suffer under the old Bridge architecture?",
+      "options": [
+        "The Bridge was only built for touch events, not gestures",
+        "Every frame of interaction required sending more serialized bridge messages, which added overhead and could cause visible jank",
+        "Gestures are not supported without the New Architecture at all",
+        "The Bridge only operated once per app launch"
+      ],
+      "correctIndex": 1,
+      "explanation": "The asynchronous, serialized, per-frame nature of bridge communication made rapid, continuous interactions especially costly compared to occasional, discrete ones."
+    },
+    {
+      "question": "What does JSI fundamentally enable that the Bridge could not?",
+      "options": [
+        "Running native code without any JavaScript",
+        "JavaScript holding a direct reference to a native object and calling its methods synchronously, without serialization or an async round-trip",
+        "Writing native UI in JavaScript syntax",
+        "Removing the need for a JavaScript engine entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "JSI replaces message-passing with direct, synchronous method calls between JS and native C++ objects."
+    },
+    {
+      "question": "What do TurboModules and Fabric have in common?",
+      "options": [
+        "They are unrelated systems that don't share any underlying mechanism",
+        "Both are New Architecture components built on JSI — TurboModules for native modules, Fabric for the UI renderer",
+        "They are both deprecated in favor of the Bridge",
+        "They only matter for Android, not iOS"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both replace older Bridge-based mechanisms (legacy native modules and the old renderer) with JSI-powered, more direct communication with native code."
+    }
+  ]
+}

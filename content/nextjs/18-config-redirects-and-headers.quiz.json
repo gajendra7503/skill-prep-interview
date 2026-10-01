@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What's the difference between `permanent: true` and `permanent: false` in a redirects() entry?",
+      "options": [
+        "There is no functional difference, only cosmetic",
+        "permanent: true emits a 308 status (browsers/crawlers update bookmarks and search results), permanent: false emits a 307 for a temporary move",
+        "permanent: false disables the redirect entirely",
+        "permanent: true only works in development mode"
+      ],
+      "correctIndex": 1,
+      "explanation": "The status code signals to browsers and search engines whether to treat the redirect as a lasting change (308, update references) or a temporary one (307, keep the original URL)."
+    },
+    {
+      "question": "How does a rewrite differ from a redirect from the visitor's point of view?",
+      "options": [
+        "They behave identically in every way",
+        "With a rewrite, the URL bar still shows the original path even though a different destination actually serves the content",
+        "A rewrite always opens a new tab",
+        "A rewrite can only point to routes within the same app"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unlike a redirect, a rewrite serves different content at the same visible URL — useful for transparently proxying another origin under your own domain."
+    },
+    {
+      "question": "What does a Content-Security-Policy header help prevent?",
+      "options": [
+        "Slow page load times",
+        "An injected or malicious script from loading resources or executing freely, by restricting which origins scripts/styles/images may come from",
+        "404 errors on missing routes",
+        "Duplicate content in search engine results"
+      ],
+      "correctIndex": 1,
+      "explanation": "CSP limits what a script running on the page (including one injected via an XSS bug) is allowed to do, by whitelisting trusted origins for various resource types."
+    },
+    {
+      "question": "Why do security headers and redirect rules belong in next.config.ts rather than duplicated inside individual route files?",
+      "options": [
+        "Route files cannot set headers at all",
+        "They are cross-cutting concerns that should apply consistently across every route, including ones not yet written, from a single auditable place",
+        "It has no practical benefit, it's purely convention",
+        "next.config.ts is required for any routing to work"
+      ],
+      "correctIndex": 1,
+      "explanation": "Centralizing these rules avoids having to repeat them per-page and ensures new routes automatically inherit the same security posture."
+    }
+  ]
+}

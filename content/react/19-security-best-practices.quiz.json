@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "When you render `<p>{text}</p>` where `text` contains `<script>alert(1)</script>`, what happens?",
+      "options": [
+        "The script executes immediately",
+        "React escapes it and renders the literal text on the page, not executable HTML",
+        "React throws a runtime error",
+        "The component silently fails to render"
+      ],
+      "correctIndex": 1,
+      "explanation": "JSX interpolation like {text} is escaped by default, which is exactly why most XSS discussion in React centers on the APIs that bypass this."
+    },
+    {
+      "question": "What does `dangerouslySetInnerHTML` do differently from normal JSX interpolation?",
+      "options": [
+        "It renders content faster",
+        "It bypasses React's automatic escaping and injects raw HTML directly, which is unsafe for unsanitized user input",
+        "It only works with trusted internal content and errors on user input",
+        "It is identical to normal JSX interpolation, just named differently"
+      ],
+      "correctIndex": 1,
+      "explanation": "The deliberately alarming name signals that this prop opts out of React's default escaping — any unsanitized HTML passed to it executes as-is."
+    },
+    {
+      "question": "Why does manually setting `ref.current.innerHTML = message` in a useEffect carry the same risk as `dangerouslySetInnerHTML`?",
+      "options": [
+        "It doesn't — refs are always safe",
+        "React's escaping protections only apply to content it renders itself, not to direct DOM mutations performed via refs",
+        "Refs are deprecated and should never be used",
+        "It only matters in class components"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both bypass React's rendering pipeline and inject raw HTML into the DOM directly, carrying identical XSS risk if the content is unsanitized user input."
+    },
+    {
+      "question": "What does `npm audit` help protect against?",
+      "options": [
+        "Slow network requests",
+        "Known vulnerabilities in your project's dependency tree, including transitive dependencies",
+        "CSS specificity bugs",
+        "Memory leaks in useEffect"
+      ],
+      "correctIndex": 1,
+      "explanation": "npm audit scans installed packages against known vulnerability databases, surfacing supply-chain risk that doesn't come from your own application code."
+    }
+  ]
+}

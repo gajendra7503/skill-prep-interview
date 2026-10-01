@@ -1,0 +1,95 @@
+---
+title: "Animations"
+description: "The Animated API, the native driver, and when to reach for Reanimated instead."
+module: "Performance"
+order: 11
+---
+
+A janky animation is one of the fastest ways for a mobile app to feel cheap.
+React Native gives you two layers for building smooth animations, and
+knowing which thread each one runs on is the key to understanding why one
+feels smoother than the other.
+
+## The `Animated` API
+
+```jsx
+import { useRef, useEffect } from "react";
+import { Animated, View } from "react-native";
+
+function FadeInBox() {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  }, [opacity]);
+
+  return <Animated.View style={{ opacity, width: 100, height: 100, backgroundColor: "tomato" }} />;
+}
+```
+
+`Animated.Value` holds the animated number outside of React state entirely —
+updating it doesn't trigger a component re-render on every frame, which
+would be far too slow. Instead, `Animated.timing` drives the value smoothly
+from its current value toward `toValue` over `duration` milliseconds.
+
+## Why `useNativeDriver: true` matters
+
+By default, every animation frame would require a round-trip across the
+bridge: the JS thread computes the next value, sends it to the native side,
+which updates the view, 60 times a second. If the JS thread is ever busy
+(handling a tap, running other logic), frames get dropped and the animation
+visibly stutters.
+
+`useNativeDriver: true` hands the *entire* animation — start value, end
+value, duration, easing curve — to the native side up front. The native UI
+thread then drives the animation on its own, completely independent of
+whatever the JS thread is doing. This is why it's considered a best practice
+to enable whenever possible — it isolates animations from JS thread jank
+entirely.
+
+The trade-off: the native driver can only animate a limited set of
+non-layout properties (`opacity`, `transform` — `translateX`/`translateY`/
+`scale`/`rotate`), because only those can be computed natively without
+re-running your JS layout logic. Animating things like `width`, `height`, or
+`flex` values requires the JS-driven path (or `LayoutAnimation` for a subset
+of layout transitions).
+
+## When `Animated` isn't enough: Reanimated
+
+For anything involving gestures — a swipeable card, a draggable bottom
+sheet, a pull-to-refresh with custom physics — you generally want
+**Reanimated**. Its core idea is *worklets*: small JavaScript functions that
+are compiled to run directly on the UI thread, not just handed off as a
+pre-baked animation like `Animated` does.
+
+```jsx
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+
+function DraggableHandle() {
+  const translateY = useSharedValue(0);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  // a gesture handler would update translateY.value directly, in real time,
+  // entirely on the UI thread — no bridge round-trip per frame at all.
+
+  return <Animated.View style={style} />;
+}
+```
+
+Because the worklet itself runs on the UI thread, Reanimated can respond to
+a gesture's every frame with zero JS-thread involvement, which is what makes
+gesture-driven interactions feel genuinely native rather than merely
+"not broken."
+
+### Try it yourself
+
+Take the `FadeInBox` example and add a second `Animated.Value` for
+`translateY`, animating the box sliding up (e.g. from `20` to `0`) at the
+same time it fades in, combining both in a single `style` array.

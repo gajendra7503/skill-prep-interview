@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What determines the value of `this` inside a regular (non-arrow) function?",
+      "options": [
+        "Where the function is physically defined in the source code",
+        "How the function is called at the call site — as a plain call, a method call, via call/apply/bind, or with `new`",
+        "The name of the function",
+        "this is always the global object, with no exceptions"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unlike variable scope, `this` for a regular function is determined dynamically based on the call site, not where the function was written."
+    },
+    {
+      "question": "What is the key difference between `.call()`/`.apply()` and `.bind()`?",
+      "options": [
+        "They are completely identical in every way",
+        "call/apply invoke the function immediately with a given this; bind returns a new function permanently bound to that this, without calling it",
+        "bind only works on arrow functions",
+        "call/apply only work in strict mode"
+      ],
+      "correctIndex": 1,
+      "explanation": "call and apply execute the function right away; bind instead produces a new, reusable function with this locked in, which you call later."
+    },
+    {
+      "question": "In the Timer class bug example, why does `setInterval(this.tick, 1000)` break?",
+      "options": [
+        "setInterval does not accept object methods",
+        "this.tick is passed as a bare function reference, so when setInterval later calls it, it's invoked as a plain function call, not a method call on the Timer instance",
+        "setInterval ignores `this` by design and there is no fix",
+        "The bug only happens in older browsers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Passing this.tick detaches the function from its object — by the time setInterval invokes it, there is no receiver object, so this.seconds no longer refers to the Timer instance."
+    },
+    {
+      "question": "Why does wrapping a callback in an arrow function, like `() => this.tick()`, fix the lost-`this` bug?",
+      "options": [
+        "Arrow functions automatically bind to the global object",
+        "Arrow functions have no `this` of their own, so they look up `this` from the enclosing scope at the time they were defined, correctly capturing the instance",
+        "Arrow functions run synchronously unlike regular functions",
+        "It doesn't actually fix the bug"
+      ],
+      "correctIndex": 1,
+      "explanation": "An arrow function's `this` is resolved lexically from its surrounding scope rather than from how it's called, so it correctly preserves the instance's `this` from where it was defined."
+    }
+  ]
+}

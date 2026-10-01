@@ -1,0 +1,89 @@
+---
+title: "Performance Optimization"
+description: "trackBy for lists, pure pipes, lazy-loaded routes, and tying it together with OnPush and signals."
+module: "Performance"
+order: 13
+---
+
+Beyond `OnPush` and signals (covered earlier), a handful of everyday
+patterns are responsible for most of the performance wins — and most of the
+interview questions — around Angular apps.
+
+## `track` in `@for`: avoiding unnecessary DOM churn
+
+Without a track expression, Angular can't tell which list items are "the
+same" across renders, so it may destroy and recreate DOM nodes unnecessarily
+when the array reference changes:
+
+```html
+@for (item of items(); track item.id) {
+  <app-item-row [item]="item" />
+}
+```
+
+`track item.id` tells Angular to match items by a stable identity. Reordering,
+inserting, or removing items then only touches the DOM nodes that actually
+changed, instead of re-rendering the whole list — directly analogous to
+React's `key` prop, and just as important to get right.
+
+## Pure vs impure pipes
+
+```ts
+@Pipe({ name: "formatPrice", standalone: true }) // pure by default
+export class FormatPricePipe implements PipeTransform {
+  transform(value: number): string {
+    return `₹${value.toLocaleString("en-IN")}`;
+  }
+}
+```
+
+A **pure** pipe (the default) only re-runs its `transform` when its input
+*reference* changes — cheap, and safe for most formatting logic. An
+**impure** pipe (`@Pipe({ name: "...", pure: false })`) re-runs on *every*
+change detection cycle regardless of whether its input changed, which can
+be a serious performance trap if overused — reserve it for genuinely
+stateful transforms (like a pipe that depends on the current time), and
+prefer computing derived values as a `computed()` signal instead where
+possible.
+
+## Lazy-loading routes
+
+Loading a component's code only when its route is visited keeps the initial
+bundle small:
+
+```ts
+export const routes: Routes = [
+  { path: "", component: HomeComponent },
+  {
+    path: "reports",
+    loadComponent: () => import("./reports/reports.component").then((m) => m.ReportsComponent),
+  },
+];
+```
+
+For a whole feature area with its own child routes, `loadChildren` splits an
+entire route subtree into its own chunk, only fetched when a user actually
+navigates there — the single biggest lever for reducing time-to-interactive
+in a large app.
+
+## Bringing it together
+
+The performance toolkit, roughly in order of impact:
+
+1. **Lazy-load routes** so users only download code for what they visit.
+2. **`OnPush` + signals** so components only re-render when their actual
+   inputs or signals change, not on every Zone.js-triggered tick.
+3. **`track` in `@for`** so list re-renders touch only the DOM nodes that
+   changed.
+4. **Pure pipes** (and avoiding impure ones) so formatting logic doesn't
+   re-run needlessly on every change detection cycle.
+
+None of these matter until you've actually measured a problem — Angular
+DevTools' profiler will show you which components are re-rendering
+excessively before you reach for any of this.
+
+### Try it yourself
+
+Take the `EmployeeListComponent` from this course's real-world project,
+add a `track emp.id` to its `@for` loop, and lazy-load the whole employee
+feature behind a `loadChildren` route instead of eagerly importing it.

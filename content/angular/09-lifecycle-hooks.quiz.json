@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "question": "Why might reading an `@Input()` property inside a component's constructor give you `undefined`?",
+      "options": [
+        "Constructors cannot access class properties",
+        "Angular hasn't bound @Input() values yet at construction time — they're set just before ngOnInit runs",
+        "@Input() properties are always private",
+        "This never happens; inputs are always available in the constructor"
+      ],
+      "correctIndex": 1,
+      "explanation": "The constructor's job is dependency injection; Angular sets @Input() bindings afterward, so input-dependent logic belongs in ngOnInit or ngOnChanges."
+    },
+    {
+      "question": "Which hook is the right place to unsubscribe from a manually-created RxJS subscription?",
+      "options": ["ngOnInit", "ngOnChanges", "ngOnDestroy", "ngDoCheck"],
+      "correctIndex": 2,
+      "explanation": "ngOnDestroy runs once when the component is removed, making it the correct place to clean up subscriptions, intervals, or listeners and avoid memory leaks."
+    },
+    {
+      "question": "What does the `SimpleChanges` object passed to `ngOnChanges` let you check?",
+      "options": [
+        "Only whether the component is destroyed",
+        "The previous and current value of each changed @Input(), plus whether it's the first change",
+        "The full change detection tree",
+        "Nothing useful — it's always empty"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each key in SimpleChanges corresponds to an @Input() and exposes previousValue, currentValue, and isFirstChange(), letting you react precisely to what changed."
+    },
+    {
+      "question": "Why does `ngOnChanges` only fire if a component has `@Input()` bindings?",
+      "options": [
+        "It's a bug in Angular",
+        "It's tied specifically to detecting changes in bound input properties — a component with no inputs has nothing for it to report",
+        "It requires ReactiveFormsModule to be imported",
+        "It only runs in development mode"
+      ],
+      "correctIndex": 1,
+      "explanation": "ngOnChanges exists purely to notify a component about changes to its @Input()-bound properties, so it's meaningless (and skipped) for components without inputs."
+    }
+  ]
+}

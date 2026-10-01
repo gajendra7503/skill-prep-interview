@@ -1,0 +1,90 @@
+---
+title: "Parallel & Intercepting Routes"
+description: "Rendering more than one page in the same layout slot, and the modal-with-a-shareable-URL pattern."
+module: "Routing"
+order: 11
+---
+
+Most routes render one page into one slot. Two advanced App Router
+conventions exist for when that's not enough: **parallel routes**, for
+rendering multiple independent sections side by side, and **intercepting
+routes**, for the classic "opens as a modal, but is also a real page" pattern.
+
+## Parallel routes: named slots
+
+A folder prefixed with `@` defines a **slot** that a layout can render
+alongside its normal children — useful for independently-loading dashboard
+panels:
+
+```text
+app/
+  dashboard/
+    layout.tsx
+    page.tsx
+    @analytics/
+      page.tsx
+    @notifications/
+      page.tsx
+```
+
+```tsx
+// app/dashboard/layout.tsx
+export default function DashboardLayout({
+  children,
+  analytics,
+  notifications,
+}: {
+  children: React.ReactNode;
+  analytics: React.ReactNode;
+  notifications: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      <div className="col-span-2">{children}</div>
+      <div>
+        {analytics}
+        {notifications}
+      </div>
+    </div>
+  );
+}
+```
+
+Each slot is its own independently-streamed subtree with its own
+`loading.tsx`/`error.tsx` — a slow `@analytics` panel doesn't block
+`@notifications` from rendering. Every slot needs a `default.tsx` as a
+fallback for when a given URL doesn't match anything inside that slot.
+
+## Intercepting routes: modal + shareable URL
+
+The pattern: clicking a photo in a grid opens it in a modal *without* losing
+your place in the grid behind it — but pasting that photo's URL directly
+still loads the full standalone page. Intercepting route conventions make
+this possible:
+
+```text
+app/
+  feed/
+    page.tsx                 -> the photo grid
+    (.)photo/[id]/
+      page.tsx               -> intercepted: renders as a modal OVER the grid
+  photo/[id]/
+    page.tsx                 -> the real, full standalone page
+```
+
+- `(.)` intercepts a route at the **same** level.
+- `(..)` intercepts one level **up**, `(..)( )` two levels up, and `(...)`
+  intercepts from the root — the number of dots mirrors relative path
+  segments, matching how far up the tree the "real" route actually lives.
+
+Navigating via a `<Link>` from inside the app triggers the intercepted
+(modal) version; a hard navigation or direct URL visit renders the real
+`app/photo/[id]/page.tsx` instead — the router decides based on whether the
+navigation originated client-side from within the intercepting segment.
+
+### Try it yourself
+
+Sketch out (in a scratch file, no need to wire it up) the folder structure
+you'd need to make a lesson open as a slide-over panel from the course
+overview page, while still being a real, linkable page at
+`/courses/[course]/[lesson]` for anyone arriving directly.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `position: relative` on a parent establish for an `absolute`-positioned child?",
+      "options": [
+        "Nothing — absolute positioning always ignores ancestors",
+        "It becomes the positioning context the child is positioned relative to, instead of the viewport or a further-up ancestor",
+        "It forces the child to stay in normal document flow",
+        "It disables z-index on the child"
+      ],
+      "correctIndex": 1,
+      "explanation": "An absolutely positioned element is positioned relative to its nearest non-static ancestor; relative is the most common way to deliberately create that anchor."
+    },
+    {
+      "question": "Besides `fixed`/`sticky` positioning, what else can create a new stacking context?",
+      "options": [
+        "Setting `color` on an element",
+        "`opacity` less than 1, or any `transform`/`filter`",
+        "Using a `<div>` instead of a `<span>`",
+        "Adding a `class` attribute"
+      ],
+      "correctIndex": 1,
+      "explanation": "Several CSS properties beyond position create new stacking contexts, including opacity < 1, transform, and filter — all common culprits in unexpected z-index behavior."
+    },
+    {
+      "question": "A child with `z-index: 9999` is trapped behind a sibling subtree with a lower z-index. What's the most likely cause?",
+      "options": [
+        "9999 is too large a number for browsers to handle",
+        "An ancestor of the child has created its own stacking context (e.g. via opacity or transform), so the child's z-index only competes within that ancestor, not globally",
+        "z-index only works on absolutely positioned elements",
+        "The browser has a bug"
+      ],
+      "correctIndex": 1,
+      "explanation": "Once an ancestor forms a stacking context, its own z-index value (not any descendant's) is what competes with sibling stacking contexts — descendants can't escape to compete globally."
+    },
+    {
+      "question": "What happens to an element with `position: absolute` if no ancestor has a non-static position?",
+      "options": [
+        "It is removed from the page entirely",
+        "It positions itself relative to the initial containing block, effectively the viewport",
+        "It throws a CSS error and is ignored",
+        "It falls back to position: static"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without any positioned ancestor, an absolutely positioned element's containing block defaults to the root/viewport."
+    }
+  ]
+}

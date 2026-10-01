@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Does the Next.js App Router ship a built-in i18n routing system?",
+      "options": [
+        "Yes, it's enabled by default for every project",
+        "No — it provides routing primitives (dynamic segments, proxy) that you use to build locale routing yourself",
+        "Only when using the Pages Router",
+        "Only on Vercel's paid plans"
+      ],
+      "correctIndex": 1,
+      "explanation": "There's no built-in i18n router; a `[locale]` dynamic segment plus proxy logic is the standard way to implement locale-prefixed routing."
+    },
+    {
+      "question": "What does wrapping every route under an `app/[locale]/` segment achieve?",
+      "options": [
+        "It makes the app automatically translate all text",
+        "URLs like /en/courses/react and /fr/courses/react resolve to the same page.tsx, with the locale available as a route param",
+        "It disables static generation for all routes",
+        "It's required for the proxy to work at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "The dynamic segment captures the locale from the URL so a single page.tsx can render per-locale content based on that param."
+    },
+    {
+      "question": "Where should locale-detection-and-redirect logic (based on a visitor's browser preference) run, and why?",
+      "options": [
+        "Inside the page component, after render",
+        "In the proxy, since it needs to run before any route renders",
+        "In a Client Component's useEffect",
+        "It's not possible to detect browser language in Next.js"
+      ],
+      "correctIndex": 1,
+      "explanation": "The proxy runs ahead of routing, making it the right place to redirect a visitor to a locale-prefixed URL before any page work begins."
+    },
+    {
+      "question": "Why load translation dictionaries via a per-locale dynamic `import()` rather than importing all of them upfront?",
+      "options": [
+        "Dynamic imports are required syntax in Next.js",
+        "A visitor only downloads the dictionary for their own locale, instead of shipping every language's strings to every visitor",
+        "It has no effect on bundle size",
+        "Static imports don't work with JSON files"
+      ],
+      "correctIndex": 1,
+      "explanation": "Per-locale dynamic imports mean a French visitor's bundle never includes the English or Hindi dictionary, keeping payload size down."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What problem does `track item.id` in an `@for` loop solve?",
+      "options": [
+        "It sorts the list automatically",
+        "It gives Angular a stable identity per item, so re-renders update only the DOM nodes that actually changed instead of recreating the whole list",
+        "It filters out duplicate items",
+        "It disables change detection for that list"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without a track expression, Angular can't match old and new list items reliably, which can cause unnecessary DOM node destruction/recreation — track item.id fixes that, similar to React's key prop."
+    },
+    {
+      "question": "What is the difference between a pure and an impure pipe?",
+      "options": [
+        "There is no functional difference",
+        "A pure pipe only re-runs when its input reference changes; an impure pipe re-runs on every change detection cycle regardless",
+        "Impure pipes are faster",
+        "Pure pipes can only be used with signals"
+      ],
+      "correctIndex": 1,
+      "explanation": "Pipes are pure by default for performance — they skip re-computation unless the input reference actually changes. Impure pipes opt out of that optimization and can be costly if overused."
+    },
+    {
+      "question": "What does `loadChildren` (or `loadComponent`) achieve in Angular routing?",
+      "options": [
+        "It preloads every route eagerly at app startup",
+        "It splits a route (or feature) into its own code chunk, fetched only when a user navigates there",
+        "It disables routing for that path",
+        "It requires NgRx to function"
+      ],
+      "correctIndex": 1,
+      "explanation": "Lazy-loading routes keeps the initial JavaScript bundle small by deferring a feature's code until it's actually needed, improving initial load time."
+    },
+    {
+      "question": "What should come before reaching for optimizations like OnPush, track, or lazy loading?",
+      "options": [
+        "Nothing — apply all of them by default everywhere",
+        "Measuring an actual performance problem, e.g. with Angular DevTools' profiler",
+        "Rewriting the app in React",
+        "Disabling TypeScript strict mode"
+      ],
+      "correctIndex": 1,
+      "explanation": "As with any performance work, these patterns should target a measured bottleneck rather than being applied blindly, since some add complexity of their own."
+    }
+  ]
+}

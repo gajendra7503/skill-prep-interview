@@ -1,0 +1,45 @@
+{
+  "questions": [
+    {
+      "question": "What is a primary motivation for server-side rendering an Angular app?",
+      "options": [
+        "It eliminates the need for a JavaScript bundle entirely",
+        "Faster first paint and better support for crawlers/link previews that don't execute JavaScript",
+        "It removes the need for a router",
+        "It makes component testing unnecessary"
+      ],
+      "correctIndex": 1,
+      "explanation": "SSR sends real HTML content on the initial response, so users and non-JS-executing crawlers see content without waiting for the client bundle."
+    },
+    {
+      "question": "What does Angular's modern hydration do differently from older 'render-then-discard' SSR approaches?",
+      "options": [
+        "It skips server rendering entirely",
+        "It reuses the server-rendered DOM nodes and attaches state/listeners to them, instead of re-rendering everything from scratch on the client",
+        "It only works for static pages with no interactivity",
+        "It requires writing two separate versions of every component"
+      ],
+      "correctIndex": 1,
+      "explanation": "Hydration attaches behavior to the existing server-rendered DOM rather than throwing it away and re-rendering, avoiding wasted work and visible flicker."
+    },
+    {
+      "question": "What causes a hydration mismatch?",
+      "options": [
+        "Using too many standalone components",
+        "The server-rendered HTML not matching what the client-side render would produce, e.g. from environment-dependent values like `Date.now()` rendered inline",
+        "Forgetting to add a router",
+        "Using OnPush change detection"
+      ],
+      "correctIndex": 1,
+      "explanation": "If the server and client would render different output for the same component, Angular can't safely reuse the server's DOM for that part of the tree."
+    },
+    {
+      "question": "What provider enables hydration in a standalone Angular app?",
+      "options": [
+        "provideRouter()", "provideClientHydration()", "provideHttpClient()", "provideAnimations()"
+      ],
+      "correctIndex": 1,
+      "explanation": "`provideClientHydration()` is what opts the client bootstrap into reusing server-rendered DOM instead of discarding and re-rendering it."
+    }
+  ]
+}

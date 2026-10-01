@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "question": "What does the `path=\"*\"` route typically represent?",
+      "options": [
+        "The home page",
+        "A catch-all for any URL that didn't match another route, i.e. a client-side 404",
+        "A route that matches every page in addition to its specific match",
+        "A redirect to the previous page"
+      ],
+      "correctIndex": 1,
+      "explanation": "`*` matches anything not already matched by an earlier, more specific Route, making it the conventional place for a not-found page."
+    },
+    {
+      "question": "How does a component read a dynamic segment like `:courseId` from the URL?",
+      "options": ["useLocation()", "useParams()", "useNavigate()", "useSearchParams() only"],
+      "correctIndex": 1,
+      "explanation": "`useParams()` returns an object of the route's dynamic segments, e.g. `{ courseId: 'react' }`."
+    },
+    {
+      "question": "When should you prefer `useNavigate` over a `<Link>`?",
+      "options": [
+        "Always — Link is deprecated",
+        "When navigation needs to happen imperatively from inside logic, such as after a form submits successfully",
+        "Only for external links",
+        "There's no difference between them"
+      ],
+      "correctIndex": 1,
+      "explanation": "`<Link>` is for normal user-clickable navigation; `useNavigate` is for triggering navigation programmatically from code, like a submit handler."
+    },
+    {
+      "question": "What does `<Outlet />` render inside a parent route's layout component?",
+      "options": [
+        "A fixed placeholder that never changes",
+        "Whichever nested child route currently matches the URL",
+        "The parent route's own component again",
+        "A list of all possible child routes"
+      ],
+      "correctIndex": 1,
+      "explanation": "`<Outlet />` is where React Router injects the matched child route's element, letting the parent provide a shared layout (like a sidebar) around it."
+    }
+  ]
+}

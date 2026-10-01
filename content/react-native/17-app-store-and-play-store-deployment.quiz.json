@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the consequence of losing your Android app's signing keystore?",
+      "options": [
+        "Nothing significant, a new keystore can be generated and used immediately",
+        "You cannot publish further updates to the existing app listing under the same package name — you'd need to create an entirely new listing",
+        "The app will stop working for existing users immediately",
+        "Google automatically recovers lost keystores from backups"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Play Store ties an app's identity to its original signing key; without it, there's no way to prove a new build is the legitimate continuation of the existing app."
+    },
+    {
+      "question": "What must be true of Android's versionCode and iOS's build number on every single submission, including a minor bug-fix resubmission?",
+      "options": [
+        "They can stay the same as long as the human-readable version string changes",
+        "They must strictly increase with every submission, even if nothing else about the release notes changed",
+        "They only need to increase for major version releases",
+        "They are optional metadata with no enforcement"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both stores require this internal build identifier to increase on every submission — forgetting to bump it is a common cause of first-time submission rejections."
+    },
+    {
+      "question": "Which of these changes CANNOT be shipped via an OTA update like Expo Updates or CodePush?",
+      "options": [
+        "A JS bug fix in a checkout flow",
+        "Adding a new native module that requires a new device permission",
+        "Updated copy/text in the UI",
+        "A new image asset"
+      ],
+      "correctIndex": 1,
+      "explanation": "OTA updates can only replace the JS bundle and assets the native shell already knows how to load — any change to native code or permissions requires a full store review."
+    },
+    {
+      "question": "Why might a team choose a tool like EAS Build to manage code signing credentials?",
+      "options": [
+        "It removes the need for any code signing entirely",
+        "It handles much of the manual certificate/provisioning-profile/keystore management that would otherwise be done by hand",
+        "It bypasses Apple's and Google's review processes",
+        "It is required for an app to run on a physical device during development"
+      ],
+      "correctIndex": 1,
+      "explanation": "Managing provisioning profiles, certificates, and keystores by hand is a common first-time pain point; managed build services can handle much of that complexity on a team's behalf."
+    }
+  ]
+}

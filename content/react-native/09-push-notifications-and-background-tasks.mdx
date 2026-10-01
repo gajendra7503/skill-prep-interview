@@ -1,0 +1,87 @@
+---
+title: "Push Notifications & Background Tasks"
+description: "Local vs remote notifications, the device-token registration flow, and what apps can and can't do in the background."
+module: "Native Integration"
+order: 9
+---
+
+Notifications split into two categories that are easy to conflate but work
+completely differently under the hood.
+
+## Local vs remote notifications
+
+- **Local notifications** are scheduled entirely on-device — "remind me
+  about this in 10 minutes" needs no server, no network, and no push
+  service. The OS itself fires it at the scheduled time.
+- **Remote (push) notifications** are sent from a server, routed through a
+  platform push service — Apple Push Notification service (APNs) for iOS,
+  Firebase Cloud Messaging (FCM) for Android — and delivered to the device
+  even if your app isn't running.
+
+```jsx
+// Local notification — no backend involved
+import notifee from "@notifee/react-native";
+
+await notifee.createTriggerNotification(
+  { title: "Reminder", body: "Time to check your tasks." },
+  { type: TriggerType.TIMESTAMP, timestamp: Date.now() + 10 * 60 * 1000 }
+);
+```
+
+## The remote push registration flow
+
+Getting a device ready to receive push notifications is a multi-step
+handshake, and every step can fail independently — which is exactly why it's
+a common source of "notifications just don't work" bugs:
+
+1. **Request permission** from the user (required on iOS; Android 13+ also
+   requires an explicit runtime permission now).
+2. **Obtain a device push token** from the platform push service (FCM/APNs)
+   — this uniquely identifies this install of the app on this device.
+3. **Send that token to your backend**, associating it with the logged-in
+   user.
+4. **Your backend calls FCM/APNs** with the token and a payload whenever it
+   wants to notify that specific device.
+
+```jsx
+import messaging from "@react-native-firebase/messaging";
+
+async function registerForPushNotifications(userId) {
+  const authStatus = await messaging().requestPermission();
+  const enabled =
+    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+    authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+  if (!enabled) return;
+
+  const token = await messaging().getToken();
+  await fetch("/api/register-push-token", {
+    method: "POST",
+    body: JSON.stringify({ userId, token }),
+  });
+}
+```
+
+A token can also change (app reinstall, OS-level refresh), so production
+apps also listen for a token-refresh event and re-send the new token —
+otherwise notifications silently stop reaching users who've had their token
+rotate.
+
+## Background work is deliberately limited
+
+Both iOS and Android aggressively restrict what an app can do while it's not
+in the foreground, primarily for battery life — this is intentional
+platform policy, not a React Native limitation. Receiving a push
+notification can wake an app briefly to process it (update a local
+database, update a badge count), but neither platform allows arbitrary
+long-running background work the way a server process can run indefinitely.
+Features like background location tracking or background audio require
+explicitly declaring that capability and justifying it (particularly on iOS,
+where undisclosed background behavior is an App Store rejection reason).
+
+### Try it yourself
+
+Sketch the sequence of API calls (in order) your app would need to make to
+go from "fresh install, no permissions granted" to "backend has a valid push
+token for this user" — including what happens if the user denies the
+permission prompt.

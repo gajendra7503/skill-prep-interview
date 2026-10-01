@@ -1,0 +1,85 @@
+---
+title: "Security Best Practices"
+description: "Where XSS risk actually comes from in React, sanitizing untrusted HTML, and dependency supply-chain risk."
+module: "Security"
+order: 19
+---
+
+React is safer by default than raw DOM manipulation, but "by default" is the
+key phrase — a few specific escape hatches reopen the exact risks React
+otherwise protects you from.
+
+## React escapes text content automatically
+
+```jsx
+function Comment({ text }) {
+  return <p>{text}</p>; // safe, even if text is "<script>alert(1)</script>"
+}
+```
+
+When you interpolate a value into JSX like `{text}`, React renders it as
+plain text, escaping any HTML special characters — a comment containing
+`<script>` tags is rendered as literal visible text, not executed. This is
+why most XSS discussions about React focus specifically on the one API that
+opts out of this behavior.
+
+## `dangerouslySetInnerHTML`: the deliberately-named escape hatch
+
+```jsx
+function RichContent({ html }) {
+  return <div dangerouslySetInnerHTML={{ __html: html }} />; // bypasses React's escaping entirely
+}
+```
+
+If `html` comes from user input (a comment, a bio field, markdown rendered
+to HTML) without sanitization, this is a direct XSS vector — any `<script>`
+or `onerror`-laden `<img>` tag in that string executes in the victim's
+browser. The name is intentionally alarming: treat every use of this prop as
+a place that needs its input sanitized first.
+
+```jsx
+import DOMPurify from "dompurify";
+
+function RichContent({ html }) {
+  const clean = DOMPurify.sanitize(html); // strips <script>, event handlers, etc.
+  return <div dangerouslySetInnerHTML={{ __html: clean }} />;
+}
+```
+
+## Refs are another way to bypass React's protections
+
+```jsx
+function Banner({ message }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    ref.current.innerHTML = message; // same risk as dangerouslySetInnerHTML, just via the DOM API directly
+  }, [message]);
+  return <div ref={ref} />;
+}
+```
+
+Manually setting `.innerHTML` through a ref carries the exact same risk as
+`dangerouslySetInnerHTML` — React's protections only apply to content it
+renders itself, not to DOM mutations you perform directly.
+
+## Dependency supply-chain risk
+
+Most real-world vulnerabilities in a React app don't come from React itself —
+they come from the dependency tree. A compromised or vulnerable transitive
+dependency can execute arbitrary code at install time (`postinstall`
+scripts) or ship malicious code into your bundle.
+
+```bash
+npm audit            # flags known vulnerabilities in your dependency tree
+npm audit fix         # attempts to automatically upgrade affected packages
+```
+
+Running `npm audit` (or an equivalent like Snyk/Dependabot) in CI, and
+reviewing new dependencies before adding them — especially ones with few
+maintainers or infrequent updates — meaningfully reduces this exposure.
+
+### Try it yourself
+
+Search this app's codebase for every use of `dangerouslySetInnerHTML` (there
+should be none currently) and write down what you'd check before approving
+a PR that introduced one for rendering user-submitted Markdown.

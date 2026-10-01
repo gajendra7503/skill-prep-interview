@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does an `async function` always return, regardless of what its `return` statement specifies?",
+      "options": [
+        "The raw value from the return statement, with no wrapping",
+        "A Promise that resolves with the returned value",
+        "undefined, always",
+        "A callback function"
+      ],
+      "correctIndex": 1,
+      "explanation": "Declaring a function async guarantees it returns a Promise; a plain `return value` becomes a Promise resolved with that value."
+    },
+    {
+      "question": "What happens when you `await` a Promise that rejects, inside a try/catch block?",
+      "options": [
+        "The function silently continues with `undefined`",
+        "The rejection is thrown as an error at that point, which the surrounding catch block can handle",
+        "try/catch cannot catch Promise rejections at all",
+        "It causes an unhandled promise rejection regardless of the try/catch"
+      ],
+      "correctIndex": 1,
+      "explanation": "A rejected awaited Promise behaves like a thrown exception, so a normal try/catch around the await handles it."
+    },
+    {
+      "question": "Why is `await fetchA(); await fetchB();` slower than `await Promise.all([fetchA(), fetchB()])` when A and B don't depend on each other?",
+      "options": [
+        "There is no actual difference in timing",
+        "Sequential awaits make fetchB wait until fetchA fully completes before even starting, while Promise.all starts both immediately and waits for the slower one",
+        "Promise.all makes each request faster individually",
+        "await always runs twice as slow as Promise.all for any input"
+      ],
+      "correctIndex": 1,
+      "explanation": "Sequential awaits don't start the second request until the first resolves, adding their durations; starting both at once and awaiting together takes roughly the duration of the slower one."
+    },
+    {
+      "question": "What does `await` actually pause when used inside an async function?",
+      "options": [
+        "The entire JavaScript runtime, blocking all other code",
+        "Only the execution of that specific async function, while the rest of the program continues running via the event loop",
+        "Only the browser's rendering, not JavaScript execution",
+        "Nothing — await has no effect on execution order"
+      ],
+      "correctIndex": 1,
+      "explanation": "await suspends just the current async function's continuation until its Promise settles; it does not block the single JS thread from doing other work in the meantime."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does the Task Tracker use `task.id` as the list `key` instead of the array index?",
+      "options": [
+        "Indexes are slower to compute than UUIDs",
+        "A stable, unique key lets React correctly track each item's identity across re-renders, even when the list is reordered or filtered",
+        "React requires keys to be strings, and indexes are numbers",
+        "There is no real difference between the two approaches"
+      ],
+      "correctIndex": 1,
+      "explanation": "If the list is filtered, sorted, or reordered, an index-based key can point to the wrong item after a re-render, causing state/UI to attach to the wrong row."
+    },
+    {
+      "question": "Why does `toggleTask` use `prev.map(...)` to build a new array instead of mutating `tasks` directly?",
+      "options": [
+        "map() is the only array method available in React",
+        "React detects changes by comparing references; returning a new array is what signals that state actually changed",
+        "Mutating arrays throws a runtime error in React",
+        "It has no effect on correctness, only style"
+      ],
+      "correctIndex": 1,
+      "explanation": "React's re-render triggering relies on new state references; mutating the existing array in place wouldn't reliably trigger a re-render."
+    },
+    {
+      "question": "In the Task Tracker, where do `addTask`, `toggleTask`, and `deleteTask` live, and why?",
+      "options": [
+        "Inside each child component separately, for encapsulation",
+        "In the top-level TaskTracker component, so all mutations happen in one place and children just receive data and callbacks",
+        "In a global variable outside React",
+        "Inside the useLocalStorage hook itself"
+      ],
+      "correctIndex": 1,
+      "explanation": "Centralizing mutations in the parent (lifting state up) keeps data flow predictable — TaskForm and TaskList are purely presentational, driven by props."
+    },
+    {
+      "question": "What role does the custom `useLocalStorage` hook play in this project?",
+      "options": [
+        "It replaces useState entirely with a faster alternative",
+        "It wraps useState + useEffect so state is automatically persisted to and restored from localStorage",
+        "It fetches tasks from a remote API",
+        "It is only used for styling"
+      ],
+      "correctIndex": 1,
+      "explanation": "useLocalStorage reads an initial value from localStorage on mount and writes the value back to localStorage whenever it changes, giving persistence with one line of code in the component."
+    }
+  ]
+}

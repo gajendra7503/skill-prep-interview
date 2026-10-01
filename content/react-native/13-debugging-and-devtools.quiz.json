@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does Fast Refresh do when you save a changed file during development?",
+      "options": [
+        "Restarts the entire app from scratch every time",
+        "Metro recompiles just the changed module and hot-swaps it into the running app, generally preserving existing component state",
+        "It only works for changes to styling, not logic",
+        "It requires manually reloading the app each time"
+      ],
+      "correctIndex": 1,
+      "explanation": "Fast Refresh targets just the changed module for a quick in-place update, which is what makes the React Native dev loop fast compared to a full app restart on every change."
+    },
+    {
+      "question": "When should you reach for Flipper instead of just React DevTools?",
+      "options": [
+        "Never, they are identical tools",
+        "When you need to inspect something below the JS layer — native view hierarchy, raw network requests, native logs — not just the React component tree",
+        "Flipper is only used for iOS, DevTools only for Android",
+        "Flipper replaces the need for Metro entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "React DevTools shows the JS-level component tree and hooks state; Flipper adds native-level inspection (actual native views, network, native logs) on top of that."
+    },
+    {
+      "question": "Why does clearing Metro's cache (`--reset-cache`) sometimes fix a 'stuck' bug that doesn't make sense?",
+      "options": [
+        "It deletes the app from the device",
+        "It forces Metro to rebuild the JS bundle completely clean, eliminating stale cached modules that can otherwise linger after certain kinds of changes",
+        "It has no real effect and is just a superstition",
+        "It upgrades React Native to the latest version"
+      ],
+      "correctIndex": 1,
+      "explanation": "A stale cache can serve an outdated version of a module even after the source has changed; a clean rebuild removes that possibility."
+    },
+    {
+      "question": "Why are source maps important when reading a React Native crash's stack trace?",
+      "options": [
+        "They make the app run faster",
+        "Without them, you'd see a location in the minified/bundled JS output instead of the original source line in your actual file",
+        "Source maps are only relevant for CSS",
+        "They are required for Fast Refresh to work at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "Source maps translate a crash location in the compiled bundle back to the corresponding line in your original source file, which is what makes the stack trace actually actionable."
+    }
+  ]
+}

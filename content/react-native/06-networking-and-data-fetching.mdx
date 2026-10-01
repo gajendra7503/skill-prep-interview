@@ -1,0 +1,83 @@
+---
+title: "Networking & Data Fetching"
+description: "Using fetch on-device, handling loading/error states explicitly, and when to reach for a data-fetching library."
+module: "Data & State"
+order: 6
+---
+
+React Native ships the same `fetch` API you'd use on the web — there's no
+separate mobile-specific networking API you need to learn first.
+
+```jsx
+function UserProfile({ userId }) {
+  const [state, setState] = useState({ status: "loading", data: null, error: null });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`https://api.example.com/users/${userId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled) setState({ status: "success", data, error: null });
+      })
+      .catch((error) => {
+        if (!cancelled) setState({ status: "error", data: null, error });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  if (state.status === "loading") return <ActivityIndicator />;
+  if (state.status === "error") return <Text>Couldn't load profile.</Text>;
+  return <Text>{state.data.name}</Text>;
+}
+```
+
+## Why you have to handle every state explicitly
+
+On the web, a slow network request is still visually "fine" by default — the
+page just sits there. On mobile, there's no equivalent of a browser tab's
+loading spinner, and users expect instant feedback on a touch interaction.
+That means every screen doing a fetch needs its own explicit `loading`,
+`error`, and `empty` states — skipping any of them is one of the most common
+sources of a "broken-feeling" mobile app (a blank white screen while data
+loads, or a silent failure with no indication anything went wrong).
+
+## Why libraries like React Query or SWR earn their place quickly
+
+The hand-rolled pattern above re-solves the same problems — race conditions
+(an old request resolving after a newer one started), caching, retry logic,
+and refetching on reconnect — in every single component that fetches data.
+Once an app has more than a couple of endpoints, a dedicated library pays
+for itself:
+
+```jsx
+import { useQuery } from "@tanstack/react-query";
+
+function UserProfile({ userId }) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetch(`https://api.example.com/users/${userId}`).then((r) => r.json()),
+  });
+
+  if (isLoading) return <ActivityIndicator />;
+  if (isError) return <Text>Couldn't load profile.</Text>;
+  return <Text>{data.name}</Text>;
+}
+```
+
+The same `loading`/`error`/`data` states are still there — the library just
+handles caching (so navigating back to an already-fetched screen is instant),
+deduplication, and automatic retries, instead of you reimplementing them
+per screen.
+
+### Try it yourself
+
+Take the hand-rolled `UserProfile` above and add a "Retry" button that only
+appears in the error state, calling the same fetch logic again without a
+full component remount.

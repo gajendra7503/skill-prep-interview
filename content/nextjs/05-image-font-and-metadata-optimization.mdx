@@ -1,0 +1,104 @@
+---
+title: "Image, Font & Metadata Optimization"
+description: "Ship fast, zero-layout-shift pages with next/image, next/font, and per-page SEO metadata."
+module: "Performance"
+order: 5
+---
+
+A meaningful chunk of real-world performance work is just images, fonts, and
+`<head>` tags — Next.js bakes optimizations for all three directly into the
+framework.
+
+## `next/image`: resized, lazy-loaded images by default
+
+```tsx
+import Image from "next/image";
+
+export function Avatar() {
+  return (
+    <Image
+      src="/team/asha.jpg"
+      alt="Asha Rao"
+      width={96}
+      height={96}
+      className="rounded-full"
+    />
+  );
+}
+```
+
+Compared to a plain `<img>`, `next/image`:
+
+- Serves a **correctly sized, modern format** (like WebP/AVIF) automatically,
+  based on the rendered dimensions and the visitor's device.
+- **Lazy-loads** images outside the viewport by default.
+- **Reserves layout space** using `width`/`height` (or `fill`), preventing
+  layout shift as images load — a major factor in Core Web Vitals.
+
+For an image above the fold (like a hero image), pass `priority` to skip
+lazy loading and load it immediately:
+
+```tsx
+<Image src="/hero.jpg" alt="" fill priority sizes="100vw" />
+```
+
+`sizes` tells the browser how much of the viewport the image will occupy at
+different breakpoints, so it can pick the right generated size instead of
+downloading the largest one everywhere.
+
+## `next/font`: self-hosted, layout-shift-free fonts
+
+This app's own `layout.tsx` uses exactly this pattern:
+
+```tsx
+import { Geist } from "next/font/google";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+```
+
+`next/font` downloads the font file at **build time** and self-hosts it —
+no runtime request to Google Fonts, no render-blocking `<link>` tag, and no
+flash of unstyled/fallback text swapping in late, because the font metrics
+are known ahead of time and injected as CSS.
+
+## Metadata: static export or `generateMetadata`
+
+For pages with fixed content, export a static `metadata` object:
+
+```tsx
+// app/about/page.tsx
+export const metadata = {
+  title: "About — SkillPrep",
+  description: "What SkillPrep is and who it's for.",
+};
+```
+
+For dynamic routes where the title depends on fetched data — like a blog
+post or a course page — export an async `generateMetadata` function
+instead:
+
+```tsx
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = await getPost(slug);
+  return {
+    title: post.title,
+    description: post.excerpt,
+    openGraph: { images: [post.coverImage] },
+  };
+}
+```
+
+Metadata defined in a `layout.tsx` applies to everything nested inside it,
+and a page's own `metadata`/`generateMetadata` merges with (and can
+override) it — so a shared site name and default description can live once
+in the root layout.
+
+### Try it yourself
+
+Add `generateMetadata` to the lesson page in this app so each lesson's
+`<title>` becomes `"{lesson title} — SkillPrep"` instead of the generic
+site-wide title.

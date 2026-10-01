@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "question": "What must a JSX expression return?",
+      "options": [
+        "Multiple sibling elements with no wrapper",
+        "A single root element or fragment",
+        "A string only",
+        "Nothing — JSX cannot be returned"
+      ],
+      "correctIndex": 1,
+      "explanation": "JSX must have one enclosing root element, or you can use a fragment (<>...</>) to avoid adding an extra DOM node."
+    },
+    {
+      "question": "Which attribute name is correct in JSX for a click handler?",
+      "options": ["onclick", "OnClick", "onClick", "on-click"],
+      "correctIndex": 2,
+      "explanation": "JSX attributes use camelCase, so DOM event handlers are named like onClick, onChange, etc."
+    },
+    {
+      "question": "Why should you avoid mutating props inside a component?",
+      "options": [
+        "Props are read-only by convention; mutating them breaks the one-way data flow from parent to child",
+        "JavaScript throws a runtime error when you mutate an object",
+        "It only matters for class components",
+        "It has no real effect either way"
+      ],
+      "correctIndex": 0,
+      "explanation": "Props flow one direction, parent to child. Treating them as immutable keeps data flow predictable and avoids subtle bugs when the parent re-renders."
+    },
+    {
+      "question": "What is the purpose of the special `children` prop?",
+      "options": [
+        "It lists a component's child components in an array for debugging",
+        "It lets a component render whatever nested content is passed between its opening and closing tags",
+        "It is only used internally by React DevTools",
+        "It replaces the need for props entirely"
+      ],
+      "correctIndex": 1,
+      "explanation": "`children` is how wrapper/layout components (like a Card) render arbitrary nested JSX passed to them by a parent."
+    }
+  ]
+}

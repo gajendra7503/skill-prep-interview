@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is 'offline-first' a more central concern for mobile apps than for most web apps?",
+      "options": [
+        "Mobile devices cannot connect to WiFi",
+        "Mobile usage routinely involves real connectivity loss (subways, flights, dead zones), so offline is a normal state to design for, not an edge case",
+        "AsyncStorage doesn't work without an internet connection",
+        "App stores require offline support for approval"
+      ],
+      "correctIndex": 1,
+      "explanation": "Mobile users regularly experience genuine connectivity loss as part of normal use, which is why offline-first treats local data as the primary source of truth rather than an afterthought."
+    },
+    {
+      "question": "What is a key limitation of AsyncStorage compared to an embedded database like SQLite?",
+      "options": [
+        "AsyncStorage cannot store strings",
+        "AsyncStorage has no querying capability beyond exact key lookups, making filtering or relational data awkward at scale",
+        "AsyncStorage only works on iOS",
+        "AsyncStorage data is lost when the app closes"
+      ],
+      "correctIndex": 1,
+      "explanation": "AsyncStorage is a flat key-value store; anything resembling a query (filter, join, relationship) has to be done manually in JS after loading everything, which doesn't scale well."
+    },
+    {
+      "question": "In the optimistic local-write pattern shown, why does the UI render the new note before the API call to the server resolves?",
+      "options": [
+        "It's a bug that should be fixed",
+        "The local database is treated as the source of truth, so the UI reflects the user's action immediately rather than waiting on a network round-trip",
+        "The API call is not actually necessary",
+        "React Native requires all UI updates to happen before any async call"
+      ],
+      "correctIndex": 1,
+      "explanation": "Offline-first design makes the local write authoritative for the UI; the network sync happens in the background and updates a sync status flag rather than blocking the user-visible update."
+    },
+    {
+      "question": "What does a layer like WatermelonDB add on top of raw SQLite?",
+      "options": [
+        "Nothing — it's just a renamed version of SQLite",
+        "An observable, React-friendly query layer plus built-in sync primitives, so components can subscribe to a query and re-render automatically as local data changes",
+        "It replaces SQL queries with AsyncStorage key-value lookups",
+        "It removes the need for any local database at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "WatermelonDB builds on SQLite's storage but adds reactive, observable queries and sync-aware primitives, so UI components update automatically as the underlying data changes, whether from the user or a background sync."
+    }
+  ]
+}

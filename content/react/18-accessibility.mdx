@@ -1,0 +1,111 @@
+---
+title: "Accessibility"
+description: "Semantic HTML, ARIA, focus management, and testing — building UI that works for every user and input method."
+module: "Accessibility"
+order: 18
+---
+
+Accessibility (a11y) is frequently tested in interviews not as trivia but as
+a judgment question: does the candidate reach for ARIA first, or for the
+right HTML element?
+
+## Semantic HTML is the first line of defense
+
+```jsx
+// Avoid: looks clickable, but keyboard/screen-reader users get nothing
+<div onClick={handleSubmit}>Submit</div>
+
+// Prefer: free keyboard focus, Enter/Space activation, and correct role
+<button onClick={handleSubmit}>Submit</button>
+```
+
+A native `<button>` is focusable, activates on both Enter and Space, and is
+announced as a button by screen readers — all for free. A styled `<div>`
+with an `onClick` requires you to manually reimplement `tabIndex`,
+`onKeyDown` handling, and a `role` attribute to match, and it's easy to miss
+one of these.
+
+## ARIA: for when semantics alone aren't enough
+
+```jsx
+function IconButton({ onClick }) {
+  return (
+    <button onClick={onClick} aria-label="Close dialog">
+      <XIcon /> {/* a visual icon with no text content */}
+    </button>
+  );
+}
+
+function Accordion({ isOpen, onToggle, children }) {
+  return (
+    <>
+      <button aria-expanded={isOpen} onClick={onToggle}>
+        Section title
+      </button>
+      {isOpen && <div role="region">{children}</div>}
+    </>
+  );
+}
+```
+
+`aria-label` gives an accessible name to an element with no visible text
+(an icon-only button). `aria-expanded` tells assistive tech whether a
+collapsible section is currently open. The rule of thumb: reach for ARIA
+only to describe state/relationships that HTML can't express on its own —
+never to patch around using the wrong element in the first place.
+
+## Focus management: modals and keyboard navigation
+
+```jsx
+function Modal({ onClose, children }) {
+  const closeButtonRef = useRef(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus(); // move focus into the modal on open
+
+    function handleKeyDown(e) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div role="dialog" aria-modal="true">
+      <button ref={closeButtonRef} onClick={onClose}>Close</button>
+      {children}
+    </div>
+  );
+}
+```
+
+A keyboard-only user who opens a modal should land focus inside it
+immediately, be able to close it with Escape, and have focus **return** to
+whatever triggered the modal when it closes — without this, keyboard focus
+gets "lost" behind the now-hidden modal trigger.
+
+## Testing accessibility automatically
+
+```jsx
+import { render } from "@testing-library/react";
+import { axe, toHaveNoViolations } from "jest-axe";
+
+expect.extend(toHaveNoViolations);
+
+test("Modal has no accessibility violations", async () => {
+  const { container } = render(<Modal onClose={() => {}}>Content</Modal>);
+  const results = await axe(container);
+  expect(results).toHaveNoViolations();
+});
+```
+
+`jest-axe` catches a meaningful subset of accessibility issues (missing
+labels, invalid ARIA usage, insufficient color contrast) automatically in
+CI — it doesn't replace manual keyboard/screen-reader testing, but it
+catches regressions cheaply.
+
+### Try it yourself
+
+Open this app in a browser, unplug your mouse (or just don't touch it), and
+try to navigate from the homepage to marking a lesson complete using only
+Tab, Shift+Tab, and Enter. Note anywhere focus feels lost or unclear.
