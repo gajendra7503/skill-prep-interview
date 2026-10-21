@@ -1,0 +1,129 @@
+---
+title: "Iterators & Generators"
+description: "The iterator protocol, generator functions, yield from, lazy pipelines, and the exhaustion gotcha."
+module: "Advanced Patterns"
+level: "intermediate"
+order: 12
+---
+
+Every `for` loop in Python runs on the iterator protocol, and generators are
+the easiest way to implement it. Understanding them lets you process files
+and data streams far larger than memory — and answer the classic interview
+question of why a generator "stops working" the second time you loop over it.
+
+## The iterator protocol
+
+An **iterable** is anything with an `__iter__` method that returns an
+iterator. An **iterator** has `__next__`, which returns the next value or
+raises `StopIteration` when it is done, and its `__iter__` returns itself.
+
+```python
+nums = [10, 20]
+it = iter(nums)          # calls nums.__iter__()
+print(next(it))          # 10
+print(next(it))          # 20
+next(it)                 # StopIteration
+```
+
+A `for` loop is roughly: call `iter()` once, then call `next()` repeatedly
+until `StopIteration`, which it catches silently. A list is iterable but not
+an iterator — each `iter(nums)` gives a fresh, independent iterator.
+
+## Writing an iterator class
+
+```python
+class Countdown:
+    def __init__(self, start):
+        self.current = start
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current <= 0:
+            raise StopIteration
+        self.current -= 1
+        return self.current + 1
+
+print(list(Countdown(3)))    # [3, 2, 1]
+```
+
+## Generators: the same thing, far less code
+
+A function containing `yield` is a generator function. Calling it runs
+*none* of its body; it returns a generator object. Each `next()` resumes the
+body until the next `yield`, then pauses with all local state preserved.
+
+```python
+def countdown(start):
+    print("starting")
+    while start > 0:
+        yield start
+        start -= 1
+
+gen = countdown(3)        # nothing printed yet
+print(next(gen))          # starting, then 3
+print(list(gen))          # [2, 1]
+```
+
+When the function returns, the generator raises `StopIteration` for you.
+
+## Exhaustion: generators are single-use
+
+```python
+squares = (n * n for n in range(4))   # generator expression
+print(sum(squares))                    # 14
+print(sum(squares))                    # 0 - already exhausted
+print(list(squares))                   # []
+```
+
+An exhausted iterator just yields nothing; it does not raise or restart.
+If you need multiple passes, store the results in a list or call the
+generator function again. The same applies to `map`, `filter`, `zip` and
+file objects.
+
+## Generator expressions and lazy pipelines
+
+Generator expressions use parentheses instead of brackets and produce values
+on demand, so memory stays constant regardless of input size. Chaining them
+builds a lazy pipeline where each line flows through every stage before the
+next line is read:
+
+```python
+def read_lines(path):
+    with open(path) as f:
+        for line in f:
+            yield line.rstrip("\n")
+
+lines = read_lines("access.log")
+errors = (l for l in lines if " 500 " in l)
+ips = (l.split()[0] for l in errors)
+first_ten = [ip for _, ip in zip(range(10), ips)]   # stops after 10 matches
+```
+
+Nothing is read until `first_ten` pulls values. `itertools.islice` is the
+idiomatic way to take the first N items from any iterator.
+
+## `yield from`: delegating to a sub-generator
+
+`yield from iterable` yields every item from another iterable. With
+sub-generators, it also forwards `send()` and `throw()` calls and evaluates
+to the sub-generator's `return` value.
+
+```python
+def flatten(items):
+    for item in items:
+        if isinstance(item, list):
+            yield from flatten(item)    # recursive delegation
+        else:
+            yield item
+
+print(list(flatten([1, [2, [3, 4]], 5])))   # [1, 2, 3, 4, 5]
+```
+
+### Try it yourself
+
+Write a generator `chunked(iterable, size)` that yields lists of up to
+`size` items, a `fibonacci()` generator that never ends, and combine them
+with `itertools.islice` to print the first 20 Fibonacci numbers in chunks
+of 5. Then explain why calling `list(fibonacci())` would hang.

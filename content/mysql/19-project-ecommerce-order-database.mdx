@@ -1,0 +1,227 @@
+---
+title: "Real Project: E-commerce Order Database"
+description: "Design and build an order database with constraints, seed data, a concurrency-safe checkout transaction, window-function reports and EXPLAIN-justified indexes."
+module: "Real-World Project"
+level: pro
+order: 28
+---
+
+Time to combine the course into the schema interviewers love most: an
+online shop. You will design tables with real constraints, seed them, place
+an order safely while other customers compete for the same stock, write
+reporting queries, and justify every index with `EXPLAIN`.
+
+## 1. The schema: constraints do the validation
+
+```sql
+CREATE DATABASE shop CHARACTER SET utf8mb4;
+USE shop;
+
+CREATE TABLE customers (
+  customer_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(100) NOT NULL,
+  email       VARCHAR(255) NOT NULL UNIQUE,
+  city        VARCHAR(50)  NOT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE products (
+  product_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  sku        VARCHAR(20)   NOT NULL UNIQUE,
+  name       VARCHAR(100)  NOT NULL,
+  price      DECIMAL(10,2) NOT NULL CHECK (price > 0),
+  stock      INT UNSIGNED  NOT NULL DEFAULT 0
+);
+
+CREATE TABLE orders (
+  order_id    BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  customer_id INT UNSIGNED NOT NULL,
+  status      ENUM('placed','shipped','delivered','cancelled')
+              NOT NULL DEFAULT 'placed',
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id)
+    REFERENCES customers (customer_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE order_items (
+  order_id   BIGINT UNSIGNED NOT NULL,
+  product_id INT UNSIGNED    NOT NULL,
+  quantity   SMALLINT UNSIGNED NOT NULL CHECK (quantity > 0),
+  unit_price DECIMAL(10,2)   NOT NULL,
+  PRIMARY KEY (order_id, product_id),
+  CONSTRAINT fk_items_order FOREIGN KEY (order_id)
+    REFERENCES orders (order_id) ON DELETE CASCADE,
+  CONSTRAINT fk_items_product FOREIGN KEY (product_id)
+    REFERENCES products (product_id)
+);
+```
+
+Design decisions worth saying out loud: money is `DECIMAL`, never `FLOAT`;
+`CHECK` constraints are enforced since MySQL 8.0.16; `UNSIGNED` stock makes
+overselling fail loudly instead of going negative; and `unit_price` is
+copied into `order_items` so a later price change does not rewrite
+history. The composite primary key stops the same product appearing twice
+in one order.
+
+## 2. Seed data
+
+```sql
+INSERT INTO customers (name, email, city) VALUES
+  ('Asha Rao',    'asha@example.in',  'Bengaluru'),
+  ('Ravi Kumar',  'ravi@example.in',  'Delhi'),
+  ('Meera Iyer',  'meera@example.in', 'Chennai'),
+  ('Kabir Singh', 'kabir@example.in', 'Delhi');
+
+INSERT INTO products (sku, name, price, stock) VALUES
+  ('KB-01', 'Mechanical keyboard', 4499.00, 25),
+  ('MS-02', 'Wireless mouse',       899.00, 60),
+  ('MN-03', '27-inch monitor',    18999.00,  8),
+  ('HD-04', 'Noise-cancelling headphones', 12499.00, 1);
+
+INSERT INTO orders (customer_id, status, created_at) VALUES
+  (1, 'delivered', '2026-08-03 10:15:00'), (2, 'delivered', '2026-08-19 18:40:00'),
+  (1, 'shipped',   '2026-09-07 09:05:00'), (3, 'cancelled', '2026-09-11 14:20:00'),
+  (4, 'placed',    '2026-10-02 20:10:00');
+
+INSERT INTO order_items VALUES
+  (1, 1, 1, 4499.00), (1, 2, 2, 899.00), (2, 3, 1, 18999.00),
+  (3, 4, 1, 12499.00), (4, 2, 1, 899.00), (5, 1, 2, 4499.00);
+```
+
+## 3. Placing an order: a transaction with a stock check
+
+Two customers may try to buy the last headphones at the same moment. Lock
+the product rows first, in ascending `product_id` order so concurrent
+checkouts cannot deadlock:
+
+```sql
+START TRANSACTION;
+
+SELECT product_id, price, stock
+  FROM products
+ WHERE product_id IN (2, 4)
+ ORDER BY product_id
+ FOR UPDATE;
+-- 2 | 899.00   | 60
+-- 4 | 12499.00 | 1     -- app verifies stock >= requested qty, else ROLLBACK
+
+INSERT INTO orders (customer_id) VALUES (2);
+SET @order_id = LAST_INSERT_ID();
+
+INSERT INTO order_items (order_id, product_id, quantity, unit_price)
+SELECT @order_id, product_id, IF(product_id = 2, 3, 1), price
+  FROM products WHERE product_id IN (2, 4);
+
+UPDATE products
+   SET stock = stock - IF(product_id = 2, 3, 1)
+ WHERE product_id IN (2, 4);
+
+COMMIT;
+```
+
+The second buyer's `FOR UPDATE` blocks until the first commits, then reads
+the **current** stock (0) and rolls back — no overselling. An equally valid
+pattern skips the explicit read and uses a guarded atomic update,
+`UPDATE products SET stock = stock - 1 WHERE product_id = 4 AND stock >= 1`,
+then checks that `ROW_COUNT()` is 1. Wrap either version in deadlock-retry
+logic in the application.
+
+## 4. Reporting queries
+
+Run these on the seed data (before the step 3 checkout). Revenue per
+month, excluding cancellations. Note the range predicate on the
+raw column rather than `YEAR(created_at) = 2026`, so an index can be used:
+
+```sql
+SELECT DATE_FORMAT(o.created_at, '%Y-%m') AS month,
+       SUM(oi.quantity * oi.unit_price)   AS revenue,
+       SUM(SUM(oi.quantity * oi.unit_price))
+         OVER (ORDER BY DATE_FORMAT(o.created_at, '%Y-%m')) AS running_total
+  FROM orders o
+  JOIN order_items oi ON oi.order_id = o.order_id
+ WHERE o.status <> 'cancelled'
+   AND o.created_at >= '2026-01-01' AND o.created_at < '2027-01-01'
+ GROUP BY month
+ ORDER BY month;
+```
+
+| month | revenue | running_total |
+| --- | --- | --- |
+| 2026-08 | 25296.00 | 25296.00 |
+| 2026-09 | 12499.00 | 37795.00 |
+| 2026-10 | 8998.00 | 46793.00 |
+
+Top customers overall and within their city, using window functions over
+an aggregated CTE:
+
+```sql
+WITH spend AS (
+  SELECT c.customer_id, c.name, c.city,
+         SUM(oi.quantity * oi.unit_price) AS total
+    FROM customers c
+    JOIN orders o       ON o.customer_id = c.customer_id
+    JOIN order_items oi ON oi.order_id   = o.order_id
+   WHERE o.status <> 'cancelled'
+   GROUP BY c.customer_id, c.name, c.city
+)
+SELECT name, city, total,
+       RANK() OVER (ORDER BY total DESC)                    AS overall_rank,
+       RANK() OVER (PARTITION BY city ORDER BY total DESC)  AS city_rank
+  FROM spend
+ ORDER BY overall_rank;
+-- Ravi Kumar   Delhi      18999.00  1  1
+-- Asha Rao     Bengaluru  18796.00  2  1
+-- Kabir Singh  Delhi       8998.00  3  2
+```
+
+## 5. Indexes justified with EXPLAIN
+
+The "my orders" page runs this on every visit:
+
+```sql
+EXPLAIN SELECT order_id, status, created_at FROM orders
+ WHERE customer_id = 1 ORDER BY created_at DESC LIMIT 10;
+```
+
+| type | key | rows | Extra |
+| --- | --- | --- | --- |
+| ref | fk_orders_customer | 2 | Using filesort |
+
+The foreign key created an index on `customer_id`, but sorting still needs
+a filesort. A composite index serves both the filter and the order:
+
+```sql
+ALTER TABLE orders ADD INDEX idx_customer_created (customer_id, created_at);
+ALTER TABLE orders ADD INDEX idx_created (created_at);  -- monthly reports
+```
+
+| type | key | rows | Extra |
+| --- | --- | --- | --- |
+| ref | idx_customer_created | 2 | Backward index scan |
+
+MySQL may now drop the redundant FK-generated index, since the new one has
+`customer_id` as its leftmost column. `order_items` needs no extra index on
+`order_id` (it is the PK prefix), and `product_id` already got one from its
+foreign key — useful for "who bought product X?" queries.
+
+## What this project demonstrates
+
+- **Constraints over code**: `UNIQUE`, `CHECK`, `FOREIGN KEY` and
+  `UNSIGNED` reject bad data no matter which client writes it.
+- **Concurrency safety**: `FOR UPDATE` in a consistent lock order prevents
+  overselling and deadlocks.
+- **Analytics in SQL**: CTEs, aggregates and window functions answer
+  business questions without exporting data.
+- **Evidence-based indexing**: each index exists because `EXPLAIN` showed
+  a specific query needed it.
+
+### Extend it yourself
+
+- Add a `payments` table and make the checkout insert a pending payment in
+  the same transaction.
+- Write a stored procedure `place_order(customer_id, items JSON)` that uses
+  `JSON_TABLE` to lock and decrement any number of products.
+- Report each product's share of monthly revenue with
+  `SUM(...) OVER (PARTITION BY month)`.
+- Run two checkout sessions for the last headphone and prove only one
+  succeeds.

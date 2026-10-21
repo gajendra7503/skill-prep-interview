@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In `order_items` with primary key (order_id, product_id), `product_name` depends only on `product_id`. Which normal form does this violate?",
+      "options": [
+        "1NF",
+        "2NF",
+        "BCNF only",
+        "None; it is fully normalized"
+      ],
+      "correctIndex": 1,
+      "explanation": "A non-key column depending on only part of a composite key is a partial dependency, which 2NF forbids."
+    },
+    {
+      "question": "`orders` stores order_id (PK), customer_id, and customer_city. What is the problem?",
+      "options": [
+        "A transitive dependency (order_id to customer_id to customer_city), violating 3NF",
+        "A repeating group, violating 1NF",
+        "A partial dependency, violating 2NF",
+        "Nothing; storing the city speeds up reads"
+      ],
+      "correctIndex": 0,
+      "explanation": "customer_city depends on customer_id rather than directly on the key, so it belongs in the customers table."
+    },
+    {
+      "question": "Why is a random UUID stored as CHAR(36) a poor InnoDB primary key for a large table?",
+      "options": [
+        "InnoDB does not allow string primary keys",
+        "UUIDs cannot be unique across servers",
+        "Random values insert all over the clustered index causing page splits, and every secondary index stores the wide key",
+        "CHAR columns cannot be indexed"
+      ],
+      "correctIndex": 2,
+      "explanation": "The primary key is the clustered index and is copied into every secondary index entry, so random, wide keys hurt insert locality and index size."
+    },
+    {
+      "question": "What does the second argument in `UUID_TO_BIN(UUID(), 1)` do?",
+      "options": [
+        "Generates a version-4 random UUID",
+        "Adds a checksum byte",
+        "Compresses the UUID to 8 bytes",
+        "Swaps the time-low and time-high parts so stored values increase over time"
+      ],
+      "correctIndex": 3,
+      "explanation": "The swap flag reorders the version-1 timestamp fields so inserts are roughly sequential; read back with BIN_TO_UUID(id, 1) using the same flag."
+    }
+  ]
+}

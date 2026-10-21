@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import {
   getAdjacentLessons,
@@ -6,12 +6,18 @@ import {
   getLessonContent,
   getLessonModules,
   getLessonQuiz,
+  getSearchIndex,
 } from "@/lib/content";
+import { SearchPalette } from "@/components/search-palette";
 import { LessonSidebar } from "@/components/lesson-sidebar";
 import { MdxContent } from "@/components/mdx-content";
 import { MarkCompleteButton } from "@/components/mark-complete-button";
 import { Quiz } from "@/components/quiz";
 import { getCompletedLessonSlugs, getCurrentUser } from "@/lib/progress";
+import { CourseIcon } from "@/components/course-icon";
+import { LevelBadge } from "@/components/level-badge";
+import { TutorPanel } from "@/components/tutor-panel";
+import { tutorConfig, tutorQuota } from "@/lib/tutor";
 
 export default async function LessonPage({
   params,
@@ -19,6 +25,10 @@ export default async function LessonPage({
   params: Promise<{ course: string; lesson: string }>;
 }) {
   const { course: courseSlug, lesson: lessonSlug } = await params;
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect(`/login?next=${encodeURIComponent(`/courses/${courseSlug}/${lessonSlug}`)}`);
+  }
 
   const course = getCourse(courseSlug);
   const lessonData = getLessonContent(courseSlug, lessonSlug);
@@ -27,15 +37,13 @@ export default async function LessonPage({
   const modules = getLessonModules(courseSlug);
   const quiz = getLessonQuiz(courseSlug, lessonSlug);
   const { previous, next } = getAdjacentLessons(courseSlug, lessonSlug);
-  const [completed, user] = await Promise.all([
-    getCompletedLessonSlugs(courseSlug),
-    getCurrentUser(),
-  ]);
+  const completed = await getCompletedLessonSlugs(courseSlug);
+  const tutor = tutorConfig();
+  const quota = tutor.enabled ? await tutorQuota(user.id) : { remaining: 0, limit: tutor.dailyLimit };
 
   return (
     <div
       className="mx-auto flex max-w-5xl gap-10 px-6 py-10"
-      style={{ "--accent": course.accent } as React.CSSProperties}
     >
       <LessonSidebar
         courseSlug={courseSlug}
@@ -45,21 +53,35 @@ export default async function LessonPage({
       />
 
       <article className="min-w-0 flex-1">
-        <Link
-          href={`/courses/${courseSlug}`}
-          className="mb-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
-          style={{
-            backgroundColor: "color-mix(in srgb, var(--accent) 15%, transparent)",
-            color: "color-mix(in srgb, var(--accent) 70%, black)",
-          }}
-        >
-          <span>{course.icon}</span>
-          {course.title}
-        </Link>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/courses/${courseSlug}`}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--accent) 15%, transparent)",
+                color: "color-mix(in srgb, var(--accent) 70%, black)",
+              }}
+            >
+              <CourseIcon icon={course.icon} />
+              {course.title}
+            </Link>
+            <LevelBadge level={lessonData.frontmatter.level} />
+          </div>
+          <SearchPalette lessons={getSearchIndex()} />
+        </div>
         <h1 className="mb-2 text-3xl font-bold tracking-tight">{lessonData.frontmatter.title}</h1>
-        <p className="mb-8 text-zinc-600 dark:text-zinc-400">{lessonData.frontmatter.description}</p>
+        <p className="mb-8 text-slate-600 dark:text-slate-400">{lessonData.frontmatter.description}</p>
 
         <MdxContent source={lessonData.content} />
+
+        <TutorPanel
+          courseSlug={courseSlug}
+          lessonSlug={lessonSlug}
+          enabled={tutor.enabled}
+          initialRemaining={quota.remaining}
+          dailyLimit={quota.limit}
+        />
 
         {quiz && (
           <div className="mt-10">
@@ -67,22 +89,22 @@ export default async function LessonPage({
           </div>
         )}
 
-        <div className="mt-10 border-t border-zinc-200 pt-6 dark:border-zinc-800">
+        <div className="mt-10 border-t border-slate-200 pt-6 dark:border-slate-800">
           <div className="mb-6">
             <MarkCompleteButton
               courseSlug={courseSlug}
               lessonSlug={lessonSlug}
               completed={completed.has(lessonSlug)}
-              signedIn={Boolean(user)}
+              signedIn
             />
           </div>
           <div className="flex items-stretch gap-3">
             {previous ? (
               <Link
                 href={`/courses/${courseSlug}/${previous.slug}`}
-                className="flex flex-1 flex-col rounded-xl border border-zinc-200 px-4 py-3 transition hover:border-[var(--accent)] dark:border-zinc-800"
+                className="flex flex-1 flex-col rounded-xl border border-slate-200 px-4 py-3 transition hover:border-[var(--accent)] dark:border-slate-800"
               >
-                <span className="text-xs text-zinc-500">← Previous</span>
+                <span className="text-xs text-slate-500">← Previous</span>
                 <span className="font-medium">{previous.title}</span>
               </Link>
             ) : (
@@ -91,9 +113,9 @@ export default async function LessonPage({
             {next ? (
               <Link
                 href={`/courses/${courseSlug}/${next.slug}`}
-                className="flex flex-1 flex-col items-end rounded-xl border border-zinc-200 px-4 py-3 text-right transition hover:border-[var(--accent)] dark:border-zinc-800"
+                className="flex flex-1 flex-col items-end rounded-xl border border-slate-200 px-4 py-3 text-right transition hover:border-[var(--accent)] dark:border-slate-800"
               >
-                <span className="text-xs text-zinc-500">Next →</span>
+                <span className="text-xs text-slate-500">Next →</span>
                 <span className="font-medium">{next.title}</span>
               </Link>
             ) : (

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does the project NOT open port 3000 in ufw?",
+      "options": [
+        "ufw cannot open ports above 1024",
+        "The app binds to 127.0.0.1:3000 and only nginx, on the same machine, needs to reach it",
+        "Node.js automatically uses port 80",
+        "systemd blocks port 3000 by default"
+      ],
+      "correctIndex": 1,
+      "explanation": "nginx is the only public entry point on 80/443 and proxies to the app over loopback, so exposing 3000 would only add attack surface."
+    },
+    {
+      "question": "What does `ProtectSystem=strict` in the shopkaro.service unit do?",
+      "options": [
+        "Restarts the service whenever it crashes",
+        "Runs the service as root",
+        "Mounts the filesystem read-only for the service, except paths listed in ReadWritePaths",
+        "Blocks all network access for the service"
+      ],
+      "correctIndex": 2,
+      "explanation": "With strict, the whole file system hierarchy is read-only for the service; ReadWritePaths re-opens specific directories such as the uploads folder."
+    },
+    {
+      "question": "Why does the backup script write to a `.partial` file and then `mv` it to the final name?",
+      "options": [
+        "So that a crash or failure never leaves a half-written file that looks like a valid backup",
+        "Because tar cannot write .tar.gz names directly",
+        "To make the archive smaller",
+        "Because cron requires hidden files"
+      ],
+      "correctIndex": 0,
+      "explanation": "A rename within the same filesystem is atomic. Only complete, gzip-tested archives get the final name, and the EXIT trap removes any partial file."
+    },
+    {
+      "question": "Before reloading nginx after editing a site config, which command should you run?",
+      "options": [
+        "sudo systemctl restart nginx",
+        "sudo ufw reload",
+        "sudo certbot renew",
+        "sudo nginx -t"
+      ],
+      "correctIndex": 3,
+      "explanation": "nginx -t validates the configuration. Reloading with a broken config keeps the old one running, but a restart with a broken config takes the site down."
+    }
+  ]
+}

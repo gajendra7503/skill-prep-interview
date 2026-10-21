@@ -1,0 +1,183 @@
+---
+title: "What Redux Is & When to Use It"
+description: "The problem Redux solves, its three core principles and one-way data flow, and an honest guide to when Redux helps and when it is overkill."
+module: "Getting Started"
+level: "beginner"
+order: 1
+---
+
+Redux is a small library for managing **application state** — the data your
+UI shows and changes — in one predictable place outside your React
+components. Modern Redux is written with **Redux Toolkit** (RTK), the
+official package that wraps the Redux core with good defaults. This course
+teaches RTK throughout; the older hand-written style appears only to explain
+how things work underneath.
+
+## The problem: state that many components share
+
+In plain React, state lives inside components and flows down through props.
+That works well until several distant components need the same data.
+Picture a fictional shopping app, *Rangoli Retail*:
+
+- the header shows a cart badge with the item count,
+- the product page has an "Add to cart" button,
+- the checkout page shows line items and the total in ₹,
+- a mini-cart drawer can remove items.
+
+You can lift the cart state to the top of the tree and pass it down, but
+soon every component in between is forwarding props it never uses ("prop
+drilling"). When a bug appears — "the total is wrong after removing an
+item" — you have to hunt through every component that calls a setter.
+
+Redux moves that shared state into a single **store**. Any component can
+read from it, and the only way to change it is to describe the change as an
+**action** and hand it to the store.
+
+## The three principles
+
+| Principle | What it means in practice |
+|---|---|
+| Single source of truth | All global state lives in one object tree inside one store |
+| State is read-only | You never assign to state directly; you **dispatch** an action describing what happened |
+| Changes are made by pure functions | **Reducers** take the current state and an action and return the next state |
+
+These rules are what make Redux predictable: every change has a name (the
+action type), happens in one place (a reducer), and can be logged, replayed
+or inspected.
+
+## One-way data flow
+
+```text
+   UI event (click "Add to cart")
+            |
+            v
+   dispatch(action)  --->  store runs reducer(state, action)
+                                     |
+                                     v
+                              new state saved
+                                     |
+                                     v
+             subscribed UI re-reads the state it needs and re-renders
+```
+
+Data only ever moves in one direction. The UI never edits state; it asks
+for a change and then reacts to the result.
+
+## A first taste (no React yet)
+
+Here is the cart as a tiny Redux store, using Redux Toolkit. Run it with
+Node after `npm i @reduxjs/toolkit`:
+
+```js
+// cart.mjs
+import { configureStore, createSlice } from "@reduxjs/toolkit";
+
+const cartSlice = createSlice({
+  name: "cart",
+  initialState: { items: [], totalRupees: 0 },
+  reducers: {
+    itemAdded(state, action) {
+      state.items.push(action.payload.name);
+      state.totalRupees += action.payload.price;
+    },
+  },
+});
+
+const store = configureStore({ reducer: { cart: cartSlice.reducer } });
+console.log(store.getState());
+// { cart: { items: [], totalRupees: 0 } }
+
+store.subscribe(() => console.log("changed:", store.getState().cart.totalRupees));
+
+store.dispatch(cartSlice.actions.itemAdded({ name: "Headphones", price: 2499 }));
+// changed: 2499
+store.dispatch(cartSlice.actions.itemAdded({ name: "Charger", price: 799 }));
+// changed: 3298
+
+console.log(cartSlice.actions.itemAdded({ name: "Cable", price: 199 }));
+// { type: 'cart/itemAdded', payload: { name: 'Cable', price: 199 } }
+```
+
+Notice three things:
+
+1. The action is just a plain object with a `type` string and a `payload`.
+2. The store exposes `getState`, `dispatch` and `subscribe` — that is
+   almost its entire API.
+3. The reducer *looks* like it mutates `state`, but RTK uses a library
+   called Immer to turn that into a safe immutable update. Why that matters
+   is covered in "Immutability, Pure Reducers & Immer".
+
+## The vocabulary you will use all course
+
+| Term | One-line meaning |
+|---|---|
+| Store | The object that holds state and runs reducers |
+| Action | A plain object describing something that happened, e.g. `cart/itemAdded` |
+| Action creator | A function that builds an action object |
+| Reducer | A pure function `(state, action) => newState` |
+| Dispatch | Sending an action to the store |
+| Selector | A function that reads a piece of state, e.g. `state => state.cart.items` |
+| Slice | One feature's reducer plus its actions, made with `createSlice` |
+
+Each of these gets its own lesson; for now, recognising the words is enough.
+
+## Why "Redux Toolkit" and not "Redux"?
+
+Early Redux (2015 onwards) needed lots of hand-written boilerplate: action
+type constants, switch statements, spread-heavy immutable updates and manual
+store setup. Redux Toolkit was created by the Redux maintainers to remove
+that. Today the Redux docs say plainly that RTK *is* how you write Redux.
+In the core `redux` package, `createStore` is even marked `@deprecated` in
+its type definitions, pointing you to RTK's `configureStore` (it still works
+and will not be removed — `legacy_createStore` is the same function without
+the warning).
+
+The current stack is **Redux Toolkit 2.x** (which includes the Redux 5
+core), **React-Redux 9.x** for the React bindings, and **RTK Query** (built
+into RTK) for data fetching and caching.
+
+## When Redux is a good fit
+
+- Lots of state is **shared** by many components in different parts of the
+  tree.
+- State is **updated frequently** and the update logic is non-trivial.
+- A medium-to-large codebase with **several developers** benefits from one
+  agreed pattern for where state lives and how it changes.
+- You want strong **debugging**: Redux DevTools shows every action, the
+  state before and after, and lets you "time-travel" back.
+
+## When it is overkill
+
+| Situation | Usually better |
+|---|---|
+| State used by one component or a small subtree (form inputs, an open modal) | `useState` / `useReducer` |
+| A value that rarely changes, like theme or locale | React Context |
+| Mostly caching data from an API | RTK Query (if you already use Redux) or TanStack Query |
+| A small app or prototype | Plain React first; add Redux when the pain appears |
+
+A good rule: keep state as local as possible, and promote it to Redux only
+when it is genuinely global. Mixing is normal — a Redux app still uses
+`useState` for local UI state.
+
+## Interview angles
+
+Interviewers often ask:
+
+- **"Is Redux still relevant?"** Yes, especially in large apps; but say
+  that modern Redux means Redux Toolkit plus hooks, not the old boilerplate.
+- **"Redux vs Context?"** Context is a way to *pass* a value down the tree
+  without props; it is not a state manager with actions, middleware or
+  DevTools. A deeper comparison is in "Redux vs Context, Zustand & TanStack
+  Query".
+- **"Explain the data flow."** UI dispatches an action, the reducer
+  computes new state, subscribers re-read and re-render — one direction.
+
+### Try it yourself
+
+1. Copy `cart.mjs` above into an empty folder outside any project, install
+   `@reduxjs/toolkit`, and run it. Then add an `itemRemoved` reducer that
+   takes `{ name, price }`, removes the first matching name and subtracts
+   the price. Dispatch it and check the total.
+2. For an app you know well, list five pieces of state and decide for each:
+   local `useState`, Context, or Redux. Write one sentence justifying each
+   choice.

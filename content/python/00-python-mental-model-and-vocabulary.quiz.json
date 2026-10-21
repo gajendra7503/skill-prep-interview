@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What happens when a script uses a variable on line 1 that is only assigned on line 2?",
+      "options": [
+        "Python reads the whole file first, so it works",
+        "The variable defaults to None",
+        "A NameError is raised, because statements run top to bottom",
+        "A SyntaxError is raised before anything runs"
+      ],
+      "correctIndex": 2,
+      "explanation": "The interpreter executes statements in order, so at line 1 the name does not exist yet and Python raises NameError."
+    },
+    {
+      "question": "What does `print(print(\"hi\"))` output?",
+      "options": [
+        "hi, then None",
+        "hi, then hi",
+        "Only None",
+        "A TypeError"
+      ],
+      "correctIndex": 0,
+      "explanation": "The inner call prints hi and returns None, because print has no useful return value. The outer call then prints None."
+    },
+    {
+      "question": "Which of these is an expression rather than a statement?",
+      "options": [
+        "total = 3 * 4",
+        "if total > 10:",
+        "import math",
+        "len(\"Python\") > 3"
+      ],
+      "correctIndex": 3,
+      "explanation": "An expression evaluates to a value; len(\"Python\") > 3 evaluates to True. Assignment, if and import are statements."
+    },
+    {
+      "question": "How does Python know which lines belong inside an if block?",
+      "options": [
+        "Lines between curly braces",
+        "Lines indented under the line that ends with a colon",
+        "Lines until the next blank line",
+        "Lines that end with a semicolon"
+      ],
+      "correctIndex": 1,
+      "explanation": "Indentation is part of Python's syntax: the block is the consistently indented lines after a line ending in a colon."
+    }
+  ]
+}

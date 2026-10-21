@@ -1,0 +1,152 @@
+---
+title: "Subqueries & CTEs"
+description: "Scalar, row and table subqueries, correlated subqueries, EXISTS, derived tables, and plain and recursive CTEs."
+module: "Core SQL"
+level: intermediate
+order: 8
+---
+
+A subquery is a `SELECT` nested inside another statement. Interviewers use
+them to probe whether you understand *when* the inner query runs, what shape
+it returns, and how it compares to a join or a CTE. The examples use the
+running schema: `customers`, `orders(order_id, customer_id, amount,
+created_at)`, `products` and
+`employees(emp_id, name, dept_id, manager_id, salary)`.
+
+## Subqueries by shape
+
+The shape of the result decides where a subquery may appear.
+
+```sql
+-- Scalar: exactly one row, one column. Usable anywhere a value is.
+SELECT order_id, amount
+FROM orders
+WHERE amount > (SELECT AVG(amount) FROM orders);
+
+-- Row: one row, several columns, compared with a row constructor.
+SELECT * FROM employees
+WHERE (dept_id, salary) = (SELECT dept_id, MAX(salary)
+                           FROM employees WHERE dept_id = 3);
+
+-- Table: many rows. Used with IN / ANY / ALL / EXISTS or in FROM.
+SELECT name FROM customers
+WHERE customer_id IN (SELECT customer_id FROM orders
+                      WHERE amount >= 50000);
+```
+
+A scalar subquery that returns more than one row raises error 1242
+("Subquery returns more than 1 row"); one that returns no rows yields
+`NULL`. Note that `MySQL` does not allow `LIMIT` inside an `IN` subquery.
+
+## Correlated subqueries
+
+A **correlated** subquery references a column from the outer query, so it
+is logically re-evaluated for every outer row. Classic example: orders
+larger than that customer's own average.
+
+```sql
+SELECT o.order_id, o.customer_id, o.amount
+FROM orders o
+WHERE o.amount > (SELECT AVG(i.amount)
+                  FROM orders i
+                  WHERE i.customer_id = o.customer_id);
+```
+
+The optimizer can sometimes rewrite these (MySQL 8.0.21+ has a
+`subquery_to_derived` optimizer switch, off by default), but you should
+assume row-by-row cost and make sure `orders(customer_id)` is indexed.
+
+## EXISTS vs IN, and the NOT IN trap
+
+`EXISTS` returns true as soon as the subquery finds one row; the select list
+is ignored, so `SELECT 1` is conventional.
+
+```sql
+-- Customers who have placed at least one order
+SELECT c.name FROM customers c
+WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id);
+```
+
+In MySQL 8.0 both `IN` and `EXISTS` are usually converted to a **semijoin**,
+so performance is often identical. The real difference is `NULL` handling
+with negation: if the subquery returns any `NULL`, `x NOT IN (...)` is never
+true, so the query silently returns zero rows. `NOT EXISTS` (an antijoin)
+does not have this problem, which makes it the safer default.
+
+```sql
+-- Returns nothing if any orders.customer_id is NULL!
+SELECT name FROM customers
+WHERE customer_id NOT IN (SELECT customer_id FROM orders);
+```
+
+## Derived tables
+
+A subquery in `FROM` is a **derived table** and must have an alias. The
+optimizer may *merge* it into the outer query or *materialize* it into an
+internal temporary table.
+
+```sql
+SELECT t.customer_id, t.total
+FROM (SELECT customer_id, SUM(amount) AS total
+      FROM orders GROUP BY customer_id) AS t
+WHERE t.total > 100000;
+```
+
+MySQL 8.0.14+ also supports `LATERAL` derived tables, which may reference
+columns of tables earlier in the same `FROM` clause.
+
+## Common table expressions (WITH)
+
+A CTE names a subquery up front, which improves readability and, unlike a
+derived table, can be referenced **more than once** in the same statement.
+
+```sql
+WITH customer_totals AS (
+  SELECT customer_id, SUM(amount) AS total
+  FROM orders GROUP BY customer_id
+)
+SELECT c.name, ct.total
+FROM customer_totals ct
+JOIN customers c USING (customer_id)
+WHERE ct.total > (SELECT AVG(total) FROM customer_totals);
+```
+
+A CTE exists only for the duration of that one statement. It is not a
+performance feature by itself; it is optimized much like a derived table.
+
+## Recursive CTEs
+
+`WITH RECURSIVE` has an **anchor** member, `UNION ALL` (or `UNION`), and a
+**recursive** member that references the CTE itself. Iteration stops when
+the recursive member returns no new rows. The standard use is an org chart:
+
+```sql
+WITH RECURSIVE org AS (
+  SELECT emp_id, name, manager_id, 1 AS lvl,
+         CAST(name AS CHAR(500)) AS path
+  FROM employees WHERE manager_id IS NULL          -- anchor: the CEO
+  UNION ALL
+  SELECT e.emp_id, e.name, e.manager_id, o.lvl + 1,
+         CONCAT(o.path, ' > ', e.name)
+  FROM employees e JOIN org o ON e.manager_id = o.emp_id
+)
+SELECT lvl, path FROM org ORDER BY path;
+```
+
+| lvl | path |
+| --- | --- |
+| 1 | `Anita` |
+| 2 | `Anita > Rahul` |
+| 3 | `Anita > Rahul > Priya` |
+
+Two interview details: column types are fixed by the anchor, hence the
+`CAST` so `path` is not truncated; and runaway recursion is stopped by
+`cte_max_recursion_depth` (default 1000). The same pattern walks a category
+tree via `categories(category_id, parent_id)`.
+
+### Try it yourself
+
+Write three versions of "customers who have never ordered": `NOT IN`,
+`NOT EXISTS`, and `LEFT JOIN ... WHERE o.order_id IS NULL`. Insert an order
+with a `NULL` customer_id and observe which version breaks. Then write a
+recursive CTE that lists every category under "Electronics" with its depth.

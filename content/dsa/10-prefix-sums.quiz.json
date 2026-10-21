@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "With prefix[0] = 0 and prefix[i + 1] = prefix[i] + nums[i], what is the sum of nums[l..r] inclusive?",
+      "options": [
+        "prefix[r] - prefix[l]",
+        "prefix[r + 1] - prefix[l]",
+        "prefix[r + 1] - prefix[l + 1]",
+        "prefix[r] - prefix[l - 1]"
+      ],
+      "correctIndex": 1,
+      "explanation": "prefix[r + 1] holds the sum of nums[0..r] and prefix[l] holds the sum of nums[0..l-1]; subtracting leaves nums[l..r]."
+    },
+    {
+      "question": "In the 'subarray sum equals k' solution, why is the map seeded with 0 → 1?",
+      "options": [
+        "To avoid division by zero",
+        "To handle negative numbers",
+        "So subarrays that start at index 0 are counted",
+        "To make the map iterate in insertion order"
+      ],
+      "correctIndex": 2,
+      "explanation": "A subarray from index 0 to i has sum equal to the running sum itself, which requires an earlier prefix of 0, the empty prefix."
+    },
+    {
+      "question": "When are prefix sums a poor choice for range-sum queries?",
+      "options": [
+        "When values are updated frequently between queries",
+        "When the array contains negative numbers",
+        "When there are many queries",
+        "When the array is larger than 1,000 elements"
+      ],
+      "correctIndex": 0,
+      "explanation": "Updating one element forces an O(n) rebuild of the prefix array. For dynamic data, Fenwick or segment trees are used instead."
+    },
+    {
+      "question": "Using a difference array, how do you record 'add 10 to every element from index 2 to index 5'?",
+      "options": [
+        "Add 10 to diff[2] through diff[5]",
+        "diff[2] += 10 and diff[5] -= 10",
+        "diff[5] += 10 and diff[2] -= 10",
+        "diff[2] += 10 and diff[6] -= 10"
+      ],
+      "correctIndex": 3,
+      "explanation": "The +10 starts at the left index and is cancelled just after the right index, so a prefix-sum pass adds 10 only to positions 2 through 5."
+    }
+  ]
+}

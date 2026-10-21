@@ -1,33 +1,25 @@
 import Link from "next/link";
 import { AuthForm } from "@/components/auth-form";
+import { AuthShell } from "@/components/auth-shell";
 import { login } from "@/app/(auth)/actions";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { SupabaseSetupNotice } from "@/components/supabase-setup-notice";
+import { createCaptcha } from "@/lib/captcha";
 
-export default async function LoginPage({
-  searchParams,
-}: PageProps<"/login">) {
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const params = await searchParams;
-  if (!isSupabaseConfigured()) {
-    return <SupabaseSetupNotice />;
-  }
+  const redirectTo = typeof params.next === "string" ? params.next : "/dashboard";
 
   return (
-    <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
-      <h1 className="mb-6 text-2xl font-bold">Log in</h1>
-      {params.error === "confirmation" && (
-        <p role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400">
-          That confirmation link is invalid or has expired. Please sign up again or request a new link.
+    <AuthShell>
+        <h1 className="text-3xl font-bold tracking-tight">Sign in</h1>
+        <p className="mb-6 mt-1 text-sm text-slate-500">Welcome back. Sign in to continue learning.</p>
+        <AuthForm action={login} captcha={createCaptcha()} submitLabel="Sign in" redirectTo={redirectTo} />
+        <p className="mt-6 text-sm text-slate-500">
+          Don&apos;t have an account?{" "}
+          <Link href={`/signup?next=${encodeURIComponent(redirectTo)}`} className="font-medium text-brand-700 hover:underline dark:text-brand-400">
+            Sign up
+          </Link>
         </p>
-      )}
-      <AuthForm action={login} submitLabel="Log in" />
-      <p className="mt-6 text-sm text-zinc-500">
-        Don&apos;t have an account?{" "}
-        <Link href="/signup" className="font-medium text-indigo-600 underline dark:text-indigo-400">
-          Sign up
-        </Link>
-      </p>
-    </div>
+    </AuthShell>
   );
 }
 

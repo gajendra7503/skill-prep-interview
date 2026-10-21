@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Your build outputs app.3f9a1c.js (hashed) and index.html. What caching strategy is correct?",
+      "options": [
+        "Cache both for one year",
+        "Cache neither, to be safe",
+        "Long, immutable cache for the hashed JS; no cache for index.html",
+        "Cache index.html for one year and the JS for zero seconds"
+      ],
+      "correctIndex": 2,
+      "explanation": "A new build changes the hash in the file name, so hashed assets can be cached forever. index.html must stay fresh so browsers learn the new asset names."
+    },
+    {
+      "question": "In EJS, what is the difference between <%= value %> and <%- value %>?",
+      "options": [
+        "<%= %> HTML-escapes the output; <%- %> outputs raw, unescaped HTML",
+        "<%= %> runs JavaScript without output; <%- %> prints it",
+        "They are identical",
+        "<%- %> escapes the output; <%= %> prints raw HTML"
+      ],
+      "correctIndex": 0,
+      "explanation": "Use <%= %> for anything user-supplied. <%- %> is only for trusted markup such as partials; using it on user input creates an XSS vulnerability."
+    },
+    {
+      "question": "In Express 5, which route path serves index.html for every client-side route including the root \"/\"?",
+      "options": [
+        "\"*\"",
+        "\"/*splat\"",
+        "\"/(.*)\"",
+        "\"/{*splat}\""
+      ],
+      "correctIndex": 3,
+      "explanation": "Express 5 requires named wildcards. \"/*splat\" needs at least one segment, so it misses \"/\"; wrapping it in braces makes it optional and matches the root too."
+    },
+    {
+      "question": "Why should you pass an absolute path, e.g. built from import.meta.dirname, to express.static?",
+      "options": [
+        "express.static only accepts URLs",
+        "A relative path resolves against the process's working directory, which breaks when the app is started from another folder",
+        "Absolute paths enable gzip compression",
+        "Relative paths disable ETags"
+      ],
+      "correctIndex": 1,
+      "explanation": "Relative paths depend on where node was launched, not where the file lives. An absolute path built from the module's directory is stable."
+    }
+  ]
+}

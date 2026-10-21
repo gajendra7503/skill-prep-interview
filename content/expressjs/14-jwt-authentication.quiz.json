@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is it unsafe to put a user's password or card number in a JWT payload?",
+      "options": [
+        "The payload is only base64url-encoded, so anyone holding the token can read it",
+        "JWT payloads are limited to 32 bytes",
+        "The signature would become invalid",
+        "jsonwebtoken refuses to sign strings"
+      ],
+      "correctIndex": 0,
+      "explanation": "A JWT is signed, not encrypted. The signature prevents tampering, but the claims are readable by anyone, so keep them to non-secret data like a user ID and role."
+    },
+    {
+      "question": "Why should jwt.verify be called with an explicit algorithms option such as [\"HS256\"]?",
+      "options": [
+        "It makes verification faster",
+        "It is required to check the exp claim",
+        "It prevents attacks where the token's own alg header (e.g. \"none\") dictates how it is verified",
+        "It encrypts the payload"
+      ],
+      "correctIndex": 2,
+      "explanation": "Pinning the algorithm stops a forged token from choosing a weaker or mismatched algorithm, a class of real-world JWT vulnerabilities."
+    },
+    {
+      "question": "A logged-in user with role \"viewer\" calls an admin-only endpoint. Which status should the role middleware return?",
+      "options": [
+        "401 Unauthorized",
+        "404 Not Found",
+        "400 Bad Request",
+        "403 Forbidden"
+      ],
+      "correctIndex": 3,
+      "explanation": "The user is authenticated, so 401 is wrong. 403 means the identity is known but lacks permission."
+    },
+    {
+      "question": "What is the main reason to pair short-lived access tokens with refresh tokens?",
+      "options": [
+        "Refresh tokens make JWTs smaller",
+        "Stolen access tokens expire quickly, while refresh tokens are stored server-side so they can be rotated and revoked",
+        "Access tokens cannot be verified without a refresh token",
+        "It removes the need for HTTPS"
+      ],
+      "correctIndex": 1,
+      "explanation": "JWTs are hard to revoke, so access tokens are kept short-lived. The long-lived refresh token is tracked server-side, which allows rotation and revocation on logout."
+    }
+  ]
+}

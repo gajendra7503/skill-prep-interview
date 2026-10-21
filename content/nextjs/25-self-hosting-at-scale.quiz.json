@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "After building with output: \"standalone\", which folders must you copy into the container yourself if the container serves them?",
+      "options": [
+        "public/ and .next/static",
+        "node_modules/ and app/",
+        ".next/server and .next/cache",
+        "Nothing; standalone includes everything"
+      ],
+      "correctIndex": 0,
+      "explanation": "The standalone output contains traced files and a minimal server.js, but not public/ or .next/static, because those are meant to be served from a CDN."
+    },
+    {
+      "question": "Users intermittently see \"Failed to find Server Action\" when requests land on different pods. What is the fix?",
+      "options": [
+        "Set cacheMaxMemorySize: 0",
+        "Add X-Accel-Buffering: no in nginx",
+        "Use sticky sessions and a longer terminationGracePeriodSeconds",
+        "Provide the same NEXT_SERVER_ACTIONS_ENCRYPTION_KEY at build time so every instance shares one encryption key"
+      ],
+      "correctIndex": 3,
+      "explanation": "Server Action closures are encrypted with a per-build key. Building with a shared NEXT_SERVER_ACTIONS_ENCRYPTION_KEY (ideally one image promoted everywhere) keeps all pods compatible."
+    },
+    {
+      "question": "Why is baking a staging API URL into a NEXT_PUBLIC_ variable a problem when you promote one image from staging to production?",
+      "options": [
+        "NEXT_PUBLIC_ variables are encrypted and cannot be read in production",
+        "NEXT_PUBLIC_ variables are inlined at build time, so the staging value ships to production in the bundle",
+        "NEXT_PUBLIC_ variables are only read in development",
+        "Docker strips all environment variables starting with NEXT_"
+      ],
+      "correctIndex": 1,
+      "explanation": "Public variables are replaced in the bundle during next build. Keep per-environment values server-side and read them at request time instead."
+    },
+    {
+      "question": "With deploymentId set, what happens when a browser on version v41 navigates and the request reaches a pod running v42?",
+      "options": [
+        "The v42 pod serves v41 chunks from its cache",
+        "The request fails with a 500 error",
+        "The server detects the mismatch and the router performs a hard navigation (full reload) to load a consistent set of assets",
+        "The load balancer retries until it finds a v41 pod"
+      ],
+      "correctIndex": 2,
+      "explanation": "The x-deployment-id header lets the server spot version skew; a full reload avoids missing chunks or unknown Server Action IDs, at the cost of losing client state."
+    }
+  ]
+}

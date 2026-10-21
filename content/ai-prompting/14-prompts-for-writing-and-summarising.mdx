@@ -1,0 +1,142 @@
+---
+title: "Prompts for Writing and Summarising"
+description: "Draft emails, summarise meetings, rewrite for different audiences, translate thoughtfully, and keep every fact intact while editing."
+module: "Prompting at Work"
+level: "intermediate"
+order: 13
+---
+
+Writing and summarising are where most professionals first use an AI
+assistant — and where small prompt changes make the biggest visible
+difference. The recurring theme: tell the model **who** will read the text,
+**what** it must contain, and **what it must not change**.
+
+## Emails: give the situation, not just the topic
+
+A weak prompt leaves the model to guess the relationship, the facts and the
+desired outcome.
+
+```text
+Write an email to a customer about their delayed refund.
+```
+
+An improved prompt supplies the facts and the constraints:
+
+```text
+Draft a reply to the customer email below. I work in customer service at
+Sunrise Home Appliances (a fictional company).
+
+Facts you may use:
+- Refund of ₹18,450 for order SH-20931 was approved on 3 October.
+- Bank credit normally takes 5–7 working days after approval.
+- Ticket reference: CS-77812.
+
+Constraints:
+- Apologise once for the delay; do not blame the bank.
+- Do not promise a specific credit date — we cannot guarantee it.
+- Under 150 words, plain English, sign off as "Neha Sharma, Customer Care".
+
+<customer_email>
+...
+</customer_email>
+```
+
+Notice the explicit "do not promise" rule: models are helpful by default and
+will happily invent a reassuring date unless told why they should not.
+
+## Meeting-notes summaries
+
+Raw notes or transcripts are long and repetitive. Ask for a structure that
+matches how the summary will be used.
+
+```text
+Summarise the meeting transcript below for team members who missed it.
+
+Format:
+1. Decisions made (bullet list)
+2. Action items as "Owner — task — due date". If no due date was stated,
+   write "date not agreed" rather than guessing.
+3. Open questions
+
+Only include what was actually said. If speakers disagreed and nothing was
+settled, list it under open questions.
+
+<transcript>
+...
+</transcript>
+```
+
+The instruction about missing dates matters: without it, a model may fill
+gaps with plausible but invented deadlines.
+
+## Rewriting for tone and audience
+
+The same facts need different framing for different readers. Name the
+audience and what they care about.
+
+```text
+Rewrite the incident note below twice:
+
+A) For the affected customer: empathetic, no internal jargon, explain what
+   happened and what they need to do (nothing, or reset their password).
+B) For my manager, Rajesh Iyer: three bullets — impact (number of users,
+   duration), root cause, and next step. Neutral and factual.
+
+Keep every number, time and name exactly as written in the original.
+
+<incident_note>
+...
+</incident_note>
+```
+
+## Preserving facts while editing
+
+When you ask for "polish" or "make it shorter", models sometimes round
+numbers, merge two dates, or soften a condition ("subject to approval"
+disappears). Guard against this explicitly, then verify:
+
+```text
+Edit the paragraph for clarity and grammar only. Do not change any amount,
+date, name, percentage or condition. After the edited text, list every
+number that appears in it so I can check them against the original.
+```
+
+Compare figures such as ₹1,25,000 or "31 March 2027" yourself before sending.
+For policy documents and anything legal or regulatory, a human must review
+the final wording.
+
+## Translation, Hindi and Hinglish
+
+Models translate between English and Hindi well, but a few practical points
+help:
+
+- **Specify the register.** "Formal Hindi suitable for a bank letter" and
+  "conversational Hindi for WhatsApp" produce very different text.
+- **Script matters.** Say whether you want Devanagari or romanised Hindi.
+- **Hinglish input is normal.** Customers often write mixed Hindi-English in
+  Roman script; ask the model to understand it but reply in the language the
+  customer used, or in the language your policy requires.
+- **Keep terms untranslated where needed** — product names, "EMI", "KYC",
+  reference numbers.
+- **Have a fluent speaker review** anything customer-facing or official.
+
+```text
+Translate the notice below into formal Hindi in Devanagari script for a
+printed branch notice. Keep "KYC", "EMI" and all dates and amounts in their
+original form. Flag any sentence where the meaning is ambiguous.
+```
+
+## Give a style sample
+
+Describing a style ("crisp, warm, not salesy") is less reliable than showing
+it. Paste two or three short examples of writing you like inside a tag such
+as `<style_examples>` and ask the model to match the tone and length — while
+making clear the examples are for style, not content to copy.
+
+### Try it yourself
+
+Take a real email thread from this week, remove customer names and account
+details, and write a reply prompt that lists the allowed facts, one thing the
+model must not promise, the reader, and a word limit. Then ask for a version
+for your manager instead, and check that every number survived both
+rewrites.

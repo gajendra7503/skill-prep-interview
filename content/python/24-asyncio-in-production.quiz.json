@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Inside `async with asyncio.TaskGroup() as tg:`, one child task raises ValueError. What happens to the other child tasks?",
+      "options": [
+        "They keep running in the background",
+        "They are paused until the error is handled",
+        "They are cancelled, and the errors are raised together as an ExceptionGroup",
+        "They are restarted automatically"
+      ],
+      "correctIndex": 2,
+      "explanation": "TaskGroup provides structured concurrency: a failure cancels the remaining tasks and the block raises an ExceptionGroup once all have finished."
+    },
+    {
+      "question": "Why should you keep a strong reference to a task created with `asyncio.create_task` for fire-and-forget work?",
+      "options": [
+        "The event loop holds tasks only weakly, so an unreferenced task can be garbage-collected mid-flight",
+        "Tasks without a reference run on a different thread",
+        "Otherwise the task runs twice",
+        "Python raises SyntaxError for unassigned tasks"
+      ],
+      "correctIndex": 0,
+      "explanation": "The loop keeps only weak references to tasks; store them (for example in a set with a done-callback that discards them) or use a TaskGroup."
+    },
+    {
+      "question": "A coroutine catches `asyncio.CancelledError` to roll back a transaction. What should it do next?",
+      "options": [
+        "Return None so the caller continues normally",
+        "Retry the operation",
+        "Log it and swallow it",
+        "Re-raise the CancelledError after cleaning up"
+      ],
+      "correctIndex": 3,
+      "explanation": "Swallowing CancelledError breaks timeouts and TaskGroup shutdown. Clean up, then re-raise."
+    },
+    {
+      "question": "What does `asyncio.Queue(maxsize=10)` give a producer-consumer pipeline?",
+      "options": [
+        "Exactly 10 consumer tasks",
+        "Backpressure: put() waits while the queue is full, so memory cannot grow without limit",
+        "A 10-second timeout on every get()",
+        "Automatic parallelism across 10 CPU cores"
+      ],
+      "correctIndex": 1,
+      "explanation": "A bounded queue makes the producer await when consumers fall behind, which is the essence of backpressure."
+    }
+  ]
+}

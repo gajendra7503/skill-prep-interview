@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In the URL `http://localhost:3000/api/expenses?month=2026-10`, what does `3000` identify?",
+      "options": [
+        "The resource being requested on the server",
+        "The port, i.e. which program on the machine should receive the request",
+        "The version of HTTP being used",
+        "The number of results the client wants back"
+      ],
+      "correctIndex": 1,
+      "explanation": "The host picks the machine and the port picks which program on that machine. Development servers commonly listen on port 3000; `/api/expenses` is the path and `month=2026-10` is the query string."
+    },
+    {
+      "question": "A client requests `GET /api/expenses/42` but expense 42 does not exist. Which status code family fits best?",
+      "options": [
+        "2xx, because the server handled the request",
+        "3xx, because the client should look elsewhere",
+        "5xx, because the server could not find the data",
+        "4xx, specifically 404 Not Found"
+      ],
+      "correctIndex": 3,
+      "explanation": "4xx codes mean the client asked for something wrong or missing. 404 Not Found is the standard answer for a resource that does not exist. 5xx is reserved for the server's own failures."
+    },
+    {
+      "question": "What does it mean that HTTP is stateless?",
+      "options": [
+        "Each request stands alone, so anything like a login must travel with every request, for example in a cookie or `Authorization` header",
+        "Servers are not allowed to store data in a database",
+        "Responses can never include headers",
+        "Only GET requests are allowed to have a body"
+      ],
+      "correctIndex": 0,
+      "explanation": "The server does not remember previous requests by itself. State such as \"this user is logged in\" is sent with each request, usually in a cookie or an `Authorization` header."
+    },
+    {
+      "question": "In Express vocabulary, what is middleware?",
+      "options": [
+        "The port number the app listens on",
+        "The JSON body of a POST request",
+        "A function that runs before handlers for many routes and calls `next()` to pass the request along",
+        "A database that sits between the client and the server"
+      ],
+      "correctIndex": 2,
+      "explanation": "Middleware is a function in the request pipeline, for example a logger or a login check. When it is done it calls `next()` so the request continues to the next middleware or the route handler."
+    }
+  ]
+}

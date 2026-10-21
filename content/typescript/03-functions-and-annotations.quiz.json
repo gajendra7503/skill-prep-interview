@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Given `function emi(principal: number, months = 12)`, what is the type of `months` and is it required?",
+      "options": [
+        "any, and it is required",
+        "number, and it is optional",
+        "number | undefined, and it is required",
+        "12, and it is required"
+      ],
+      "correctIndex": 1,
+      "explanation": "A default value makes the parameter optional, and its type is inferred from the default as number."
+    },
+    {
+      "question": "With `type PriceRule = (price: number) => number`, why does `price` need no annotation in `const rule: PriceRule = (price) => price * 0.8;`?",
+      "options": [
+        "Because arrow functions never need annotations",
+        "Because price defaults to any",
+        "Because TypeScript checks it at runtime",
+        "Because of contextual typing: the expected function type supplies the parameter type"
+      ],
+      "correctIndex": 3,
+      "explanation": "When a function is written where a function type is expected, TypeScript infers parameter types from that context. The same applies to callbacks passed to map or filter."
+    },
+    {
+      "question": "With overloads, which signatures can callers see?",
+      "options": [
+        "Only the overload signatures, not the implementation signature",
+        "Only the implementation signature",
+        "Both the overload and implementation signatures",
+        "None; overloads are erased before type checking"
+      ],
+      "correctIndex": 0,
+      "explanation": "The implementation signature must be compatible with all overloads but is hidden from callers, who can only call the function in the ways the overloads describe."
+    },
+    {
+      "question": "Why does `[1, 2, 3].forEach((n) => ids.push(n))` compile even though forEach expects a callback returning void and push returns a number?",
+      "options": [
+        "Because push returns void",
+        "Because forEach is typed as any",
+        "Because a void-returning function type accepts functions that return a value; the value is ignored",
+        "It does not compile"
+      ],
+      "correctIndex": 2,
+      "explanation": "A function type with a void return means the caller ignores the result, so callbacks that return something are still assignable."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "According to Redux's principles, how should a component change global state?",
+      "options": [
+        "Assign the new value directly to store.getState()",
+        "Call a setter exported by the store for that field",
+        "Dispatch an action describing what happened, which a reducer handles",
+        "Update React Context, which Redux then copies"
+      ],
+      "correctIndex": 2,
+      "explanation": "State is read-only. The only way to change it is to dispatch an action; a pure reducer then computes the next state."
+    },
+    {
+      "question": "Which piece of state is the weakest case for putting in Redux?",
+      "options": [
+        "Whether a single dropdown inside one form is open",
+        "The logged-in user's profile shown in the header and settings page",
+        "Cart items used by the header badge, product page and checkout",
+        "Notification counts updated from several features"
+      ],
+      "correctIndex": 0,
+      "explanation": "State used by only one component belongs in local useState. Redux is for state shared across distant parts of the tree."
+    },
+    {
+      "question": "What does the modern Redux team recommend for writing Redux logic today?",
+      "options": [
+        "The core redux package's createStore with hand-written switch reducers",
+        "Redux Toolkit, using configureStore and createSlice",
+        "React Context with useReducer instead of Redux",
+        "connect() with mapStateToProps for every component"
+      ],
+      "correctIndex": 1,
+      "explanation": "Redux Toolkit is the official, recommended way to write Redux. createStore is marked deprecated in the core types and points to configureStore."
+    },
+    {
+      "question": "In the one-way data flow, what happens right after the reducer returns new state?",
+      "options": [
+        "The action is sent back to the component that dispatched it",
+        "The old state is mutated to match the new state",
+        "The reducer calls setState on every component",
+        "The store saves it and notifies subscribers, which re-read the state they need"
+      ],
+      "correctIndex": 3,
+      "explanation": "The store saves the new state and calls its subscribers. UI subscribed via React-Redux re-reads its slice of state and re-renders if it changed."
+    }
+  ]
+}

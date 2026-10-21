@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the worst-case time for a lookup in a hash table, and when does it happen?",
+      "options": [
+        "O(1), always",
+        "O(log n), when the table is resizing",
+        "O(n), when many keys collide into the same bucket",
+        "O(n²), when the load factor is below 0.75"
+      ],
+      "correctIndex": 2,
+      "explanation": "Lookups are O(1) on average. If all keys land in one bucket, the lookup has to scan a list of n entries, which is O(n)."
+    },
+    {
+      "question": "What does `const m = new Map([[[1, 2], \"x\"]]); m.get([1, 2])` return?",
+      "options": [
+        "undefined, because array keys are compared by reference",
+        "\"x\"",
+        "It throws a TypeError",
+        "\"1,2\""
+      ],
+      "correctIndex": 0,
+      "explanation": "Map compares object keys by reference. The second [1, 2] is a different array, so there is no match. Use a string key like \"1,2\" instead."
+    },
+    {
+      "question": "In the hash-map Two Sum solution, why do we check for the complement before inserting the current number?",
+      "options": [
+        "It is faster to check first",
+        "Map.set fails if the key already exists",
+        "So the map stays sorted",
+        "So an element is never paired with itself, e.g. target 600 with a single 300"
+      ],
+      "correctIndex": 3,
+      "explanation": "If we inserted first, a lone 300 would find itself as the complement of 600. Checking first means the map only contains earlier indices."
+    },
+    {
+      "question": "Why is the Set-based longest consecutive sequence solution O(n) despite having a while loop inside a for loop?",
+      "options": [
+        "Because Set.has is O(log n)",
+        "Because the inner loop only starts at numbers whose predecessor is missing, so each number is walked over at most once in total",
+        "Because the input is sorted first",
+        "It is actually O(n²)"
+      ],
+      "correctIndex": 1,
+      "explanation": "Skipping any x where x - 1 exists means each run is counted once from its start. Across all runs, the inner loop does O(n) total work."
+    }
+  ]
+}

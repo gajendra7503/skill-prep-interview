@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which command lists the contents of `site.tar.gz` without extracting it?",
+      "options": [
+        "tar -xzf site.tar.gz",
+        "tar -tzf site.tar.gz",
+        "tar -czf site.tar.gz",
+        "gzip -l site.tar.gz --files"
+      ],
+      "correctIndex": 1,
+      "explanation": "-t lists (\"tell\"), -z handles gzip and -f names the archive. -x extracts and -c creates."
+    },
+    {
+      "question": "What is the difference between `rsync -a dist/ server:/var/www/shop/` and `rsync -a dist server:/var/www/shop/`?",
+      "options": [
+        "There is no difference",
+        "The first deletes extra files on the server",
+        "The first is compressed in transit and the second is not",
+        "The first copies the contents of dist into shop/; the second creates shop/dist/"
+      ],
+      "correctIndex": 3,
+      "explanation": "A trailing slash on the source means \"the contents of this directory\". Without it, rsync copies the directory itself. A slash on the destination makes no difference."
+    },
+    {
+      "question": "Why should you run `rsync` with `-n` before adding `--delete` to a real deployment?",
+      "options": [
+        "-n is a dry run that shows what would be copied and deleted, so a wrong path cannot wipe files",
+        "--delete does not work without -n",
+        "-n enables compression, which --delete requires",
+        "-n makes rsync ask for confirmation for every file"
+      ],
+      "correctIndex": 0,
+      "explanation": "--delete removes destination files that are missing from the source. A dry run (-n / --dry-run) previews this so mistakes are caught before data is lost."
+    },
+    {
+      "question": "Which is true about scp port options?",
+      "options": [
+        "scp and ssh both use -p for the port",
+        "scp has no way to use a non-standard port",
+        "scp uses capital -P for the port, while ssh uses lowercase -p",
+        "scp reads the port only from the URL, like scp host:2222/path"
+      ],
+      "correctIndex": 2,
+      "explanation": "In scp, lowercase -p preserves timestamps and modes, so the port flag is capital -P. ssh uses lowercase -p for the port."
+    }
+  ]
+}

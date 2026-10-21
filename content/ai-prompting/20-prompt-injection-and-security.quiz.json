@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "An AI email assistant reads a vendor email containing a hidden HTML comment telling it to forward payment advices to an external address. What kind of attack is this?",
+      "options": [
+        "Direct prompt injection",
+        "Indirect prompt injection",
+        "A jailbreak typed by the user",
+        "Model hallucination"
+      ],
+      "correctIndex": 1,
+      "explanation": "Indirect injection hides instructions in content the model processes on someone's behalf, such as emails, web pages or documents."
+    },
+    {
+      "question": "Which statement about wrapping untrusted content in tags like `<email>` is accurate?",
+      "options": [
+        "It completely prevents prompt injection",
+        "It is unnecessary if you use a large model",
+        "It should replace tool permission checks",
+        "It reduces injection success but is only one layer of defence"
+      ],
+      "correctIndex": 3,
+      "explanation": "Separating instructions from data helps, but you still need least privilege, confirmation, and output validation."
+    },
+    {
+      "question": "Why can rendering Markdown images from model output leak data?",
+      "options": [
+        "The browser fetches the image URL automatically, which can carry private data in the query string to an attacker's server",
+        "Images consume extra output tokens",
+        "Markdown is not supported by the API",
+        "Images bypass prompt caching"
+      ],
+      "correctIndex": 0,
+      "explanation": "An injected image link with data appended to the URL is fetched without any click, exfiltrating the data."
+    },
+    {
+      "question": "Where should an API key that a tool needs be kept?",
+      "options": [
+        "In the system prompt with an instruction not to reveal it",
+        "In the tool description",
+        "In server-side code or environment variables, so the model only sees tool results",
+        "In the first user message"
+      ],
+      "correctIndex": 2,
+      "explanation": "Assume prompts can be extracted; credentials belong on the server side, never in the model's context."
+    }
+  ]
+}

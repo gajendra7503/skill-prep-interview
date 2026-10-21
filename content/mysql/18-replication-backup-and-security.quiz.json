@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "With semi-synchronous replication (default AFTER_SYNC wait point), what must happen before the source returns COMMIT to the client?",
+      "options": [
+        "Every replica must apply the transaction",
+        "At least one replica must acknowledge it received and wrote the transaction to its relay log",
+        "Nothing; the source replies immediately",
+        "The transaction must be written to a physical backup"
+      ],
+      "correctIndex": 1,
+      "explanation": "Semi-sync waits for at least one replica to receive and persist the events in its relay log, not to apply them."
+    },
+    {
+      "question": "Why is ROW the recommended binlog format?",
+      "options": [
+        "It always produces the smallest binlog",
+        "It stores the SQL text so replicas can re-optimise queries",
+        "It records actual row changes, so nondeterministic statements replicate safely",
+        "It disables the need for primary keys"
+      ],
+      "correctIndex": 2,
+      "explanation": "ROW logs before/after row images, so functions like UUID() or LIMIT without ORDER BY cannot produce different results on replicas. It can be larger than STATEMENT for bulk updates."
+    },
+    {
+      "question": "What does `mysqldump --single-transaction` rely on to produce a consistent InnoDB backup without locking tables?",
+      "options": [
+        "A REPEATABLE READ consistent snapshot",
+        "FLUSH TABLES WITH READ LOCK held for the whole dump",
+        "Copying the redo log files",
+        "Temporarily stopping replication"
+      ],
+      "correctIndex": 0,
+      "explanation": "It starts a consistent snapshot transaction under REPEATABLE READ, so all tables are read as of one point in time while writes continue."
+    },
+    {
+      "question": "Which of these can NOT be supplied as a `?` placeholder in a prepared statement?",
+      "options": [
+        "A customer email in a WHERE clause",
+        "A numeric LIMIT value",
+        "An INSERT value",
+        "A table or column name"
+      ],
+      "correctIndex": 3,
+      "explanation": "Placeholders bind values only. Identifiers and keywords such as ORDER BY directions must be validated against an allow-list."
+    }
+  ]
+}

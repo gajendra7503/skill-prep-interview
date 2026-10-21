@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `<!DOCTYPE html>` at the top of a page do?",
+      "options": [
+        "It links the page to its stylesheet",
+        "It tells the browser to render in modern standards mode instead of quirks mode",
+        "It sets the language of the page to English",
+        "It makes the page load faster on mobile"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without a doctype, browsers fall back to quirks mode and emulate old rendering bugs. The doctype opts into standards mode."
+    },
+    {
+      "question": "Your page shows up completely unstyled. What is the most likely cause?",
+      "options": [
+        "The page has no <title>",
+        "The <h1> is missing",
+        "The <link rel=\"stylesheet\"> href path is wrong or the CSS file was not saved",
+        "The browser does not support CSS"
+      ],
+      "correctIndex": 2,
+      "explanation": "The href is resolved relative to the HTML file. A typo there means the CSS never loads, which DevTools also reports in the Console."
+    },
+    {
+      "question": "You change a colour in the DevTools Styles panel and then refresh the page. What happens?",
+      "options": [
+        "The edit is lost, because DevTools changes are not written back to your file",
+        "The edit is saved into style.css automatically",
+        "The edit is saved into index.html as an inline style",
+        "The browser asks whether to keep the change"
+      ],
+      "correctIndex": 0,
+      "explanation": "DevTools edits live only in the current page. That makes it a safe place to experiment before copying values into your editor."
+    },
+    {
+      "question": "Why does every page in this course include `<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">`?",
+      "options": [
+        "It enables CSS to load",
+        "It allows the page to show the ₹ symbol",
+        "It is required for the page title to appear",
+        "It stops mobile browsers from rendering the page as a zoomed-out desktop-width layout"
+      ],
+      "correctIndex": 3,
+      "explanation": "Without it, phones lay the page out at about 980px wide and shrink it, making text tiny. Character encoding is handled by the charset meta, not the viewport meta."
+    }
+  ]
+}

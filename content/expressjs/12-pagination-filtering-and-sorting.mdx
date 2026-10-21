@@ -1,0 +1,169 @@
+---
+title: "Pagination, Filtering and Sorting"
+description: "Page through large collections with offset or cursor pagination, add safe filters, restrict sorting to an allow-list and return totals and navigation links."
+module: "Data"
+level: "intermediate"
+order: 14
+---
+
+`GET /expenses` returning every row works until a user has 50,000 expenses.
+List endpoints need limits, filters and a sort order, and interviewers love
+the follow-up questions: offset or cursor? How do you stop someone sorting
+by an unindexed column? What does the response look like? This lesson
+extends the Prisma expenses API from the CRUD lesson.
+
+## One schema for the query string
+
+```ts
+// src/expenses/expense.schemas.ts
+const SORTABLE = ["spentOn", "amountPaise", "createdAt"] as const;
+
+export const listQuery = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),   // hard cap
+  category: z.enum(["food", "travel", "rent", "other"]).optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  minAmount: z.coerce.number().int().min(0).optional(),          // in paise
+  q: z.string().trim().max(50).optional(),                       // search in title
+  sort: z.string().regex(/^-?\w+$/).default("-spentOn"),         // "-" means descending
+});
+```
+
+The `max(100)` cap matters: without it, `?limit=1000000` turns your list
+endpoint into a denial-of-service tool. Every value is validated before it
+gets anywhere near the database.
+
+## Sorting with an allow-list
+
+Never pass a client-supplied column name straight into `orderBy` or, worse,
+into raw SQL. Map it through an allow-list instead:
+
+```ts
+function toOrderBy(sort: string) {
+  const desc = sort.startsWith("-");
+  const field = desc ? sort.slice(1) : sort;
+  if (!(SORTABLE as readonly string[]).includes(field)) {
+    throw new HttpError(400, "INVALID_SORT", `Sort by one of: ${SORTABLE.join(", ")}`);
+  }
+  const dir = desc ? "desc" : "asc";
+  return [{ [field]: dir }, { id: dir }]; // id as a tie-breaker keeps the order stable
+}
+```
+
+The allow-list protects against injection, against sorting by private
+columns, and against slow sorts on columns with no index. The `id`
+tie-breaker matters: if two expenses share a date, the database may return
+them in any order, and rows can repeat or vanish between pages.
+
+## Filters
+
+```ts
+function toWhere(userId: number, f: z.infer<typeof listQuery>) {
+  return {
+    userId,                                            // ownership first, always
+    category: f.category,                              // undefined filters are ignored
+    amountPaise: f.minAmount !== undefined ? { gte: f.minAmount } : undefined,
+    spentOn: f.from || f.to
+      ? { gte: f.from ? new Date(f.from) : undefined, lte: f.to ? new Date(f.to) : undefined }
+      : undefined,
+    title: f.q ? { contains: f.q } : undefined,       // LIKE '%lunch%'
+  };
+}
+```
+
+Prisma ignores keys whose value is `undefined`, so optional filters compose
+naturally. With MySQL's usual case-insensitive collations, `contains`
+already matches "Lunch" and "lunch". A leading-wildcard `LIKE` cannot use a
+normal index, so for real search at scale use a full-text index.
+
+## Offset pagination with a total count
+
+```ts
+expensesRouter.get("/", async (req, res) => {
+  const f = listQuery.parse(req.query);
+  const where = toWhere(req.user.id, f);
+
+  const [data, total] = await prisma.$transaction([
+    prisma.expense.findMany({ where, orderBy: toOrderBy(f.sort), skip: (f.page - 1) * f.limit, take: f.limit }),
+    prisma.expense.count({ where }),
+  ]);
+
+  const totalPages = Math.ceil(total / f.limit);
+  const link = (page: number) => {
+    const params = new URLSearchParams({ ...req.query, page: String(page) } as Record<string, string>);
+    return `${req.baseUrl}?${params}`;
+  };
+
+  res.json({
+    data,
+    meta: { page: f.page, limit: f.limit, total, totalPages },
+    links: {
+      next: f.page < totalPages ? link(f.page + 1) : null,
+      prev: f.page > 1 ? link(f.page - 1) : null,
+    },
+  });
+});
+```
+
+```bash
+curl "localhost:3000/api/v1/expenses?category=food&sort=-amountPaise&limit=2&page=2"
+# {"data":[{"id":31,"title":"Dinner","amountPaise":180000,...},{"id":8,"title":"Lunch","amountPaise":45000,...}],
+#  "meta":{"page":2,"limit":2,"total":9,"totalPages":5},
+#  "links":{"next":"/api/v1/expenses?category=food&sort=-amountPaise&limit=2&page=3",
+#           "prev":"/api/v1/expenses?category=food&sort=-amountPaise&limit=2&page=1"}}
+```
+
+Offset pagination is simple and lets users jump to page 7, which suits
+admin tables. Its weaknesses: `OFFSET 100000` still makes the database walk
+past 100,000 rows, and inserts or deletes between requests shift rows so
+users see duplicates or miss items. The extra `COUNT` query is also costly
+on very large tables; some APIs make the total optional.
+
+## Cursor (keyset) pagination
+
+Instead of "skip N rows", the client says "give me rows after this one":
+
+```ts
+const feedQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  after: z.coerce.number().int().positive().optional(),     // id of the last row seen
+});
+const { limit: take, after: cursor } = feedQuery.parse(req.query);
+
+const rows = await prisma.expense.findMany({
+  where: { userId: req.user.id },
+  orderBy: [{ id: "desc" }],
+  take: take + 1,                                   // fetch one extra to learn if there is more
+  ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}), // skip the cursor row itself
+});
+
+const hasMore = rows.length > take;
+const data = hasMore ? rows.slice(0, take) : rows;
+res.json({ data, nextCursor: hasMore ? data[data.length - 1].id : null });
+// {"data":[...20 expenses...],"nextCursor":118}
+```
+
+The database seeks straight to the cursor using the index, so page 5,000 is
+as fast as page 1, and new inserts do not shift results. The trade-offs:
+no jumping to an arbitrary page, no cheap total, and the cursor must follow
+a unique, stable ordering. It is the right choice for infinite scroll,
+feeds, mobile apps and data exports. Many APIs encode the cursor as an
+opaque base64url string so clients do not depend on its contents.
+
+## Quick comparison
+
+| | Offset (`page`, `limit`) | Cursor (`after`, `limit`) |
+| --- | --- | --- |
+| Jump to page N | Yes | No |
+| Deep pages | Slower the further you go | Constant speed with an index |
+| Concurrent inserts | Duplicates or gaps | Stable |
+| Totals | Easy with `COUNT` | Usually omitted |
+
+### Try it yourself
+
+Add cursor pagination to `GET /api/v1/expenses/feed` sorted by `spentOn`
+descending with `id` as a tie-breaker, and encode the cursor as base64url
+JSON containing both values. Add an index on `userId`, `spentOn` and `id`
+to the Prisma schema, and verify that `?limit=500` is rejected and
+`?sort=passwordHash` returns 400.

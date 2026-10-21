@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A 4-CPU server shows load average 10 but `vmstat` reports 8% user CPU, b around 9 and wa around 65%. What is the most likely bottleneck?",
+      "options": [
+        "CPU saturation",
+        "Network bandwidth",
+        "Disk I/O: tasks are blocked in uninterruptible sleep, which Linux counts in load",
+        "Too little swap"
+      ],
+      "correctIndex": 2,
+      "explanation": "Linux load includes tasks in D state. High b and wa with low CPU use point to tasks waiting on storage, not on the CPU."
+    },
+    {
+      "question": "`free -h` shows only 300Mi free but 5.3Gi available. What should you conclude?",
+      "options": [
+        "Memory is fine; Linux uses spare RAM as page cache and can reclaim it",
+        "The server is about to run out of memory",
+        "There is a memory leak in the kernel",
+        "Swap must be added immediately"
+      ],
+      "correctIndex": 0,
+      "explanation": "Low free memory is normal. The available column estimates memory that can be given to applications without swapping."
+    },
+    {
+      "question": "In the USE method, which metric is a sign of SATURATION for memory?",
+      "options": [
+        "A high buff/cache value",
+        "Sustained swap-in/swap-out (si/so) in vmstat",
+        "A low used value",
+        "The total memory size"
+      ],
+      "correctIndex": 1,
+      "explanation": "Saturation means work is queuing because the resource is full. For memory that shows as swapping and, at the extreme, OOM kills."
+    },
+    {
+      "question": "`df -h` shows a disk only 45% full, yet writes fail with \"No space left on device\". What should you check next?",
+      "options": [
+        "iostat -xz for latency",
+        "vmstat for steal time",
+        "mpstat for per-CPU usage",
+        "df -i, since the filesystem may have run out of inodes"
+      ],
+      "correctIndex": 3,
+      "explanation": "Every file uses an inode. Millions of tiny files can exhaust inodes while plenty of bytes remain free."
+    }
+  ]
+}

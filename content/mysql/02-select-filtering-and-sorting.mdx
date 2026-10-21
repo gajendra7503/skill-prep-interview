@@ -1,0 +1,134 @@
+---
+title: "SELECT, Filtering & Sorting"
+description: "How a SELECT is logically evaluated, NULL and three-valued logic, LIKE, IN and BETWEEN, and the traps in ORDER BY with LIMIT."
+module: "Fundamentals"
+level: beginner
+order: 4
+---
+
+Every SQL interview starts with `SELECT`, and the follow-up questions are
+almost always about the edges: why an alias fails in `WHERE`, why
+`= NULL` returns nothing, why a paginated list shows duplicates. This lesson
+uses the `customers`, `orders` and `products` tables from the "Relational Basics & Data Types" lesson.
+
+## Logical query processing order
+
+You _write_ clauses in one order, but the database _evaluates_ them in
+another. Logically:
+
+1. `FROM` and `JOIN` — build the input row set
+2. `WHERE` — filter individual rows
+3. `GROUP BY` — form groups
+4. `HAVING` — filter groups
+5. `SELECT` — compute expressions and aliases
+6. `DISTINCT` — remove duplicate result rows
+7. `ORDER BY` — sort
+8. `LIMIT` / `OFFSET` — trim
+
+This explains a classic error: a `SELECT` alias does not exist yet when
+`WHERE` runs.
+
+```sql
+SELECT id, total * 0.18 AS gst FROM orders WHERE gst > 100;
+-- ERROR 1054: Unknown column 'gst' in 'where clause'
+
+SELECT id, total * 0.18 AS gst FROM orders WHERE total * 0.18 > 100;  -- OK
+SELECT id, total * 0.18 AS gst FROM orders ORDER BY gst DESC;          -- OK
+```
+
+`ORDER BY` runs after `SELECT`, so aliases work there. (MySQL also accepts
+aliases in `HAVING` as an extension.) The optimizer is free to execute in
+any physical order as long as the result matches this logical model.
+
+## NULL and three-valued logic
+
+`NULL` means "unknown", so comparisons with it yield `UNKNOWN` (shown as
+`NULL`), not true or false. `WHERE` keeps only rows where the condition is
+**true**.
+
+```sql
+SELECT NULL = NULL, NULL <> 1, NULL IS NULL, NULL <=> NULL;
+-- NULL | NULL | 1 | 1
+
+SELECT * FROM customers WHERE city = NULL;     -- always 0 rows
+SELECT * FROM customers WHERE city IS NULL;    -- correct
+SELECT * FROM customers WHERE city <> 'Pune';  -- excludes NULL cities too!
+```
+
+The last query surprises people: customers with no city are neither equal
+nor unequal to `'Pune'`, so they vanish. Add `OR city IS NULL` if you want
+them. `<=>` is MySQL's null-safe equality operator. Truth tables to
+remember: `TRUE OR NULL` is `TRUE`, `FALSE AND NULL` is `FALSE`, and
+`NOT NULL` is `NULL`. Use `COALESCE(city, 'Unknown')` to substitute a
+default.
+
+## LIKE, IN and BETWEEN
+
+```sql
+SELECT name FROM products WHERE name LIKE 'Smart%';   -- starts with
+SELECT name FROM products WHERE name LIKE '%phone%';  -- contains
+SELECT name FROM products WHERE name LIKE '_Pad';     -- one char + 'Pad'
+SELECT code FROM coupons  WHERE code LIKE '50\%%';    -- literal '%'
+```
+
+`%` matches any sequence, `_` exactly one character. A prefix pattern like
+`'Smart%'` can use a B-tree index on `name`; a leading wildcard such as
+`'%phone%'` cannot, forcing a full scan (use a `FULLTEXT` index instead).
+Case sensitivity follows the column collation: with the default
+`utf8mb4_0900_ai_ci`, `LIKE 'smart%'` also matches `'Smartwatch'`.
+
+`IN` tests membership in a list; `BETWEEN a AND b` is **inclusive** on both
+ends. That inclusiveness is a trap with `DATETIME`:
+
+```sql
+-- Misses orders placed on 31 Jan after 00:00:00
+SELECT * FROM orders
+WHERE created_at BETWEEN '2025-01-01' AND '2025-01-31';
+
+-- Correct: half-open range, and still index-friendly
+SELECT * FROM orders
+WHERE created_at >= '2025-01-01' AND created_at < '2025-02-01';
+```
+
+Avoid wrapping the column in a function, e.g. `WHERE YEAR(created_at) =
+2025`: the predicate is no longer _sargable_, so an index on `created_at`
+cannot be used for a range scan.
+
+## ORDER BY
+
+```sql
+SELECT name, city, created_at FROM customers
+ORDER BY city ASC, created_at DESC;
+```
+
+In MySQL, `NULL` sorts **first** in ascending order and last in descending
+order. To push NULLs last in ascending order, use
+`ORDER BY city IS NULL, city`. Without `ORDER BY`, row order is not
+guaranteed — even if it looks stable today.
+
+## LIMIT and OFFSET pitfalls
+
+`LIMIT 10 OFFSET 20` (or `LIMIT 20, 10`) returns rows 21 to 30. Two traps:
+
+- **Non-deterministic ties.** `ORDER BY created_at LIMIT 10` with many
+  equal timestamps can return different rows on each page, causing
+  duplicates or gaps. Add a unique tie-breaker: `ORDER BY created_at, id`.
+- **Deep offsets are slow.** `LIMIT 10 OFFSET 500000` still reads and
+  discards 5,00,000 rows. Use **keyset (seek) pagination** instead:
+
+```sql
+SELECT id, total, created_at FROM orders
+WHERE (created_at, id) < ('2025-03-10 18:42:00', 98231)  -- last row seen
+ORDER BY created_at DESC, id DESC
+LIMIT 10;
+```
+
+With an index on `(created_at, id)` this jumps straight to the right spot,
+so page 50,000 costs the same as page 1.
+
+### Try it yourself
+
+Write a query listing customers from Mumbai or Bengaluru who joined in
+calendar year 2024 and have no email bounce flag (`bounced` may be NULL),
+newest first, 20 per page. Make it sargable, deterministic, and then
+rewrite the paging using a keyset condition instead of `OFFSET`.

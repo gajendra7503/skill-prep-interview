@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which mapped type removes `readonly` from every property of T?",
+      "options": [
+        "{ readonly [K in keyof T]: T[K] }",
+        "{ [K in keyof T]-?: T[K] }",
+        "{ -readonly [K in keyof T]: T[K] }",
+        "{ [K in keyof T]: Mutable<T[K]> }"
+      ],
+      "correctIndex": 2,
+      "explanation": "A - prefix removes a modifier. -readonly removes readonly; -? removes the optional modifier. The first option adds readonly."
+    },
+    {
+      "question": "Given `type Fund = { readonly code: string; navInr?: number }`, what does `{ [P in \"code\" | \"navInr\"]: Fund[P] }` produce?",
+      "options": [
+        "{ code: string; navInr: number | undefined }",
+        "{ readonly code: string; navInr?: number }",
+        "{ code: string; navInr: number }",
+        "An error, because P must extend keyof T"
+      ],
+      "correctIndex": 0,
+      "explanation": "Mapping over a plain literal union is not homomorphic, so readonly and ? are not copied. The property types are read through Fund[P], so navInr keeps undefined in its type but becomes required."
+    },
+    {
+      "question": "In a mapped type, what happens to a key whose `as` clause evaluates to `never`?",
+      "options": [
+        "The property type becomes never",
+        "The compiler reports an error",
+        "The key is renamed to \"never\"",
+        "The key is removed from the resulting type"
+      ],
+      "correctIndex": 3,
+      "explanation": "Remapping a key to never filters it out. This is how you build types like PickByValue or an Omit that works on any condition."
+    },
+    {
+      "question": "In a getter-generating mapped type, why is the key written as `Capitalize<string & K>` instead of `Capitalize<K>`?",
+      "options": [
+        "Because K is always a number",
+        "Because keyof T may include number and symbol keys, and Capitalize only accepts string types",
+        "Because template literal types require intersections",
+        "Because it makes the getter methods optional"
+      ],
+      "correctIndex": 1,
+      "explanation": "keyof T is string | number | symbol in general. Intersecting with string keeps only string keys, which is what Capitalize and template literals need."
+    }
+  ]
+}

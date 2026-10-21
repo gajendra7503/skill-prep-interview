@@ -1,0 +1,804 @@
+{
+  "title": "HTML & CSS Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "web-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-semantic-html",
+      "question": "Which element best represents a self-contained composition, such as a blog post or a news story, that would still make sense if syndicated on its own?",
+      "options": [
+        "<article>",
+        "<section>",
+        "<aside>",
+        "<div>"
+      ],
+      "correctIndex": 0,
+      "explanation": "<article> is for independent, self-contained content that can be distributed on its own. <section> is tempting, but it groups thematically related content within a page and usually needs a heading; it does not imply standalone content."
+    },
+    {
+      "id": "web-02",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-forms-and-validation",
+      "question": "What is the correct way to programmatically associate a visible label with a text input?",
+      "options": [
+        "<label name=\"email\">Email</label> <input name=\"email\">",
+        "<label for=\"email\">Email</label> <input id=\"email\">",
+        "<label>Email</label> <input placeholder=\"Email\">",
+        "<label aria-label=\"email\">Email</label> <input id=\"email\">"
+      ],
+      "correctIndex": 1,
+      "explanation": "The label's for attribute must match the input's id (or the input can be nested inside the label). Matching name attributes does nothing for labelling, and a placeholder is not a substitute for a label because it disappears on typing and is not reliably announced."
+    },
+    {
+      "id": "web-03",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-forms-and-validation",
+      "question": "Which attribute makes the browser block form submission when a text field is left empty, without any JavaScript?",
+      "options": [
+        "pattern",
+        "minlength",
+        "required",
+        "aria-required"
+      ],
+      "correctIndex": 2,
+      "explanation": "required triggers built-in constraint validation for empty fields. aria-required only tells assistive technology the field is required; it does not stop submission. minlength and pattern are not checked on an empty field."
+    },
+    {
+      "id": "web-04",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "03-accessibility-fundamentals",
+      "question": "A purely decorative divider image adds no information. How should it be marked up for screen-reader users?",
+      "options": [
+        "Omit the alt attribute entirely",
+        "alt=\"decorative divider\"",
+        "alt=\"image\"",
+        "alt=\"\" (an empty alt attribute)"
+      ],
+      "correctIndex": 3,
+      "explanation": "An empty alt tells assistive technology to skip the image. Omitting alt is the tempting wrong answer: many screen readers then announce the file name, which is noise."
+    },
+    {
+      "id": "web-05",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "06-positioning-and-stacking-contexts",
+      "question": "What is the initial (default) value of the CSS position property?",
+      "options": [
+        "static",
+        "relative",
+        "absolute",
+        "initial"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every element starts as position: static, which ignores top/left/z-index. relative is a common guess, but it must be set explicitly."
+    },
+    {
+      "id": "web-06",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "08-css-grid-deep-dive",
+      "question": "Which property adds space between flex or grid items without adding space on the container's outer edges?",
+      "options": [
+        "margin",
+        "gap",
+        "padding",
+        "spacing"
+      ],
+      "correctIndex": 1,
+      "explanation": "gap only inserts space between tracks/items. Margins on items also add space at the edges (or need :last-child hacks), and padding belongs to the container. There is no CSS property called spacing."
+    },
+    {
+      "id": "web-07",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "08-css-grid-deep-dive",
+      "question": "In grid-template-columns: 1fr 2fr, what does the fr unit represent?",
+      "options": [
+        "A fixed fraction of the viewport width",
+        "A percentage of the grid container's total width including gaps",
+        "A share of the leftover space in the grid container after fixed tracks and gaps are subtracted",
+        "The font size of the grid container"
+      ],
+      "correctIndex": 2,
+      "explanation": "fr distributes the remaining free space, so here the second column gets twice the share of the first. It is not a percentage of the full width, because gaps and fixed-size tracks are removed first."
+    },
+    {
+      "id": "web-08",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "10-custom-properties",
+      "question": "How do you read the value of a custom property named --brand in a declaration?",
+      "options": [
+        "color: $brand;",
+        "color: --brand;",
+        "color: @brand;",
+        "color: var(--brand);"
+      ],
+      "correctIndex": 3,
+      "explanation": "Custom properties are read with var(). $brand is Sass syntax and @brand is Less syntax; writing --brand directly as a value is invalid."
+    },
+    {
+      "id": "web-09",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "09-responsive-design-and-media-queries",
+      "question": "Which tag is needed so a responsive layout is not rendered as a zoomed-out desktop page on mobile phones?",
+      "options": [
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+        "<meta name=\"responsive\" content=\"true\">",
+        "<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">",
+        "<link rel=\"responsive\" href=\"mobile.css\">"
+      ],
+      "correctIndex": 0,
+      "explanation": "Without the viewport meta tag, mobile browsers lay the page out on a virtual ~980px viewport and scale it down, so media queries never see the real device width. The other tags either do not exist or relate to legacy Internet Explorer."
+    },
+    {
+      "id": "web-10",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "03-accessibility-fundamentals",
+      "question": "Why is <button> preferred over <div onclick=\"...\"> for a clickable control?",
+      "options": [
+        "A div cannot receive click events",
+        "A button is focusable, activates with Enter and Space, and exposes the button role to assistive technology by default",
+        "A button renders faster than a div",
+        "A div cannot be styled to look like a button"
+      ],
+      "correctIndex": 1,
+      "explanation": "Native buttons give you keyboard focus, keyboard activation and the correct accessible role for free. A div can receive clicks and can be styled, but you would have to add tabindex, a role and key handlers yourself."
+    },
+    {
+      "id": "web-11",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "21-typography-and-web-fonts",
+      "question": "What is the key difference between the rem and em units?",
+      "options": [
+        "rem is relative to the viewport, em to the parent's width",
+        "They are identical aliases",
+        "rem is relative to the root (<html>) font size; em is relative to the element's own font size (or the parent's, when used on font-size itself)",
+        "em is relative to the root font size; rem to the parent's font size"
+      ],
+      "correctIndex": 2,
+      "explanation": "rem always refers to the root element's font size, so it does not compound. em refers to the current element's font size, which is why nested em font sizes multiply. The last option reverses the two."
+    },
+    {
+      "id": "web-12",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "03-accessibility-fundamentals",
+      "question": "You need a toggle control (on/off) for \"Dark mode\". Which markup best follows the first rule of ARIA?",
+      "options": [
+        "<div role=\"button\" tabindex=\"0\" aria-pressed=\"false\">Dark mode</div> with keydown handlers",
+        "<span onclick=\"toggle()\">Dark mode</span>",
+        "<a href=\"#\" onclick=\"toggle()\">Dark mode</a>",
+        "<button type=\"button\" aria-pressed=\"false\">Dark mode</button>"
+      ],
+      "correctIndex": 3,
+      "explanation": "The first rule of ARIA is to use a native element whenever one exists. A <button> with aria-pressed gets focus and keyboard behaviour for free. The div version can be made to work, but it rebuilds what <button> already provides and is easy to get wrong."
+    },
+    {
+      "id": "web-13",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "04-the-box-model",
+      "question": "Two block-level siblings sit one above the other in normal flow. The first has margin-bottom: 30px and the second has margin-top: 20px. How much vertical space separates them?",
+      "options": [
+        "30px",
+        "50px",
+        "20px",
+        "25px"
+      ],
+      "correctIndex": 0,
+      "explanation": "Adjacent vertical margins of block siblings collapse to the larger of the two, so 30px. 50px would be correct only if the margins did not collapse (e.g. in a flex or grid container)."
+    },
+    {
+      "id": "web-14",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-positioning-and-stacking-contexts",
+      "question": "A header has position: sticky; top: 0; but it scrolls away like a normal element. Which is the most common cause?",
+      "options": [
+        "The header has a z-index",
+        "An ancestor has overflow: hidden (or auto/scroll), so the header sticks within that ancestor instead of the viewport",
+        "position: sticky only works on <header> elements",
+        "The page uses display: grid on <body>"
+      ],
+      "correctIndex": 1,
+      "explanation": "A sticky element sticks relative to its nearest scrolling ancestor. An ancestor with overflow other than visible becomes that scroll container, so if it is not the thing scrolling, the element never sticks. z-index has no effect on whether it sticks."
+    },
+    {
+      "id": "web-15",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-positioning-and-stacking-contexts",
+      "question": "Which of these declarations does NOT, on its own, create a new stacking context?",
+      "options": [
+        "opacity: 0.99",
+        "transform: translateZ(0)",
+        "position: relative (with z-index left as auto)",
+        "isolation: isolate"
+      ],
+      "correctIndex": 2,
+      "explanation": "A relatively or absolutely positioned element only forms a stacking context when it also has a z-index other than auto (fixed and sticky are exceptions). Opacity below 1, any transform other than none, and isolation: isolate all create one."
+    },
+    {
+      "id": "web-16",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-flexbox-deep-dive",
+      "question": "What does the shorthand flex: 1 expand to?",
+      "options": [
+        "flex-grow: 1; flex-shrink: 0; flex-basis: auto",
+        "flex-grow: 1; flex-shrink: 1; flex-basis: auto",
+        "flex-grow: 0; flex-shrink: 1; flex-basis: 1px",
+        "flex-grow: 1; flex-shrink: 1; flex-basis: 0%"
+      ],
+      "correctIndex": 3,
+      "explanation": "A single unitless number sets flex-grow and resets flex-basis to 0, so items share all the space equally regardless of content. flex: auto is the one that uses flex-basis: auto, which makes widths depend on content."
+    },
+    {
+      "id": "web-17",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-flexbox-deep-dive",
+      "question": "A flex item containing a long URL refuses to shrink and overflows its flex container. What is the usual fix?",
+      "options": [
+        "Set min-width: 0 on the flex item",
+        "Set flex-shrink: 0 on the flex item",
+        "Set flex-wrap: nowrap on the container",
+        "Set width: 100% on the flex item"
+      ],
+      "correctIndex": 0,
+      "explanation": "Flex items default to min-width: auto, which stops them shrinking below their content's minimum size. min-width: 0 (or overflow other than visible) removes that floor. flex-shrink: 0 does the opposite and prevents shrinking entirely."
+    },
+    {
+      "id": "web-18",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-css-grid-deep-dive",
+      "question": "With a few items in a wide container, what is the difference between repeat(auto-fill, minmax(200px, 1fr)) and repeat(auto-fit, minmax(200px, 1fr))?",
+      "options": [
+        "auto-fill creates fewer columns than auto-fit",
+        "auto-fit collapses the empty tracks to zero so the existing items stretch to fill the row; auto-fill keeps the empty tracks",
+        "auto-fit only works with flexbox",
+        "There is no difference in any situation"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both create as many tracks as fit. auto-fill keeps the empty ones, so items stay near 200px; auto-fit collapses empty tracks, so the 1fr items grow to fill the row. They only behave identically once there are enough items to fill every track."
+    },
+    {
+      "id": "web-19",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "10-custom-properties",
+      "question": "What can CSS custom properties do that Sass variables cannot?",
+      "options": [
+        "Store colour values",
+        "Be used inside calc()",
+        "Be changed at runtime, inherit through the DOM, and be redefined inside media queries or for a single component",
+        "Be used in selectors"
+      ],
+      "correctIndex": 2,
+      "explanation": "Sass variables are compiled away at build time, so they cannot respond to the DOM, the cascade or JavaScript. Both can store colours and be used in calculations; neither can be used as a selector."
+    },
+    {
+      "id": "web-20",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "10-custom-properties",
+      "question": "In width: var(--gap, 1rem), when is the fallback value 1rem used?",
+      "options": [
+        "Whenever --gap's value is invalid for the width property",
+        "Whenever the viewport is narrower than 1rem",
+        "Always, as the minimum value",
+        "When --gap is not defined on the element (its value is the guaranteed-invalid initial value)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The fallback only applies when the custom property is undefined or guaranteed-invalid. If --gap is defined but holds something nonsensical for width (e.g. red), the fallback is NOT used: the declaration becomes invalid at computed-value time and width falls back to its inherited or initial value."
+    },
+    {
+      "id": "web-21",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "20-container-queries-and-has",
+      "question": "Given the CSS below, what colour is <button id=\"hero\" class=\"btn\">?",
+      "code": "@layer base, components;\n\n@layer base {\n  #hero.btn { color: red; }\n}\n\n@layer components {\n  .btn { color: blue; }\n}",
+      "codeLanguage": "css",
+      "options": [
+        "blue, because the components layer is declared later",
+        "red, because #hero.btn has higher specificity",
+        "red, because base is declared first",
+        "It depends on the browser"
+      ],
+      "correctIndex": 0,
+      "explanation": "Between cascade layers, the layer declared later wins for normal declarations, no matter how specific the selectors are. Specificity only matters between rules in the same layer, so the higher-specificity selector in base loses."
+    },
+    {
+      "id": "web-22",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-transitions-and-animations",
+      "question": "For smooth 60fps animations, which properties should you prefer to animate?",
+      "options": [
+        "width and height",
+        "transform and opacity",
+        "top and left",
+        "margin and padding"
+      ],
+      "correctIndex": 1,
+      "explanation": "Browsers can usually animate transform and opacity on the compositor without recalculating layout or repainting. Animating width, top, margin and similar properties triggers layout on every frame."
+    },
+    {
+      "id": "web-23",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-transitions-and-animations",
+      "question": "Which media query lets you tone down animations for users who have asked their operating system to minimise motion?",
+      "options": [
+        "@media (motion: none)",
+        "@media (animation: off)",
+        "@media (prefers-reduced-motion: reduce)",
+        "@media (reduced-motion)"
+      ],
+      "correctIndex": 2,
+      "explanation": "prefers-reduced-motion: reduce reflects the OS-level accessibility setting. The other queries do not exist."
+    },
+    {
+      "id": "web-24",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-selectors-specificity-and-cascade",
+      "question": "Which selector has a specificity of 0,0,0?",
+      "options": [
+        ":is(#a, .b)",
+        ":not(.b)",
+        ":has(.b)",
+        ":where(#a, .b)"
+      ],
+      "correctIndex": 3,
+      "explanation": ":where() always contributes zero specificity, which makes it ideal for low-priority defaults. :is(), :not() and :has() all take the specificity of their most specific argument."
+    },
+    {
+      "id": "web-25",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "21-typography-and-web-fonts",
+      "question": "What does font-display: swap do for a web font declared in @font-face?",
+      "options": [
+        "Shows text in a fallback font almost immediately and swaps to the web font whenever it finishes loading",
+        "Hides text until the web font loads, however long that takes",
+        "Uses the web font only if it is already cached; otherwise keeps the fallback forever",
+        "Downloads the font only when the user hovers over text"
+      ],
+      "correctIndex": 0,
+      "explanation": "swap gives a tiny block period and an unlimited swap period, so text is readable straight away (at the cost of a visible font change). Hiding text until load describes block-style behaviour, and using the font only when it is cached is closer to optional."
+    },
+    {
+      "id": "web-26",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "22-responsive-images-and-media",
+      "question": "The hero image on a landing page is the Largest Contentful Paint element. Which markup helps it load as early as possible?",
+      "options": [
+        "<img src=\"hero.jpg\" loading=\"lazy\" alt=\"...\">",
+        "<img src=\"hero.jpg\" fetchpriority=\"high\" alt=\"...\">",
+        "<img data-src=\"hero.jpg\" alt=\"...\"> swapped in by JavaScript",
+        "A CSS background-image on a <div>"
+      ],
+      "correctIndex": 1,
+      "explanation": "fetchpriority=\"high\" tells the browser to request this image ahead of other resources. loading=\"lazy\" on an above-the-fold LCP image delays it, and JavaScript-swapped or CSS background images are discovered late by the preload scanner."
+    },
+    {
+      "id": "web-27",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "20-container-queries-and-has",
+      "question": "Why does the @container rule below have no effect on .card?",
+      "code": ".card {\n  container-type: inline-size;\n}\n\n@container (min-width: 30rem) {\n  .card {\n    display: grid;\n    grid-template-columns: 8rem 1fr;\n  }\n}",
+      "codeLanguage": "css",
+      "options": [
+        "Container queries need a container-name",
+        "inline-size is not a valid container-type",
+        "An element cannot query itself; @container matches the nearest ancestor container, so container-type must go on a wrapper around .card",
+        "@container only accepts max-width conditions"
+      ],
+      "correctIndex": 2,
+      "explanation": "Size queries look at an ancestor container. Here .card is the container, and there is no container above it, so the rule never applies to .card itself (it would apply to .card's descendants). Naming is optional, and min-width is a valid condition."
+    },
+    {
+      "id": "web-28",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "20-container-queries-and-has",
+      "question": "What is the specificity of the selector .a:has(#b)?",
+      "options": [
+        "0,1,0",
+        "0,2,0",
+        "1,0,0",
+        "1,1,0"
+      ],
+      "correctIndex": 3,
+      "explanation": ":has() takes the specificity of its most specific argument, here #b (1,0,0). Add .a (0,1,0) and the total is 1,1,0. Treating :has() like a pseudo-class worth 0,1,0, or like :where() worth zero, are the common mistakes."
+    },
+    {
+      "id": "web-29",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "20-container-queries-and-has",
+      "question": "What colour is the .btn element, given all three declarations use !important?",
+      "code": "@layer base, theme;\n\n@layer base {\n  .btn { color: red !important; }\n}\n\n@layer theme {\n  .btn { color: blue !important; }\n}\n\n.btn { color: green !important; }",
+      "codeLanguage": "css",
+      "options": [
+        "red",
+        "blue",
+        "green",
+        "black (the !important declarations cancel out)"
+      ],
+      "correctIndex": 0,
+      "explanation": "For !important declarations, layer order is reversed: important declarations in earlier layers beat those in later layers, and important layered declarations beat important unlayered ones. So base's red wins. Green would win if none of them used !important, because unlayered normal styles beat layered ones."
+    },
+    {
+      "id": "web-30",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "04-the-box-model",
+      "question": "A block child sits inside a container that is 600px wide and 300px tall. The child has padding-top: 10%. How tall is that top padding?",
+      "options": [
+        "30px",
+        "60px",
+        "10% of the child's own height",
+        "0, because percentage padding needs an explicit height"
+      ],
+      "correctIndex": 1,
+      "explanation": "Percentage padding (and margin) on all four sides, including top and bottom, is resolved against the containing block's width in horizontal writing modes. 10% of 600px is 60px. 30px is the trap answer from wrongly using the height."
+    },
+    {
+      "id": "web-31",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "08-css-grid-deep-dive",
+      "question": "In a grid with grid-template-columns: repeat(3, 1fr), one cell contains a long unbreakable string and its column becomes wider than the others. Why, and what is the fix?",
+      "options": [
+        "fr tracks ignore content; the fix is grid-auto-flow: dense",
+        "The string overflows; the fix is justify-items: stretch",
+        "1fr means minmax(auto, 1fr), so the track cannot shrink below its content's minimum size; use repeat(3, minmax(0, 1fr))",
+        "Grid columns always size to content; the fix is to switch to flexbox"
+      ],
+      "correctIndex": 2,
+      "explanation": "A bare 1fr has an automatic minimum equal to the content's min-content size, so a long word pushes the column wider. minmax(0, 1fr) removes that minimum and guarantees equal columns. grid-auto-flow controls item placement, not track sizing."
+    },
+    {
+      "id": "web-32",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-custom-properties",
+      "question": "What colour is the text of .child?",
+      "code": ".parent { color: green; }\n\n.child {\n  color: red;\n  --c: 20px;\n  color: var(--c);\n}",
+      "codeLanguage": "css",
+      "options": [
+        "red, because the invalid declaration is dropped at parse time",
+        "black, the initial value of color",
+        "The browser's default link colour",
+        "green, inherited from .parent"
+      ],
+      "correctIndex": 3,
+      "explanation": "var(--c) cannot be validated at parse time, so color: var(--c) replaces color: red in the cascade. At computed-value time, 20px is not a colour, so the declaration becomes invalid at computed-value time and behaves like unset. color is inherited, so it takes the parent's green. Expecting red is the classic trap."
+    },
+    {
+      "id": "web-33",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "06-positioning-and-stacking-contexts",
+      "question": "A modal uses position: fixed; inset: 0; but it only covers its parent card instead of the whole viewport. Which ancestor style most likely causes this?",
+      "options": [
+        "transform: translateY(0) on an ancestor",
+        "overflow: hidden on <body>",
+        "display: flex on an ancestor",
+        "z-index: 10 on an ancestor"
+      ],
+      "correctIndex": 0,
+      "explanation": "An ancestor with a transform (or filter, perspective, contain: paint, and similar) becomes the containing block for fixed-position descendants, so the modal is sized to that ancestor. z-index only affects stacking order, not the containing block. Rendering the modal outside the card, or using <dialog> in the top layer, avoids the problem."
+    },
+    {
+      "id": "web-34",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "17-useful-html5-apis",
+      "question": "What does dialog.showModal() give you that dialog.show() does not?",
+      "options": [
+        "Nothing; they are aliases",
+        "It places the dialog in the top layer, makes the rest of the page inert, enables the ::backdrop pseudo-element and closes on Esc",
+        "It submits any form inside the dialog",
+        "It automatically traps the dialog in an iframe"
+      ],
+      "correctIndex": 1,
+      "explanation": "showModal() opens a modal dialog: it renders in the top layer (above everything, regardless of z-index), makes content outside it inert, supports ::backdrop and handles Esc. show() opens a non-modal dialog with none of those behaviours."
+    },
+    {
+      "id": "web-35",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "22-responsive-images-and-media",
+      "question": "An <img> uses srcset with width descriptors (e.g. 400w, 800w, 1600w) but no sizes attribute. What slot width does the browser assume when picking a candidate?",
+      "options": [
+        "The width of the parent element",
+        "400px, the smallest candidate",
+        "100vw (the full viewport width)",
+        "The image's intrinsic width"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without sizes, the browser assumes the image will be displayed at 100vw, so on a wide screen it may download the 1600w file even for a small thumbnail. The browser picks images before layout, so it cannot know the parent's width; that is why sizes exists."
+    },
+    {
+      "id": "web-36",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "04-the-box-model",
+      "question": "What is the total rendered width (border edge to border edge) of .box in px?",
+      "code": ".box {\n  box-sizing: content-box;\n  width: 200px;\n  padding: 20px;\n  border: 5px solid black;\n}",
+      "codeLanguage": "css",
+      "answerHint": "Enter a number in px, without the unit",
+      "acceptedAnswers": [
+        "250",
+        "250px",
+        "250 px"
+      ],
+      "caseSensitive": false,
+      "explanation": "With content-box, width is the content width only. Total = 200 + 20 + 20 (padding) + 5 + 5 (border) = 250px."
+    },
+    {
+      "id": "web-37",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "07-flexbox-deep-dive",
+      "question": "Fill in the blank: which property centres the items horizontally along the main axis of this row-direction flex container?",
+      "code": ".toolbar {\n  display: flex;\n  flex-direction: row;\n  ______: center;\n}",
+      "codeLanguage": "css",
+      "answerHint": "Enter the property name only",
+      "acceptedAnswers": [
+        "justify-content",
+        "justify-content: center",
+        "justify-content:center",
+        "justify-content: center;"
+      ],
+      "caseSensitive": false,
+      "explanation": "justify-content aligns items along the main axis, which is horizontal for flex-direction: row. align-items would align along the cross (vertical) axis."
+    },
+    {
+      "id": "web-38",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "21-typography-and-web-fonts",
+      "question": "The root font size is left at the browser default of 16px. What is the computed font-size of h2 in px?",
+      "code": "h2 {\n  font-size: 1.5rem;\n}",
+      "codeLanguage": "css",
+      "answerHint": "Enter a number in px, without the unit",
+      "acceptedAnswers": [
+        "24",
+        "24px",
+        "24 px"
+      ],
+      "caseSensitive": false,
+      "explanation": "1rem equals the root font size, 16px, so 1.5rem = 1.5 x 16 = 24px."
+    },
+    {
+      "id": "web-39",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "05-selectors-specificity-and-cascade",
+      "question": "What is the specificity of this selector?",
+      "code": "nav ul li a { color: inherit; }",
+      "codeLanguage": "css",
+      "answerHint": "Format: ids,classes,types (e.g. 0,1,2)",
+      "acceptedAnswers": [
+        "0,0,4",
+        "0-0-4",
+        "(0,0,4)",
+        "004",
+        "0, 0, 4",
+        "(0, 0, 4)",
+        "0 0 4"
+      ],
+      "caseSensitive": false,
+      "explanation": "Four type selectors (nav, ul, li, a) and no ids or classes: 0,0,4. Descendant combinators add nothing."
+    },
+    {
+      "id": "web-40",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "05-selectors-specificity-and-cascade",
+      "question": "What is the specificity of this selector?",
+      "code": "#main .card:hover > p::first-line { color: navy; }",
+      "codeLanguage": "css",
+      "answerHint": "Format: ids,classes,types (e.g. 0,1,2)",
+      "acceptedAnswers": [
+        "1,2,2",
+        "1-2-2",
+        "(1,2,2)",
+        "122",
+        "1, 2, 2",
+        "(1, 2, 2)",
+        "1 2 2"
+      ],
+      "caseSensitive": false,
+      "explanation": "#main = 1 id. .card and :hover = 2 in the class column (pseudo-classes count as classes). p and ::first-line = 2 in the type column (pseudo-elements count as types). Total 1,2,2."
+    },
+    {
+      "id": "web-41",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "21-typography-and-web-fonts",
+      "question": "The root font size is 16px. What is the computed font-size of .child in px?",
+      "code": "/* <body><div class=\"parent\"><p class=\"child\">Hi</p></div></body> */\nbody    { font-size: 1rem; }\n.parent { font-size: 1.25em; }\n.child  { font-size: 1.5em; }",
+      "codeLanguage": "css",
+      "answerHint": "Enter a number in px, without the unit",
+      "acceptedAnswers": [
+        "30",
+        "30px",
+        "30 px"
+      ],
+      "caseSensitive": false,
+      "explanation": "em on font-size is relative to the parent's font size, so it compounds: body = 16px, .parent = 1.25 x 16 = 20px, .child = 1.5 x 20 = 30px."
+    },
+    {
+      "id": "web-42",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "05-selectors-specificity-and-cascade",
+      "question": "Which colour is applied to <p class=\"note\">?",
+      "code": "p.note { color: green; }\n.note  { color: blue; }\np      { color: red; }\n.note  { color: purple; }",
+      "codeLanguage": "css",
+      "answerHint": "Enter the colour keyword",
+      "acceptedAnswers": [
+        "green"
+      ],
+      "caseSensitive": false,
+      "explanation": "p.note has specificity 0,1,1, which beats .note (0,1,0) and p (0,0,1). Source order only decides between equal specificities, so the later .note rule (purple) does not win."
+    },
+    {
+      "id": "web-43",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "08-css-grid-deep-dive",
+      "question": "The grid container's content box is exactly 1000px wide. How many columns does this grid create?",
+      "code": ".grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));\n  gap: 20px;\n}",
+      "codeLanguage": "css",
+      "answerHint": "Enter a whole number",
+      "acceptedAnswers": [
+        "4",
+        "4 columns"
+      ],
+      "caseSensitive": false,
+      "explanation": "n columns need n x 220 + (n - 1) x 20 px. For 4: 880 + 60 = 940 <= 1000. For 5: 1100 + 80 = 1180 > 1000. So 4 columns, each stretched to (1000 - 60) / 4 = 235px."
+    },
+    {
+      "id": "web-44",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "06-positioning-and-stacking-contexts",
+      "question": "Fill in the missing value so the table header stays pinned to the top of its scroll container once you scroll past it, while staying in normal flow before that.",
+      "code": "thead th {\n  position: ______;\n  top: 0;\n}",
+      "codeLanguage": "css",
+      "answerHint": "Enter the value only",
+      "acceptedAnswers": [
+        "sticky",
+        "position: sticky",
+        "position:sticky",
+        "position: sticky;",
+        "position:sticky;"
+      ],
+      "caseSensitive": false,
+      "explanation": "position: sticky keeps the element in normal flow until its scroll container scrolls it to the top offset, then pins it there. fixed would remove it from flow and pin it to the viewport from the start."
+    },
+    {
+      "id": "web-45",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "04-the-box-model",
+      "question": "What is the width of the content box of .card in px?",
+      "code": ".card {\n  box-sizing: border-box;\n  width: 300px;\n  padding: 0 24px;\n  border: 2px solid #ccc;\n}",
+      "codeLanguage": "css",
+      "answerHint": "Enter a number in px, without the unit",
+      "acceptedAnswers": [
+        "248",
+        "248px",
+        "248 px"
+      ],
+      "caseSensitive": false,
+      "explanation": "With border-box, the 300px includes padding and border. Content width = 300 - 24 - 24 - 2 - 2 = 248px."
+    },
+    {
+      "id": "web-46",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "07-flexbox-deep-dive",
+      "question": "The flex container's content box is 600px wide. Items have no padding, border, margin or gap. What is the final width of .c in px?",
+      "code": ".row { display: flex; }\n.row > * { flex-basis: 100px; flex-shrink: 1; }\n.a { flex-grow: 1; }\n.b { flex-grow: 1; }\n.c { flex-grow: 2; }",
+      "codeLanguage": "css",
+      "answerHint": "Enter a number in px, without the unit",
+      "acceptedAnswers": [
+        "250",
+        "250px",
+        "250 px"
+      ],
+      "caseSensitive": false,
+      "explanation": "Free space = 600 - 3 x 100 = 300px, shared in the ratio 1:1:2. .c gets 2/4 x 300 = 150px on top of its 100px basis, so 250px."
+    },
+    {
+      "id": "web-47",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "20-container-queries-and-has",
+      "question": "What colour is <button id=\"buy\" class=\"btn\">?",
+      "code": "@layer reset, components;\n\n@layer components {\n  .btn { color: blue; }\n}\n\n@layer reset {\n  #buy.btn { color: red; }\n}\n\nbutton { color: green; }",
+      "codeLanguage": "css",
+      "answerHint": "Enter the colour keyword",
+      "acceptedAnswers": [
+        "green"
+      ],
+      "caseSensitive": false,
+      "explanation": "For normal (non-important) declarations, unlayered styles beat every layer, regardless of specificity. So the low-specificity unlayered button rule (green) wins. Among the layers alone, components (declared later) would beat reset despite #buy.btn's higher specificity."
+    },
+    {
+      "id": "web-48",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "04-the-box-model",
+      "question": "The root font size is 16px. .box sits inside a container whose content box is 800px wide. What is the total rendered width (border edge to border edge) of .box in px?",
+      "code": ".box {\n  box-sizing: content-box;\n  font-size: 20px;\n  width: calc(50% - 2rem);\n  padding: 0 1em;\n  border: 0;\n}",
+      "codeLanguage": "css",
+      "answerHint": "Enter a number in px, without the unit",
+      "acceptedAnswers": [
+        "408",
+        "408px",
+        "408 px"
+      ],
+      "caseSensitive": false,
+      "explanation": "width = 50% of 800 - 2 x 16 = 400 - 32 = 368px (rem uses the root's 16px). Padding uses the element's own font size: 1em = 20px on each side, so 40px. With content-box the total is 368 + 40 = 408px."
+    },
+    {
+      "id": "web-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "05-selectors-specificity-and-cascade",
+      "question": "What is the specificity of this selector?",
+      "code": ":is(#nav, .menu) a:where(.active):not(.disabled) { color: teal; }",
+      "codeLanguage": "css",
+      "answerHint": "Format: ids,classes,types (e.g. 0,1,2)",
+      "acceptedAnswers": [
+        "1,1,1",
+        "1-1-1",
+        "(1,1,1)",
+        "111",
+        "1, 1, 1",
+        "(1, 1, 1)",
+        "1 1 1"
+      ],
+      "caseSensitive": false,
+      "explanation": ":is() takes its most specific argument, #nav = 1,0,0. a = 0,0,1. :where(.active) = 0,0,0. :not(.disabled) takes its argument's specificity, 0,1,0. Total 1,1,1."
+    },
+    {
+      "id": "web-50",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "10-custom-properties",
+      "question": "The markup is <div class=\"box\"><div class=\"inner\"></div></div>. What is the computed width of .inner in px?",
+      "code": ":root  { --size: 10px; }\n.box   { --size: 20px; width: calc(var(--size) * 10); }\n.inner { width: calc(var(--size) * 5); }",
+      "codeLanguage": "css",
+      "answerHint": "Enter a number in px, without the unit",
+      "acceptedAnswers": [
+        "100",
+        "100px",
+        "100 px"
+      ],
+      "caseSensitive": false,
+      "explanation": "Custom properties inherit. .inner does not set --size, so it inherits 20px from .box (the nearest ancestor that defines it), not 10px from :root. 20px x 5 = 100px."
+    }
+  ]
+}

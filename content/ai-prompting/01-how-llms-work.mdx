@@ -1,0 +1,128 @@
+---
+title: "How LLMs Actually Work"
+description: "Next-token prediction, tokens, context windows, why output varies, knowledge cutoffs, and the tasks models are reliably bad at."
+module: "Foundations"
+level: "beginner"
+order: 3
+---
+
+You do not need to understand neural network maths to prompt well, but a
+working mental model of what a large language model (LLM) is doing saves
+hours of frustration. Most "the AI got it wrong" moments are predictable once
+you know the mechanics. This lesson covers the five ideas every prompt
+writer should be able to explain in an interview.
+
+## Next-token prediction
+
+At its core, an LLM is trained to predict the **next token** given all the
+text before it. It generates a response one token at a time: predict a
+token, append it, predict the next, and so on until it decides to stop.
+
+Two practical consequences follow:
+
+- **The model only sees what is in front of it.** Your prompt, the
+  conversation so far and any documents you paste in are its entire working
+  world. If a fact is not there and was not learned in training, the model
+  cannot know it.
+- **Fluent is not the same as correct.** The model is optimised to produce
+  plausible continuations. A confident, well-written paragraph can still be
+  wrong, which is why we talk about "hallucinations".
+
+Modern assistants such as Claude are further trained to follow instructions
+and to be helpful and honest, so they behave like collaborators rather than
+autocomplete. The underlying mechanism, however, is still token-by-token
+generation.
+
+## Tokens
+
+Models do not read characters or words; they read **tokens**, which are
+chunks of text. In English a token is roughly three to four characters, so
+100 words is very roughly 130 tokens. Tokens matter because:
+
+- **Pricing** for API usage is per input and output token.
+- **Limits** (context window, maximum output length) are measured in tokens.
+- **Speed** depends on how many tokens must be generated.
+
+Token efficiency varies by language. Indic scripts such as Hindi, Tamil or
+Bengali usually break into **more tokens per word** than English, so the same
+customer message in Devanagari often costs more and uses more of the context
+window than its English translation. Exact ratios depend on the model's
+tokenizer, so measure with your provider's token-counting tool rather than
+guessing.
+
+## The context window
+
+The **context window** is the maximum number of tokens the model can
+consider at once: system instructions, the conversation history, attached
+documents and the response it is writing. Current frontier models offer
+very large windows (from a few hundred thousand up to about a million
+tokens), enough for a long policy manual or an annual report.
+
+Large is not infinite, and more is not always better. Irrelevant material
+dilutes attention and costs money. Give the model what it needs for the
+task, organised clearly, and put the question where it is easy to find.
+
+## Why output varies run to run
+
+Ask the same question twice and you may get two different answers. At each
+step the model produces a probability distribution over possible next
+tokens and **samples** from it. Settings such as temperature control how
+adventurous that sampling is, and some current models fix or limit these
+settings, so check your provider's documentation.
+
+```text
+Prompt: Suggest a name for our internal expense-tracking tool.
+
+Run 1: "KharchaTrack"
+Run 2: "SpendWise"
+Run 3: "Hisaab"
+```
+
+Variation is useful for brainstorming and harmful for tasks that need
+consistency, such as classifying support tickets. You reduce it with clear
+instructions, examples and a fixed output format, not by hoping.
+
+## Knowledge cutoff
+
+A model learns from data collected up to a **training cutoff** date. It knows
+nothing after that unless you supply it, or the application gives it a tool
+such as web search. Ask about last week's RBI policy announcement without
+search enabled and the model either says it does not know or, worse,
+produces something plausible from older patterns.
+
+## What models are bad at
+
+Knowing the weak spots tells you when to add a tool, a document or a human
+check.
+
+| Weakness | Why | What to do |
+| --- | --- | --- |
+| Exact arithmetic on long numbers | Numbers are split into tokens; maths is predicted, not calculated | Use a calculator or code tool, or verify results |
+| Current events | Knowledge stops at the cutoff | Enable search or paste the source |
+| Citing sources | Without documents it may invent plausible references | Provide the documents and ask it to quote them |
+| Counting characters or words exactly | Tokens do not map neatly to letters | Use code for exact counts |
+| Private company facts | Never seen in training | Supply them in the prompt |
+
+A weak prompt for a fictional firm's report:
+
+```text
+What was Sahyadri Textiles' revenue growth last year? Cite your source.
+```
+
+An improved prompt that removes the guesswork:
+
+```text
+Using only the extract from Sahyadri Textiles' FY2025-26 annual report
+below, state the year-on-year revenue growth. Quote the sentence you used.
+If the extract does not contain the figure, say so rather than estimating.
+
+[paste extract here]
+```
+
+### Try it yourself
+
+Take the same short paragraph and paste it into a token counter in English
+and in Hindi; note the difference. Then ask a model to multiply two
+seven-digit numbers, and compare its answer with a calculator. Finally, ask
+it about a news event from this week with and without search enabled, and
+write down how each response signals (or fails to signal) uncertainty.

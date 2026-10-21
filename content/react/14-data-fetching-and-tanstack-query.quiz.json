@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A component fetches `/api/products/${id}` in `useEffect` with no cleanup. The user switches from id 1 to id 2 and request 1 finishes last. What happens?",
+      "options": [
+        "React automatically discards the older response",
+        "The screen shows product 1's data even though id is 2 — a race condition",
+        "The effect throws an error",
+        "Both products are rendered side by side"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without cancellation or an ignore flag, whichever request resolves last wins. TanStack Query avoids this by caching per query key, so a stale response can only update its own key."
+    },
+    {
+      "question": "What is the difference between `staleTime` and `gcTime` in TanStack Query v5?",
+      "options": [
+        "They are two names for the same setting",
+        "staleTime controls memory cleanup; gcTime controls refetching",
+        "staleTime is how long data stays fresh (no refetch); gcTime is how long an unused query stays in memory before garbage collection",
+        "gcTime only applies to mutations"
+      ],
+      "correctIndex": 2,
+      "explanation": "staleTime (default 0) governs when background refetches happen; gcTime (default 5 minutes, formerly cacheTime) governs how long inactive cache entries are kept."
+    },
+    {
+      "question": "In an optimistic update, why call `queryClient.cancelQueries` inside `onMutate`?",
+      "options": [
+        "So an in-flight refetch doesn't resolve and overwrite the optimistic cache value",
+        "To cancel the mutation itself",
+        "Because setQueryData throws if a query is fetching",
+        "To clear the entire cache"
+      ],
+      "correctIndex": 0,
+      "explanation": "An outgoing refetch could return old server data after you've written the optimistic value, undoing it. Cancelling first prevents that; onError then rolls back using the snapshot returned from onMutate."
+    },
+    {
+      "question": "How does React 19's `use(promise)` relate to TanStack Query?",
+      "options": [
+        "use replaces TanStack Query entirely because it caches and refetches",
+        "They cannot be used in the same app",
+        "use only works with TanStack Query promises",
+        "use reads a promise and suspends but provides no caching, deduplication or refetching; TanStack Query is a cache that can integrate with Suspense via useSuspenseQuery"
+      ],
+      "correctIndex": 3,
+      "explanation": "use is a low-level primitive and the promise must come from somewhere stable. A server-state library still handles caching, invalidation and background updates."
+    }
+  ]
+}

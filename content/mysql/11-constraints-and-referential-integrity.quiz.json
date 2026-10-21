@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A nullable column `pan` has a UNIQUE constraint in InnoDB. What happens when you insert two rows with `pan = NULL`?",
+      "options": [
+        "The second insert fails with a duplicate-key error",
+        "Both inserts succeed, because NULLs are not considered equal to each other",
+        "The second NULL is silently converted to an empty string",
+        "Only one NULL is allowed unless the index is declared NULLABLE"
+      ],
+      "correctIndex": 1,
+      "explanation": "A unique index in InnoDB permits multiple NULLs, since NULL is never equal to another NULL."
+    },
+    {
+      "question": "On MySQL 8.0.12, a table is created with `CHECK (total_inr >= 0)`. What happens when a negative total is inserted?",
+      "options": [
+        "Error 3819: check constraint violated",
+        "The value is clamped to 0 with a warning",
+        "The insert succeeds, because CHECK constraints were parsed but ignored before 8.0.16",
+        "The insert succeeds only if strict mode is off"
+      ],
+      "correctIndex": 2,
+      "explanation": "CHECK constraints are enforced only from MySQL 8.0.16; earlier versions accepted the syntax and ignored it."
+    },
+    {
+      "question": "In InnoDB, how does `ON DELETE NO ACTION` differ from `ON DELETE RESTRICT`?",
+      "options": [
+        "NO ACTION defers the check to COMMIT; RESTRICT checks immediately",
+        "NO ACTION deletes the children; RESTRICT blocks the delete",
+        "NO ACTION sets the child column to NULL",
+        "They behave identically: the delete is rejected immediately while child rows exist"
+      ],
+      "correctIndex": 3,
+      "explanation": "InnoDB does not support deferred constraint checks, so NO ACTION and RESTRICT are equivalent and checked immediately."
+    },
+    {
+      "question": "With `sql_mode` set to an empty string, you insert a 13-character string into a `CHAR(10)` column. What is the result?",
+      "options": [
+        "The value is truncated to 10 characters and only a warning is raised",
+        "Error 1406: Data too long for column",
+        "The column is automatically widened to CHAR(13)",
+        "The row is inserted with NULL in that column"
+      ],
+      "correctIndex": 0,
+      "explanation": "Without STRICT_TRANS_TABLES, MySQL adjusts invalid data (here, truncation) and raises a warning instead of an error."
+    }
+  ]
+}

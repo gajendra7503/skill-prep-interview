@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does REPLACE actually do when the new row conflicts with an existing row on a unique key?",
+      "options": [
+        "Updates only the columns you listed and leaves the rest unchanged",
+        "Raises a duplicate-key error",
+        "Silently skips the new row",
+        "Deletes the existing row and inserts the new one, resetting unlisted columns to defaults and firing delete triggers and cascades"
+      ],
+      "correctIndex": 3,
+      "explanation": "REPLACE is delete-then-insert, which loses unlisted column values, can assign a new AUTO_INCREMENT id, and triggers ON DELETE CASCADE."
+    },
+    {
+      "question": "An `INSERT ... ON DUPLICATE KEY UPDATE` statement updates one existing row with new values. What affected-rows count does MySQL report?",
+      "options": [
+        "2",
+        "1",
+        "0",
+        "It depends on the number of unique keys"
+      ],
+      "correctIndex": 0,
+      "explanation": "MySQL reports 1 for a fresh insert, 2 when an existing row is updated, and 0 when the update leaves the values unchanged."
+    },
+    {
+      "question": "Which statement can be rolled back inside a transaction on InnoDB?",
+      "options": [
+        "TRUNCATE TABLE orders",
+        "DELETE FROM orders WHERE status = 'test'",
+        "DROP TABLE orders",
+        "All three, because MySQL 8.0 has atomic DDL"
+      ],
+      "correctIndex": 1,
+      "explanation": "DELETE is transactional DML. TRUNCATE and DROP are DDL that cause an implicit commit; atomic DDL makes them crash-safe, not user-rollbackable."
+    },
+    {
+      "question": "With `sql_safe_updates = 1`, what happens to `UPDATE products SET price = price * 1.1`?",
+      "options": [
+        "It runs but only on the first row",
+        "It asks for confirmation interactively",
+        "It is rejected because there is no WHERE using a key column and no LIMIT",
+        "It runs inside an automatic transaction"
+      ],
+      "correctIndex": 2,
+      "explanation": "Safe-update mode rejects UPDATE and DELETE statements that lack a key-based WHERE clause or a LIMIT, returning error 1175."
+    }
+  ]
+}

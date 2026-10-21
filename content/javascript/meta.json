@@ -1,6 +1,6 @@
 {
   "title": "JavaScript",
   "description": "The language underneath every framework — closures, async, prototypes, and the engine internals interviewers actually probe.",
-  "icon": "🟨",
+  "icon": "javascript",
   "accent": "#f7df1e"
 }

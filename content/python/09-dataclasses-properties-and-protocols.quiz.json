@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What happens when you declare `items: list[str] = []` as a field in a `@dataclass`?",
+      "options": [
+        "Each instance gets its own new empty list",
+        "All instances silently share one list",
+        "A ValueError is raised when the class is created; you should use field(default_factory=list)",
+        "The field is ignored by the generated __init__"
+      ],
+      "correctIndex": 2,
+      "explanation": "Dataclasses reject mutable defaults like list, dict and set to prevent the shared-mutable-default bug. field(default_factory=list) creates a fresh list per instance."
+    },
+    {
+      "question": "What happens when you assign to a property defined with `@property` but no `@x.setter`?",
+      "options": [
+        "It raises AttributeError, because the property is read-only",
+        "It creates a new instance attribute that shadows the property",
+        "It silently ignores the assignment",
+        "It calls the getter with the new value"
+      ],
+      "correctIndex": 0,
+      "explanation": "A property without a setter is read-only; assigning to it raises AttributeError, as shown with price_with_gst in the lesson."
+    },
+    {
+      "question": "Why can instances of `@dataclass(frozen=True)` be used as dictionary keys while those of a plain `@dataclass` cannot?",
+      "options": [
+        "Frozen dataclasses use identity-based hashing",
+        "With frozen=True and eq=True a __hash__ is generated from the fields, whereas a plain dataclass sets __hash__ to None",
+        "Plain dataclasses can be dict keys too; there is no difference",
+        "Frozen dataclasses are converted to tuples automatically"
+      ],
+      "correctIndex": 1,
+      "explanation": "A plain dataclass generates __eq__ and therefore sets __hash__ to None. frozen=True makes instances immutable, so a field-based __hash__ is safe and is generated."
+    },
+    {
+      "question": "What is the key difference between an ABC and a `typing.Protocol`?",
+      "options": [
+        "Protocols can only be used at runtime, ABCs only by type checkers",
+        "ABCs do not allow abstract methods",
+        "There is no difference other than the import location",
+        "An ABC requires explicit inheritance (nominal typing), while any class with matching methods satisfies a Protocol (structural typing)"
+      ],
+      "correctIndex": 3,
+      "explanation": "ABCs work by explicit subclassing and block instantiation while abstract methods remain. Protocols describe a shape; unrelated classes satisfy them without inheriting, which is duck typing for static checkers."
+    }
+  ]
+}

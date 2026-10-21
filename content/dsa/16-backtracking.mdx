@@ -1,0 +1,190 @@
+---
+title: "Backtracking"
+description: "The choose-explore-unchoose template for generating subsets, permutations and combinations, plus pruning and the N-Queens problem."
+module: "Core Patterns"
+level: "intermediate"
+order: 16
+---
+
+Backtracking is **organised brute force**. Build a candidate one choice at a
+time, recurse for the next choice, and on return *undo* it and try the next
+option. If a partial answer is already hopeless, stop early (**pruning**).
+Whenever a problem says "generate **all**…", "list **every** way…" or "place N
+items so that no two conflict", think backtracking. It builds on the call
+stack ideas from "Recursion Fundamentals".
+
+## The decision tree
+
+Every backtracking problem is a walk over a tree of choices. For the subsets
+of `[A, B, C]`, at each level you choose which element comes next:
+
+```text
+                     []
+          /          |         \
+        [A]         [B]        [C]
+       /   \         |
+   [A,B]  [A,C]    [B,C]
+     |
+  [A,B,C]
+```
+
+Depth-first traversal visits every subset once. The tree is never built
+explicitly; the recursion *is* the tree.
+
+## The template
+
+```text
+backtrack(state):
+    if state is a complete answer: record a COPY of it; return
+    for each choice available from state:
+        if choice is invalid: skip            (pruning)
+        make the choice                       (choose)
+        backtrack(new state)                  (explore)
+        undo the choice                       (unchoose)
+```
+
+One shared `path` array is mutated and restored, keeping memory at O(depth).
+
+## Subsets
+
+Every node is a valid answer, so record on entry. `start` stops us revisiting
+earlier elements, which would create duplicates like `[B, A]`.
+
+```js
+function subsets(nums) {
+  const result = [], path = [];
+  function backtrack(start) {
+    result.push([...path]);       // every node is an answer
+    for (let i = start; i < nums.length; i++) {
+      path.push(nums[i]);         // choose
+      backtrack(i + 1);           // explore
+      path.pop();                 // unchoose
+    }
+  }
+  backtrack(0);
+  return result;
+}
+console.log(subsets(["A", "B", "C"]));
+// [ [], [ 'A' ], [ 'A', 'B' ], [ 'A', 'B', 'C' ], [ 'A', 'C' ], [ 'B' ], [ 'B', 'C' ], [ 'C' ] ]
+```
+
+There are 2^n subsets and copying each costs up to O(n), so time is
+O(n * 2^n). Extra space is O(n) for the recursion and path, beyond the output.
+
+## Permutations
+
+Order matters, so every element is a candidate at every level; a `used` array
+prevents reuse. Here, the orders in which a traveller could visit three cities:
+
+```js
+function permutations(items) {
+  const result = [], path = [];
+  const used = new Array(items.length).fill(false);
+  function backtrack() {
+    if (path.length === items.length) { result.push([...path]); return; }
+    for (let i = 0; i < items.length; i++) {
+      if (used[i]) continue;
+      used[i] = true;
+      path.push(items[i]);
+      backtrack();
+      path.pop();
+      used[i] = false;
+    }
+  }
+  backtrack();
+  return result;
+}
+const routes = permutations(["Delhi", "Pune", "Goa"]);
+console.log(routes.length, routes[1]); // 6 [ 'Delhi', 'Goa', 'Pune' ]
+```
+
+n! leaves, each copied in O(n): O(n * n!) time, O(n) extra space.
+
+## Problem 1: Combination sum with pruning
+
+"Pay exactly ₹12 using coins of ₹2, ₹5 and ₹10, any number of each. List all
+combinations." Two details make this work:
+
+1. Recurse with `i`, not `i + 1`, because a coin can be reused.
+2. Sort first, then `break` once a coin exceeds the remaining amount.
+
+```js
+function combinationSum(coins, target) {
+  coins = [...coins].sort((a, b) => a - b);
+  const result = [], path = [];
+  function backtrack(start, remaining) {
+    if (remaining === 0) { result.push([...path]); return; }
+    for (let i = start; i < coins.length; i++) {
+      if (coins[i] > remaining) break;   // prune
+      path.push(coins[i]);
+      backtrack(i, remaining - coins[i]); // i, not i + 1: reuse allowed
+      path.pop();
+    }
+  }
+  backtrack(0, target);
+  return result;
+}
+console.log(combinationSum([2, 5, 10], 12));
+// [ [ 2, 2, 2, 2, 2, 2 ], [ 2, 5, 5 ], [ 2, 10 ] ]
+```
+
+Interviewers often ask for the variant where each number may be used only
+once and the input has duplicates. Recurse with `i + 1` and, after sorting,
+skip `nums[i]` when `i > start` and it equals `nums[i - 1]`.
+
+## Problem 2: N-Queens
+
+Place n queens on an n x n board so no two attack each other. Put exactly
+one queen per row, and track attacked columns and diagonals in sets. On a
+diagonal going down-right, `row - col` is constant; on the other diagonal,
+`row + col` is constant.
+
+```js
+function solveNQueens(n) {
+  const cols = new Set(), diag = new Set(), anti = new Set();
+  const board = [];       // board[row] = column of the queen
+  const solutions = [];
+  function place(row) {
+    if (row === n) {
+      solutions.push(board.map((c) => ".".repeat(c) + "Q" + ".".repeat(n - c - 1)));
+      return;
+    }
+    for (let c = 0; c < n; c++) {
+      if (cols.has(c) || diag.has(row - c) || anti.has(row + c)) continue;
+      cols.add(c); diag.add(row - c); anti.add(row + c); board.push(c);
+      place(row + 1);
+      cols.delete(c); diag.delete(row - c); anti.delete(row + c); board.pop();
+    }
+  }
+  place(0);
+  return solutions;
+}
+console.log(solveNQueens(4));
+// [ [ '.Q..', '...Q', 'Q...', '..Q.' ], [ '..Q.', 'Q...', '...Q', '.Q..' ] ]
+console.log(solveNQueens(8).length); // 92
+```
+
+The O(1) set checks make this fast. The upper bound is O(n!), but pruning
+cuts the real search far below that. In general, exponential time is expected
+in backtracking because the output itself is exponential (C(n, k)
+combinations, 2^n subsets, n! permutations). Say so in an interview rather
+than apologising for it.
+
+## Common mistakes
+
+- **Recording `path` instead of a copy.** `result.push(path)` stores the same
+  array every time; for `[1, 2]` you get `[ [], [], [], [] ]`. Use `[...path]`.
+- **Forgetting to undo.** Every `push`, `add` or `used[i] = true` needs its
+  mirror after the recursive call.
+- **`i` vs `i + 1` vs `0`.** Reuse allowed: `i`. Each item once, order
+  irrelevant: `i + 1`. Order matters: start from 0 with a `used` array.
+- **Pruning too late.** Check validity before recursing, not at the leaf.
+
+### Try it yourself
+
+1. Generate all valid strings of n pairs of parentheses (5 for n = 3). Prune
+   when closing brackets would exceed opening ones.
+2. Given a phone keypad mapping (2 = "abc", 3 = "def", …), list all letter
+   combinations for the digits "23".
+3. Word search: does a word exist in a letter grid, moving up, down, left or
+   right without reusing a cell? Mark cells while exploring; unmark on return.

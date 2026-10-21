@@ -1,0 +1,187 @@
+---
+title: "Streams & Backpressure"
+description: "Process data piece by piece with the Web Streams API, build transform pipelines, and understand backpressure — the mechanism that keeps fast producers from drowning slow consumers."
+module: "Pro Level"
+level: "pro"
+order: 25
+---
+
+Reading a 2 GB log file with `await file.text()` loads all 2 GB into memory
+before you can look at the first line. **Streams** let you process data in
+chunks as it arrives: first byte to screen sooner, and memory use that stays
+flat no matter how big the input. The **Web Streams API**
+(`ReadableStream`, `WritableStream`, `TransformStream`) is the standard in
+browsers, Node, Deno, Bun and edge runtimes — it's also what `fetch`
+response bodies are.
+
+## The three stream types
+
+```js
+// A ReadableStream produces chunks
+const source = ReadableStream.from(["a", "b"]); // from any (async) iterable
+
+// A TransformStream is a writable side + a readable side
+const upper = new TransformStream({
+  transform(chunk, controller) {
+    controller.enqueue(chunk.toUpperCase());
+  },
+});
+
+// A WritableStream consumes chunks
+const sink = new WritableStream({
+  write(chunk) { console.log(chunk); },
+});
+
+await source.pipeThrough(upper).pipeTo(sink);
+// A
+// B
+```
+
+`pipeThrough` returns the transform's readable side, so pipelines chain like
+Unix pipes. `pipeTo` returns a promise that settles when everything has
+flowed through (or something failed). Readable streams are also async
+iterables, so `for await (const chunk of stream)` works too.
+
+## Backpressure: the whole point
+
+A naive event-based reader pushes data as fast as it arrives. If the
+consumer (a database insert, a slow network) can't keep up, chunks pile up
+in memory until the process crashes. **Backpressure** is the signal that
+flows *backwards* up the pipe: "slow down, my queue is full."
+
+Each stream has an internal queue and a **high-water mark**. A readable
+stream calls your `pull()` only while its queue is below that mark:
+
+```js
+let i = 0;
+const nums = new ReadableStream({
+  pull(controller) {            // called only when the queue wants more
+    i++;
+    console.log("pull", i);
+    if (i > 4) controller.close();
+    else controller.enqueue(i);
+  },
+}, { highWaterMark: 2 });
+
+// Nobody has read anything yet:
+// pull 1
+// pull 2          <- stops here: queue is at the high-water mark
+
+const reader = nums.getReader();
+const { value } = await reader.read();
+// pull 3          <- reading one chunk makes room, so it pulls once more
+// value === 1
+```
+
+The producer is never asked for more than the consumer can absorb. That's
+the contract to preserve: generate data in `pull()`, not in a loop in
+`start()` that ignores the queue.
+
+On the writing side, `writer.ready` is a promise that resolves only when
+the sink has room, and `writer.desiredSize` tells you how much:
+
+```js
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const slowSink = new WritableStream(
+  { async write(chunk) { await sleep(10); console.log("wrote", chunk); } },
+  new CountQueuingStrategy({ highWaterMark: 1 }),
+);
+
+const writer = slowSink.getWriter();
+for (const n of [1, 2, 3]) {
+  await writer.ready; // waits while the sink is busy — this IS backpressure
+  writer.write(n);
+}
+await writer.close();
+// wrote 1
+// wrote 2
+// wrote 3
+```
+
+`pipeTo` does all of this for you automatically, which is the main reason to
+prefer piping over hand-written read/write loops.
+
+## A real transform: splitting text into lines
+
+Chunks don't respect line boundaries — a network chunk can end mid-line.
+A transform has to buffer the partial tail and emit it in `flush()`:
+
+```js
+function splitLines() {
+  let buffer = "";
+  return new TransformStream({
+    transform(chunk, controller) {
+      buffer += chunk;
+      const parts = buffer.split("\n");
+      buffer = parts.pop();                 // keep the incomplete last piece
+      for (const line of parts) controller.enqueue(line);
+    },
+    flush(controller) {
+      if (buffer) controller.enqueue(buffer); // emit what's left at the end
+    },
+  });
+}
+
+const res = await fetch("https://example.com/big.csv");
+const lines = res.body
+  .pipeThrough(new TextDecoderStream())     // bytes -> text, handles split UTF-8
+  .pipeThrough(splitLines());
+
+for await (const line of lines) {
+  // handle one CSV row at a time; memory stays flat
+}
+```
+
+`TextDecoderStream` matters: a multi-byte character such as `₹` (3 bytes in
+UTF-8) can be split across two chunks, and decoding chunks independently
+would corrupt it. Built-in `CompressionStream` and `DecompressionStream`
+(gzip, deflate) slot into pipelines the same way.
+
+## Cancellation and errors
+
+```js
+const controller = new AbortController();
+setTimeout(() => controller.abort(), 1000);
+
+try {
+  await source.pipeTo(sink, { signal: controller.signal });
+} catch (err) {
+  console.log(err.name); // "AbortError"
+}
+```
+
+Errors propagate through a pipe in both directions: an error in the source
+aborts the sink, and a failing sink cancels the source, so upstream
+resources (file handles, sockets) get released. A stream can have only one
+reader at a time (it becomes *locked*); use `stream.tee()` if two consumers
+genuinely need the same data — but note that `tee` buffers for the slower
+branch, which defeats backpressure.
+
+## Node streams vs Web Streams
+
+Node has its own older stream classes (`node:stream`) used by `fs`, `http`
+and many npm packages. Both models support backpressure; convert at the
+boundary rather than mixing styles:
+
+```js
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+
+const webStream = Readable.toWeb(nodeReadable); // Node -> Web
+const nodeStream = Readable.fromWeb(webStream); // Web -> Node
+
+await pipeline(source, transform, destination); // Node-style, with cleanup on error
+```
+
+Prefer `pipeline` over chaining `.pipe()` in Node — `.pipe()` does not
+forward errors or destroy the other streams when one fails.
+
+### Try it yourself
+
+Build a pipeline that reads a large local text file in Node (convert
+`fs.createReadStream` with `Readable.toWeb`), decodes it with
+`TextDecoderStream`, splits it with `splitLines()`, and uses a
+`WritableStream` whose `write()` awaits a 1 ms delay. Log
+`process.memoryUsage().heapUsed` every 10,000 lines and confirm it stays
+roughly flat — then compare with reading the whole file using
+`fs.promises.readFile`.

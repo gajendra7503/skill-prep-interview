@@ -1,0 +1,192 @@
+---
+title: "Dynamic Programming Fundamentals"
+description: "Overlapping subproblems and optimal substructure, memoisation versus tabulation, space optimisation, and a five-step framework applied to classic interview problems."
+module: "Dynamic Programming"
+level: "advanced"
+order: 20
+---
+
+Dynamic programming (DP) has a fearsome reputation, but the core idea is
+small: **if a recursive solution keeps solving the same subproblems, solve
+each one once and remember the answer.** The hard part in interviews is
+defining the right subproblem, and this lesson gives you a repeatable method.
+
+## When does DP apply?
+
+Two properties must hold:
+
+1. **Optimal substructure**: the answer to the problem can be built from
+   answers to smaller versions of the same problem.
+2. **Overlapping subproblems**: those smaller versions repeat. If they never
+   repeat (as in merge sort), plain recursion or divide and conquer is enough.
+
+Signals in the problem statement: "minimum/maximum…", "number of ways…",
+"is it possible…", over a sequence, grid or amount, where choices at each
+step affect later options.
+
+## Seeing the overlap: Fibonacci
+
+```js
+let calls = 0;
+function fibNaive(n) {
+  calls++;
+  if (n <= 1) return n;
+  return fibNaive(n - 1) + fibNaive(n - 2);
+}
+console.log(fibNaive(30), calls); // 832040 2692537
+```
+
+Nearly 27 lakh calls to compute `fib(30)`. The call tree shows why:
+
+```text
+                    fib(5)
+               /              \
+          fib(4)              fib(3)       <- fib(3) computed twice
+         /      \            /      \
+     fib(3)    fib(2)    fib(2)    fib(1)  <- fib(2) computed three times
+     /    \
+ fib(2)  fib(1)
+```
+
+The tree roughly doubles at each level: O(2^n) time (more precisely about
+1.6^n). But there are only n + 1 *distinct* subproblems.
+
+## Top-down: memoisation
+
+Keep the recursion and cache results. Each subproblem is computed once.
+
+```js
+function fibMemo(n, memo = new Map()) {
+  if (n <= 1) return n;
+  if (memo.has(n)) return memo.get(n);
+  const value = fibMemo(n - 1, memo) + fibMemo(n - 2, memo);
+  memo.set(n, value);
+  return value;
+}
+console.log(fibMemo(50)); // 12586269025
+```
+
+O(n) time, O(n) space for the cache plus O(n) recursion depth.
+
+## Bottom-up: tabulation
+
+Fill a table from the smallest subproblems upwards, so every value you need
+is already computed. No recursion, so no stack overflow risk.
+
+```js
+function fibTab(n) {
+  if (n <= 1) return n;
+  const dp = new Array(n + 1).fill(0);
+  dp[1] = 1;
+  for (let i = 2; i <= n; i++) dp[i] = dp[i - 1] + dp[i - 2];
+  return dp[n];
+}
+console.log(fibTab(50)); // 12586269025
+
+// Each step only reads the previous two cells, so keep just two variables
+function fibConst(n) {
+  let prev = 0, curr = 1;
+  for (let i = 0; i < n; i++) [prev, curr] = [curr, prev + curr];
+  return prev;
+}
+console.log(fibConst(50)); // 12586269025
+```
+
+| | Top-down (memo) | Bottom-up (table) |
+|---|---|---|
+| Style | recursion + cache | loops over a table |
+| Computes | only subproblems actually reached | every subproblem in range |
+| Stack overflow risk | yes, for deep recursion | no |
+| Space optimisation | hard | easy when rows depend only on recent rows |
+
+Interviewers often accept either. A good strategy: write the recursive brute
+force, add a memo, then convert to a table if asked to optimise space.
+
+A JavaScript detail: `fibConst(80)` is `23416728348467684`, which is not exact,
+because Fibonacci numbers from `fib(79)` onwards exceed
+`Number.MAX_SAFE_INTEGER`. Use `BigInt` or take a modulo when a problem says
+"return the answer modulo 10^9 + 7".
+
+## The five-step framework
+
+1. **State**: what does `dp[i]` (or `dp[i][j]`) mean, in one sentence?
+2. **Transition**: how is a state computed from smaller states?
+3. **Base cases**: the smallest states you know directly.
+4. **Order**: which direction to fill so dependencies are ready.
+5. **Answer**: which cell holds the final result?
+
+Write these five lines as comments before coding: the best DP interview habit.
+
+## Problem 1: Minimum coins (why greedy fails)
+
+"Make amount A with the fewest coins from a given set (unlimited supply)."
+With Indian denominations (₹1, 2, 5, 10, 20, 50, 100, 200, 500) taking
+the largest coin each time happens to be optimal. With coins `[1, 3, 4]` and
+amount 6, greedy picks 4 + 1 + 1 (3 coins), but 3 + 3 uses 2. When greedy is
+safe is covered in "Greedy Algorithms"; DP is always correct.
+
+- **State**: `dp[a]` = fewest coins to make amount `a`.
+- **Transition**: `dp[a] = 1 + min(dp[a - c])` over coins `c` with `c` at most `a`.
+- **Base**: `dp[0] = 0`; everything else starts at `Infinity` (unreachable).
+- **Order**: `a` from 1 up to A. **Answer**: `dp[A]`, or -1 if still `Infinity`.
+
+```js
+function minCoins(coins, amount) {
+  const dp = new Array(amount + 1).fill(Infinity);
+  dp[0] = 0;
+  for (let a = 1; a <= amount; a++) {
+    for (const c of coins) {
+      if (c <= a && dp[a - c] + 1 < dp[a]) dp[a] = dp[a - c] + 1;
+    }
+  }
+  return dp[amount] === Infinity ? -1 : dp[amount];
+}
+console.log(minCoins([1, 3, 4], 6)); // 2
+console.log(minCoins([1, 2, 5, 10, 20, 50, 100, 200, 500], 888)); // 9
+console.log(minCoins([4, 6], 7));    // -1
+```
+
+O(A x k) time for k coin types, O(A) space.
+
+## Problem 2: House robber
+
+A thief cannot rob two adjacent houses in a lane. Given the cash in each
+house (₹), find the maximum haul.
+
+- **State**: best total considering the first `i` houses.
+- **Transition**: `best(i) = max(best(i - 1), best(i - 2) + cash[i])`, which
+  means skip house i, or rob it and add the best from two houses back.
+
+Only two previous values are needed, so O(1) space:
+
+```js
+function rob(houses) {
+  let skip = 0, take = 0; // best so far if the last house was skipped / robbed
+  for (const cash of houses) {
+    [skip, take] = [Math.max(skip, take), skip + cash];
+  }
+  return Math.max(skip, take);
+}
+console.log(rob([2, 7, 9, 3, 1]));             // 12  (2 + 9 + 1)
+console.log(rob([20000, 5000, 15000, 30000])); // 50000  (20000 + 30000)
+```
+
+O(n) time, O(1) space. "Climbing stairs" (1 or 2 steps at a time, count the
+ways) is Fibonacci in disguise: `ways(n) = ways(n - 1) + ways(n - 2)`.
+
+## Common mistakes
+
+- **Coding before defining the state.** Vague states produce wrong
+  transitions.
+- **Wrong base cases or initial values**, for example filling with 0 when
+  "unreachable" should be `Infinity` for a minimum problem.
+- **Filling in the wrong order**, reading cells not yet computed.
+- **Assuming greedy works** without proof.
+
+### Try it yourself
+
+1. Count the ways to climb n stairs taking 1, 2 or 3 steps at a time.
+2. Coin change, number of ways: count combinations (not orderings) that make
+   ₹10 from coins `[1, 2, 5]`. Hint: loop over coins in the outer loop.
+3. Convert `rob` into the circular version, where the first and last houses
+   are neighbours. Hint: solve two linear cases and take the maximum.

@@ -1,0 +1,178 @@
+---
+title: "Observability with OpenTelemetry"
+description: "Go beyond logs: distributed tracing, metrics and log correlation for Node services with OpenTelemetry, plus sampling, context propagation and the signals worth alerting on."
+module: "Pro Level"
+level: "pro"
+order: 25
+---
+
+Logs tell you *what* one process did. When a checkout request touches an
+API gateway, three Node services, Redis and Postgres, and is slow only for
+some users, you need to see the **whole request path** and the **trend
+across all requests**. That is observability, and OpenTelemetry (OTel) is
+the vendor-neutral standard for it. Senior interviews often ask how you
+would find a p99 latency regression in a microservice system.
+
+## The three signals
+
+| Signal | Answers | Example |
+| --- | --- | --- |
+| Traces | Where did the time go for *this* request? | `POST /checkout` spent 1.8 s waiting on the fraud service |
+| Metrics | How is the system behaving *overall*? | p99 latency, error rate, requests per second |
+| Logs | What exactly happened at this point? | "card declined: insufficient funds" |
+
+A **trace** is a tree of **spans**. Each span has a name, start and end
+time, attributes (key-value pairs) and a status, and records its parent, so
+a tracing backend (Jaeger, Grafana Tempo, Honeycomb, Datadog and others)
+can draw a waterfall of the request across services.
+
+## Setting up the SDK
+
+OTel separates the **API** (what your code and libraries call) from the
+**SDK** (what actually records and exports data). Libraries depend only on
+`@opentelemetry/api`; the application installs the SDK once:
+
+```bash
+npm install @opentelemetry/api @opentelemetry/sdk-node \
+  @opentelemetry/auto-instrumentations-node @opentelemetry/exporter-trace-otlp-http
+```
+
+```js
+// instrumentation.mjs — must load before any other application code
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+
+const sdk = new NodeSDK({
+  serviceName: "payments-api",
+  traceExporter: new OTLPTraceExporter(),        // defaults to a local collector
+  instrumentations: [getNodeAutoInstrumentations()],
+});
+sdk.start();
+
+process.on("SIGTERM", () => sdk.shutdown().finally(() => process.exit(0)));
+```
+
+```bash
+node --import ./instrumentation.mjs server.js
+```
+
+Instrumentation works by patching modules such as `node:http`, `pg` or
+`ioredis` as they load, which is why it must start **first** — hence
+`--import`. Auto-instrumentation gives you spans for incoming and outgoing
+HTTP, database calls and more with zero code changes. ESM-only libraries
+need an extra loader hook to be patched; check the current OpenTelemetry JS
+docs, as this area has been evolving. Export over **OTLP** to an
+**OpenTelemetry Collector**, which batches, filters and forwards to
+whichever backend you use, so switching vendors is a config change.
+
+## Custom spans for business logic
+
+Auto-instrumentation sees HTTP and SQL, not "charge the card". Add spans
+where the business meaning lives:
+
+```js
+import { trace, SpanStatusCode } from "@opentelemetry/api";
+const tracer = trace.getTracer("payments");
+
+async function chargeCard(orderId, amountInPaise) {
+  return tracer.startActiveSpan("chargeCard", async (span) => {
+    span.setAttribute("order.id", orderId);
+    span.setAttribute("payment.amount_paise", amountInPaise);
+    try {
+      return await gateway.charge(orderId, amountInPaise);
+    } catch (err) {
+      span.recordException(err);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+      throw err;
+    } finally {
+      span.end();                                 // always end, or the span is lost
+    }
+  });
+}
+// exported span: name 'chargeCard',
+//   attributes { 'order.id': 'ord_1', 'payment.amount_paise': 149900 }
+```
+
+`startActiveSpan` makes the span current inside the callback, so any HTTP
+or DB span created inside becomes its child. The current span lives in an
+`AsyncLocalStorage`-based context, which is how it survives across
+`await`. Never put card numbers, PAN or passwords in attributes.
+
+## Context propagation across services
+
+For a trace to cross a network hop, the caller sends the trace ID and
+parent span ID in a header. OTel uses the **W3C Trace Context** standard:
+
+```bash
+traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+#            version-trace id (32 hex)-parent span id (16 hex)-flags (01 = sampled)
+```
+
+The HTTP instrumentation injects this header into outgoing requests and
+extracts it from incoming ones. For message queues (Kafka, SQS, RabbitMQ)
+you may have to inject the context into message headers yourself with
+`propagation.inject` and `propagation.extract` from the API package.
+
+## Metrics: RED and the event loop
+
+```js
+import { metrics } from "@opentelemetry/api";
+const meter = metrics.getMeter("payments");
+
+const payments = meter.createCounter("payments_total");
+const duration = meter.createHistogram("payment_duration_ms", { unit: "ms" });
+
+payments.add(1, { outcome: "success", method: "upi" });
+duration.record(182, { method: "upi" });
+```
+
+For every service track **RED**: **R**ate, **E**rrors and **D**uration
+(as a histogram, so you can read p50, p95 and p99 — averages hide tail
+latency). Add Node-specific health signals: event-loop delay
+(`monitorEventLoopDelay`), heap used, GC pauses and active handles. Keep
+attribute values **low-cardinality**: `method: "upi"` is fine, while
+`userId` as a metric attribute creates one time series per user and can
+overwhelm your metrics backend.
+
+## Correlating logs with traces
+
+Put the trace ID on every log line so you can jump from a slow trace to its
+logs and back:
+
+```js
+import { trace } from "@opentelemetry/api";
+
+function traceFields() {
+  const ctx = trace.getActiveSpan()?.spanContext();
+  return ctx ? { trace_id: ctx.traceId, span_id: ctx.spanId } : {};
+}
+logger.info({ ...traceFields(), orderId }, "payment captured");
+// {"level":30,"trace_id":"8dd19ff04f84c81e35e3cbef62150a30","span_id":"b8840341cd3134d7",...}
+```
+
+Instrumentation packages exist for pino and winston that add these fields
+automatically.
+
+## Sampling and cost
+
+Tracing every request in a high-traffic service is expensive. Two options:
+
+- **Head sampling** — decide at the start of the trace (for example keep
+  10%). Cheap, but you may drop the one slow request you needed.
+- **Tail sampling** — buffer complete traces in the Collector and keep all
+  errors and slow traces plus a small share of normal ones. Better signal,
+  more infrastructure.
+
+A common production setup: parent-based sampling in the SDK (respect the
+caller's decision) plus tail sampling in the Collector.
+
+### Try it yourself
+
+1. Instrument a small `node:http` service with `NodeSDK` and a
+   `ConsoleSpanExporter` (from `@opentelemetry/sdk-trace-node`) and look at
+   the span printed for each request.
+2. Add a custom `chargeCard` span that fails for amounts above ₹1,00,000
+   and confirm the exported span has an error status and an exception event.
+3. Run two services where A calls B with `fetch`, and verify both spans
+   share one trace ID by logging the incoming `traceparent` header in B.

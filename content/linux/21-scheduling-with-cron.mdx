@@ -1,0 +1,179 @@
+---
+title: "Scheduling Jobs with cron"
+description: "Schedule recurring jobs with crontab, read the five-field syntax confidently, avoid the PATH, timezone and overlap traps, and debug jobs that never ran."
+module: "Administration"
+level: "advanced"
+order: 21
+---
+
+Nightly database backups, clearing old uploads, sending a daily sales
+report at 9 AM: these are cron's job. cron is a daemon that wakes up every
+minute, checks its tables, and runs whatever is due. It is on almost every
+Linux server, and "write a cron expression for..." is a favourite interview
+question.
+
+On Ubuntu and Debian the daemon is the `cron` package (service `cron`). On
+Fedora and RHEL it is `cronie` (service `crond`); install it with
+`sudo dnf install cronie` and `sudo systemctl enable --now crond` if missing.
+
+## Your crontab
+
+Each user has a personal table, edited with the `crontab` command (never by
+editing files under `/var/spool/cron` directly):
+
+| Command | Effect |
+|---|---|
+| `crontab -e` | edit your crontab (opens `$EDITOR`, validates on save) |
+| `crontab -l` | list it |
+| `crontab -r` | **delete it entirely, with no confirmation** |
+| `sudo crontab -u deploy -l` | list another user's crontab |
+
+`-r` sits next to `-e` on the keyboard, and one typo wipes every job. Back
+up first: `crontab -l > ~/crontab.bak`.
+
+## The five fields
+
+```text
+┌───────── minute        (0-59)
+│ ┌─────── hour          (0-23)
+│ │ ┌───── day of month  (1-31)
+│ │ │ ┌─── month         (1-12 or jan-dec)
+│ │ │ │ ┌─ day of week   (0-7 or sun-sat; 0 and 7 are both Sunday)
+│ │ │ │ │
+* * * * *  command to run
+```
+
+| Syntax | Meaning | Example |
+|---|---|---|
+| `*` | every value | `*` in hour = every hour |
+| `a,b` | list | `0,30` = at :00 and :30 |
+| `a-b` | range | `1-5` = Monday to Friday |
+| `*/n` | step | `*/15` in minute = every 15 minutes |
+
+Worked examples:
+
+```bash
+*/15 * * * *   /opt/shop/bin/sync-stock.sh           # every 15 minutes
+0 2 * * *      /usr/local/bin/db-backup.sh           # 02:00 every day
+30 9 * * 1-5   /opt/shop/bin/daily-sales-report.sh   # 09:30 Monday to Friday
+0 0 1 * *      /opt/shop/bin/monthly-invoices.sh     # midnight on the 1st
+0 */6 * * *    /opt/shop/bin/refresh-rates.sh        # 00:00, 06:00, 12:00, 18:00
+@reboot        /opt/shop/bin/warm-cache.sh           # once, when cron starts at boot
+```
+
+Shortcuts such as `@hourly`, `@daily` (same as `0 0 * * *`), `@weekly`,
+`@monthly` and `@reboot` are supported by both Debian cron and cronie.
+
+**Interview trap:** when **both** day-of-month and day-of-week are
+restricted, cron runs the job when **either** matches, not both.
+`0 9 13 * 5` runs at 09:00 on the 13th of every month **and** every Friday,
+not only on Friday the 13th.
+
+## Why the job works in your terminal but not in cron
+
+Cron runs commands with a tiny environment. It does not read `~/.bashrc` or
+`~/.profile`, so anything you set up there is missing:
+
+| Your terminal | Under cron |
+|---|---|
+| `PATH` includes `/usr/local/bin`, nvm, pyenv | `PATH` is short, typically `/usr/bin:/bin` |
+| shell is Bash | shell is `/bin/sh` (dash on Ubuntu) |
+| current directory is wherever you are | current directory is your home |
+| `%` is an ordinary character | `%` means newline and must be escaped as `\%` |
+
+Fixes, all at the top of the crontab or inside the script:
+
+```bash
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+
+# use absolute paths, cd explicitly, and escape % in date formats
+0 2 * * * cd /opt/shop && /usr/bin/node scripts/cleanup.js >> /var/log/shop/cleanup.log 2>&1
+5 2 * * * /usr/local/bin/db-backup.sh > /var/backups/db-$(date +\%F).log 2>&1
+```
+
+Best practice: keep the crontab line short and put the logic in a script
+with a proper shebang, absolute paths and its own logging. To reproduce
+cron's environment while testing, run the script with a nearly empty
+environment: `env -i HOME="$HOME" PATH=/usr/bin:/bin /bin/sh -c '/usr/local/bin/db-backup.sh'`.
+
+## Where the output goes
+
+Anything a job prints to stdout or stderr is **emailed** to the crontab's
+owner (or `MAILTO`) if a mail system is installed; on most servers it is
+not, so the output is silently lost. Always redirect:
+
+```bash
+>> /var/log/shop/job.log 2>&1      # append stdout and stderr to a log
+> /dev/null 2>&1                    # discard everything (only if you truly do not care)
+```
+
+Also make sure the crontab ends with a newline: some cron implementations
+ignore a final line without one.
+
+## System-wide crontabs
+
+| Location | Notes |
+|---|---|
+| `/etc/crontab` | system table; has an extra **user** field |
+| `/etc/cron.d/` | one file per application, same format as `/etc/crontab` |
+| `/etc/cron.hourly/`, `cron.daily/`, `cron.weekly/`, `cron.monthly/` | drop in executable scripts, no schedule needed |
+
+Lines in `/etc/crontab` and `/etc/cron.d/` include the user to run as:
+
+```bash
+# /etc/cron.d/shop
+30 1 * * *  shopapi  /opt/shop/bin/purge-sessions.sh >> /var/log/shop/purge.log 2>&1
+```
+
+On Debian and Ubuntu, files in `/etc/cron.d/` and scripts in the
+`cron.daily`-style directories are skipped if their names contain a dot,
+so name them `shop-backup`, not `shop-backup.sh`. Scripts in those
+directories must be executable (`chmod +x`).
+
+## Timezones and overlapping runs
+
+Cron uses the **server's** time zone. Cloud images usually default to UTC,
+so a job meant for 02:30 IST must be written as `0 21 * * *` (21:00 UTC the
+previous evening). Check with `timedatectl`. Changing the system time zone
+affects every service, so agree on it as a team.
+
+If a job can run longer than its interval, two copies may overlap and
+corrupt data. `flock` (from util-linux) makes the second run skip itself:
+
+```bash
+*/5 * * * * flock -n /tmp/sync-stock.lock /opt/shop/bin/sync-stock.sh >> /var/log/shop/sync.log 2>&1
+```
+
+`-n` means "if the lock is held, exit immediately instead of waiting".
+
+## Debugging a job that never ran
+
+1. **Is cron running?** `systemctl status cron` (Ubuntu) or `systemctl
+   status crond` (Fedora/RHEL).
+2. **Did cron try?** `journalctl -u cron --since today` on Ubuntu, or
+   `grep CRON /var/log/syslog` where rsyslog is installed. On Fedora/RHEL,
+   check `journalctl -u crond` or `/var/log/cron`. Each run logs a line with
+   the user and command.
+3. **Did the command fail?** Read the job's own log file; this is why you
+   redirect output.
+4. **Is the schedule what you think?** Re-read the five fields and the
+   server time zone.
+
+Missed runs are simply skipped: if the server was off at 02:00, cron does
+not catch up. For laptops, `anacron` handles daily and weekly jobs that
+were missed; for servers, systemd timers with `Persistent=true` can do the
+same (see "systemd Services, Timers & journalctl"). Cron's advantages are
+simplicity, one line per job, and portability across almost every Unix.
+
+### Try it yourself
+
+1. Write cron lines for: every 10 minutes during office hours (09:00-18:59)
+   on weekdays; 23:45 on the last day of the year; 04:00 on the 1st and
+   15th of each month.
+2. Add a job that appends `date` output to `~/cron-test.log` every minute,
+   confirm it runs with `tail -f`, check the cron log line, then remove the
+   job with `crontab -e` (not `-r`).
+3. A backup job scheduled as `0 2 * * * backup.sh` works by hand but never
+   runs from cron. List three likely causes and the fix for each.

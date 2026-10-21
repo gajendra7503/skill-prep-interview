@@ -1,0 +1,150 @@
+---
+title: "How Next.js Works: The Mental Model"
+description: "The core vocabulary — server vs client, rendering, hydration, routes, segments and builds — that every later lesson builds on."
+module: "Getting Started"
+level: "beginner"
+order: 2
+---
+
+Before writing much code, it pays to understand **where your code runs and
+when**. Almost every confusing Next.js moment — "why can't I use `useState`
+here?", "why is my data stale?" — becomes obvious once this picture is in
+your head.
+
+## Two places code can run
+
+A Next.js app runs in two environments:
+
+- **The server** — a Node.js process (your laptop in development, a cloud
+  machine in production). It can read databases, files and secret keys.
+- **The client** — the visitor's browser. It can respond to clicks, read
+  `window`, and keep state between interactions.
+
+Plain React apps run almost entirely in the browser. Next.js moves as much
+work as possible to the **server** and sends the browser only what it needs.
+
+## Server Components and Client Components
+
+Every component in the `app/` folder is a **Server Component** by default:
+
+```tsx
+// app/page.tsx — runs on the server only
+export default async function Page() {
+  const res = await fetch("https://api.example.com/rates");
+  const rates = await res.json();
+  return <p>Today's rate: ₹{rates.gold} per gram</p>;
+}
+// The browser receives the finished HTML; this component's JS is never sent.
+```
+
+When you need interactivity, mark a file with `"use client"`:
+
+```tsx
+"use client";
+import { useState } from "react";
+
+export function LikeButton() {
+  const [likes, setLikes] = useState(0);
+  return <button onClick={() => setLikes(likes + 1)}>👍 {likes}</button>;
+}
+// This component's JS IS sent to the browser so the click handler works.
+```
+
+A good beginner rule: **start on the server, and add `"use client"` only to
+the small pieces that need state, effects or event handlers.**
+
+## Rendering: turning components into HTML
+
+**Rendering** means running your components to produce output. Next.js can
+do it at different moments:
+
+| Term | When HTML is produced | Typical use |
+| --- | --- | --- |
+| Static (prerendered) | At build time, reused for everyone | Marketing pages, blog posts |
+| Dynamic | On every request | Dashboards, personalised pages |
+| Revalidated (ISR) | At build, then refreshed periodically | Product listings, news |
+
+You rarely choose this with a switch. Next.js works it out from what your
+code does — reading cookies or request headers, for instance, makes a page
+dynamic. The Data Fetching & Rendering lesson covers this in depth.
+
+## Hydration
+
+For Client Components, the server still produces HTML first, so the page
+appears quickly. The browser then downloads the JavaScript and **hydrates**
+the page: React attaches event handlers to the existing HTML so it becomes
+interactive.
+
+```text
+1. Request /products
+2. Server renders HTML (Server + Client Components)   -> fast first paint
+3. Browser shows HTML immediately
+4. Browser downloads JS for Client Components only
+5. React hydrates them                                  -> buttons now work
+```
+
+If the HTML the server produced differs from what the browser renders
+(for example, printing `new Date()` or `Math.random()`), React reports a
+**hydration mismatch**.
+
+## Routes, segments and special files
+
+- A **route** is a URL your app serves, such as `/courses/react`.
+- A **segment** is one part of that URL — `courses` and `react` are two
+  segments, and each maps to a folder in `app/`.
+- **Special files** inside a folder give the segment behaviour:
+
+```text
+app/courses/
+  layout.tsx    -> shared UI that wraps every page below it
+  page.tsx      -> the UI for /courses
+  loading.tsx   -> shown instantly while the page loads
+  error.tsx     -> shown if rendering throws
+```
+
+Any other file (a `utils.ts`, a `Card.tsx`) is just code — it doesn't
+become a route.
+
+## Navigation without full page reloads
+
+The `Link` component from `next/link` turns a click into a **client-side
+navigation**: Next.js fetches only what changed and swaps it in, while
+shared layouts stay mounted.
+
+```tsx
+import Link from "next/link";
+
+export function Nav() {
+  return <Link href="/about">About</Link>;
+}
+// Clicking it does NOT reload the page; the navbar keeps its state.
+```
+
+In production, Next.js also **prefetches** links as they scroll into view,
+so the next page is often ready before you click.
+
+## Development vs production
+
+`next dev` compiles each route on demand and favours fast feedback and
+helpful errors. `next build` compiles everything ahead of time, prerenders
+static pages and enables caching. That's why you must always test with
+`next build` and `next start` before shipping — some behaviour simply
+doesn't exist in development.
+
+## Vocabulary cheat sheet
+
+- **App Router** — the `app/` directory routing system used in this course.
+- **Server Component** — the default; runs only on the server.
+- **Client Component** — opted in with `"use client"`; hydrated in the browser.
+- **Server Action** — a server function you can call from a form or button.
+- **Route Handler** — a `route.ts` file that acts as an API endpoint.
+- **Proxy** — `proxy.ts`, code that runs before a request reaches a route.
+
+### Try it yourself
+
+In the app from the previous lesson, add a Server Component page that shows
+the current server time, and a Client Component button on the same page that
+counts clicks. Reload the page a few times in `npm run dev`, then again after
+`npm run build` and `npm run start`. Explain why the server time changes on
+every reload in development but stays frozen in production (hint: static
+rendering), and why the click counter works the same in both.

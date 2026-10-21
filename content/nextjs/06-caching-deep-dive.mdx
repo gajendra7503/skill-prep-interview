@@ -2,7 +2,8 @@
 title: "Caching Deep Dive"
 description: "The four layers Next.js caches at, and how revalidatePath/revalidateTag invalidate them correctly."
 module: "Rendering"
-order: 6
+level: "advanced"
+order: 17
 ---
 
 The previous rendering lesson covered *when* a page renders (static, ISR, or
@@ -43,15 +44,18 @@ export async function publishPost(id: string) {
   await db.posts.update(id, { published: true });
 
   revalidatePath("/blog");          // re-render this exact route on next visit
-  revalidateTag("posts");           // invalidate every fetch() tagged "posts", anywhere
+  revalidateTag("posts", "max");    // invalidate every fetch() tagged "posts", anywhere
 }
 ```
 
 - `revalidatePath(path)` clears the Full Route Cache entry (and Data Cache
   entries used by it) for one specific route.
-- `revalidateTag(tag)` clears every cached `fetch` call across the whole app
-  that was tagged with `next: { tags: ["posts"] }` — useful when the same
-  data backs multiple routes (a post's page *and* the blog index).
+- `revalidateTag(tag, "max")` marks every cached `fetch` call tagged with
+  `next: { tags: ["posts"] }` as stale across the whole app, serving the old
+  data while fresh data loads in the background — useful when the same data
+  backs multiple routes (a post's page *and* the blog index). The one-argument
+  form is deprecated; use `updateTag` when the user must see their own write
+  immediately.
 
 ## The classic gotcha
 

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why can asynchronous replication lose committed data on failover?",
+      "options": [
+        "Replicas reject writes",
+        "The source replies to the client before any replica has the transaction",
+        "Binary logs are encrypted",
+        "GTIDs are disabled by default"
+      ],
+      "correctIndex": 1,
+      "explanation": "With async replication, transactions may exist only on the failed primary, so promoting a replica gives an RPO above zero."
+    },
+    {
+      "question": "A 5-member Group Replication group loses contact with 2 members. Can the remaining 3 keep accepting writes?",
+      "options": [
+        "No, all members must be reachable",
+        "No, a group needs at least 4 members",
+        "Only in multi-primary mode",
+        "Yes, 3 is a majority of 5"
+      ],
+      "correctIndex": 3,
+      "explanation": "A group needs a majority; 5 members tolerate 2 failures, and the majority is 3."
+    },
+    {
+      "question": "In an InnoDB Cluster, what does the application connect to?",
+      "options": [
+        "The current primary host directly",
+        "MySQL Shell",
+        "MySQL Router, which routes to the current primary",
+        "Any secondary member"
+      ],
+      "correctIndex": 2,
+      "explanation": "Router learns the topology from cluster metadata and sends read-write connections to the primary, including after a failover."
+    },
+    {
+      "question": "Why is a 2-member Group Replication group pointless for HA?",
+      "options": [
+        "Group Replication needs at least 9 members",
+        "Losing either member loses the majority, so quorum is gone",
+        "Two members cannot use GTIDs",
+        "Single-primary mode requires three nodes for backups"
+      ],
+      "correctIndex": 1,
+      "explanation": "With 2 members the majority is 2, so no failures are tolerated."
+    }
+  ]
+}

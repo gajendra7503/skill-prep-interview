@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the rollback plan after 8.4 has started on a data directory that was on 8.0?",
+      "options": [
+        "Reinstall the 8.0 binaries on the same data directory",
+        "Run mysql_upgrade in reverse",
+        "Downgrade with a SET GLOBAL command",
+        "Restore a backup or use an old-version replica, since major-version downgrade is not supported"
+      ],
+      "correctIndex": 3,
+      "explanation": "The data dictionary is upgraded, so 8.0 cannot open it. Rollback relies on backups or an old replica."
+    },
+    {
+      "question": "Which 8.0 account setting will stop working by default in 8.4?",
+      "options": [
+        "The mysql_native_password authentication plugin",
+        "The caching_sha2_password plugin",
+        "Accounts with a host of %",
+        "Root accounts"
+      ],
+      "correctIndex": 0,
+      "explanation": "mysql_native_password is disabled by default in 8.4, so affected accounts must be migrated to caching_sha2_password first."
+    },
+    {
+      "question": "Which statement replaces SHOW MASTER STATUS in 8.4?",
+      "options": [
+        "SHOW REPLICA STATUS",
+        "SHOW BINARY LOG STATUS",
+        "SHOW SOURCE STATUS",
+        "SHOW GTID STATUS"
+      ],
+      "correctIndex": 1,
+      "explanation": "SHOW MASTER STATUS was removed; SHOW BINARY LOG STATUS replaces it, and it does not exist in 8.0."
+    },
+    {
+      "question": "Which replication direction is supported for a rolling upgrade?",
+      "options": [
+        "Newer source to older replica",
+        "Older source to newer replica",
+        "Both directions equally",
+        "Neither; replicas must be rebuilt"
+      ],
+      "correctIndex": 1,
+      "explanation": "Replication from an older source to a newer replica is supported, so upgrade replicas first and then switch over."
+    }
+  ]
+}

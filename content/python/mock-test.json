@@ -1,0 +1,818 @@
+{
+  "title": "Python Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "py-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-variables-types-and-mutability",
+      "question": "What does this code print?",
+      "code": "a = [1, 2]\nb = a\nb.append(3)\nprint(a)",
+      "codeLanguage": "python",
+      "options": [
+        "[1, 2]",
+        "[1, 2, 3]",
+        "[3]",
+        "It raises NameError"
+      ],
+      "correctIndex": 1,
+      "explanation": "`b = a` binds a second name to the same list object; it does not copy. Appending through `b` mutates the one shared list, so `a` shows `[1, 2, 3]`. `[1, 2]` would only be printed if `b` were a copy such as `a.copy()`."
+    },
+    {
+      "id": "py-02",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-variables-types-and-mutability",
+      "question": "Which of these built-in types is immutable?",
+      "options": [
+        "list",
+        "dict",
+        "set",
+        "tuple"
+      ],
+      "correctIndex": 3,
+      "explanation": "A tuple cannot be changed after creation (no item assignment, append or remove). list, dict and set are all mutable containers. Note that a tuple holding a list can still have that inner list mutated, but the tuple itself is immutable."
+    },
+    {
+      "id": "py-03",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-strings-numbers-and-truthiness",
+      "question": "Which of these values is truthy?",
+      "options": [
+        "[0]",
+        "0.0",
+        "''",
+        "None"
+      ],
+      "correctIndex": 0,
+      "explanation": "`[0]` is a non-empty list, and any non-empty container is truthy regardless of its contents. `0.0`, the empty string and `None` are all falsy."
+    },
+    {
+      "id": "py-04",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "03-control-flow-and-comprehensions",
+      "question": "What does this comprehension produce?",
+      "code": "[x * x for x in range(5) if x % 2 == 0]",
+      "codeLanguage": "python",
+      "options": [
+        "[1, 9]",
+        "[0, 1, 4, 9, 16]",
+        "[0, 4, 16]",
+        "[4, 16]"
+      ],
+      "correctIndex": 2,
+      "explanation": "`range(5)` yields 0-4; the filter keeps the even values 0, 2, 4, whose squares are 0, 4, 16. `[4, 16]` forgets that 0 is even."
+    },
+    {
+      "id": "py-05",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "04-lists-tuples-dicts-and-sets",
+      "question": "What does `prices.get(\"tea\", 0)` return if `prices = {\"coffee\": 120}`?",
+      "options": [
+        "It raises KeyError",
+        "None",
+        "\"tea\"",
+        "0"
+      ],
+      "correctIndex": 3,
+      "explanation": "`dict.get(key, default)` returns the default when the key is missing, so it returns 0. Only the subscript form `prices[\"tea\"]` raises KeyError; `None` is returned only when no default is supplied."
+    },
+    {
+      "id": "py-06",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "12-exceptions-and-error-handling",
+      "question": "What does this code print?",
+      "code": "try:\n    x = 1\nexcept ValueError:\n    print(\"A\")\nelse:\n    print(\"B\")\nfinally:\n    print(\"C\")",
+      "codeLanguage": "python",
+      "options": [
+        "B then C",
+        "A then C",
+        "C only",
+        "A, B, then C"
+      ],
+      "correctIndex": 0,
+      "explanation": "No exception is raised, so the `except` block is skipped, the `else` block runs (B), and `finally` always runs (C). `else` runs only when the `try` body completes without an exception."
+    },
+    {
+      "id": "py-07",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "07-classes-and-objects",
+      "question": "Inside an instance method, what does the first parameter `self` refer to?",
+      "code": "class Account:\n    def deposit(self, amount):\n        self.balance += amount",
+      "codeLanguage": "python",
+      "options": [
+        "The class Account itself",
+        "The instance the method was called on",
+        "The module the class is defined in",
+        "The parent class"
+      ],
+      "correctIndex": 1,
+      "explanation": "Calling `acct.deposit(500)` is equivalent to `Account.deposit(acct, 500)`, so `self` is the instance. The class itself is what `cls` refers to in a `@classmethod`."
+    },
+    {
+      "id": "py-08",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "14-modules-packages-and-environments",
+      "question": "What is the purpose of `if __name__ == \"__main__\":` in a module?",
+      "options": [
+        "It makes the module importable",
+        "It marks the module as a package",
+        "It runs the block only when the file is executed directly, not when imported",
+        "It is required for Python to find the main function"
+      ],
+      "correctIndex": 2,
+      "explanation": "When a file is run as a script, its `__name__` is `\"__main__\"`; when imported, `__name__` is the module name. The guard keeps script-only code from running on import. Python has no required `main` function."
+    },
+    {
+      "id": "py-09",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-strings-numbers-and-truthiness",
+      "question": "What does this code print?",
+      "code": "print(type(3 / 1), type(3 // 1))",
+      "codeLanguage": "python",
+      "options": [
+        "<class 'int'> <class 'int'>",
+        "<class 'float'> <class 'float'>",
+        "<class 'int'> <class 'float'>",
+        "<class 'float'> <class 'int'>"
+      ],
+      "correctIndex": 3,
+      "explanation": "`/` is true division and always returns a float in Python 3, even when the result is whole. `//` on two ints is floor division and returns an int. (`//` returns a float only if an operand is a float.)"
+    },
+    {
+      "id": "py-10",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-variables-types-and-mutability",
+      "question": "Which statement about `is` and `==` is correct?",
+      "options": [
+        "`==` compares values; `is` checks whether both names refer to the same object",
+        "`is` compares values; `==` compares identity",
+        "They are interchangeable for all types",
+        "`is` should be used to compare strings for equality"
+      ],
+      "correctIndex": 0,
+      "explanation": "`==` calls `__eq__` to compare values; `is` compares object identity. Use `is` for singletons like `None`. Using `is` for strings or numbers is unreliable because interning/caching is an implementation detail."
+    },
+    {
+      "id": "py-11",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "18-testing-with-pytest",
+      "question": "Which pytest feature runs the same test function with several sets of inputs?",
+      "options": [
+        "@pytest.fixture",
+        "@pytest.mark.parametrize",
+        "pytest.raises",
+        "@pytest.mark.skip"
+      ],
+      "correctIndex": 1,
+      "explanation": "`@pytest.mark.parametrize(\"a,b\", [...])` generates one test case per parameter set. Fixtures provide setup/teardown resources, `pytest.raises` asserts an exception, and `skip` disables a test."
+    },
+    {
+      "id": "py-12",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "02-strings-numbers-and-truthiness",
+      "question": "What does this code print?",
+      "code": "print(-7 // 2, -7 % 2)",
+      "codeLanguage": "python",
+      "options": [
+        "-3 -1",
+        "-3 1",
+        "-4 1",
+        "-4 -1"
+      ],
+      "correctIndex": 2,
+      "explanation": "`//` floors toward negative infinity, so -3.5 floors to -4 (not -3, which is truncation as in C/Java). The modulo then satisfies `(-4 * 2) + r == -7`, giving `r = 1`; in Python the remainder takes the sign of the divisor."
+    },
+    {
+      "id": "py-13",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "04-lists-tuples-dicts-and-sets",
+      "question": "What does this code print?",
+      "code": "print(len({1, 1.0, True, \"1\"}))",
+      "codeLanguage": "python",
+      "options": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "`1`, `1.0` and `True` are equal and hash the same, so the set keeps only one of them; the string `\"1\"` is different. The result is 2. Answering 4 ignores that set membership is based on equality and hashing, not type."
+    },
+    {
+      "id": "py-14",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-functions-arguments-and-scope",
+      "question": "What does this code print?",
+      "code": "def add_item(item, basket=[]):\n    basket.append(item)\n    return basket\n\nadd_item(\"pen\")\nprint(add_item(\"book\"))",
+      "codeLanguage": "python",
+      "options": [
+        "['book']",
+        "['pen']",
+        "['book', 'pen']",
+        "['pen', 'book']"
+      ],
+      "correctIndex": 3,
+      "explanation": "Default values are evaluated once, when the `def` runs, so every call without `basket` shares the same list. The second call appends to the list that already holds 'pen'. The usual fix is `basket=None` and creating a new list inside the function."
+    },
+    {
+      "id": "py-15",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-functions-arguments-and-scope",
+      "question": "Inside `def f(*args, **kwargs)`, what are the types of `args` and `kwargs`?",
+      "options": [
+        "tuple and dict",
+        "list and dict",
+        "tuple and list",
+        "list and tuple"
+      ],
+      "correctIndex": 0,
+      "explanation": "Extra positional arguments are collected into a tuple, and extra keyword arguments into a dict. A common wrong guess is that `args` is a list; it is a tuple, so it cannot be appended to."
+    },
+    {
+      "id": "py-16",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-closures-and-decorators",
+      "question": "What does this code print?",
+      "code": "funcs = [lambda: i for i in range(3)]\nprint([f() for f in funcs])",
+      "codeLanguage": "python",
+      "options": [
+        "[0, 1, 2]",
+        "[2, 2, 2]",
+        "[0, 0, 0]",
+        "It raises NameError"
+      ],
+      "correctIndex": 1,
+      "explanation": "Closures capture variables, not values. All three lambdas look up `i` when called, after the comprehension has finished with `i == 2`. Binding the current value with a default argument (`lambda i=i: i`) gives `[0, 1, 2]`."
+    },
+    {
+      "id": "py-17",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-closures-and-decorators",
+      "question": "Why is `functools.wraps` used when writing a decorator?",
+      "code": "import functools\n\ndef log(fn):\n    @functools.wraps(fn)\n    def wrapper(*args, **kwargs):\n        return fn(*args, **kwargs)\n    return wrapper",
+      "codeLanguage": "python",
+      "options": [
+        "It makes the wrapper run faster",
+        "It caches the function's results",
+        "It copies metadata such as __name__ and __doc__ from fn to wrapper",
+        "It allows the decorator to take arguments"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without `wraps`, the decorated function's `__name__` becomes 'wrapper' and its docstring is lost, which hurts debugging, logging and introspection. Caching is what `functools.lru_cache`/`cache` do."
+    },
+    {
+      "id": "py-18",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-functions-arguments-and-scope",
+      "question": "What does this code print?",
+      "code": "def counter():\n    count = 0\n    def inc():\n        count += 1\n        return count\n    return inc\n\nprint(counter()())",
+      "codeLanguage": "python",
+      "options": [
+        "1",
+        "0",
+        "None",
+        "It raises UnboundLocalError"
+      ],
+      "correctIndex": 3,
+      "explanation": "The assignment `count += 1` makes `count` local to `inc`, so reading it before assignment fails with UnboundLocalError. Declaring `nonlocal count` inside `inc` would make it update the enclosing variable and print 1."
+    },
+    {
+      "id": "py-19",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-classes-and-objects",
+      "question": "What does this code print?",
+      "code": "class Team:\n    members = []\n    def add(self, name):\n        self.members.append(name)\n\na, b = Team(), Team()\na.add(\"Asha\")\nprint(b.members)",
+      "codeLanguage": "python",
+      "options": [
+        "['Asha']",
+        "[]",
+        "It raises AttributeError",
+        "None"
+      ],
+      "correctIndex": 0,
+      "explanation": "`members` is a class attribute, shared by all instances. `self.members.append` mutates that shared list rather than creating an instance attribute, so `b` sees 'Asha'. Initialise `self.members = []` in `__init__` for per-instance lists."
+    },
+    {
+      "id": "py-20",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-inheritance-mro-and-dunder-methods",
+      "question": "A class defines only `__repr__` (no `__str__`). What does `print(obj)` use?",
+      "options": [
+        "object's default `__str__`, showing the memory address",
+        "It raises TypeError",
+        "`__repr__`",
+        "`__format__` only"
+      ],
+      "correctIndex": 2,
+      "explanation": "The default `object.__str__` delegates to `__repr__`, so defining just `__repr__` covers both `repr()` and `str()`/`print()`. The reverse is not true: defining only `__str__` leaves `repr()` with the default address-style output."
+    },
+    {
+      "id": "py-21",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "09-dataclasses-properties-and-protocols",
+      "question": "What happens on the last line?",
+      "code": "from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass Money:\n    amount: int\n    currency: str = \"INR\"\n\nm = Money(500)\nm.amount = 900",
+      "codeLanguage": "python",
+      "options": [
+        "m.amount becomes 900",
+        "A new Money object is created",
+        "dataclasses.FrozenInstanceError is raised",
+        "The assignment is silently ignored"
+      ],
+      "correctIndex": 2,
+      "explanation": "`frozen=True` generates a `__setattr__` that raises `FrozenInstanceError` (a subclass of AttributeError). To get a modified copy, use `dataclasses.replace(m, amount=900)`."
+    },
+    {
+      "id": "py-22",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "10-iterators-and-generators",
+      "question": "What does this code print?",
+      "code": "g = (x * 2 for x in range(3))\nfirst = list(g)\nsecond = list(g)\nprint(first, second)",
+      "codeLanguage": "python",
+      "options": [
+        "[0, 2, 4] [0, 2, 4]",
+        "[] [0, 2, 4]",
+        "[0, 2, 4] None",
+        "[0, 2, 4] []"
+      ],
+      "correctIndex": 3,
+      "explanation": "A generator is a one-shot iterator. The first `list()` exhausts it; the second gets nothing, so it returns an empty list. Use a list (or recreate the generator) if you need to iterate twice."
+    },
+    {
+      "id": "py-23",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "11-context-managers",
+      "question": "In a class-based context manager, what happens if `__exit__` returns `True` while an exception is propagating?",
+      "options": [
+        "The exception is suppressed and execution continues after the with block",
+        "The exception is re-raised",
+        "The with block is executed again",
+        "A RuntimeError is raised"
+      ],
+      "correctIndex": 0,
+      "explanation": "A truthy return value from `__exit__` tells Python the exception was handled, so it is swallowed. Returning `None`/`False` (the usual case) lets it propagate. This is how `contextlib.suppress` works."
+    },
+    {
+      "id": "py-24",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "13-type-hints-and-typing",
+      "question": "What does this code print?",
+      "code": "def double(x: int) -> int:\n    return x * 2\n\nprint(double(\"ab\"))",
+      "codeLanguage": "python",
+      "options": [
+        "It raises TypeError",
+        "abab",
+        "4",
+        "It raises a type-check error at import"
+      ],
+      "correctIndex": 1,
+      "explanation": "Type hints are not enforced at runtime; they are metadata for tools like mypy and IDEs. `\"ab\" * 2` is `\"abab\"`. A static type checker would flag the call, but the interpreter runs it."
+    },
+    {
+      "id": "py-25",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-standard-library-essentials",
+      "question": "Which `collections` tool lets you write `groups[key].append(item)` without first checking if the key exists?",
+      "options": [
+        "Counter",
+        "OrderedDict",
+        "defaultdict(list)",
+        "namedtuple"
+      ],
+      "correctIndex": 2,
+      "explanation": "`defaultdict(list)` calls `list()` to create a value for any missing key on access. Counter is for counting, OrderedDict for ordering features, namedtuple for lightweight records."
+    },
+    {
+      "id": "py-26",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "20-regular-expressions-and-text-processing",
+      "question": "What does this code print?",
+      "code": "import re\nprint(re.findall(r\"<.+?>\", \"<b>bold</b>\"))",
+      "codeLanguage": "python",
+      "options": [
+        "['<b>bold</b>']",
+        "['b', '/b']",
+        "['<b>']",
+        "['<b>', '</b>']"
+      ],
+      "correctIndex": 3,
+      "explanation": "`+?` is the lazy (non-greedy) quantifier, so each match stops at the first `>`, yielding the two tags. The greedy `<.+>` would match the whole string `<b>bold</b>` as one item."
+    },
+    {
+      "id": "py-27",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "22-building-rest-apis-with-fastapi",
+      "question": "A FastAPI route is declared as `@app.get(\"/items/{item_id}\")` with `def read_item(item_id: int)`. What does a request to `/items/abc` return?",
+      "options": [
+        "422 Unprocessable Entity",
+        "404 Not Found",
+        "500 Internal Server Error",
+        "200 with item_id = \"abc\""
+      ],
+      "correctIndex": 0,
+      "explanation": "FastAPI validates path parameters against their type hints using Pydantic. 'abc' cannot be parsed as an int, so it returns a 422 validation error before your function runs. 404 would be returned only if no route matched the path."
+    },
+    {
+      "id": "py-28",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-iterators-and-generators",
+      "question": "What does this code print?",
+      "code": "def gen():\n    x = yield 1\n    yield x * 2\n\nit = gen()\nprint(next(it), it.send(5))",
+      "codeLanguage": "python",
+      "options": [
+        "1 2",
+        "1 10",
+        "1 None",
+        "It raises TypeError"
+      ],
+      "correctIndex": 1,
+      "explanation": "`next(it)` runs to the first `yield` and produces 1. `send(5)` resumes the generator, making the paused `yield` expression evaluate to 5, so `x = 5` and the next `yield` produces 10. A plain `next()` would have sent `None`, causing a TypeError on `None * 2`."
+    },
+    {
+      "id": "py-29",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "08-inheritance-mro-and-dunder-methods",
+      "question": "What does this code print?",
+      "code": "class A:\n    def hi(self): return \"A\"\nclass B(A):\n    def hi(self): return \"B\" + super().hi()\nclass C(A):\n    def hi(self): return \"C\" + super().hi()\nclass D(B, C):\n    def hi(self): return \"D\" + super().hi()\n\nprint(D().hi())",
+      "codeLanguage": "python",
+      "options": [
+        "DBA",
+        "DBAC",
+        "DBCA",
+        "DCBA"
+      ],
+      "correctIndex": 2,
+      "explanation": "`super()` follows the MRO of the instance's class (D, B, C, A, object), not the parent of the class where it is written. So B's `super().hi()` calls C's method, not A's. That is why the answer is DBCA rather than DBA."
+    },
+    {
+      "id": "py-30",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "16-concurrency-threads-processes-and-asyncio",
+      "question": "On the standard (GIL-enabled) CPython build, which approach gives real speed-up for a CPU-bound task such as computing hashes over millions of records?",
+      "options": [
+        "threading.Thread with one thread per core",
+        "asyncio.gather over many coroutines",
+        "Running the loop inside a ThreadPoolExecutor",
+        "ProcessPoolExecutor or multiprocessing"
+      ],
+      "correctIndex": 3,
+      "explanation": "The GIL lets only one thread execute Python bytecode at a time, so threads and asyncio help I/O-bound work but not pure-Python CPU work. Separate processes each have their own interpreter and GIL, giving true parallelism. (The optional free-threaded build in 3.13+ changes this, but it is not the default.)"
+    },
+    {
+      "id": "py-31",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "16-concurrency-threads-processes-and-asyncio",
+      "question": "Inside an `async def` handler, which call blocks the entire event loop for one second?",
+      "options": [
+        "time.sleep(1)",
+        "await asyncio.sleep(1)",
+        "await asyncio.wait_for(asyncio.sleep(1), timeout=2)",
+        "await asyncio.to_thread(time.sleep, 1)"
+      ],
+      "correctIndex": 0,
+      "explanation": "`time.sleep` is synchronous; it holds the only event-loop thread, so no other coroutine can run. `asyncio.sleep` yields control back to the loop, and `asyncio.to_thread` moves the blocking call to a worker thread."
+    },
+    {
+      "id": "py-32",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "12-exceptions-and-error-handling",
+      "question": "Which statement about `raise NewError(\"msg\") from err` inside an `except` block is correct?",
+      "options": [
+        "It discards err completely",
+        "It sets NewError's __cause__ to err, so the traceback shows err as the direct cause",
+        "It re-raises err with a new message",
+        "It only works if NewError subclasses type(err)"
+      ],
+      "correctIndex": 1,
+      "explanation": "Explicit chaining with `from` sets `__cause__` and the traceback says 'The above exception was the direct cause of...'. Without `from`, Python still records the original in `__context__` (implicit chaining). `raise ... from None` suppresses the context display."
+    },
+    {
+      "id": "py-33",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "13-type-hints-and-typing",
+      "question": "What does this PEP 695 code (Python 3.12+) declare?",
+      "code": "def first[T](items: list[T]) -> T:\n    return items[0]",
+      "codeLanguage": "python",
+      "options": [
+        "A function that only accepts lists of type T, enforced at runtime",
+        "A function with a mandatory keyword argument named T",
+        "A generic function with type parameter T, so checkers know the return type matches the list's element type",
+        "A syntax error; type parameters require typing.TypeVar"
+      ],
+      "correctIndex": 2,
+      "explanation": "3.12 added inline type-parameter syntax, replacing the need for `T = TypeVar(\"T\")`. It is still only a static-typing construct: nothing is checked at runtime. A checker infers `first([1, 2])` returns `int`."
+    },
+    {
+      "id": "py-34",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "12-exceptions-and-error-handling",
+      "question": "What does this code print?",
+      "code": "try:\n    raise ExceptionGroup(\"batch\", [ValueError(\"a\"), TypeError(\"b\")])\nexcept* ValueError:\n    print(\"V\", end=\" \")\nexcept* TypeError:\n    print(\"T\", end=\" \")",
+      "codeLanguage": "python",
+      "options": [
+        "V",
+        "V T",
+        "T",
+        "It raises the ExceptionGroup unhandled"
+      ],
+      "correctIndex": 1,
+      "explanation": "`except*` (3.11+) matches against each exception inside an ExceptionGroup, and every matching clause runs once with its subgroup. Unlike a plain `except`, more than one clause can execute, so both V and T are printed."
+    },
+    {
+      "id": "py-35",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "17-memory-and-performance",
+      "question": "You need the sum of squares of 50 million numbers. Why is `sum(x * x for x in range(50_000_000))` preferred over `sum([x * x for x in range(50_000_000)])`?",
+      "options": [
+        "The generator expression produces items lazily, so memory stays constant instead of building a 50-million-element list",
+        "The generator expression runs on multiple cores",
+        "The list comprehension gives a wrong result due to overflow",
+        "sum() cannot accept a list"
+      ],
+      "correctIndex": 0,
+      "explanation": "A generator expression yields one value at a time, so peak memory is tiny; the list comprehension materialises every square first, needing gigabytes. Python ints do not overflow, and neither version uses multiple cores."
+    },
+    {
+      "id": "py-36",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "02-strings-numbers-and-truthiness",
+      "question": "What does this code print?",
+      "code": "amount = 1234567.891\nprint(f\"₹{amount:,.2f}\")",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "₹1,234,567.89"
+      ],
+      "caseSensitive": false,
+      "explanation": "The `,` format option inserts thousands separators (Western grouping, not lakh/crore) and `.2f` rounds to two decimal places, giving ₹1,234,567.89."
+    },
+    {
+      "id": "py-37",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-strings-numbers-and-truthiness",
+      "question": "What does this code print?",
+      "code": "print(10 / 4)",
+      "codeLanguage": "python",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "2.5"
+      ],
+      "caseSensitive": false,
+      "explanation": "`/` is true division and returns a float: 2.5. Floor division `10 // 4` would give 2."
+    },
+    {
+      "id": "py-38",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-strings-numbers-and-truthiness",
+      "question": "What does this code print?",
+      "code": "print(sorted(\"cab\"))",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "['a', 'b', 'c']",
+        "['a','b','c']",
+        "[\"a\", \"b\", \"c\"]",
+        "[\"a\",\"b\",\"c\"]"
+      ],
+      "caseSensitive": false,
+      "explanation": "`sorted()` accepts any iterable and always returns a new list; iterating a string yields its characters, so the result is ['a', 'b', 'c'], not the string 'abc'."
+    },
+    {
+      "id": "py-39",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-strings-numbers-and-truthiness",
+      "question": "What does this code print?",
+      "code": "print(\"python\"[::-1])",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "nohtyp",
+        "'nohtyp'",
+        "\"nohtyp\""
+      ],
+      "caseSensitive": false,
+      "explanation": "A slice with step -1 walks the string backwards, reversing it to 'nohtyp'."
+    },
+    {
+      "id": "py-40",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "02-strings-numbers-and-truthiness",
+      "question": "What does this code print?",
+      "code": "print(0.1 + 0.2 == 0.3)",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output (case matters)",
+      "acceptedAnswers": [
+        "False"
+      ],
+      "caseSensitive": true,
+      "explanation": "0.1 and 0.2 cannot be represented exactly in binary floating point; their sum is 0.30000000000000004, so the comparison is False. Use `math.isclose` or `decimal.Decimal` for money."
+    },
+    {
+      "id": "py-41",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "03-control-flow-and-comprehensions",
+      "question": "What does this code print?",
+      "code": "print({k: v for k, v in zip(\"abc\", range(3)) if v})",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "{'b': 1, 'c': 2}",
+        "{'b':1,'c':2}",
+        "{'b': 1,'c': 2}",
+        "{\"b\": 1, \"c\": 2}"
+      ],
+      "caseSensitive": false,
+      "explanation": "`zip` pairs a-0, b-1, c-2. The filter `if v` drops the pair whose value 0 is falsy, leaving {'b': 1, 'c': 2}."
+    },
+    {
+      "id": "py-42",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "05-functions-arguments-and-scope",
+      "question": "Fill in the blank keyword so that `inc` updates the enclosing function's `total` and the code prints 2.",
+      "code": "def make():\n    total = 0\n    def inc():\n        ____ total\n        total += 1\n        return total\n    return inc\n\nf = make()\nf()\nprint(f())",
+      "codeLanguage": "python",
+      "answerHint": "Enter one keyword",
+      "acceptedAnswers": [
+        "nonlocal"
+      ],
+      "caseSensitive": false,
+      "explanation": "`nonlocal` rebinds a name in the nearest enclosing function scope. `global` would look for a module-level `total`, which does not exist, causing a NameError."
+    },
+    {
+      "id": "py-43",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "06-closures-and-decorators",
+      "question": "What does this code print?",
+      "code": "def count_calls(fn):\n    def wrapper(*args):\n        wrapper.calls += 1\n        return fn(*args)\n    wrapper.calls = 0\n    return wrapper\n\n@count_calls\ndef greet(name):\n    return \"Hi \" + name\n\ngreet(\"Ravi\"); greet(\"Meera\"); greet(\"Arjun\")\nprint(greet.calls)",
+      "codeLanguage": "python",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "3"
+      ],
+      "caseSensitive": false,
+      "explanation": "`greet` now refers to `wrapper`, a function object that stores a `calls` attribute. Each of the three calls increments it, so it prints 3."
+    },
+    {
+      "id": "py-44",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "08-inheritance-mro-and-dunder-methods",
+      "question": "What does this code print?",
+      "code": "class Base:\n    def __init__(self):\n        self.tags = [\"base\"]\n\nclass Child(Base):\n    def __init__(self):\n        super().__init__()\n        self.tags.append(\"child\")\n\nprint(Child().tags)",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "['base', 'child']",
+        "['base','child']",
+        "[\"base\", \"child\"]",
+        "[\"base\",\"child\"]"
+      ],
+      "caseSensitive": false,
+      "explanation": "`super().__init__()` runs Base's initializer first, creating the list, then Child appends to it. Forgetting the `super()` call would raise AttributeError."
+    },
+    {
+      "id": "py-45",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "15-standard-library-essentials",
+      "question": "What does this code print?",
+      "code": "from collections import Counter\nprint(Counter(\"banana\").most_common(1))",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "[('a', 3)]",
+        "[('a',3)]",
+        "[(\"a\", 3)]",
+        "[(\"a\",3)]"
+      ],
+      "caseSensitive": false,
+      "explanation": "Counter counts a=3, n=2, b=1. `most_common(1)` returns a list containing the single most frequent (element, count) tuple."
+    },
+    {
+      "id": "py-46",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "15-standard-library-essentials",
+      "question": "What does this code print?",
+      "code": "from itertools import accumulate\nprint(list(accumulate([1, 2, 3, 4])))",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "[1, 3, 6, 10]",
+        "[1,3,6,10]"
+      ],
+      "caseSensitive": false,
+      "explanation": "`accumulate` yields running totals by default: 1, 1+2, 1+2+3, 1+2+3+4."
+    },
+    {
+      "id": "py-47",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "05-functions-arguments-and-scope",
+      "question": "What does this code print?",
+      "code": "def log(msg, history=[]):\n    history.append(msg)\n    return history\n\nlog(\"start\")\nlog(\"run\", [])\nprint(log(\"stop\"))",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "['start', 'stop']",
+        "['start','stop']",
+        "[\"start\", \"stop\"]",
+        "[\"start\",\"stop\"]"
+      ],
+      "caseSensitive": false,
+      "explanation": "The default list is created once and shared by calls that omit `history`. The middle call passes its own fresh list, so 'run' does not go into the shared default. Only 'start' and 'stop' accumulate there."
+    },
+    {
+      "id": "py-48",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "06-closures-and-decorators",
+      "question": "What does this code print?",
+      "code": "funcs = [lambda i=i: i * i for i in range(4)]\nprint([f() for f in funcs])",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "[0, 1, 4, 9]",
+        "[0,1,4,9]"
+      ],
+      "caseSensitive": false,
+      "explanation": "Default argument values are evaluated when each lambda is created, so `i=i` captures the current value 0, 1, 2, 3. Without the default, all lambdas would see the final i = 3 and return [9, 9, 9, 9]."
+    },
+    {
+      "id": "py-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "12-exceptions-and-error-handling",
+      "question": "What does this code print?",
+      "code": "def f():\n    try:\n        return \"try\"\n    finally:\n        print(\"finally\", end=\" \")\n\nprint(f())",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output on one line",
+      "acceptedAnswers": [
+        "finally try"
+      ],
+      "caseSensitive": false,
+      "explanation": "The return value 'try' is computed, but the `finally` block runs before the function actually returns, printing 'finally ' first. Then the outer `print` prints the returned 'try'."
+    },
+    {
+      "id": "py-50",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "21-files-csv-and-json",
+      "question": "What does this code print?",
+      "code": "import json\ndata = {1: (2, 3)}\nprint(json.loads(json.dumps(data)))",
+      "codeLanguage": "python",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "{'1': [2, 3]}",
+        "{'1':[2,3]}",
+        "{'1': [2,3]}",
+        "{\"1\": [2, 3]}"
+      ],
+      "caseSensitive": false,
+      "explanation": "JSON object keys must be strings, so `json.dumps` turns the int key 1 into \"1\", and JSON has no tuple type, so (2, 3) becomes an array. Loading it back gives {'1': [2, 3]}, not the original dict."
+    }
+  ]
+}

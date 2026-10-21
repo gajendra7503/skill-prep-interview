@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "By default, how does useSelector decide whether to re-render a component after a dispatch?",
+      "options": [
+        "It deep-compares the new and old selector results",
+        "It re-renders whenever the action type matches the component's slice",
+        "It compares the new selector result with the previous one using reference equality (===)",
+        "It always re-renders every subscribed component"
+      ],
+      "correctIndex": 2,
+      "explanation": "useSelector reruns the selector after every dispatch and re-renders only if the result is a different reference. That is why returning new objects or arrays causes extra renders."
+    },
+    {
+      "question": "Why does `useSelector(s => ({ a: s.a, b: s.b }))` re-render the component on every dispatch, even unrelated ones?",
+      "options": [
+        "The object literal is a new reference each time, so the === comparison always fails",
+        "useSelector does not support objects",
+        "s.a and s.b are deep-cloned by Immer on every action",
+        "Destructuring in selectors disables memoization in React"
+      ],
+      "correctIndex": 0,
+      "explanation": "A new object is created on each call. Fix it by using two selectors that return the values directly, or by passing shallowEqual as the equality function."
+    },
+    {
+      "question": "A list of 500 rows re-renders completely when one item's amount changes. Which change scales best?",
+      "options": [
+        "Wrap the parent list in React.memo only",
+        "Have the parent select the whole slice so it changes less often",
+        "Call batch() around the dispatch",
+        "Have the parent select only the ids, and each memo-wrapped row select its own item by id"
+      ],
+      "correctIndex": 3,
+      "explanation": "With ids in the parent and per-row selection by id, only the row whose data changed sees a new selector result, so only that row re-renders."
+    },
+    {
+      "question": "A component uses an RTK Query hook but only needs one fund from the returned list, and it re-renders during every background refetch. What is the targeted fix?",
+      "options": [
+        "Set pollingInterval to 0",
+        "Use selectFromResult to return only the needed fund, so the hook re-renders only when that value changes",
+        "Move the query into a thunk",
+        "Disable the autoBatchEnhancer"
+      ],
+      "correctIndex": 1,
+      "explanation": "selectFromResult lets the hook pick part of the query state; the result is shallow-compared, so status changes like isFetching no longer trigger re-renders unless they are selected."
+    }
+  ]
+}

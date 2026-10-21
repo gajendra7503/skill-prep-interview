@@ -2,7 +2,8 @@
 title: "Real Project: Blog Platform"
 description: "Ship a full-stack blog: dynamic routes, ISR, a Server Action to post comments, and metadata."
 module: "Real-World Project"
-order: 20
+level: "pro"
+order: 28
 ---
 
 We'll combine routing, rendering strategies, and Server Actions into a small
@@ -102,7 +103,7 @@ export async function postComment(slug: string, formData: FormData) {
     body: JSON.stringify({ body }),
   });
 
-  revalidateTag("posts"); // invalidate the cached post + listing
+  revalidateTag("posts", "max"); // invalidate the cached post + listing
   return { error: null };
 }
 ```
@@ -137,7 +138,7 @@ pending/error UI — the mutation itself still runs entirely on the server.
 
 ## What this project demonstrates
 
-- **ISR with tag-based revalidation** — `revalidateTag("posts")` invalidates
+- **ISR with tag-based revalidation** — `revalidateTag("posts", "max")` invalidates
   exactly the cached `fetch` calls tagged `"posts"`, everywhere they're used.
 - **`generateStaticParams` + `generateMetadata`** working together so every
   post is both pre-rendered and has correct per-page SEO metadata.

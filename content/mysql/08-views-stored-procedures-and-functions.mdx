@@ -1,0 +1,150 @@
+---
+title: "Views, Stored Procedures & Functions"
+description: "How views really work, when they are updatable, writing procedures and functions with DELIMITER, and when logic belongs in the database."
+module: "Advanced Queries"
+level: intermediate
+order: 11
+---
+
+Views, stored procedures and stored functions all keep SQL logic inside the
+server. Interviewers want to know what each one actually *is* at runtime,
+the rules around updatable views, the `DETERMINISTIC` gotcha, and whether
+you can argue sensibly about putting business logic in the database.
+
+## Views: stored queries, not stored data
+
+A view is a named `SELECT`. MySQL stores only its definition; it has **no
+materialized views**. Each time you query a view, MySQL either *merges* the
+view's SQL into your query or *materializes* it into an internal temporary
+table for that statement.
+
+```sql
+CREATE OR REPLACE VIEW high_value_orders AS
+SELECT o.order_id, c.name, o.amount, o.created_at
+FROM orders o JOIN customers c USING (customer_id)
+WHERE o.amount >= 50000;
+
+SELECT name, SUM(amount) FROM high_value_orders GROUP BY name;
+```
+
+The `ALGORITHM` option is `MERGE`, `TEMPTABLE` or `UNDEFINED` (the default,
+letting MySQL prefer `MERGE`). Merging lets indexes on the base tables be
+used; `TEMPTABLE` is forced for views with aggregates, `DISTINCT`,
+`GROUP BY`, `UNION` and similar constructs, so filtering such a view can
+be slow. If you need a precomputed result, you build a summary table
+yourself and refresh it (for example with an event, covered next lesson).
+
+Common uses: hiding columns for security (grant `SELECT` on the view, not
+the table), simplifying repeated joins, and keeping a stable interface
+while the underlying schema changes.
+
+## Updatable views and WITH CHECK OPTION
+
+A view is updatable when each view row maps to exactly one base-table row.
+It is **not** updatable if it uses aggregates, `DISTINCT`, `GROUP BY`,
+`HAVING`, `UNION`, certain subqueries, or `ALGORITHM = TEMPTABLE`. For a
+join view, an `UPDATE` or `INSERT` may change only one base table.
+
+```sql
+CREATE VIEW mumbai_customers AS
+SELECT customer_id, name, city FROM customers
+WHERE city = 'Mumbai'
+WITH CHECK OPTION;
+
+UPDATE mumbai_customers SET name = 'Asha K' WHERE customer_id = 7;  -- OK
+INSERT INTO mumbai_customers (name, city) VALUES ('Ravi', 'Pune');
+-- ERROR 1369: CHECK OPTION failed 'shop.mumbai_customers'
+```
+
+Without `WITH CHECK OPTION`, that insert would succeed and the new row would
+immediately "vanish" from the view. `CASCADED` (the default) also enforces
+the conditions of any views this view is built on; `LOCAL` checks only this
+view's own `WHERE`.
+
+## Stored procedures and DELIMITER
+
+A procedure is invoked with `CALL`, can take `IN`, `OUT` and `INOUT`
+parameters, can return result sets, and can manage transactions. Because
+its body contains semicolons, the `mysql` client needs a temporary
+statement terminator. `DELIMITER` is a **client** command, not SQL the
+server sees; GUI tools and drivers do not need it.
+
+```sql
+DELIMITER //
+CREATE PROCEDURE place_order(
+  IN  p_customer_id INT,
+  IN  p_amount      DECIMAL(12,2),
+  OUT p_order_id    BIGINT
+)
+BEGIN
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+  INSERT INTO orders (customer_id, amount, created_at)
+  VALUES (p_customer_id, p_amount, NOW());
+  SET p_order_id = LAST_INSERT_ID();
+  UPDATE customers SET lifetime_value = lifetime_value + p_amount
+  WHERE customer_id = p_customer_id;
+  COMMIT;
+END //
+DELIMITER ;
+
+CALL place_order(7, 12500.00, @new_id);
+SELECT @new_id;   -- 1043
+```
+
+`OUT` parameters are read back through user variables such as `@new_id`.
+
+## Stored functions and DETERMINISTIC
+
+A stored function returns **one scalar value** and is used inside
+expressions, like a built-in. It cannot return a result set and cannot
+start or commit a transaction.
+
+```sql
+DELIMITER //
+CREATE FUNCTION gst_inclusive(p_amount DECIMAL(12,2))
+RETURNS DECIMAL(12,2)
+DETERMINISTIC NO SQL
+BEGIN
+  RETURN ROUND(p_amount * 1.18, 2);
+END //
+DELIMITER ;
+
+SELECT order_id, gst_inclusive(amount) FROM orders LIMIT 2;
+```
+
+When binary logging is on (the default in 8.0) and
+`log_bin_trust_function_creators` is off, creating a function fails with
+error 1418 unless you declare it `DETERMINISTIC`, `NO SQL` or
+`READS SQL DATA`. `DETERMINISTIC` is a promise you make: the same inputs
+always give the same output. MySQL does not verify it, and lying (for
+example, calling `NOW()` or `RAND()` inside) can break replication or give
+wrong results. Calling a function per row in `WHERE` also usually prevents
+index use on that column.
+
+## Database logic vs application code
+
+| Pros of stored routines | Cons |
+| --- | --- |
+| Fewer network round trips | Harder to version, test and debug |
+| Logic shared by every client | Ties you to MySQL's procedural dialect |
+| Permissions via `EXECUTE` only | Scales with the DB, the hardest tier to scale |
+| Atomic multi-step operations | Business logic split across two codebases |
+
+A balanced interview answer: keep data-integrity rules close to the data
+(constraints, keys, occasionally a procedure for an atomic batch), and keep
+most business logic in the application where it is easier to test and
+deploy.
+
+### Try it yourself
+
+Create a view `customer_summary` with each customer's order count and total
+spend, then try to `UPDATE` it and explain the error. Next, write a
+procedure `get_top_customers(IN p_limit INT, OUT p_total DECIMAL(14,2))`
+that returns the top customers as a result set and sets the combined spend
+in the `OUT` parameter.

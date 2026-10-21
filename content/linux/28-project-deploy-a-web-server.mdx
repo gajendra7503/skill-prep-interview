@@ -1,0 +1,282 @@
+---
+title: "Real Project: Set Up and Harden a Web App Server"
+description: "Take a fresh Ubuntu server to production: sudo user, hardened SSH, ufw, nginx reverse proxy, a systemd-managed Node.js app, log rotation and tested backups."
+module: "Real-World Project"
+level: "pro"
+order: 28
+---
+
+You have just been given a fresh Ubuntu VM with a public IP for **ShopKaro**,
+a fictional Node.js API that listens on port 3000. By the end of this
+project, the server will look like this:
+
+```text
+internet ──> ufw (22, 80, 443 only) ──> nginx :80/:443 ──> node 127.0.0.1:3000 (systemd, user shopkaro)
+                                                         journald + logrotate, nightly backup via cron
+```
+
+Each step reuses an earlier lesson; this is where they come together. Use a
+throwaway VM, and keep one working SSH session open the whole time.
+
+## Step 1: Patch and create a sudo user
+
+Log in with the provider's initial account (often `root` or `ubuntu`):
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y unattended-upgrades nginx
+sudo adduser asha                      # your personal admin account
+sudo usermod -aG sudo asha
+# copy the public key you already log in with, with the right owner and modes
+sudo install -d -m 700 -o asha -g asha /home/asha/.ssh
+sudo install -m 600 -o asha -g asha ~/.ssh/authorized_keys /home/asha/.ssh/
+```
+
+From your laptop, confirm `ssh asha@SERVER_IP` and `sudo -v` both work
+**before** going further. Then create a locked-down system user for the app:
+
+```bash
+sudo useradd --system --create-home --home-dir /srv/shopkaro --shell /usr/sbin/nologin shopkaro
+sudo mkdir -p /srv/shopkaro/app /srv/shopkaro/shared/uploads
+sudo chown -R shopkaro:shopkaro /srv/shopkaro
+```
+
+## Step 2: Harden SSH
+
+```ini
+# /etc/ssh/sshd_config.d/01-hardening.conf
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+AllowUsers asha
+MaxAuthTries 3
+```
+
+```bash
+sudo sshd -t && sudo sshd -T | grep -E '^(permitrootlogin|passwordauthentication|allowusers)'
+sudo systemctl reload ssh
+```
+
+Now open a **second** terminal and log in again. Only close the first
+session once that works. (Why first-file-wins matters is covered in
+"Server Security Hardening Basics".)
+
+## Step 3: Firewall
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow OpenSSH
+sudo ufw allow 80,443/tcp
+sudo ufw enable
+sudo ufw status numbered
+```
+
+Port 3000 is deliberately **not** opened: only nginx talks to the app.
+
+## Step 4: Run the app with systemd
+
+Install a current Node.js LTS with your team's standard method (distro
+packages, a vendor apt repository, or the official binaries; avoid piping
+unknown scripts into `sh`). Deploy the code and install dependencies as the
+app user:
+
+```bash
+sudo -u shopkaro git clone https://git.example.com/shopkaro/api.git /srv/shopkaro/app
+sudo -u shopkaro -H bash -c 'cd /srv/shopkaro/app && npm ci --omit=dev'
+printf 'NODE_ENV=production\nHOST=127.0.0.1\nPORT=3000\n' | sudo tee /srv/shopkaro/shared/.env >/dev/null
+sudo chown root:root /srv/shopkaro/shared/.env && sudo chmod 600 /srv/shopkaro/shared/.env
+command -v node                        # use this path in ExecStart
+```
+
+systemd reads `EnvironmentFile` as root, so the secrets file can be
+root-only. Create the unit:
+
+```ini
+# /etc/systemd/system/shopkaro.service
+[Unit]
+Description=ShopKaro Node.js API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=shopkaro
+Group=shopkaro
+WorkingDirectory=/srv/shopkaro/app
+EnvironmentFile=/srv/shopkaro/shared/.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/srv/shopkaro/shared/uploads
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now shopkaro
+systemctl status shopkaro --no-pager
+curl -s http://127.0.0.1:3000/health  # expect your app's health response
+```
+
+`ProtectSystem=strict` makes the filesystem read-only for the service except
+`ReadWritePaths`, so a compromised app cannot rewrite its own code. Logs go
+to the journal: `journalctl -u shopkaro -f`.
+
+## Step 5: nginx as a reverse proxy
+
+```text
+# /etc/nginx/sites-available/shopkaro
+server {
+    listen 80;
+    listen [::]:80;
+    server_name shop.example.com;
+    client_max_body_size 10m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/shopkaro /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default      # only a symlink to the sample site
+sudo nginx -t && sudo systemctl reload nginx
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d shop.example.com      # HTTPS certificate, adds the 443 server block
+```
+
+Always run `nginx -t` before a reload: a bad config with `reload` keeps the
+old one running, but a bad config with `restart` takes the site down.
+
+## Step 6: Logs that cannot fill the disk
+
+nginx's package already ships `/etc/logrotate.d/nginx`. Cap the journal and
+rotate the backup log you are about to create:
+
+```ini
+# /etc/systemd/journald.conf.d/size.conf
+[Journal]
+SystemMaxUse=1G
+```
+
+```ini
+# /etc/logrotate.d/shopkaro-backup
+/var/log/shopkaro-backup.log {
+    weekly
+    rotate 8
+    compress
+    missingok
+    notifempty
+}
+```
+
+Apply with `sudo systemctl restart systemd-journald` and test with
+`sudo logrotate -d /etc/logrotate.d/shopkaro-backup`.
+
+## Step 7: A robust backup script on cron
+
+This uses everything from "Robust Shell Scripts: set -euo pipefail, traps & getopts":
+
+```bash
+#!/usr/bin/env bash
+# /usr/local/bin/app-backup: nightly backup of the app's shared data
+set -Eeuo pipefail
+
+SRC_DIR="${SRC_DIR:-/srv/shopkaro/shared}"
+DEST_DIR="${DEST_DIR:-/var/backups/shopkaro}"
+KEEP_DAYS=7
+DRY_RUN=0
+
+log()   { printf '%s %s\n' "$(date '+%F %T')" "$*" >&2; }
+usage() { echo "Usage: ${0##*/} [-n] [-k days] [-d dest]" >&2; exit 2; }
+
+while getopts ":nk:d:" opt; do
+  case "$opt" in
+    n) DRY_RUN=1 ;;
+    k) KEEP_DAYS="$OPTARG" ;;
+    d) DEST_DIR="$OPTARG" ;;
+    *) usage ;;
+  esac
+done
+[[ "$KEEP_DAYS" =~ ^[0-9]+$ ]] || usage
+[[ -d "$SRC_DIR" ]] || { log "source $SRC_DIR does not exist"; exit 1; }
+
+mkdir -p "$DEST_DIR"
+lock="$DEST_DIR/.lock"
+mkdir "$lock" 2>/dev/null || { log "another backup is running"; exit 1; }
+tmp=""
+trap 'rm -f -- "$tmp"; rmdir -- "$lock"' EXIT
+trap 'log "FAILED at line $LINENO: $BASH_COMMAND"' ERR
+
+name="app-$(date +%F_%H%M).tar.gz"
+if [[ "$DRY_RUN" == 1 ]]; then log "dry run: would write $DEST_DIR/$name"; exit 0; fi
+
+tmp="$DEST_DIR/.$name.partial"
+tar -czf "$tmp" -C "$SRC_DIR" .
+gzip -t "$tmp"                             # refuse to keep a corrupt archive
+mv -- "$tmp" "$DEST_DIR/$name"; tmp=""     # atomic rename: no half-written backups
+(cd "$DEST_DIR" && sha256sum "$name" > "$name.sha256")
+log "wrote $name ($(du -h "$DEST_DIR/$name" | cut -f1))"
+
+find "$DEST_DIR" -maxdepth 1 -name 'app-*.tar.gz*' -mtime +"$KEEP_DAYS" -print -delete |
+  while read -r old; do log "pruned $old"; done
+```
+
+Output from test runs of this script (paths shortened; the failure is a simulated `tar` error):
+
+```text
+2026-10-15 13:24:44 wrote app-2026-10-15_1324.tar.gz (1.0K)
+2026-10-15 13:24:44 pruned /var/backups/shopkaro/app-2026-10-05_0230.tar.gz
+2026-10-15 13:24:48 another backup is running
+tar: shared/uploads: Cannot open: Permission denied
+2026-10-15 13:25:24 FAILED at line 35: tar -czf "$tmp" -C "$SRC_DIR" .
+```
+
+On failure the EXIT trap removes the partial file and the lock. Install it
+and schedule it (files in `/etc/cron.d` include a user field):
+
+```bash
+sudo install -m 750 -o root -g root app-backup /usr/local/bin/app-backup
+sudo install -d -m 700 /var/backups/shopkaro
+echo '30 2 * * * root /usr/local/bin/app-backup >> /var/log/shopkaro-backup.log 2>&1' | sudo tee /etc/cron.d/shopkaro-backup
+sudo /usr/local/bin/app-backup -n                # dry run as root
+```
+
+## Verification checklist
+
+| Check | Command | Expected |
+|---|---|---|
+| Root/password SSH refused | `ssh -o PubkeyAuthentication=no asha@SERVER_IP` | `Permission denied (publickey)` |
+| Only 22, 80, 443 public | `sudo ss -tlnp`, `sudo ufw status` | node bound to `127.0.0.1:3000` |
+| App survives crash and reboot | `sudo systemctl kill -s KILL shopkaro`, then `sudo reboot` | service active again |
+| Proxy and TLS work | `curl -I https://shop.example.com` | `HTTP/1.1 200` or `HTTP/2 200` |
+| Backup restores | `tar -xzf ... -C /tmp/restore-test` and `sha256sum -c` | files present, `OK` |
+| Auto-updates on | `systemctl status unattended-upgrades` | active |
+
+## Extend it
+
+- Add `pg_dump -Fc` to the backup and copy archives off-site with `rsync` or restic.
+- Add WebSocket support in nginx (`proxy_http_version 1.1` plus `Upgrade`/`Connection` headers).
+- Install fail2ban and add rate limiting with nginx's `limit_req`.
+- Zero-downtime deploys: timestamped release folders plus a `current` symlink, switched atomically with `ln -sfn`.
+- Turn the whole runbook into an Ansible playbook or a cloud-init file.
+
+### Try it yourself
+
+1. Build the server on a throwaway VM following every step, then hand the
+   checklist to a colleague and let them try to break in with a password.
+2. Replace the cron entry with a systemd timer (`OnCalendar=*-*-* 02:30`)
+   and compare the logging you get from `journalctl -u app-backup`.
+3. Delete `/srv/shopkaro/shared/uploads` on the test VM, restore it from
+   last night's archive, and time the whole restore: that is your RTO.

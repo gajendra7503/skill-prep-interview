@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What happens to TypeScript type annotations when your program runs?",
+      "options": [
+        "They are checked again at runtime by the JavaScript engine",
+        "They are erased; only plain JavaScript executes",
+        "They are converted into runtime validation code",
+        "They make the program run faster"
+      ],
+      "correctIndex": 1,
+      "explanation": "Types exist only at compile time. tsc (or type stripping) removes them, and the JavaScript that runs has no knowledge of them."
+    },
+    {
+      "question": "Which command type-checks a project without writing any JavaScript files, as CI pipelines commonly do?",
+      "options": [
+        "npx tsc --watch",
+        "npx tsc --init",
+        "node --check index.ts",
+        "npx tsc --noEmit"
+      ],
+      "correctIndex": 3,
+      "explanation": "--noEmit runs the full type check but produces no output files. --init creates tsconfig.json and --watch re-checks on every save."
+    },
+    {
+      "question": "You run `node app.ts` on Node 24 and the file contains a type error (but only erasable syntax). What happens?",
+      "options": [
+        "The program runs, because Node only strips types and does not type-check",
+        "Node refuses to run the file and prints the type error",
+        "Node silently runs tsc on the file first",
+        "Node prints a warning and fixes the type automatically"
+      ],
+      "correctIndex": 0,
+      "explanation": "Node's type stripping deletes erasable annotations without checking them. You still need tsc --noEmit or your editor to find type errors."
+    },
+    {
+      "question": "Which piece of TypeScript syntax cannot be run directly by Node's type stripping?",
+      "options": [
+        "A parameter annotation like `name: string`",
+        "A `type` alias declaration",
+        "An `enum` declaration",
+        "A function return type annotation"
+      ],
+      "correctIndex": 2,
+      "explanation": "Enums generate real JavaScript objects, so they cannot simply be erased. Annotations and type aliases are erasable and work with type stripping."
+    }
+  ]
+}

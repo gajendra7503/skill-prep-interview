@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A React app calls `fetch(\"/api/payments\", { method: \"POST\", body: JSON.stringify(data) })` and `req.body` is undefined in Express even though `express.json()` is registered. What is the most likely cause?",
+      "options": [
+        "`express.json()` only works with PUT requests",
+        "The request has no `Content-Type: application/json` header, so the JSON parser skips it",
+        "The body is larger than 1 byte",
+        "Express 5 removed `req.body`"
+      ],
+      "correctIndex": 1,
+      "explanation": "Body parsers only run when the request's Content-Type matches their `type` option. Without the JSON content type, `express.json()` ignores the request and `req.body` stays undefined."
+    },
+    {
+      "question": "What happens when a client sends a 500 KB JSON body to a route behind `express.json({ limit: \"100kb\" })`?",
+      "options": [
+        "The body is truncated to 100 KB and passed to the handler",
+        "The handler runs with `req.body` set to `null`",
+        "The server process crashes",
+        "The request is rejected with a 413 Payload Too Large error before the handler runs"
+      ],
+      "correctIndex": 3,
+      "explanation": "When the body exceeds `limit`, the parser stops and forwards a 413 error to the error-handling middleware. The route handler never runs."
+    },
+    {
+      "question": "What is the default value of the `extended` option for `express.urlencoded()` in Express 5?",
+      "options": [
+        "`false`, so a simple parser without nested objects is used",
+        "`true`, so nested objects are parsed with the qs library",
+        "There is no default; omitting it throws an error",
+        "It depends on the `NODE_ENV` value"
+      ],
+      "correctIndex": 0,
+      "explanation": "Express 5 changed the default to `extended: false`. Opt into `extended: true` only when you need nested bracket syntax in form fields."
+    },
+    {
+      "question": "Which multer setup is safest for a KYC document upload endpoint?",
+      "options": [
+        "`multer()` with no options, trusting the browser to limit file size",
+        "Saving each file to disk using `file.originalname` as the path",
+        "Setting `limits.fileSize`, filtering allowed types in `fileFilter`, and generating your own file names",
+        "Parsing the upload with `express.json({ limit: \"10mb\" })`"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without `limits.fileSize` multer accepts any size, the client-supplied name can enable path traversal, and `express.json()` cannot parse `multipart/form-data`. Limits, type checks and server-generated names are the baseline."
+    }
+  ]
+}

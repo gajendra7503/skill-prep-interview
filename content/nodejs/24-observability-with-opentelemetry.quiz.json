@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is the OpenTelemetry instrumentation file loaded with node --import before the application?",
+      "options": [
+        "Because instrumentation patches modules such as node:http and pg as they load, so it must start first",
+        "Because --import makes the app run faster",
+        "Because the SDK only works in CommonJS",
+        "Because it disables logging"
+      ],
+      "correctIndex": 0,
+      "explanation": "Auto-instrumentation works by patching modules when they are loaded, so the SDK has to start before any application code imports them."
+    },
+    {
+      "question": "What is the role of the W3C traceparent header?",
+      "options": [
+        "It authenticates the caller",
+        "It compresses the response",
+        "It carries the trace ID, parent span ID and sampling flag across a network hop",
+        "It sets the log level"
+      ],
+      "correctIndex": 2,
+      "explanation": "traceparent propagates trace context between services, so spans in different services join one trace."
+    },
+    {
+      "question": "Why should userId not be used as a metric attribute?",
+      "options": [
+        "Metrics cannot store strings",
+        "It creates one time series per user (high cardinality) and can overwhelm the metrics backend",
+        "OpenTelemetry forbids attribute names that contain Id",
+        "It makes traces unreadable"
+      ],
+      "correctIndex": 1,
+      "explanation": "Metric attributes should be low-cardinality; per-user values explode the number of series."
+    },
+    {
+      "question": "What is the main advantage of tail sampling over head sampling?",
+      "options": [
+        "It needs no extra infrastructure",
+        "It decides before the request starts, so it is cheaper",
+        "It removes the need for metrics",
+        "It can keep all error and slow traces because the decision is made after the trace is complete"
+      ],
+      "correctIndex": 3,
+      "explanation": "Tail sampling buffers complete traces in the Collector, so it can keep errors and slow requests; head sampling might drop the one trace you needed."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which kind of code is the safest and most valuable to share between a React Native app and a web app in a monorepo?",
+      "options": [
+        "Pure TypeScript such as API clients, zod validation schemas and business rules",
+        "Every UI component, unchanged",
+        "Native Kotlin modules",
+        "Metro configuration"
+      ],
+      "correctIndex": 0,
+      "explanation": "Platform-agnostic TypeScript works identically everywhere. UI sharing is possible via React Native Web but often compromises both platforms."
+    },
+    {
+      "question": "After moving an app into a monorepo, screens crash with \"Invalid hook call\". What is the most likely cause?",
+      "options": [
+        "Hermes is disabled",
+        "Turborepo caching is on",
+        "The app uses TypeScript",
+        "Two copies of React are installed (e.g. one hoisted, one nested)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Duplicate React instances break hooks. Keep a single version of react and react-native across the repo and verify with npm ls react."
+    },
+    {
+      "question": "What does the React Native Upgrade Helper provide?",
+      "options": [
+        "Automatic over-the-air upgrades for users",
+        "A diff of the template's files (including native files) between two React Native versions",
+        "A list of App Store review guidelines",
+        "A bundle size visualiser"
+      ],
+      "correctIndex": 1,
+      "explanation": "It shows exactly what changed in the template between versions, so CLI projects can apply native and config changes file by file."
+    },
+    {
+      "question": "What problem does Expo's `runtimeVersion` fingerprint policy solve?",
+      "options": [
+        "It speeds up Metro bundling",
+        "It encrypts the JS bundle",
+        "It ties OTA updates to a hash of the native project, so a JS update can't be delivered to an incompatible binary",
+        "It removes the need for code signing"
+      ],
+      "correctIndex": 2,
+      "explanation": "The fingerprint changes whenever native code or config changes, so CI and EAS Update can tell whether a change needs a new store build or can ship OTA."
+    }
+  ]
+}

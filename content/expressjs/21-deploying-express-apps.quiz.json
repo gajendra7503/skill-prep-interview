@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Behind a single load balancer, req.ip always shows 10.0.0.5 (the balancer). What is the correct fix?",
+      "options": [
+        "app.set(\"trust proxy\", 1) so Express reads the client IP from X-Forwarded-For for one trusted hop",
+        "app.set(\"trust proxy\", true) in every environment",
+        "Read req.headers[\"x-forwarded-for\"] directly without any configuration",
+        "Move the app off the load balancer"
+      ],
+      "correctIndex": 0,
+      "explanation": "Trust exactly the hops you have. true trusts every forwarded entry, letting clients spoof their IP and bypass IP-based rate limits."
+    },
+    {
+      "question": "What does server.close() do in a graceful shutdown handler?",
+      "options": [
+        "Immediately destroys all sockets, including in-flight requests",
+        "Restarts the server on a new port",
+        "Stops accepting new connections and calls back once existing connections have ended",
+        "Sends SIGKILL to the process"
+      ],
+      "correctIndex": 2,
+      "explanation": "In-flight requests finish first. Add a hard timeout below the platform's grace period, and close the database pool after the server."
+    },
+    {
+      "question": "Why is CMD [\"node\", \"src/server.js\"] preferred over CMD npm start in a Dockerfile?",
+      "options": [
+        "npm is not installed in official Node images",
+        "The JSON exec form makes Node PID 1 so it receives SIGTERM directly; the shell form wraps it in a shell that may not forward signals",
+        "The exec form makes the image smaller",
+        "npm start always runs in development mode"
+      ],
+      "correctIndex": 1,
+      "explanation": "With the shell form, docker stop's SIGTERM can be swallowed, so your shutdown handler never runs and the container is killed after the timeout."
+    },
+    {
+      "question": "Why should an Express app validate its environment variables when it starts?",
+      "options": [
+        "Express 5 requires a config schema to boot",
+        "It encrypts the variables in memory",
+        "Validation makes process.env writable",
+        "A missing or malformed value crashes the deploy immediately instead of failing on a later request"
+      ],
+      "correctIndex": 3,
+      "explanation": "Failing fast at startup surfaces misconfiguration during the deploy, where a health check or rollout can catch it."
+    }
+  ]
+}

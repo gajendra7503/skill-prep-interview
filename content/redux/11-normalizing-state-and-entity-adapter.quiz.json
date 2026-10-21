@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What state shape does createEntityAdapter manage?",
+      "options": [
+        "A plain array of items",
+        "{ ids: [...], entities: { [id]: item } }",
+        "A Map keyed by id",
+        "{ list: [...], byIndex: {...} }"
+      ],
+      "correctIndex": 1,
+      "explanation": "The adapter stores an ordered ids array plus an entities lookup table keyed by id, and getInitialState can add extra fields like status."
+    },
+    {
+      "question": "An employee with id E101 already exists. Which adapter method ignores a new object with id E101?",
+      "options": [
+        "addOne",
+        "setOne",
+        "upsertOne",
+        "setAll"
+      ],
+      "correctIndex": 0,
+      "explanation": "addOne and addMany skip items whose id already exists. setOne replaces the item, upsertOne shallow-merges it, and setAll replaces the whole collection."
+    },
+    {
+      "question": "You call upsertOne with { empCode: \"E102\", ctcLakh: 16 } for an existing entity that has a dept field. What happens to dept?",
+      "options": [
+        "dept is removed because the new object does not have it",
+        "The call throws because dept is missing",
+        "dept becomes undefined",
+        "dept is kept, because upsert shallow-merges into the existing entity"
+      ],
+      "correctIndex": 3,
+      "explanation": "upsertOne shallow-merges new fields into an existing entity, so fields not in the update stay as they were. setOne would replace the whole entity."
+    },
+    {
+      "question": "Which is NOT a benefit of normalising Redux state?",
+      "options": [
+        "O(1) lookup of an item by id",
+        "Each item is stored once, so updates happen in one place",
+        "It removes the need for any selectors",
+        "Updating one item does not change unrelated item references"
+      ],
+      "correctIndex": 2,
+      "explanation": "Normalisation still relies on selectors; createEntityAdapter even generates them with getSelectors. The other three are genuine benefits."
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "title": "Python",
+  "description": "From the data model up — mutability, generators, decorators, OOP, typing, async, and the internals interviewers love to probe.",
+  "icon": "python",
+  "accent": "#3776ab"
+}

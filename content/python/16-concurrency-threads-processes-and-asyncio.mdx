@@ -1,0 +1,127 @@
+---
+title: "Concurrency: Threads, Processes & asyncio"
+description: "The GIL, threading vs multiprocessing vs asyncio, and how to pick the right tool for I/O-bound and CPU-bound work."
+module: "Concurrency & Performance"
+level: "advanced"
+order: 20
+---
+
+"How does concurrency work in Python?" is a near-guaranteed interview
+question, and the honest answer starts with one acronym: the GIL. Once you
+understand what it does and does not block, choosing between threads,
+processes and `asyncio` becomes a straightforward decision.
+
+## The Global Interpreter Lock (GIL)
+
+CPython, the standard interpreter, has a **Global Interpreter Lock**: only
+one thread can execute Python bytecode at a time within a single process.
+It exists mainly to keep reference counting (next lesson) thread-safe
+without fine-grained locks on every object.
+
+Two consequences matter in practice:
+
+- **CPU-bound** pure-Python code does not speed up with more threads — they
+  just take turns holding the GIL.
+- **I/O-bound** code *does* benefit, because a thread releases the GIL while
+  it waits on a socket, file or `time.sleep`. Many C extensions (NumPy,
+  hashing, compression) also release it during heavy work.
+
+Python 3.13 introduced an optional **free-threaded build** (PEP 703,
+`python3.13t`) with the GIL disabled. It is experimental, ships as a
+separate binary, and is not the default; assume the GIL exists unless an
+interviewer specifically asks about free-threading.
+
+## threading: shared memory, good for I/O
+
+```python
+import threading, time
+
+def download(n: int) -> None:
+    time.sleep(1)            # simulated network wait; releases the GIL
+    print(f"done {n}")
+
+threads = [threading.Thread(target=download, args=(i,)) for i in range(5)]
+for t in threads: t.start()
+for t in threads: t.join()
+# Finishes in ~1 second, not 5
+```
+
+Threads share the same memory, so mutating shared state needs a
+`threading.Lock`. The GIL does **not** make `counter += 1` atomic — it is
+several bytecode steps, and a thread switch can land between them.
+
+## multiprocessing: true parallelism for CPU work
+
+Each process has its own interpreter and its own GIL, so CPU-bound work
+can use every core. The cost is higher start-up time and the need to
+**pickle** arguments and results to send them between processes.
+
+```python
+from multiprocessing import Pool
+
+def square(n: int) -> int:
+    return n * n
+
+if __name__ == "__main__":    # required on Windows/macOS (spawn start method)
+    with Pool() as pool:
+        print(pool.map(square, range(5)))   # [0, 1, 4, 9, 16]
+```
+
+## concurrent.futures: one API for both
+
+`concurrent.futures` wraps threads and processes behind the same
+interface, so switching between them is a one-word change:
+
+```python
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+
+with ThreadPoolExecutor(max_workers=8) as ex:
+    futures = [ex.submit(download, i) for i in range(5)]
+    for f in as_completed(futures):
+        f.result()           # re-raises any exception from the worker
+```
+
+Swap in `ProcessPoolExecutor` for CPU-bound jobs. `ex.map(fn, items)`
+returns results in input order; `as_completed` yields them as they finish.
+
+## asyncio: cooperative concurrency on one thread
+
+`asyncio` runs many tasks on a single thread using an **event loop**. A
+coroutine (`async def`) runs until it hits `await`, then voluntarily yields
+so another task can run. Nothing is preempted, so there are no surprise
+context switches — but one blocking call stalls everything.
+
+```python
+import asyncio
+
+async def fetch(n: int) -> int:
+    await asyncio.sleep(1)   # non-blocking wait
+    return n * 10
+
+async def main() -> None:
+    results = await asyncio.gather(fetch(1), fetch(2), fetch(3))
+    print(results)           # [10, 20, 30] after ~1 second total
+
+asyncio.run(main())
+```
+
+Key points: calling `fetch(1)` only creates a coroutine object — it does
+nothing until awaited or scheduled. `asyncio.gather` runs awaitables
+concurrently and returns results in argument order. Never call blocking
+functions like `time.sleep` or `requests.get` inside a coroutine; use async
+libraries or offload with `await asyncio.to_thread(blocking_fn)`.
+
+## Choosing the right tool
+
+| Workload | Best fit | Why |
+| --- | --- | --- |
+| Many network/disk waits | `asyncio` or threads | GIL released while waiting |
+| Thousands of connections | `asyncio` | Tasks are far cheaper than threads |
+| Heavy pure-Python computation | `multiprocessing` | One GIL per process |
+
+### Try it yourself
+
+Write a CPU-bound function that sums squares up to 10 million. Time it run
+four times with `ThreadPoolExecutor`, then with `ProcessPoolExecutor`, and
+explain the difference. Then rewrite a three-call `time.sleep(1)` script
+using `asyncio.gather` and confirm it finishes in about one second.

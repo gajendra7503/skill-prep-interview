@@ -1,0 +1,188 @@
+---
+title: "Structural Typing, Variance & Soundness Holes"
+description: "How TypeScript decides assignability structurally, what covariance and contravariance mean in practice, and the deliberate soundness holes every senior engineer should know."
+module: "Pro Level"
+level: "pro"
+order: 25
+---
+
+A type system is **sound** if a program that type-checks can never hit a type
+error at runtime. TypeScript is deliberately *not* sound. Its design goals trade
+some safety for compatibility with how JavaScript is actually written. Knowing
+exactly where the gaps are is what separates "I use TypeScript" from "I can
+reason about TypeScript", and it is a favourite topic in senior interviews.
+
+## Structural, not nominal
+
+In Java or C#, a value is a `Point` only if its class says so (nominal typing).
+TypeScript checks **shape**: anything with the required members is assignable.
+
+```ts
+type Point = { x: number; y: number };
+class Vec { x = 1; y = 2; label = "v"; }
+
+const p: Point = new Vec(); // OK: Vec has x and y; the extra label is fine
+```
+
+Extra properties are allowed in general, because a subtype is "more stuff". The
+exception is **excess property checking**, which only applies to *fresh* object
+literals, where an extra key is almost certainly a typo:
+
+```ts
+type Opts = { timeout: number };
+const o1: Opts = { timeout: 1, retries: 3 }; // error: 'retries' does not exist in type 'Opts'
+
+const tmp = { timeout: 1, retries: 3 };
+const o2: Opts = tmp;                        // OK: not fresh, so no excess check
+```
+
+When you *want* nominal behaviour (₹ vs paise, user IDs vs order IDs), simulate
+it with a **brand**:
+
+```ts
+type Paise = number & { readonly __brand: "Paise" };
+type Rupees = number & { readonly __brand: "Rupees" };
+const toPaise = (r: Rupees) => Math.round(r * 100) as Paise;
+
+declare const price: Rupees;
+const p2: Paise = price; // error: the brands are incompatible
+```
+
+## Variance in one table
+
+Variance answers: if `Dog` is assignable to `Animal`, what about `Box<Dog>` and
+`Box<Animal>`?
+
+| Position of `T` | Variance | Rule | Example |
+|---|---|---|---|
+| Output only (return values, readonly props) | Covariant | `F<Dog>` assignable to `F<Animal>` | `() => T`, `readonly T[]` |
+| Input only (parameters) | Contravariant | `F<Animal>` assignable to `F<Dog>` | `(x: T) => void` |
+| Both | Invariant | Neither direction is safe | `{ get(): T; set(x: T): void }` |
+| Neither / ignored | Bivariant | Both directions allowed (unsafe) | method parameters |
+
+Contravariance is intuitive once you think of a handler: something that can
+handle *any* animal can certainly handle a dog, but a dog-only handler cannot be
+given a cat.
+
+```ts
+class Animal { name = "a"; }
+class Dog extends Animal { bark() { return "woof"; } }
+class Cat extends Animal { meow() {} }
+
+type Handler<T> = (x: T) => void;
+const handleAnimal: Handler<Animal> = (a) => {};
+const handleDog: Handler<Dog> = handleAnimal;            // OK (contravariant)
+const wrong: Handler<Animal> = (d: Dog) => d.bark();     // error under strictFunctionTypes
+```
+
+TypeScript infers variance by examining how `T` is used, which can be slow or
+imprecise for complex types. You can state it explicitly with **variance
+annotations** on type parameters:
+
+```ts
+interface Producer<out T> { get(): T }
+interface Consumer<in T> { accept(x: T): void }
+// in out T would mean invariant
+```
+
+They are checked against the actual usage, so they document intent and can speed
+up checking in large codebases; they do not let you lie.
+
+## The soundness holes
+
+Each of these compiles under `strict` and fails at runtime. Every one exists on
+purpose, usually for compatibility.
+
+**1. Arrays are covariant even though they are mutable.**
+
+```ts
+const dogs: Dog[] = [new Dog()];
+const animals: Animal[] = dogs; // allowed
+animals.push(new Cat());        // allowed
+dogs[1].bark();                 // TypeError: dogs[1].bark is not a function
+```
+
+Making arrays invariant would break huge amounts of ordinary code. Use
+`readonly Dog[]` in signatures that do not mutate; read-only arrays are safely covariant.
+
+**2. Method-shorthand parameters are bivariant.** `strictFunctionTypes` only
+applies to function-typed *properties*, not methods. This keeps built-in types
+like `Array<T>` usable, at the cost of a hole:
+
+```ts
+interface WithMethod { handle(a: Animal): void }
+interface WithProp   { handle: (a: Animal) => void }
+
+const m: WithMethod = { handle(d: Dog) { d.bark(); } };      // allowed
+const pr: WithProp = { handle: (d: Dog) => d.bark() };       // error
+m.handle(new Cat());                                         // TypeError at runtime
+```
+
+Prefer property syntax (`handle: (a: Animal) => void`) in your own interfaces
+when you want the strict check.
+
+**3. Index access pretends keys exist.**
+
+```ts
+const scores: Record<string, number> = { a: 1 };
+const s = scores["b"];      // type number, value undefined
+const first: number = [1, 2, 3][10]; // also undefined
+```
+
+Turn on `noUncheckedIndexedAccess` to make these `number | undefined`.
+
+**4. Narrowing survives calls that invalidate it.** The compiler does not track
+side effects of function calls on narrowed properties:
+
+```ts
+function lengthOf(o: { v: string | null }) {
+  if (o.v !== null) {
+    const reset = () => { o.v = null; };
+    reset();
+    return o.v.length; // compiles; TypeError: Cannot read properties of null
+  }
+  return 0;
+}
+```
+
+**5. Width subtyping meets runtime iteration.** This is why `Object.keys`
+returns `string[]` and not `(keyof T)[]`:
+
+```ts
+function sum(p: { x: number; y: number }) {
+  let total = 0;
+  for (const k of Object.keys(p)) total += (p as any)[k];
+  return total;
+}
+const extra = { x: 1, y: 2, z: "boom" };
+console.log(sum(extra)); // "3boom" because the object had more keys than its type
+```
+
+**6. `readonly` properties are not enforced through assignment:**
+`{ readonly a: number }` is assignable to `{ a: number }`, which can then be
+mutated. **7. Escape hatches:** `any`, `as`, `!`, `@ts-ignore` and wrong `.d.ts`
+files. Optional properties also accept an explicit `undefined` unless you enable
+`exactOptionalPropertyTypes`.
+
+## Living with an unsound type system
+
+- Enable the extra flags that close holes cheaply: `noUncheckedIndexedAccess`,
+  `exactOptionalPropertyTypes` (see "tsconfig & Strict Mode Explained").
+- Prefer `readonly` arrays and property-style function members in public APIs.
+- Use brands for values that must not mix (money units, IDs).
+- Validate data at boundaries instead of casting.
+- Lint against `any` and non-null assertions in code review.
+
+Interviewers often ask: "Is TypeScript sound? Give an example." Array covariance
+is the cleanest answer. Follow-ups: "Why does `Object.keys` return `string[]`?"
+(structural width subtyping) and "What does `strictFunctionTypes` not cover?"
+(method shorthand).
+
+### Try it yourself
+
+1. Write a generic `Box<T>` with `get` and `set`, and show with assignments that
+   it is invariant. Then add `out` or `in` annotations and read the errors.
+2. Reproduce hole 3 in a function that looks up a GST rate by state code, then
+   enable `noUncheckedIndexedAccess` and fix the code it flags.
+3. Create `OrderId` and `CustomerId` brands, write constructor functions that
+   validate the format, and confirm that passing one where the other is expected fails.

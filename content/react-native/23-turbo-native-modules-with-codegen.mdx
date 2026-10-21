@@ -1,0 +1,167 @@
+---
+title: "Writing a Turbo Native Module with Codegen"
+description: "Typed JS specs, Codegen-generated interfaces, Kotlin and Objective-C++ implementations, and the sync-vs-async design decisions behind a production native module."
+module: "Pro Level"
+level: pro
+order: 24
+---
+
+Earlier lessons explained *why* the New Architecture exists and *when* a
+custom native module is justified. This lesson is the how: building a Turbo
+Native Module end to end, the way a senior engineer would when wrapping a
+proprietary SDK — for example a bank's device-binding library that has no
+React Native wrapper.
+
+## The workflow at a glance
+
+Write a typed spec in TypeScript, declare it in `package.json`, build the
+app so **Codegen** generates the C++ JSI glue plus Kotlin/ObjC base classes,
+implement those in native code, then import the spec from JS. The key idea:
+**the TypeScript spec is the contract**, so a mismatch between JS and native
+becomes a *build* error instead of a runtime crash in production.
+
+## Step 1: the spec
+
+```ts
+// specs/NativeDeviceBinding.ts
+import type { TurboModule } from "react-native";
+import { TurboModuleRegistry } from "react-native";
+
+export interface Spec extends TurboModule {
+  // Synchronous: cheap, in-memory lookup
+  getDeviceId(): string;
+  // Asynchronous: talks to the SDK / disk / network
+  bindDevice(customerId: string, otp: string): Promise<boolean>;
+  isRooted(): Promise<boolean>;
+}
+
+export default TurboModuleRegistry.getEnforcing<Spec>("NativeDeviceBinding");
+```
+
+Rules that trip people up:
+
+- The file name must start with `Native` and the interface must be named
+  `Spec` — Codegen discovers specs by these conventions.
+- Only Codegen-supported types are allowed: `string`, `number`, `boolean`,
+  arrays, typed object literals, `Promise`, callbacks and nullable variants.
+  `any` or unsupported types fail generation.
+- `getEnforcing` throws at import time if the native module isn't linked —
+  far better than a confusing `undefined is not a function` later.
+
+## Step 2: tell Codegen about it
+
+```json
+{
+  "codegenConfig": {
+    "name": "NativeDeviceBindingSpec",
+    "type": "modules",
+    "jsSrcsDir": "specs",
+    "android": { "javaPackageName": "com.acme.devicebinding" }
+  }
+}
+```
+
+Codegen runs as part of the Android Gradle build and during `pod install`
+on iOS. Recent React Native versions also let you declare the iOS
+implementation class for the module in this config — follow the Turbo
+Native Modules guide for your exact version, as these registration details
+have changed between releases.
+
+## Step 3: Android implementation (Kotlin)
+
+Codegen generates an abstract `NativeDeviceBindingSpec` class; you extend it:
+
+```kotlin
+class DeviceBindingModule(reactContext: ReactApplicationContext) :
+  NativeDeviceBindingSpec(reactContext) {
+
+  override fun getName() = NAME
+
+  override fun getDeviceId(): String =
+    Settings.Secure.getString(reactApplicationContext.contentResolver,
+      Settings.Secure.ANDROID_ID)
+
+  override fun bindDevice(customerId: String, otp: String, promise: Promise) {
+    BankSdk.bind(customerId, otp) { result ->
+      if (result.ok) promise.resolve(true)
+      else promise.reject("E_BIND_FAILED", result.message)
+    }
+  }
+
+  override fun isRooted(promise: Promise) {
+    promise.resolve(BankSdk.isDeviceCompromised())
+  }
+
+  companion object { const val NAME = "NativeDeviceBinding" }
+}
+```
+
+Notice that `Promise` in the spec became a trailing `promise` parameter. The
+module is then exposed through a `ReactPackage` and added to the package
+list in `MainApplication` — if you forget this step, `getEnforcing` throws.
+
+## Step 4: iOS implementation (Objective-C++)
+
+On iOS the generated code is a protocol plus a C++ JSI class. Your module is
+an `.mm` file that conforms to the protocol and returns the JSI binding:
+
+```objc
+@interface RCTDeviceBinding : NSObject <NativeDeviceBindingSpec>
+@end
+
+@implementation RCTDeviceBinding
++ (NSString *)moduleName { return @"NativeDeviceBinding"; }
+
+- (NSString *)getDeviceId {
+  return [[[UIDevice currentDevice] identifierForVendor] UUIDString];
+}
+
+- (void)bindDevice:(NSString *)customerId otp:(NSString *)otp
+           resolve:(RCTPromiseResolveBlock)resolve
+            reject:(RCTPromiseRejectBlock)reject {
+  // call the vendor SDK, then resolve(@YES) or reject(@"E_BIND_FAILED", msg, nil)
+}
+
+- (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
+    (const facebook::react::ObjCTurboModule::InitParams &)params {
+  return std::make_shared<facebook::react::NativeDeviceBindingSpecJSI>(params);
+}
+@end
+```
+
+Swift SDK code can be called from this Objective-C++ shell; the shell itself
+stays ObjC++ because the JSI glue is C++.
+
+## Step 5: use it from JavaScript
+
+```ts
+import DeviceBinding from "./specs/NativeDeviceBinding";
+const id = DeviceBinding.getDeviceId(); // returns immediately
+const ok = await DeviceBinding.bindDevice(customerId, otp); // true, or throws "E_BIND_FAILED"
+```
+
+## Design decisions that matter
+
+- **Sync vs async.** A synchronous method blocks the JS thread until native
+  returns. Reserve it for microsecond-cheap work (reading a cached value).
+  Anything touching disk, network, crypto or an SDK callback must return a
+  `Promise`. A "convenient" sync call that takes 200 ms freezes every tap.
+- **Threading.** Native code runs on whatever thread calls it; never block
+  the main thread, and hop to it explicitly when touching UIKit or Android
+  views.
+- **Error contract.** Reject with stable string codes (`E_BIND_FAILED`,
+  `E_NOT_ENROLLED`) that JS can switch on, not just free-text messages.
+- **Lazy loading.** TurboModules are initialised on first use, so avoid
+  touching heavy modules at app start "just to warm them up".
+- **Alternatives.** If you use Expo, the Expo Modules API offers a
+  Swift/Kotlin DSL that is often faster to write; Codegen-based modules are
+  the core React Native path and what most framework-agnostic libraries use.
+
+### Try it yourself
+
+Write a spec for a `NativeAppInfo` module with a synchronous
+`getBuildNumber(): string` and an async `getFreeDiskBytes(): Promise<number>`.
+Generate code by building the Android app, open the generated
+`NativeAppInfoSpec` class in the build output, and implement both methods in
+Kotlin. Then explain in two sentences why disk space should not be a
+synchronous method.

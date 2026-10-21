@@ -1,0 +1,188 @@
+---
+title: "Type-Level Programming: Recursive & Variadic Types"
+description: "Recursive type aliases, deep object paths, variadic tuple types, tail-recursive conditional types and compiler depth limits, with guidance on when type-level cleverness stops paying off."
+module: "Pro Level"
+level: "pro"
+order: 24
+---
+
+Conditional types, `infer`, mapped types and template literal types (each with its
+own lesson) make the type system a small functional language: conditional types
+are `if`, `infer` is pattern matching, and recursion is the only loop. Here we use
+recursion and tuples for what real libraries need: deep config objects,
+dot-separated paths, and functions with variable argument lists.
+
+## Recursive type aliases
+
+A type alias may refer to itself, as long as the reference sits inside an object,
+array, tuple or conditional type. The classic example is JSON:
+
+```ts
+type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
+
+const ok: Json = { a: [1, "x", { b: null }] };
+const bad: Json = { d: new Date() }; // error: Date is not assignable to Json
+```
+
+Recursive mapped types walk an object to any depth:
+
+```ts
+type DeepReadonly<T> =
+  T extends (...args: any[]) => any ? T                      // leave functions alone
+  : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+  : T;
+
+declare const cfg: DeepReadonly<{ db: { host: string; ports: number[] } }>;
+cfg.db.host = "x";     // error: host is read-only
+cfg.db.ports.push(1);  // error: push does not exist on readonly number[]
+```
+
+The function check matters: without it, methods would be mapped into objects and
+lose their call signatures.
+
+## Typing dot-paths
+
+Form libraries, i18n helpers and `lodash.get`-style utilities accept paths like
+`"theme.mode"`. Two recursive types make these fully checked:
+
+```ts
+type Paths<T> = T extends object
+  ? { [K in keyof T & string]:
+        T[K] extends object ? K | `${K}.${Paths<T[K]>}` : K
+    }[keyof T & string]
+  : never;
+
+type PathValue<T, P extends string> =
+  P extends `${infer Head}.${infer Rest}`
+    ? Head extends keyof T ? PathValue<T[Head], Rest> : never
+    : P extends keyof T ? T[P] : never;
+
+type Settings = { theme: { mode: "light" | "dark"; accent: string }; locale: string };
+
+type P = Paths<Settings>; // "theme" | "theme.mode" | "theme.accent" | "locale"
+
+declare function get<T, K extends Paths<T>>(obj: T, path: K): PathValue<T, K>;
+declare const settings: Settings;
+
+const mode = get(settings, "theme.mode");  // "light" | "dark"
+get(settings, "theme.size");               // error: not a valid path
+```
+
+`Paths` builds a mapped type of "this key, or this key plus every sub-path", then
+indexes it with `[keyof T & string]` to collapse it into a union. `PathValue`
+splits the string with `infer` and walks down one segment at a time.
+
+## Variadic tuple types
+
+A spread inside a tuple type, `[...T]`, can be generic. That lets you describe
+functions whose argument lists are built from other argument lists:
+
+```ts
+function concat<A extends unknown[], B extends unknown[]>(a: [...A], b: [...B]): [...A, ...B] {
+  return [...a, ...b];
+}
+const c = concat([1, "a"], [true]); // [number, string, boolean], not (string | number | boolean)[]
+
+type Tail<T extends unknown[]> = T extends [unknown, ...infer R] ? R : never;
+type Last<T extends unknown[]> = T extends [...unknown[], infer L] ? L : never;
+type T1 = Tail<[1, 2, 3]>; // [2, 3]
+type L1 = Last<[1, 2, 3]>; // 3
+```
+
+Writing the parameter as `[...A]` instead of `A` is a hint to infer a tuple
+rather than an array. The payoff is typed partial application:
+
+```ts
+function partial<A extends unknown[], B extends unknown[], R>(
+  fn: (...args: [...A, ...B]) => R, ...first: A
+) {
+  return (...rest: B) => fn(...first, ...rest);
+}
+
+const fee = (base: number, gstPct: number, label: string) =>
+  `${label}: ₹${base * (1 + gstPct / 100)}`;
+
+const withBase = partial(fee, 1000, 18); // (label: string) => string
+console.log(withBase("Processing fee")); // Processing fee: ₹1180
+withBase(5);                             // error: number is not assignable to string
+```
+
+The same building blocks give you `curry`, typed `pipe`/`compose`, and typed
+event emitters, where each event name maps to a tuple of listener arguments.
+
+```ts
+type Curry<A extends unknown[], R> =
+  A extends [infer First, ...infer Rest] ? (a: First) => Curry<Rest, R> : R;
+declare function curry<A extends unknown[], R>(fn: (...args: A) => R): Curry<A, R>;
+const result: string = curry(fee)(1000)(18)("GST"); // every step is checked
+```
+
+## Arithmetic with tuples
+
+Types cannot add numbers, but a tuple's `length` is a numeric literal type. Build
+a tuple of N elements, and you can count:
+
+```ts
+type BuildTuple<N extends number, Acc extends unknown[] = []> =
+  Acc["length"] extends N ? Acc : BuildTuple<N, [...Acc, unknown]>;
+
+type Add<A extends number, B extends number> = [...BuildTuple<A>, ...BuildTuple<B>]["length"];
+type Seven = Add<3, 4>; // 7
+```
+
+This is a party trick in application code, but the pattern (an accumulator
+parameter that grows each step) is exactly how you keep recursion cheap.
+
+## Depth limits and tail recursion
+
+The compiler protects itself with instantiation depth limits. When you hit one,
+you see error TS2589, "Type instantiation is excessively deep and possibly infinite".
+
+```ts
+// Tail-recursive: the recursive call is the whole result of the branch.
+type A = BuildTuple<999>;   // fine
+type B = BuildTuple<1000>;  // TS2589
+
+// Not tail-recursive: the recursive call is wrapped in [unknown, ...here].
+type Grow<N extends number, Acc extends unknown[] = []> =
+  Acc["length"] extends N ? [] : [unknown, ...Grow<N, [...Acc, unknown]>];
+type C = Grow<40>;  // fine
+type D = Grow<60>;  // TS2589
+```
+
+(Limits observed with TypeScript 5.9 and 7.0; treat them as implementation details.) When a
+conditional type's branch is *directly* the recursive call, the compiler can
+evaluate it in a loop instead of nesting, which allows roughly 1000 iterations.
+Anything wrapped around the call (a tuple spread, a template literal, a union)
+forces real nesting with a much lower ceiling. Rewriting with an accumulator
+parameter moves the work into the arguments and makes the call tail-position.
+
+## Knowing when to stop
+
+Type-level code has real costs: slower editor feedback, unreadable error
+messages, and types that only one person on the team can maintain.
+
+| Use it when | Avoid it when |
+|---|---|
+| A library API is used in hundreds of places (paths, routes, query builders) | It is used once; a plain annotation is clearer |
+| It catches a real class of bug (typos in config keys, wrong event payloads) | It only makes the types "prettier" |
+| Inputs are small and bounded (object depth, path segments) | It recurses over long strings or large unions |
+
+Tips: name intermediate types so errors are readable, test types with
+`@ts-expect-error` lines (or `expect-type`), and keep a `string` overload as an
+escape hatch for dynamic cases.
+
+Interviewers at this level often ask you to implement `DeepPartial`, `Paths`, or
+a typed `pipe`, then ask "What breaks if the object is recursive, like a tree
+node that references itself?" (Answer: `Paths` never bottoms out, and the compiler
+reports a circularity or depth error, such as TS2615 or TS2589; you need a
+depth-counter tuple to cap it.)
+
+### Try it yourself
+
+1. Write `DeepPartial<T>` that makes every nested property optional but leaves
+   arrays as arrays of `DeepPartial` elements and functions untouched.
+2. Add a depth limit to `Paths<T, Depth extends unknown[] = []>` that stops after
+   five levels, and test it on a self-referencing `TreeNode` type.
+3. Type a `pipe(...fns)` for up to any number of single-argument functions where
+   each function's input must match the previous function's output.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What happens if two visible elements share the same `view-transition-name` when a view transition starts?",
+      "options": [
+        "Both elements morph into one",
+        "The browser picks the first one in source order and animates it",
+        "The transition is skipped, though the DOM update callback still runs",
+        "The page throws and the DOM is never updated"
+      ],
+      "correctIndex": 2,
+      "explanation": "Names must be unique at snapshot time. A duplicate aborts the animation, but the update still happens without the transition."
+    },
+    {
+      "question": "How does a multi-page (same-origin) site opt in to cross-document view transitions?",
+      "options": [
+        "Both pages include `@view-transition { navigation: auto; }` in their CSS",
+        "Call document.startViewTransition() in a beforeunload handler",
+        "Add rel=\"transition\" to every link",
+        "Cross-document transitions require a single-page app router"
+      ],
+      "correctIndex": 0,
+      "explanation": "Cross-document transitions are declared in CSS on both the old and new page, with no JavaScript needed."
+    },
+    {
+      "question": "A `.card` rule sets `animation-timeline: view();` and then, below it, `animation: reveal linear both;`. Why does the scroll effect not work?",
+      "options": [
+        "view() only works on the root element",
+        "linear easing is not allowed with scroll timelines",
+        "Scroll-driven animations require JavaScript",
+        "The animation shorthand resets animation-timeline to auto, so the timeline must be declared after it"
+      ],
+      "correctIndex": 3,
+      "explanation": "Like other shorthands, animation resets its longhands, including animation-timeline. Declare animation-timeline after the shorthand."
+    },
+    {
+      "question": "Which is the safest way to ship scroll-driven animations given uneven browser support?",
+      "options": [
+        "Use them unconditionally; unsupported browsers will polyfill automatically",
+        "Wrap them in `@supports (animation-timeline: view())` and animate only transform and opacity",
+        "Animate top and height so every browser can render the effect",
+        "Use them only inside @media print"
+      ],
+      "correctIndex": 1,
+      "explanation": "Feature-detect with @supports so other browsers get the static layout, and stick to compositor-friendly properties to avoid forcing layout every frame."
+    }
+  ]
+}

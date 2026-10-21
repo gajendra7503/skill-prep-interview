@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "You run `ls out.txt missing.txt 2>&1 > wrong.txt`. Where does the error message about missing.txt go?",
+      "options": [
+        "Into wrong.txt along with out.txt",
+        "To /dev/null",
+        "To the terminal, because stderr was pointed at stdout's old target before stdout moved to the file",
+        "Nowhere; the command fails before running"
+      ],
+      "correctIndex": 2,
+      "explanation": "Redirections are processed left to right. 2>&1 copies where FD 1 points at that moment (the terminal); only afterwards is FD 1 moved to wrong.txt. Use > wrong.txt 2>&1 to capture both."
+    },
+    {
+      "question": "Why does `sort names.txt > names.txt` leave names.txt empty?",
+      "options": [
+        "sort deletes its input file after reading it",
+        "The shell truncates names.txt when setting up the redirection, before sort reads it",
+        "sort cannot write to files, only to the terminal",
+        "The file is locked while sort runs"
+      ],
+      "correctIndex": 1,
+      "explanation": "The shell opens and truncates the output file before the command starts, so sort reads an already-empty file. sort -o names.txt names.txt is the safe form."
+    },
+    {
+      "question": "Why does `sudo echo \"10.0.0.5 db.internal\" >> /etc/hosts` fail with Permission denied?",
+      "options": [
+        "echo is not allowed to run under sudo",
+        "/etc/hosts can never be modified",
+        "The >> operator requires the -a flag",
+        "The redirection is performed by your own non-root shell before sudo runs"
+      ],
+      "correctIndex": 3,
+      "explanation": "Only echo runs as root; the file is opened by your shell. Piping into sudo tee -a /etc/hosts lets a root process open the file."
+    },
+    {
+      "question": "Without pipefail, what is the exit status of `ls missing.txt 2>/dev/null | wc -l`?",
+      "options": [
+        "0, because a pipeline reports the status of its last command",
+        "2, because ls failed",
+        "1, the sum of failures",
+        "127, because missing.txt is not found"
+      ],
+      "correctIndex": 0,
+      "explanation": "By default the pipeline's status is wc's, which succeeded. With set -o pipefail the failing ls status (2) is reported instead."
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+---
+title: "Exceptions & Error Handling"
+description: "try/except/else/finally semantics, the exception hierarchy, custom exceptions, chaining with raise from, EAFP, and exception groups."
+module: "Advanced Patterns"
+level: "intermediate"
+order: 13
+---
+
+Exceptions are ordinary control flow in Python, far more so than in Java or
+C++. Interviewers probe whether you know the full `try` statement, why bare
+`except:` is dangerous, and how to design exceptions for a library.
+
+## The four clauses
+
+```python
+def load_config(path):
+    try:
+        f = open(path)
+    except FileNotFoundError:
+        return {}            # handled: only for the open() call
+    else:
+        with f:
+            return parse(f.read())  # runs only if try raised nothing
+    finally:
+        print("load attempted")    # always runs, even after return
+```
+
+- `except` clauses are checked **top to bottom**; the first match wins, so
+  put specific types before general ones.
+- `else` runs only when the `try` body completed without raising. It keeps
+  the `try` body minimal, so you do not accidentally catch errors from
+  code you never meant to guard.
+- `finally` runs no matter what: success, exception, `return`, `break`.
+  A `return` inside `finally` overrides any pending return or exception —
+  avoid it (Python 3.14 emits a `SyntaxWarning` for it).
+
+## The hierarchy and why bare `except:` is wrong
+
+```text
+BaseException
+ ├── SystemExit, KeyboardInterrupt, GeneratorExit
+ └── Exception
+      ├── ValueError, TypeError, KeyError, OSError, ...
+      └── (your custom exceptions)
+```
+
+A bare `except:` (or `except BaseException:`) also catches `SystemExit`
+and `KeyboardInterrupt`, so Ctrl+C stops working. Catch `Exception` at
+most, and preferably the narrowest type you can actually handle.
+
+## Custom exceptions
+
+Libraries should define a base exception and specific subclasses, so
+callers can catch broadly or narrowly:
+
+```python
+class PaymentError(Exception):
+    """Base for all errors raised by this package."""
+
+class InsufficientFunds(PaymentError):
+    def __init__(self, needed, available):
+        super().__init__(f"need {needed}, have {available}")
+        self.needed = needed
+        self.available = available
+```
+
+Inherit from `Exception`, never `BaseException`.
+
+## Chaining: `raise ... from ...`
+
+When translating a low-level error into a domain error, preserve the cause:
+
+```python
+try:
+    row = db.fetch(user_id)
+except KeyError as exc:
+    raise UserNotFound(user_id) from exc
+```
+
+The traceback shows both, joined by "The above exception was the direct
+cause of the following exception". Raising inside an `except` block
+without `from` still chains implicitly (`__context__`), but the message
+says "During handling ... another exception occurred", which reads like a
+bug. Use `raise X from None` to deliberately hide the original.
+
+## EAFP vs LBYL
+
+Pythonic code tends to be EAFP — "easier to ask forgiveness than
+permission" — rather than LBYL, "look before you leap":
+
+```python
+# LBYL: racy (file may vanish between check and open), double lookup
+if key in cache:
+    value = cache[key]
+
+# EAFP: one lookup, no race window
+try:
+    value = cache[key]
+except KeyError:
+    value = compute(key)
+```
+
+EAFP avoids time-of-check/time-of-use races. LBYL is still fine when the
+failure case is common, since raising is slower than a cheap check.
+
+## `ExceptionGroup` and `except*` (3.11+)
+
+Concurrent code can fail in several ways at once. An `ExceptionGroup`
+bundles multiple exceptions, and `except*` handles matching members while
+letting the rest propagate:
+
+```python
+try:
+    raise ExceptionGroup("batch failed", [ValueError("a"), OSError("b")])
+except* ValueError as eg:
+    print("bad values:", eg.exceptions)   # (ValueError('a'),)
+except* OSError as eg:
+    print("io errors:", eg.exceptions)    # (OSError('b'),)
+```
+
+Unlike plain `except`, **every** matching `except*` clause runs. You will
+meet these from `asyncio.TaskGroup`, which raises an `ExceptionGroup` when
+child tasks fail.
+
+### Try it yourself
+
+Write `parse_ages(rows)` that converts strings to ints, collects every
+`ValueError` instead of stopping at the first, and raises them together as
+an `ExceptionGroup`. Then handle it with `except*` and print how many rows
+were bad.

@@ -1,0 +1,190 @@
+---
+title: "Robust Shell Scripts: set -euo pipefail, traps & getopts"
+description: "Make bash scripts fail loudly and clean up after themselves with strict mode, ERR and EXIT traps, safe quoting and getopts option parsing."
+module: "Administration"
+level: "advanced"
+order: 22
+---
+
+A script that works on your laptop is not the same as a script you can
+leave in cron at 2 a.m. By default bash **keeps going after errors**,
+treats a misspelt variable as an empty string, and ignores failures in
+the middle of a pipeline. This lesson turns those defaults around. It
+builds on "Bash Scripting Fundamentals" and "Bash Conditions, Loops & Functions".
+
+## Strict mode: set -euo pipefail
+
+Put this right after the shebang of almost every script:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+```
+
+| Option | Effect |
+|---|---|
+| `-e` (errexit) | Exit as soon as a command returns a non-zero status |
+| `-u` (nounset) | Treat use of an unset variable as an error |
+| `-o pipefail` | A pipeline fails if **any** command in it fails, not just the last |
+
+Without `pipefail`, `false | true` "succeeds" because only the last
+command's status counts. With it, the script stops:
+
+```bash
+set -euo pipefail
+echo "start"
+false | true
+echo "pipe ok?"    # never printed: the output is just "start"
+```
+
+`-u` turns a typo like `$NAME_NOT_SET` into `NAME_NOT_SET: unbound variable`
+instead of a silent empty string. When a variable is genuinely optional, give it a default: `"${PORT:-3000}"`.
+To demand a value with a clear message, use `"${BACKUP_DIR:?BACKUP_DIR must be set}"`.
+
+## Where set -e does NOT protect you
+
+`-e` is ignored for commands that are being **tested**: in an `if` or
+`while` condition, on the left of `&&` or `||`, or after `!`. That
+includes every command inside a function called in those places:
+
+```bash
+set -e
+f() { false; echo "still running inside f"; }
+if f; then echo "f succeeded"; fi
+f || echo "never"
+echo "now direct:"
+f
+echo unreachable
+```
+
+```text
+still running inside f
+f succeeded
+still running inside f
+now direct:
+```
+
+Two more traps that interviewers love:
+
+```bash
+set -euo pipefail
+g() { local out=$(false); echo "local masked: out='$out'"; }
+g          # runs! 'local' returned 0, hiding the failure
+h() { local out; out=$(false); echo "not printed"; }
+h          # exits here, as you would expect
+```
+
+```text
+local masked: out=''
+```
+
+And `((count++))` when `count` is 0 evaluates to 0, which bash treats as
+"false" (status 1), so a strict script **exits** on that line. Use
+`count=$((count + 1))` instead. The takeaway: strict mode is a safety
+net, not a guarantee. Check important commands explicitly.
+
+## Quoting: the bug behind most outages
+
+Unquoted variables are split on spaces and expanded as globs:
+
+```bash
+f="my report.txt"
+ls $f      # ls: cannot access 'my' ... cannot access 'report.txt'
+ls "$f"    # my report.txt
+```
+
+Rules of thumb: always write `"$var"` and `"$@"`, use `--` before file
+arguments (`rm -- "$file"`), and run **ShellCheck** (`sudo apt install shellcheck`)
+on every script. It flags unquoted variables, masked `local` statuses and
+much more.
+
+**Warning:** the classic disaster is `rm -rf "$DIR/"*` with `DIR` empty,
+which expands to `/*`. Strict mode plus `"${DIR:?}"` turns that into an
+error instead of a wiped server.
+
+## Traps: cleanup and error reporting
+
+`trap` runs a command when the shell gets a signal or pseudo-signal:
+`EXIT` fires whenever the script exits (success or failure), `ERR` when a
+command fails (same rules as `-e`), and `INT`/`TERM` on Ctrl+C or `kill`.
+A temporary directory that is always removed, plus a useful error line:
+
+```bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+on_err() { echo "ERROR: line $1: '$2' exited with $3" >&2; }
+trap 'on_err "$LINENO" "$BASH_COMMAND" "$?"' ERR
+tmp=$(mktemp -d)
+trap 'rm -rf -- "$tmp"; echo "cleaned up $tmp" >&2' EXIT
+echo "working in $tmp"
+cp /nonexistent/file "$tmp/"
+echo unreachable
+```
+
+```text
+working in /tmp/tmp.ALtgPH1DVZ
+cp: cannot stat '/nonexistent/file': No such file or directory
+ERROR: line 8: 'cp /nonexistent/file "$tmp/"' exited with 1
+cleaned up /tmp/tmp.ALtgPH1DVZ
+```
+
+`-E` (errtrace) makes the ERR trap fire inside functions too. Use single
+quotes in `trap` so variables expand when the trap runs, not when it is set.
+Note that `rm -rf` here is safe only because `$tmp` came from `mktemp`.
+
+## Parsing options with getopts
+
+`getopts` is a bash builtin for short options like `-v -k 14`. A leading
+`:` in the option string enables silent error handling, and a `:` after a
+letter means "this option takes a value" (available in `$OPTARG`):
+
+```bash
+usage() { echo "Usage: ${0##*/} [-v] [-n] [-k days] -d dest source..." >&2; exit 2; }
+
+verbose=0 dry_run=0 keep=7 dest=""
+while getopts ":vnk:d:h" opt; do
+  case "$opt" in
+    v) verbose=1 ;;
+    n) dry_run=1 ;;
+    k) keep="$OPTARG" ;;
+    d) dest="$OPTARG" ;;
+    h) usage ;;
+    :) echo "Option -$OPTARG needs a value" >&2; usage ;;
+    \?) echo "Unknown option -$OPTARG" >&2; usage ;;
+  esac
+done
+shift $((OPTIND - 1))          # what remains in "$@" are the sources
+
+[[ -n "$dest" && $# -gt 0 ]] || usage
+[[ "$keep" =~ ^[0-9]+$ ]] || { echo "-k must be a number" >&2; exit 2; }
+```
+
+```text
+$ ./backup.sh -x -d /b /etc
+Unknown option -x
+Usage: backup.sh [-v] [-n] [-k days] -d dest source...
+```
+
+`getopts` handles bundled flags (`-vn`) and attached values (`-d/backups`).
+It does not support long options like `--dest`; for those, write a manual
+`while [[ $# -gt 0 ]]; do case "$1" in ...` loop.
+
+## Other habits of robust scripts
+
+- **Prevent overlapping runs** with `flock`: `exec 9>/var/lock/backup.lock; flock -n 9 || { echo "already running" >&2; exit 1; }`.
+- **Log with timestamps to stderr**: `log() { printf '%s %s\n' "$(date -Is)" "$*" >&2; }`.
+- **Exit codes mean something**: 0 success, 1 general failure, 2 usage error.
+- **Be idempotent**: `mkdir -p`, check before creating users, so a re-run is safe.
+- **Write atomically**: write to `file.tmp`, then `mv file.tmp file` (a rename on the same filesystem is atomic).
+
+Interviewers often ask: "What does `set -euo pipefail` do, and when does
+`-e` not trigger?" Mention conditions, `&&`/`||`, and `local var=$(cmd)`.
+
+### Try it yourself
+
+1. Write `safe-copy.sh` with strict mode that copies a file into a
+   `mktemp -d` directory, and prove with an `EXIT` trap that the directory
+   is removed even when the copy fails.
+2. Add `getopts` parsing for `-s source -d dest -n` (dry run), rejecting
+   unknown options with exit code 2.
+3. Run ShellCheck on one of your old scripts and fix every warning.

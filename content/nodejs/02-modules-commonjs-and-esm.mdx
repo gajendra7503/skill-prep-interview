@@ -1,0 +1,150 @@
+---
+title: "Modules: CommonJS and ESM"
+description: "How require and import differ, how Node decides which system a file uses, and how the two interoperate."
+module: "Fundamentals"
+level: "beginner"
+order: 4
+---
+
+Node has **two module systems**: the original **CommonJS** (`require`) and
+the standard **ECMAScript Modules** (ESM, `import`). Most new code uses ESM,
+but huge parts of npm are still CommonJS, so interviewers expect you to
+know how they differ and how they work together.
+
+## CommonJS: require and module.exports
+
+```js
+// math.cjs
+function add(a, b) {
+  return a + b;
+}
+module.exports = { add };
+// or: exports.add = add;  (never reassign `exports` itself)
+
+// app.cjs
+const { add } = require("./math.cjs");
+const fs = require("node:fs");
+console.log(add(2, 3)); // 5
+```
+
+Key traits of CommonJS:
+
+- `require` is a **synchronous function call** — it can appear anywhere,
+  even inside an `if`.
+- Modules are **cached** after the first load; requiring the same file
+  again returns the same `module.exports` object.
+- Each file is wrapped in a function that provides `require`, `module`,
+  `exports`, `__filename` and `__dirname`.
+- Exports are a plain object, so importers get a **copy of the value** at
+  the time they read it, not a live link.
+
+## ESM: import and export
+
+```js
+// math.mjs
+export function add(a, b) {
+  return a + b;
+}
+export default function multiply(a, b) {
+  return a * b;
+}
+
+// app.mjs
+import multiply, { add } from "./math.mjs";
+import { readFile } from "node:fs/promises";
+
+console.log(add(2, 3), multiply(2, 3)); // 5 6
+
+const { add: lazyAdd } = await import("./math.mjs"); // dynamic import
+```
+
+Key traits of ESM:
+
+- `import`/`export` are **static** — they must be at the top level, so tools
+  can analyse and tree-shake them. Use `await import()` for conditional or
+  lazy loading.
+- Bindings are **live**: if the exporting module changes a variable, the
+  importer sees the new value.
+- **Top-level `await`** is allowed.
+- Code is always in **strict mode**.
+- Relative imports need the **full file extension** (`./math.js`, not
+  `./math`).
+
+## How Node decides which system a file uses
+
+| File | Treated as |
+|---|---|
+| `.mjs` | Always ESM |
+| `.cjs` | Always CommonJS |
+| `.js` with `"type": "module"` in the nearest `package.json` | ESM |
+| `.js` with `"type": "commonjs"` or no `type` field | CommonJS |
+
+```json
+{
+  "name": "my-app",
+  "type": "module"
+}
+```
+
+Recent Node versions can also detect ESM syntax in an ambiguous `.js` file
+with no `type` field, but relying on that is slower and less clear — set
+`"type"` explicitly.
+
+## __dirname in ESM
+
+`__dirname` and `__filename` do **not** exist in ESM. Use `import.meta`:
+
+```js
+// ESM, current LTS lines
+console.log(import.meta.filename); // /home/asha/app/src/server.js
+console.log(import.meta.dirname);  // /home/asha/app/src
+
+// Older pattern you will still see in codebases
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+```
+
+`import.meta.url` is a `file://` URL, which is why the older pattern needs
+`fileURLToPath`.
+
+## Interop between the two
+
+- **ESM importing CommonJS** works: `module.exports` becomes the default
+  export, and Node tries to detect named exports too.
+
+```js
+import express from "express";    // CommonJS package, default import
+import pkg from "./legacy.cjs";
+const { helper } = pkg;           // safest way to get named values
+```
+
+- **CommonJS loading ESM**: historically you had to use `await import()`.
+  Recent Node versions (including the current LTS lines) let `require()` load
+  an ES module synchronously, as long as that module and its dependencies do
+  not use top-level `await`.
+
+```js
+// app.cjs
+const math = require("./math.mjs");
+console.log(math.default(2, 3), math.add(2, 3)); // 6 5
+```
+
+## The node: prefix
+
+Always import built-ins with the `node:` prefix — `node:fs`, `node:path`,
+`node:crypto`. It makes it obvious the module is built in, cannot be
+hijacked by an npm package with the same name, and some newer built-ins
+(such as `node:test` and `node:sqlite`) are **only** available with the
+prefix.
+
+### Try it yourself
+
+1. Create `counter.mjs` that exports `let count = 0` and an `increment()`
+   function. Import both in another file, call `increment()`, and log
+   `count`. Repeat the experiment with CommonJS and explain the difference.
+2. Convert a small CommonJS project to ESM by adding `"type": "module"` and
+   fix every error Node reports (missing extensions, `__dirname`).
+3. From a `.cjs` file, `require()` an `.mjs` file and check what object you
+   get back.

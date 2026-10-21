@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A class defines a property `price`, and someone writes `obj.__dict__[\"price\"] = 5`. What does `obj.price` return?",
+      "options": [
+        "5, because the instance dict is always checked first",
+        "The property's getter result, because data descriptors on the type take priority over the instance dict",
+        "An AttributeError",
+        "Whichever was assigned most recently"
+      ],
+      "correctIndex": 1,
+      "explanation": "Data descriptors (those defining __set__ or __delete__, like property) are checked before the instance __dict__ during attribute lookup."
+    },
+    {
+      "question": "When is a descriptor's `__set_name__(self, owner, name)` called?",
+      "options": [
+        "Every time the attribute is read",
+        "Every time an instance is created",
+        "Only when the attribute is deleted",
+        "Once, when the owning class is created"
+      ],
+      "correctIndex": 3,
+      "explanation": "__set_name__ runs during class creation, letting the descriptor learn the attribute name it was assigned to."
+    },
+    {
+      "question": "You want every subclass of `PaymentHandler` to register itself in a dict, keyed by a keyword passed in the class statement. What is the simplest modern tool?",
+      "options": [
+        "`__init_subclass__` on the base class",
+        "A custom metaclass overriding `__call__`",
+        "A data descriptor",
+        "`__getattr__` on the base class"
+      ],
+      "correctIndex": 0,
+      "explanation": "__init_subclass__ (Python 3.6+) runs for each new subclass and receives keyword arguments from the class statement, with no metaclass needed."
+    },
+    {
+      "question": "What is a common practical drawback of metaclasses?",
+      "options": [
+        "They make every attribute access slower",
+        "They cannot raise exceptions",
+        "Combining classes from libraries with unrelated metaclasses can raise a metaclass conflict TypeError",
+        "They only work with dataclasses"
+      ],
+      "correctIndex": 2,
+      "explanation": "A class's metaclass must be compatible with all its bases' metaclasses, so mixing two libraries that each define one often fails with a metaclass conflict."
+    }
+  ]
+}

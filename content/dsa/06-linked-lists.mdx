@@ -1,0 +1,197 @@
+---
+title: "Linked Lists"
+description: "Singly and doubly linked lists versus arrays, a clean JavaScript implementation with the dummy-node trick, and the classic reverse and merge interview problems."
+module: "Linear Structures"
+level: "beginner"
+order: 6
+---
+
+A linked list stores items in **nodes** scattered around memory, each
+holding a value and a reference to the next node. You rarely use one in
+JavaScript application code, but interviewers love them: they test whether
+you can manipulate references without losing data.
+
+## The picture
+
+```text
+head
+ |
+ v
++--------+---+    +--------+---+    +--------+------+
+| Mumbai | o-+--> | Pune   | o-+--> | Nashik | null |
++--------+---+    +--------+---+    +--------+------+
+                                       ^
+                                      tail
+```
+
+- **Singly linked**: each node points to the next.
+- **Doubly linked**: each node also points to the previous one, so you can
+  remove a node in O(1) when you already hold a reference to it. That is
+  what makes an LRU cache possible — see "Designing Data Structures: LRU/LFU
+  Caches, Monotonic Stacks & Rate Limiters".
+
+## Linked list vs array
+
+| Operation | Array | Singly linked list |
+|---|---|---|
+| Access i-th element | O(1) | O(n) — must walk from head |
+| Insert/remove at front | O(n) | O(1) |
+| Insert/remove at end | O(1) amortised | O(1) with a tail pointer (insert); O(n) to remove the tail |
+| Insert after a known node | O(n) shifting | O(1) |
+| Search by value | O(n) | O(n) |
+| Memory | compact, cache-friendly | extra pointer per node, scattered |
+
+Arrays usually win on real hardware (contiguous memory is cache-friendly);
+linked lists win for many inserts and deletes at known positions.
+
+## Implementation
+
+```js
+class ListNode {
+  constructor(val, next = null) { this.val = val; this.next = next; }
+}
+
+class LinkedList {
+  constructor() { this.head = null; this.tail = null; this.length = 0; }
+
+  prepend(val) {                       // O(1)
+    this.head = new ListNode(val, this.head);
+    if (!this.tail) this.tail = this.head;
+    this.length++;
+  }
+  append(val) {                        // O(1) thanks to tail
+    const node = new ListNode(val);
+    if (!this.head) this.head = this.tail = node;
+    else { this.tail.next = node; this.tail = node; }
+    this.length++;
+  }
+  remove(val) {                        // O(n): find, then unlink
+    const dummy = new ListNode(0, this.head);
+    let prev = dummy;
+    while (prev.next && prev.next.val !== val) prev = prev.next;
+    if (!prev.next) return false;
+    if (prev.next === this.tail) this.tail = prev === dummy ? null : prev;
+    prev.next = prev.next.next;
+    this.head = dummy.next;
+    this.length--;
+    return true;
+  }
+  toArray() {
+    const out = [];
+    for (let cur = this.head; cur; cur = cur.next) out.push(cur.val);
+    return out;
+  }
+}
+
+const route = new LinkedList();
+route.append("Pune"); route.append("Nashik");
+route.prepend("Mumbai"); route.append("Indore");
+console.log(route.toArray(), route.length); // [ 'Mumbai', 'Pune', 'Nashik', 'Indore' ] 4
+route.remove("Mumbai"); route.remove("Indore");
+console.log(route.toArray(), route.tail.val); // [ 'Pune', 'Nashik' ] Nashik
+```
+
+## The dummy (sentinel) node trick
+
+Notice `remove` never special-cases "the node to delete is the head". A
+**dummy node** placed before the head means every real node has a
+predecessor, so one code path handles all positions. At the end, the real
+head is `dummy.next`. Use this whenever the head might change.
+
+For the problems below, two helpers keep tests short:
+
+```js
+const fromArray = (arr) => arr.reduceRight((next, val) => new ListNode(val, next), null);
+const toArray = (head) => { const o = []; for (let c = head; c; c = c.next) o.push(c.val); return o; };
+```
+
+## Problem: reverse a linked list
+
+The single most-asked linked list question. Walk the list, flipping each
+`next` pointer backwards. You need three references: `prev`, `cur`, and a
+saved `next` — otherwise flipping `cur.next` loses the rest of the list.
+
+```text
+prev   cur    next
+null    1  ->  2  ->  3        step: save next, point cur back at prev,
+null <- 1      2  ->  3              then move prev and cur one step right
+null <- 1  <-  2      3
+```
+
+```js
+function reverseList(head) {
+  let prev = null, cur = head;
+  while (cur) {
+    const next = cur.next; // 1. save the rest
+    cur.next = prev;       // 2. flip the pointer
+    prev = cur;            // 3. advance
+    cur = next;
+  }
+  return prev;             // the old tail is the new head
+}
+console.log(toArray(reverseList(fromArray([1, 2, 3, 4])))); // [ 4, 3, 2, 1 ]
+console.log(toArray(reverseList(null)));                    // []
+```
+
+Time O(n), space O(1). Interviewers often follow up with "now do it
+recursively":
+
+```js
+function reverseRec(head) {
+  if (!head || !head.next) return head;   // empty or single node
+  const newHead = reverseRec(head.next);  // reverse the rest
+  head.next.next = head;                  // the node after me now points back at me
+  head.next = null;
+  return newHead;
+}
+console.log(toArray(reverseRec(fromArray([1, 2, 3, 4])))); // [ 4, 3, 2, 1 ]
+```
+
+Same O(n) time, but O(n) stack space — mention that trade-off unprompted.
+
+## Problem: merge two sorted lists
+
+Merge `1 -> 4 -> 9` and `2 -> 3 -> 10 -> 12` into one sorted list by
+relinking nodes, not copying values. A dummy node plus a `tail` pointer
+makes it clean:
+
+```js
+function mergeSorted(a, b) {
+  const dummy = new ListNode(0);
+  let tail = dummy;
+  while (a && b) {
+    if (a.val <= b.val) { tail.next = a; a = a.next; }
+    else { tail.next = b; b = b.next; }
+    tail = tail.next;
+  }
+  tail.next = a ?? b;      // attach whatever remains
+  return dummy.next;
+}
+console.log(toArray(mergeSorted(fromArray([1, 4, 9]), fromArray([2, 3, 10, 12]))));
+// [ 1, 2, 3, 4, 9, 10, 12 ]
+console.log(toArray(mergeSorted(null, fromArray([5])))); // [ 5 ]
+```
+
+Time O(a + b), space O(1). Using `<=` keeps equal values in their original
+order (a stable merge), which matters when this becomes the merge step of
+merge sort in "Sorting Algorithms".
+
+## Common mistakes
+
+- Overwriting `cur.next` before saving it, losing the rest of the list.
+- Not handling a `null` head or a single node; reading `cur.next.val`
+  without checking `cur.next`.
+- Forgetting to update `tail` and `length` when removing the last node.
+
+Detecting a cycle (a `next` pointing back to an earlier node) is another
+favourite: a Set of visited nodes works in O(n) space, and the O(1)-space
+slow/fast pointer version is in "The Two-Pointer Technique".
+
+### Try it yourself
+
+1. Write `removeNthFromEnd(head, n)` using a dummy node. A two-pass solution
+   (count, then remove) is fine for now.
+2. Add an `insertAt(index, val)` method to `LinkedList`, handling index 0,
+   index equal to length, and out-of-range indices.
+3. Write `isPalindromeList(head)` in O(n) time; first with an array, then
+   think about how reversing half the list could make it O(1) space.

@@ -1,0 +1,178 @@
+---
+title: "Modelling State with Discriminated Unions"
+description: "Make impossible states unrepresentable: model async data, payments and workflows as discriminated unions, enforce exhaustive handling, and type state transitions."
+module: "Advanced Patterns"
+level: "advanced"
+order: 21
+---
+
+Many bugs are **impossible states** the code allowed anyway: a spinner next to
+an error, a refund on a payment that never settled, a "success" screen with no
+data. Discriminated unions encode your domain rules so these states cannot be
+constructed. This lesson is about *design*; the narrowing mechanics are covered
+in "Narrowing & Type Guards".
+
+## The problem with flags
+
+A typical first attempt at async state uses booleans and optional fields:
+
+```ts
+type Fund = { code: string; navInr: number };
+
+type FundsState = {
+  isLoading: boolean;
+  error?: string;
+  data?: Fund[];
+};
+
+const weird: FundsState = { isLoading: true, error: "Timeout", data: [] }; // compiles!
+```
+
+Three independent fields give eight combinations, but only four make sense, and
+`data` is `Fund[] | undefined` everywhere, even after a successful load.
+
+## One union, one tag
+
+Replace the flags with a union where each member carries exactly the data that
+is valid in that state, plus a literal **discriminant** (here `status`):
+
+```ts
+type RemoteData<T, E = string> =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "success"; data: T }
+  | { status: "error"; error: E };
+
+const impossible: RemoteData<Fund[]> = { status: "loading", data: [] };
+// Error: Object literal may only specify known properties, and 'data' does not exist
+```
+
+Now the compiler checks every read. `data` exists only once you have proven
+the status is `"success"`:
+
+```ts
+function render(state: RemoteData<Fund[]>): string {
+  switch (state.status) {
+    case "idle":    return "Search for a fund";
+    case "loading": return "Loading...";
+    case "success": return `${state.data.length} funds`; // data: Fund[], never undefined
+    case "error":   return `Failed: ${state.error}`;
+  }
+}
+```
+
+Interviewers often ask "how would you model loading state in a typed
+frontend?". This union, which allows exactly the 4 real states instead of all 8
+flag combinations, is the answer they are looking for.
+
+## Exhaustiveness: let the compiler find every switch
+
+Real state grows. When product adds a "refunded" payment status, you want the
+compiler to list every place that must handle it. The `never` trick does this:
+in the `default` branch, every known member has been narrowed away, so the
+value should be `never`. If a member is unhandled, assigning it to `never`
+fails:
+
+```ts
+function assertNever(x: never): never {
+  throw new Error(`Unhandled case: ${JSON.stringify(x)}`);
+}
+type Payment =
+  | { status: "draft"; amountInr: number }
+  | { status: "pending"; amountInr: number; txnId: string }
+  | { status: "settled"; amountInr: number; txnId: string; settledAt: Date }
+  | { status: "failed"; amountInr: number; reason: string }
+  | { status: "refunded"; amountInr: number; txnId: string; refundId: string };
+function label(p: Payment): string {
+  switch (p.status) {
+    case "draft":   return "Draft";
+    case "pending": return `Pending (${p.txnId})`;
+    case "settled": return `Settled on ${p.settledAt.toDateString()}`;
+    case "failed":  return `Failed: ${p.reason}`;
+    default:        return assertNever(p);
+    // Error: Argument of type '{ status: "refunded"; ... }' is not assignable to parameter of type 'never'.
+  }
+}
+```
+
+The error names the missing case at compile time, and if an unknown status
+slips in at runtime, `assertNever` throws loudly instead of rendering nothing.
+
+## Typing transitions
+
+Unions also let you restrict *which operations* apply in which state. Use
+`Extract` to name a single member and write functions that only accept the
+right input state:
+
+```ts
+type Draft   = Extract<Payment, { status: "draft" }>;
+type Pending = Extract<Payment, { status: "pending" }>;
+function submit(p: Draft, txnId: string): Pending {
+  return { status: "pending", amountInr: p.amountInr, txnId };
+}
+const settled: Payment = { status: "settled", amountInr: 25000, txnId: "T9", settledAt: new Date() };
+submit(settled, "T10"); // Error: a settled payment cannot be submitted again
+```
+
+A whole state machine can follow this pattern: the current state's tag decides
+which events are meaningful. A reducer for `RemoteData` that ignores events
+which make no sense in the current state:
+
+```ts
+type FetchEvent =
+  | { type: "FETCH" } | { type: "RESET" }
+  | { type: "RESOLVE"; data: Fund[] } | { type: "REJECT"; error: string };
+function next(state: RemoteData<Fund[]>, event: FetchEvent): RemoteData<Fund[]> {
+  switch (state.status) {
+    case "idle":
+    case "error":
+      return event.type === "FETCH" ? { status: "loading" } : state;
+    case "loading":
+      if (event.type === "RESOLVE") return { status: "success", data: event.data };
+      if (event.type === "REJECT") return { status: "error", error: event.error };
+      return state;
+    case "success":
+      return event.type === "RESET" ? { status: "idle" } : state;
+  }
+}
+```
+
+There is no way to reach `"success"` without data, or to resolve a request
+that was never started.
+
+## Result types instead of throwing
+
+The same idea models success and failure of an operation without exceptions.
+The discriminant can be a boolean literal:
+
+```ts
+type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
+function parseAmount(input: string): Result<number, string> {
+  const n = Number(input);
+  return Number.isFinite(n) && n > 0
+    ? { ok: true, value: n }
+    : { ok: false, error: `Invalid amount: ${input}` };
+}
+const r = parseAmount("abc");
+if (r.ok) console.log(r.value * 2);
+else console.log(r.error); // Invalid amount: abc
+```
+
+## Practical tips
+
+- **Pick one discriminant name** across the codebase (`status`, `type` or
+  `kind`) and use string literals, not numbers, so logs stay readable.
+- **Destructuring is fine.** Recent versions narrow `p` after
+  `const { status } = p; if (status === "failed")`, as long as the destructured
+  variable is `const`.
+- **Validate at the boundary.** Data from an API is only a `Payment` once you
+  have checked it; see "Runtime Validation & Type-Safe Boundaries (Zod)".
+
+### Try it yourself
+
+1. Model a KYC flow with states `notStarted`, `documentsUploaded` (with a list of
+   file names), `underReview` (with a reviewer id), `approved` (with a date) and
+   `rejected` (with a reason). Write a `describe` function with an exhaustive
+   `switch`, then add a new state and watch the compiler point at it.
+2. Write `refund(p: Settled, refundId: string)` that returns the `refunded`
+   member, and confirm a `pending` payment cannot be refunded.

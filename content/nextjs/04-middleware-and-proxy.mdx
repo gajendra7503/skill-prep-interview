@@ -1,8 +1,9 @@
 ---
 title: "Middleware & the Proxy Convention"
-description: "Run code before a route renders — auth checks, redirects, and rewriting requests at the edge."
+description: "Run code before a route renders — auth checks, redirects, and rewriting requests before they reach a route."
 module: "Backend"
-order: 4
+level: "intermediate"
+order: 11
 ---
 
 Some logic needs to run **before** any route in your app renders — checking
@@ -68,16 +69,19 @@ export const config = {
 };
 ```
 
-This runs at the edge, before any Server Component code executes — cheaper
+This runs before routing, ahead of any Server Component code — cheaper
 than letting the page start rendering and only then discovering the user
 isn't authorized.
 
 ## What it can't do
 
-The proxy function runs in a restricted **Edge runtime**, not full Node.js —
-no filesystem access, and only a subset of npm packages work there. Database
-queries, reading cookies to redirect, and lightweight checks are a good fit;
-anything heavier belongs in the page or a Server Action instead.
+In Next.js 16 the proxy runs on the **Node.js runtime** (the old Edge-only
+restriction of middleware is gone), and the `runtime` segment option is not
+allowed in `proxy.ts` — setting it throws an error. It still runs on *every*
+matched request, though, so keep it fast: reading cookies, redirecting and
+rewriting are a good fit, while database queries and heavy work belong in
+the page, a Route Handler or a Server Action. Proxy is also not a complete
+authorization layer on its own — re-check permissions where data is read.
 
 ### Try it yourself
 

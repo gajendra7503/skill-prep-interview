@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "With renderToPipeableStream, what is the 'shell'?",
+      "options": [
+        "The client JavaScript bundle",
+        "The HTML head tag only",
+        "Everything outside the nearest Suspense boundaries, sent as soon as it is ready",
+        "The fallback shown when the server crashes"
+      ],
+      "correctIndex": 2,
+      "explanation": "The shell is the part of the tree not wrapped in a Suspense boundary. onShellReady fires when it can be sent; suspended parts stream in later."
+    },
+    {
+      "question": "What does hydration do?",
+      "options": [
+        "Attaches event handlers and React state to existing server-rendered DOM without recreating it",
+        "Re-renders the page on the server",
+        "Deletes the server HTML and renders from scratch",
+        "Downloads data for Suspense boundaries"
+      ],
+      "correctIndex": 0,
+      "explanation": "hydrateRoot renders the same tree in the browser and adopts the existing DOM nodes, making the page interactive."
+    },
+    {
+      "question": "Which of these will cause a hydration mismatch?",
+      "options": [
+        "Using useId to generate an element id",
+        "Formatting a number with toLocaleString(\"en-IN\")",
+        "Setting state inside useEffect after mount",
+        "Rendering Math.random() directly in JSX"
+      ],
+      "correctIndex": 3,
+      "explanation": "Math.random() produces different output on server and client, so the first client render won't match the server HTML."
+    },
+    {
+      "question": "A user clicks inside a Suspense boundary that has not hydrated yet. What does React do?",
+      "options": [
+        "Ignores the click permanently",
+        "Prioritises hydrating that boundary first (selective hydration)",
+        "Reloads the page",
+        "Falls back to client rendering the whole app"
+      ],
+      "correctIndex": 1,
+      "explanation": "With streaming SSR, boundaries hydrate independently, and React raises the priority of the boundary the user is interacting with."
+    }
+  ]
+}

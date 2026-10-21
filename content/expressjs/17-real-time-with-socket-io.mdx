@@ -1,0 +1,141 @@
+---
+title: "Real-Time with Socket.IO"
+description: "Compare polling with WebSockets, attach Socket.IO to an Express server, use rooms, authenticate on connection and scale across instances."
+module: "Advanced Express"
+level: "advanced"
+order: 19
+---
+
+Chat, live order tracking, notifications and collaborative editing all need
+the server to push data the moment it changes. Plain request/response HTTP
+can't do that on its own, so you need a different transport.
+
+## Polling vs WebSockets
+
+- **Short polling** — the client asks "anything new?" every few seconds.
+  Simple, but wasteful and always a little stale.
+- **Long polling** — the server holds the request open until there is data,
+  then the client immediately asks again. Lower latency, more open
+  connections.
+- **Server-Sent Events (SSE)** — one long-lived HTTP response streaming
+  events from server to client. Great for one-way feeds.
+- **WebSockets** — a single TCP connection, upgraded from HTTP, that both
+  sides can send on at any time. Best for two-way, low-latency traffic.
+
+## Why Socket.IO?
+
+Socket.IO is a library on top of WebSockets (falling back to long polling
+when needed) that adds automatic reconnection, named events, acknowledgements,
+rooms and broadcasting. Note that it uses its own protocol: a plain
+WebSocket client cannot talk to a Socket.IO server, and vice versa.
+
+## Attaching Socket.IO to Express
+
+Socket.IO needs the underlying Node HTTP server, not the Express `app`, so
+create the server explicitly and call `listen` on it.
+
+```js
+import express from "express";
+import { createServer } from "node:http";
+import { Server } from "socket.io";
+
+const app = express();
+const httpServer = createServer(app);
+
+const io = new Server(httpServer, {
+  cors: { origin: ["https://app.example.com"], credentials: true },
+});
+
+app.get("/health", (req, res) => res.json({ ok: true }));
+
+io.on("connection", (socket) => {
+  console.log("connected", socket.id);
+
+  socket.on("chat:message", (text, ack) => {
+    io.emit("chat:message", { from: socket.id, text }); // everyone, sender included
+    ack?.({ ok: true });                                // optional acknowledgement
+  });
+
+  socket.on("disconnect", (reason) => console.log("left", socket.id, reason));
+});
+
+httpServer.listen(3000); // NOT app.listen - that would create a second server
+```
+
+```js
+// Browser client (socket.io-client)
+import { io } from "socket.io-client";
+
+const socket = io("https://api.example.com", { auth: { token: accessToken } });
+socket.emit("chat:message", "Hello!", (res) => console.log(res)); // { ok: true }
+socket.on("chat:message", (msg) => console.log(msg));
+```
+
+## Authenticating on connection
+
+Authenticate once, during the handshake, with `io.use()` middleware. Reuse
+the same JWT verification as your REST API and store the user on
+`socket.data`.
+
+```js
+io.use((socket, next) => {
+  try {
+    const claims = verifyAccessToken(socket.handshake.auth.token);
+    socket.data.user = { id: Number(claims.sub), role: claims.role };
+    next();
+  } catch {
+    next(new Error("unauthorized")); // client receives a "connect_error" event
+  }
+});
+```
+
+Rejecting here means unauthenticated clients never reach your event
+handlers. Still authorise **each event** that touches data — being connected
+doesn't mean a user may join any room or edit any order.
+
+## Rooms: sending to a subset of clients
+
+A room is a server-side label that sockets can join. Use rooms for
+per-user notifications, chat channels or "everyone watching order 42".
+
+```js
+io.on("connection", (socket) => {
+  const { id } = socket.data.user;
+  socket.join(`user:${id}`); // private room for this user
+
+  socket.on("order:watch", async (orderId) => {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (order?.userId !== id) return; // authorisation check
+    socket.join(`order:${orderId}`);
+  });
+});
+
+// From a normal REST route, e.g. after a payment webhook:
+app.post("/orders/:id/paid", async (req, res) => {
+  const order = await markPaid(Number(req.params.id));
+  io.to(`order:${order.id}`).emit("order:updated", { status: "PAID", total: order.total });
+  io.to(`user:${order.userId}`).emit("notify", `Payment of ₹${order.total} received`);
+  res.status(204).end();
+});
+```
+
+Broadcast variants to remember: `io.emit` (everyone), `io.to(room).emit`
+(everyone in a room), `socket.broadcast.emit` (everyone except the sender),
+and `socket.to(room).emit` (the room, except the sender).
+
+## Scaling to multiple servers
+
+Each instance only knows about its own connected sockets. With two or more
+instances behind a load balancer you need:
+
+- **An adapter** such as the Redis adapter, so `io.to(room).emit` on one
+  instance reaches sockets connected to another.
+- **Sticky sessions** at the load balancer when the long-polling transport
+  is enabled, because its HTTP requests must keep hitting the same instance.
+
+### Try it yourself
+
+Build a tiny chat: an Express server with Socket.IO, JWT auth in `io.use`,
+and a `room:join` event. Open two browser tabs with different users, join the
+same room, and confirm messages reach only that room. Then connect with an
+invalid token and log the `connect_error` on the client.

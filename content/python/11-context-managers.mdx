@@ -1,0 +1,130 @@
+---
+title: "Context Managers"
+description: "How the with statement works, writing context managers with classes and contextlib, and managing many resources with ExitStack."
+module: "Advanced Patterns"
+level: "advanced"
+order: 18
+---
+
+Any resource that must be released — files, locks, database connections,
+temporary directories — needs cleanup that runs even when an exception is
+raised. The `with` statement is Python's answer, and interviewers like it
+because explaining it properly requires knowing the protocol underneath,
+not just the syntax.
+
+## What `with` actually does
+
+```python
+with open("data.txt") as f:
+    contents = f.read()
+# f is closed here, even if read() raised
+```
+
+That block is roughly equivalent to this expansion:
+
+```python
+manager = open("data.txt")
+f = manager.__enter__()
+try:
+    contents = f.read()
+except BaseException as exc:
+    if not manager.__exit__(type(exc), exc, exc.__traceback__):
+        raise
+else:
+    manager.__exit__(None, None, None)
+```
+
+Two details matter. The name after `as` is bound to whatever `__enter__`
+**returns**, which is not always the manager itself. And `__exit__` always
+runs, receiving the exception details (or three `None` values on success).
+
+## Writing a class-based context manager
+
+```python
+import time
+
+class Timer:
+    def __enter__(self):
+        self.start = time.perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.elapsed = time.perf_counter() - self.start
+        print(f"took {self.elapsed:.3f}s")
+        return False  # do not suppress exceptions
+
+with Timer() as t:
+    sum(range(1_000_000))
+# took 0.012s
+```
+
+## Exception suppression: the return value of `__exit__`
+
+If `__exit__` returns a truthy value, the exception is **swallowed** and
+execution continues after the `with` block. Returning `None` (the default
+when you write no `return`) or `False` lets it propagate. Suppressing by
+accident is a classic bug, so be explicit. For the intentional case, the
+standard library already has a helper:
+
+```python
+from contextlib import suppress
+import os
+
+with suppress(FileNotFoundError):
+    os.remove("cache.tmp")  # no error if the file is missing
+```
+
+## `contextlib.contextmanager`: generators as context managers
+
+Writing a class is verbose. The `@contextmanager` decorator turns a
+generator into a context manager: code before `yield` is the setup, the
+yielded value is bound by `as`, and code after `yield` is the teardown.
+
+```python
+from contextlib import contextmanager
+
+@contextmanager
+def temporary_attr(obj, name, value):
+    old = getattr(obj, name)
+    setattr(obj, name, value)
+    try:
+        yield obj
+    finally:
+        setattr(obj, name, old)  # always restored
+```
+
+The `try`/`finally` is essential. If the body raises, the exception is
+re-raised **at the `yield`** inside the generator; without `finally`, the
+teardown line is simply skipped. Catching the exception around `yield`
+without re-raising is how a generator-based manager suppresses it.
+
+## `ExitStack`: a dynamic number of resources
+
+Nesting `with` statements works when you know the count at write time.
+When you do not — say, opening every file in a list — use `ExitStack`:
+
+```python
+from contextlib import ExitStack
+
+def merge(paths, out_path):
+    with ExitStack() as stack:
+        files = [stack.enter_context(open(p)) for p in paths]
+        out = stack.enter_context(open(out_path, "w"))
+        for f in files:
+            out.write(f.read())
+    # every file closed, in reverse order of entry
+```
+
+If opening the third file fails, the first two are still closed. You can
+also register arbitrary cleanup with `stack.callback(fn, *args)`, and
+`stack.pop_all()` transfers ownership out so cleanup is deferred.
+
+Python 3.10+ also allows parenthesized multi-manager syntax:
+`with (open("a") as a, open("b") as b):`.
+
+### Try it yourself
+
+Write a `@contextmanager` called `chdir_temp(path)` that switches the
+working directory with `os.chdir`, yields, and always restores the original
+directory. Prove it restores even when the body raises `ValueError`. Then
+compare it with `contextlib.chdir`, added in Python 3.11.

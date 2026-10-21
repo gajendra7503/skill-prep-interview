@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which command scaffolds a new React + TypeScript project with Vite?",
+      "options": [
+        "npx create-react-app my-app --typescript",
+        "npm create vite@latest my-app -- --template react-ts",
+        "npm install react --template ts",
+        "node vite new my-app"
+      ],
+      "correctIndex": 1,
+      "explanation": "npm create vite@latest runs Vite's scaffolding script; --template react-ts selects React with TypeScript. Create React App is deprecated."
+    },
+    {
+      "question": "What does createRoot(...).render(...) in src/main.tsx do?",
+      "options": [
+        "Compiles JSX into JavaScript",
+        "Starts the Vite dev server",
+        "Generates index.html",
+        "Connects React to a real DOM element and tells it what to display inside"
+      ],
+      "correctIndex": 3,
+      "explanation": "createRoot attaches React to one DOM node (the #root div) and render specifies the component tree to show there."
+    },
+    {
+      "question": "In development, a console.log inside a component prints twice. What is the most likely reason?",
+      "options": [
+        "StrictMode intentionally double-renders in development to surface bugs",
+        "Vite loads every module twice",
+        "The component has a bug that must be fixed",
+        "React always renders twice in production too"
+      ],
+      "correctIndex": 0,
+      "explanation": "StrictMode double-invokes rendering and effects in development only. Production builds render once."
+    },
+    {
+      "question": "What does npm run build produce in a Vite project?",
+      "options": [
+        "A running dev server with Hot Module Replacement",
+        "A Node.js server that renders React",
+        "An optimised static bundle of HTML, JS and CSS in dist/",
+        "A new node_modules folder"
+      ],
+      "correctIndex": 2,
+      "explanation": "The build script outputs static production assets to dist/, which any static host can serve; npm run preview serves them locally."
+    }
+  ]
+}

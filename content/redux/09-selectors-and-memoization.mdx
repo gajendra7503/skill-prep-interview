@@ -1,0 +1,164 @@
+---
+title: "Selectors & Memoization with createSelector"
+description: "Write selectors that hide state shape, derive data on demand, and use createSelector memoization to keep references stable and components fast."
+module: "Redux Toolkit"
+level: "intermediate"
+order: 9
+---
+
+A **selector** is any function that takes the Redux state and returns some
+piece of it: `(state) => state.products.items`. Selectors look trivial, but
+they carry two big ideas: keep the store **minimal** and derive everything
+else, and keep derived values **referentially stable** so React does not
+re-render for nothing. `createSelector` (from Reselect, re-exported by Redux
+Toolkit) handles the second part.
+
+## Why bother with selectors?
+
+- **Encapsulation.** Components call `selectInStock(state)` instead of
+  knowing that products live at `state.products.items`. Move the data later
+  and only the selector changes.
+- **Minimal state.** Do not store "filtered products" or "cart total" in
+  the store. Store the raw list and compute derived values in selectors, so
+  they can never go out of sync.
+- **Reuse.** The same selector works in components, thunks and tests.
+
+## The problem: new references on every call
+
+`useSelector` runs your selector after **every** dispatched action and
+re-renders the component if the result is not `===` to the previous one. A
+selector that builds a new array fails that check every time:
+
+```js
+const selectInStockNaive = (state) =>
+  state.products.items.filter((p) => p.inStock);
+
+console.log(selectInStockNaive(state) === selectInStockNaive(state));
+// false  -> a new array each call, so the component re-renders on ANY action
+```
+
+In development, React-Redux 9 notices this and logs a warning that begins
+"Selector unknown returned a different result when called with the same
+parameters. This can lead to unnecessary rerenders."
+
+## createSelector: memoized derived data
+
+`createSelector` takes one or more **input selectors** and a **result
+function**. It re-runs the result function only when an input's return value
+changes (by reference); otherwise it returns the cached result.
+
+```js
+import { createSelector } from "@reduxjs/toolkit";
+
+const selectItems = (state) => state.products.items;
+
+const selectInStock = createSelector([selectItems], (items) => {
+  console.log("  recomputing in-stock list");
+  return items.filter((p) => p.inStock);
+});
+```
+
+Real output from running this against a store with a `products` slice and an
+unrelated `ui` slice:
+
+```js
+const a = selectInStock(store.getState()); //   recomputing in-stock list
+const b = selectInStock(store.getState());
+console.log("same ref:", a === b);                  // same ref: true
+
+store.dispatch({ type: "ui/toggle" });              // unrelated slice changes
+console.log(a === selectInStock(store.getState())); // true, no recompute
+
+store.dispatch(priceChanged({ id: 1, priceInr: 599 }));
+const d = selectInStock(store.getState());          //   recomputing in-stock list
+console.log(a === d);                               // false, items changed
+console.log(selectInStock.recomputations());        // 2
+```
+
+This works because Immer gives `state.products.items` a new reference only
+when something inside it actually changed.
+
+## Selectors with arguments
+
+Extra arguments are passed through to every input selector. Add an input
+selector that just returns the argument:
+
+```js
+const selectByCategory = createSelector(
+  [selectItems, (state, category) => category],
+  (items, category) => items.filter((p) => p.category === category),
+);
+
+// in a component
+const groceries = useAppSelector((state) => selectByCategory(state, "grocery"));
+```
+
+Reselect 5 (used by RTK 2) memoizes with `weakMapMemoize` by default, which
+keeps a cache entry **per distinct set of arguments**. Calling with
+`"grocery"`, `"kitchen"`, then `"grocery"` again recomputes only twice. The
+older `lruMemoize` with its default cache size of 1 recomputes all three
+times (both verified with `recomputations()`):
+
+| Memoizer | Calls: grocery, kitchen, grocery | Recomputations |
+|---|---|---|
+| `weakMapMemoize` (default) | cache per argument | 2 |
+| `lruMemoize` (cache size 1) | cache only the last call | 3 |
+
+With Reselect 4 you often needed a "selector factory" per component instance
+to avoid this thrashing. With the default `weakMapMemoize` that is much less
+necessary, though factories still work.
+
+## Development-mode checks
+
+`createSelector` runs two checks in development (once per selector by
+default) and logs a warning when they fail:
+
+```js
+// 1. Identity check: the result function just returns its input
+const bad = createSelector([selectItems], (items) => items);
+// "The result function returned its own inputs without modification..."
+
+// 2. Input stability check: an input selector builds a new reference
+const bad2 = createSelector(
+  [(state) => state.products.items.map((p) => p.id)],
+  (ids) => ids.length,
+);
+// "An input selector returned a different result when passed same arguments..."
+```
+
+The rule behind both: **input selectors extract, the result function
+transforms.** Mapping, filtering and sorting belong in the result function.
+
+## When not to memoize
+
+- A plain lookup such as `(state) => state.cart.coupon` returns an existing
+  value. It is already stable, so `createSelector` adds only overhead.
+- Returning primitives (numbers, strings, booleans) is safe without
+  memoization, because `===` compares primitives by value.
+- Memoize when you **derive** a new object or array, or when the
+  computation is expensive.
+
+## Where selectors live
+
+Keep selectors next to the slice that owns the state. Redux Toolkit 2 lets
+you define simple ones in the slice's `selectors` field, which receive only
+that slice's state, and export them from `slice.selectors`. Memoized
+selectors that combine slices go in the same feature file or a
+`selectors.ts`. For TypeScript, create a pre-typed
+`createAppSelector = createSelector.withTypes<RootState>()` as shown in
+"Typing Redux: RootState, AppDispatch & Typed Hooks".
+
+Interviewers often ask: "Why does my component re-render even though the
+data did not change?" A strong answer mentions `===` comparison in
+`useSelector`, selectors that return new arrays or objects, and fixing it
+with `createSelector` (or by selecting smaller primitive values).
+
+### Try it yourself
+
+1. Write `selectCartTotal` with `createSelector` that sums
+   `priceInr * qty`. Log inside the result function and confirm it does not
+   run when an unrelated slice changes.
+2. Build `selectProductsUnder(state, maxPriceInr)` and check
+   `recomputations()` after calling it with 300, 500 and 300.
+3. Write a selector that triggers the input stability warning, then fix it
+   by moving the `.map()` into the result function.

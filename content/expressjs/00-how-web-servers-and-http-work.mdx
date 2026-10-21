@@ -1,0 +1,138 @@
+---
+title: "How Web Servers and HTTP Work"
+description: "The mental model behind every Express app: clients and servers, ports and localhost, the parts of an HTTP request and response, status codes, JSON and the core vocabulary of routes, handlers and middleware."
+module: "Getting Started"
+level: "beginner"
+order: 2
+---
+
+Express code makes far more sense once you can picture what travels over the
+wire. Every Express feature, from `req.params` to `res.status(404)`, maps
+directly onto a part of an HTTP message. This lesson builds that picture
+before you write any framework code.
+
+## Clients and servers
+
+- A **client** starts the conversation: a browser, a mobile app, `curl`, or
+  another server.
+- A **server** is a long-running program that waits for requests and sends
+  back responses. An Express app is a server.
+- **HTTP** (HyperText Transfer Protocol) is the agreed format for those
+  messages. HTTPS is the same protocol wrapped in encryption.
+
+The client always speaks first. A server never pushes a response to a client
+that did not ask (real-time tools such as WebSockets, covered later, work
+around this).
+
+## Addresses: host, port and path
+
+```text
+http://localhost:3000/api/expenses?month=2026-10
+└─┬─┘  └───┬───┘ └┬─┘└─────┬─────┘ └─────┬─────┘
+scheme    host   port     path         query string
+```
+
+- **Host**: which machine. `localhost` (or `127.0.0.1`) means "this
+  computer", which is where your server runs during development.
+- **Port**: which program on that machine. One computer runs many servers,
+  each listening on its own port. Development servers commonly use 3000;
+  HTTP defaults to 80 and HTTPS to 443, which is why you rarely see them.
+- **Path**: which resource on that server, such as `/api/expenses`.
+- **Query string**: optional extra key-value pairs after `?`, used for
+  filters, search terms and pagination.
+
+## Anatomy of a request
+
+`curl -v` shows the raw text a client sends. Here is a request to create an
+expense:
+
+```bash
+curl -v -X POST http://localhost:3000/api/expenses \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Groceries","amount":2450}'
+```
+
+```text
+POST /api/expenses HTTP/1.1          <- method, path, protocol version
+Host: localhost:3000                 <- headers: metadata, one per line
+Content-Type: application/json
+Content-Length: 35
+                                     <- blank line ends the headers
+{"title":"Groceries","amount":2450}  <- body (optional)
+```
+
+The **method** says what the client wants to do:
+
+| Method | Meaning | Has a body? |
+| --- | --- | --- |
+| GET | Read something | No |
+| POST | Create something | Yes |
+| PUT / PATCH | Replace / partly update something | Yes |
+| DELETE | Remove something | Usually no |
+
+## Anatomy of a response
+
+```text
+HTTP/1.1 201 Created                 <- status line
+Content-Type: application/json; charset=utf-8
+Content-Length: 42
+
+{"id":7,"title":"Groceries","amount":2450}
+```
+
+The **status code** is a three-digit number the client checks first:
+
+- **2xx success**: 200 OK, 201 Created, 204 No Content.
+- **3xx redirection**: 301 or 302 tell the client to look elsewhere.
+- **4xx client error**: 400 Bad Request, 401 Unauthorized, 404 Not Found.
+  The client sent something wrong.
+- **5xx server error**: 500 Internal Server Error. Your code broke.
+
+## JSON: the language of APIs
+
+Most Express apps you build will be **APIs** that send and receive JSON, a
+text format that looks like JavaScript objects with double-quoted keys:
+
+```json
+{ "title": "Rent", "amount": 18000, "paid": true, "tags": ["home"] }
+```
+
+The `Content-Type: application/json` header tells the other side how to read
+the body. In JavaScript, `JSON.stringify()` turns an object into this text
+and `JSON.parse()` turns it back. Express does both for you.
+
+## HTTP is stateless
+
+Each request stands alone. The server does not remember that the same
+browser sent a request a second ago. Anything that must carry over, such as
+"this user is logged in", travels with every request, usually in a cookie or
+an `Authorization` header. You will build both later in the course.
+
+## Core Express vocabulary
+
+With the HTTP picture in place, the Express words map neatly onto it:
+
+- **app**: your server, created with `express()`.
+- **route**: a method plus a path, such as `GET /api/expenses`.
+- **handler**: the function that runs when a route matches. It receives
+  `req` (the parsed request) and `res` (tools to build the response).
+- **middleware**: a function that runs before handlers for many routes, for
+  example to log requests or check a login, then calls `next()` to pass the
+  request along.
+- **listen**: start accepting connections on a port.
+
+```js
+// a preview of what "Introduction to Express" builds
+app.get("/api/expenses", (req, res) => {   // route + handler
+  res.status(200).json([{ title: "Rent", amount: 18000 }]);
+});
+app.listen(3000);                          // start on port 3000
+```
+
+### Try it yourself
+
+Run `curl -v https://example.com` and label each part of the output: the
+request line, the request headers, the status line, the response headers and
+the body. Then, for an imaginary expense tracker, write down the method,
+path and expected status code for: listing all expenses, creating one,
+fetching expense 42 when it does not exist, and deleting expense 7.

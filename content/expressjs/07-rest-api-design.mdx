@@ -1,0 +1,152 @@
+---
+title: "REST API Design"
+description: "Model resources and verbs, pick the right status codes, version your API, return one consistent error shape and understand idempotency."
+module: "Building APIs"
+level: "intermediate"
+order: 9
+---
+
+Express will happily let you build any URL scheme you like, which is
+exactly why interviewers ask about design. They want to hear that you think
+in resources, use HTTP semantics instead of inventing your own, and give
+clients a predictable contract. This lesson uses an expenses API with
+amounts in ₹ as the running example.
+
+## Resources, not actions
+
+A REST URL names a **thing** (a noun); the HTTP method says what to do with
+it. Collections are plural, and a single item is addressed by its id.
+
+| Method | Path | Meaning | Success status |
+| --- | --- | --- | --- |
+| GET | `/api/v1/expenses` | List expenses | 200 |
+| POST | `/api/v1/expenses` | Create an expense | 201 + `Location` |
+| GET | `/api/v1/expenses/:id` | Read one expense | 200 |
+| PUT | `/api/v1/expenses/:id` | Replace an expense | 200 |
+| PATCH | `/api/v1/expenses/:id` | Change some fields | 200 |
+| DELETE | `/api/v1/expenses/:id` | Delete an expense | 204 |
+
+Avoid verbs in paths like `/getExpenses` or `/deleteExpense?id=7`. Nested
+routes such as `/users/:userId/expenses` are fine for ownership, but keep
+nesting to one level. Actions that do not fit CRUD can be modelled as a
+sub-resource, for example `POST /expenses/:id/approval`.
+
+## Status codes interviewers expect
+
+```js
+// 2xx: it worked
+res.status(200).json(expense);                        // read or update
+res.status(201).location(`/api/v1/expenses/${expense.id}`).json(expense); // created
+res.status(204).end();                                // deleted, no body
+
+// 4xx: the client must change something
+// 400 Bad Request          -> malformed JSON, wrong types, failed validation
+// 401 Unauthorized         -> not logged in / token missing or invalid
+// 403 Forbidden            -> logged in, but not allowed (another user's expense)
+// 404 Not Found            -> no expense with that id
+// 409 Conflict             -> clashes with current state (duplicate invoice number)
+// 422 Unprocessable Content -> well-formed, but breaks a business rule
+
+// 5xx: the server failed; the client did nothing wrong
+// 500 Internal Server Error, 503 Service Unavailable
+```
+
+The classic trap: **401 means "who are you?"** and **403 means "I know who
+you are, and the answer is no"**. Teams differ on 400 vs 422 for validation
+errors; what matters is choosing one and using it everywhere. A common
+convention is 400 for schema failures and 422 for rule failures such as
+"amount exceeds your monthly limit of ₹50,000".
+
+Some APIs return 404 instead of 403 for another user's resource so they do
+not reveal that the id exists. Mention this trade-off if asked about
+security.
+
+## One consistent error shape
+
+Clients should be able to handle every error with the same code path.
+Pick a shape and return it from every route (the error-handling lesson
+shows how to centralise this):
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Request body is invalid",
+    "details": [
+      { "path": "amount", "message": "Must be greater than 0" }
+    ]
+  }
+}
+```
+
+A stable machine-readable `code` lets the frontend branch on errors without
+parsing English messages. RFC 9457 (Problem Details for HTTP APIs) is a
+standard alternative using `type`, `title`, `status` and `detail` with the
+`application/problem+json` media type.
+
+## Idempotency and safety
+
+- **Safe** methods do not change server state: GET, HEAD, OPTIONS.
+- **Idempotent** methods give the same end state however many times you
+  repeat them: GET, PUT, DELETE (and the safe methods).
+- **POST is not idempotent**: retrying `POST /expenses` creates a second
+  expense. PATCH is not guaranteed idempotent either (think "add ₹100").
+
+Deleting twice is still idempotent: the expense is gone either way, even if
+the second call returns 404. For payments and other POSTs that must be safe
+to retry, clients send an `Idempotency-Key` header; the server stores the
+first response under that key and replays it on retries.
+
+```js
+app.post("/api/v1/payments", async (req, res) => {
+  const key = req.get("Idempotency-Key");
+  if (!key) return res.status(400).json({ error: { code: "KEY_REQUIRED", message: "Idempotency-Key header is required" } });
+
+  const saved = await idempotencyStore.get(key);       // e.g. a DB table or Redis
+  if (saved) return res.status(saved.status).json(saved.body); // replay, no double charge
+
+  const payment = await payments.create(req.body);     // { id: 91, amount: 2500 }
+  await idempotencyStore.set(key, { status: 201, body: payment });
+  res.status(201).json(payment);
+});
+```
+
+## Versioning
+
+Breaking changes (renaming a field, changing a type) need a new version so
+existing clients keep working. URL versioning is the most common and the
+easiest to route in Express:
+
+```js
+import { Router } from "express";
+
+const v1 = Router();
+v1.get("/expenses", listExpensesV1);   // returns { amount: 1250 }
+const v2 = Router();
+v2.get("/expenses", listExpensesV2);   // returns { amount: { value: 1250, currency: "INR" } }
+
+app.use("/api/v1", v1);
+app.use("/api/v2", v2);
+```
+
+Header-based versioning (for example `Accept: application/vnd.expenses.v2+json`)
+keeps URLs clean but is harder to test in a browser. Adding an optional
+field is not a breaking change and does not need a new version.
+
+## Other conventions worth mentioning
+
+- Use JSON with consistent casing (camelCase is the norm in JavaScript
+  APIs) and ISO 8601 dates such as `2026-04-01T10:30:00Z`.
+- Represent money precisely: integer paise or a decimal string, never a
+  floating-point number of rupees.
+- Filtering, sorting and pagination belong in the query string:
+  `GET /expenses?category=food&sort=-amount&page=2`.
+
+### Try it yourself
+
+Design the routes for a `budgets` resource that belongs to a user, with a
+monthly limit in ₹. Write down the method, path and success status for each
+operation, decide which status you return when a new budget would duplicate
+an existing month (409) and when an expense exceeds the limit (422), and
+implement `POST /api/v1/budgets` so it returns 201 with a `Location` header
+and your standard error shape on failure.

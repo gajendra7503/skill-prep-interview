@@ -1,0 +1,138 @@
+---
+title: "Normalization & Keys"
+description: "1NF to BCNF with worked examples, when to denormalize, natural vs surrogate keys, and AUTO_INCREMENT vs UUID on InnoDB's clustered index."
+module: "Schema Design"
+level: intermediate
+order: 13
+---
+
+Normalization is about storing each fact **once**, so that updates cannot
+leave the data contradicting itself. Interviewers typically hand you a messy
+table and ask you to normalize it, then ask how you would choose primary
+keys and why that choice matters for InnoDB performance.
+
+## The anomalies we are removing
+
+Start with one flat table for a shop:
+
+```sql
+-- order_flat
+-- order_id | customer | customer_city | products              | total
+--     1001 | Asha     | Mumbai        | Pen x2, Notebook x1   |   340
+--     1002 | Asha     | Mumbai        | Bag x1                |  1800
+```
+
+It has three classic anomalies. **Update:** if Asha moves, many rows must
+change, and missing one leaves two cities. **Insert:** you cannot record a
+new customer until they order. **Delete:** deleting her only order also
+deletes the fact that she exists.
+
+## 1NF: atomic values, no repeating groups
+
+Each column holds a single value and each row is uniquely identifiable. The
+comma-separated `products` column violates 1NF; you cannot index or join on
+"Pen". Split it into one row per product:
+
+```sql
+-- order_lines: PK (order_id, product_id)
+-- order_id | product_id | product_name | unit_price | qty | customer | city
+```
+
+## 2NF: no partial dependencies
+
+2NF applies to tables with a **composite** key: every non-key column must
+depend on the *whole* key. In `order_lines`, `product_name` and `unit_price`
+depend only on `product_id`, and `customer` depends only on `order_id`.
+Move them out:
+
+```sql
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100),
+                       unit_price DECIMAL(10,2));
+CREATE TABLE orders   (order_id INT PRIMARY KEY, customer_id INT,
+                       created_at DATETIME);
+CREATE TABLE order_items (order_id INT, product_id INT, qty INT,
+                          price_at_sale DECIMAL(10,2),
+                          PRIMARY KEY (order_id, product_id));
+```
+
+Note `price_at_sale`: the price *when ordered* is a different fact from the
+current catalogue price, so storing it is correct, not duplication.
+
+## 3NF: no transitive dependencies
+
+Every non-key column must depend on the key and **nothing but** the key. If
+`orders` held `customer_id`, `customer_name` and `customer_city`, then name
+and city depend on `customer_id`, which depends on `order_id`: a transitive
+dependency. They belong in `customers`. The same applies to `pincode` and
+`city` if pincode determines city.
+
+## BCNF: every determinant is a candidate key
+
+BCNF tightens 3NF: for every functional dependency X to Y, X must be a
+candidate key. Textbook case: `trainer_slots(student, subject, trainer)`,
+where each trainer teaches exactly one subject. The key is
+`(student, subject)`, but `trainer` determines `subject` and is not a key,
+so the table is in 3NF but not BCNF. Decompose into
+`trainer_subjects(trainer, subject)` and `student_trainers(student, trainer)`.
+In practice, most schemas that reach 3NF are already in BCNF.
+
+## Denormalization trade-offs
+
+Normalized schemas favour write correctness; reads need more joins.
+Deliberate denormalization trades storage and write complexity for read
+speed, for example a `customers.lifetime_value` column, an `order_count`
+counter, or a reporting table rebuilt nightly. The cost is keeping copies
+in sync (application code, triggers or batch jobs) and accepting that they
+may briefly lag. Normalize first, measure, then denormalize specific hot
+paths with a clear owner for the sync.
+
+## Natural vs surrogate keys
+
+A **natural** key comes from the domain (PAN, email, GSTIN); a **surrogate**
+key is a meaningless generated id. Natural keys can change (emails do),
+can be long, and may be subject to privacy rules, and every referencing
+foreign key must change with them. The usual practice: a surrogate primary
+key plus a `UNIQUE` constraint on the natural key, so the business rule is
+still enforced.
+
+## AUTO_INCREMENT vs UUID on InnoDB
+
+This is where the choice gets physical. An InnoDB table **is** its clustered
+index: rows are stored in a B+tree ordered by the primary key (if you define
+none, InnoDB uses the first `UNIQUE NOT NULL` index, or a hidden 6-byte row
+id). Every **secondary index entry also stores the primary key** value.
+
+- `BIGINT AUTO_INCREMENT` (8 bytes) inserts always land at the right-hand
+  end of the tree: pages fill sequentially, little fragmentation, hot pages
+  stay in the buffer pool, and secondary indexes stay small.
+- A random UUID stored as `CHAR(36)` is 36+ bytes in every secondary index,
+  and random values insert all over the tree, causing page splits,
+  half-empty pages and far more disk I/O once the table outgrows memory.
+
+If you need globally unique ids (merging shards, ids generated by clients),
+store them as `BINARY(16)` and make them time-ordered. MySQL's `UUID()`
+returns a version-1 UUID whose timestamp low bits come first;
+`UUID_TO_BIN(uuid, 1)` swaps the time parts so values increase over time:
+
+```sql
+CREATE TABLE payments (
+  id         BINARY(16) PRIMARY KEY DEFAULT (UUID_TO_BIN(UUID(), 1)),
+  order_id   BIGINT NOT NULL,
+  amount_inr DECIMAL(12,2) NOT NULL
+);
+
+INSERT INTO payments (order_id, amount_inr) VALUES (1001, 340.00);
+SELECT BIN_TO_UUID(id, 1) AS id, amount_inr FROM payments;
+```
+
+Always read back with the **same** swap flag, or the text will be scrambled.
+Expression defaults like this require MySQL 8.0.13+. Application-generated
+UUIDv7 values are also time-ordered and can be stored without the swap.
+
+### Try it yourself
+
+Normalize this table to 3NF and write the `CREATE TABLE` statements:
+`enrolments(student_id, student_name, course_id, course_title, instructor,
+instructor_phone, grade)`. Then explain, in terms of the clustered index and
+secondary indexes, why `id CHAR(36) DEFAULT (UUID())` would be a poor
+primary key for a 50-crore-row table.

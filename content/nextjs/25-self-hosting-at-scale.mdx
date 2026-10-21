@@ -1,0 +1,157 @@
+---
+title: "Self-Hosting Next.js at Scale"
+description: "Standalone Docker images, running many instances behind a load balancer, shared cache handlers, encryption keys, version skew and graceful shutdown."
+module: "Pro Level"
+level: "pro"
+order: 26
+---
+
+Deploying to a managed platform hides a lot of decisions. Many Indian
+enterprises — banks, insurers, fintechs with data-residency rules — run
+Next.js on their own Kubernetes clusters instead. One `next start` on one
+VM works out of the box; **ten pods behind a load balancer doing rolling
+deploys** is where the real engineering starts. This lesson is the
+checklist.
+
+## A small image with `output: "standalone"`
+
+```ts
+// next.config.ts
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  output: "standalone",
+  deploymentId: process.env.DEPLOYMENT_VERSION,  // explained below
+};
+
+export default nextConfig;
+```
+
+During `next build`, Next.js traces every file each route can load and
+copies only those (including the needed parts of `node_modules`) into
+`.next/standalone`, along with a minimal `server.js`. It does **not** copy
+`public/` or `.next/static` — those are meant for a CDN — so copy them in
+yourself if the container serves them:
+
+```dockerfile
+# Dockerfile (multi-stage)
+FROM node:24-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:24-alpine AS run
+WORKDIR /app
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+In a monorepo, set `outputFileTracingRoot` to the repo root so shared
+packages outside the app folder are traced too.
+
+## Build once, promote everywhere
+
+Build **one image** and promote it from staging to production. Two traps:
+
+- `NEXT_PUBLIC_*` variables are **inlined at build time**. A staging API URL
+  baked into the bundle ships to production too. Keep per-environment
+  values server-side and read them during dynamic rendering (after
+  `await connection()` from `next/server`, or any request-time API).
+- If you do rebuild per environment, every container must still share the
+  same build identity — set `deploymentId` (or `generateBuildId`) so
+  cache keys and assets line up.
+
+## Running many instances
+
+Each instance starts with its own private state. Three things must be made
+consistent across the fleet:
+
+| Problem | Symptom | Fix |
+| --- | --- | --- |
+| Server Action closures are encrypted with a per-build key | "Failed to find Server Action" when a request lands on another pod | Same `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` (base64 AES key) at build time |
+| ISR and the server cache live on each pod's disk/memory | Pods serve different versions of a page | A shared `cacheHandler`, `cacheMaxMemorySize: 0` |
+| `revalidateTag` only clears the pod that ran it | Some users still see old data | Coordinate tags through shared storage (e.g. Redis) in your handler |
+
+```js
+// next.config.js — shared cache for ISR / fetch cache
+module.exports = {
+  output: "standalone",
+  cacheHandler: require.resolve("./cache-handler.js"),
+  cacheMaxMemorySize: 0, // disable the per-pod in-memory cache
+};
+```
+
+With **Cache Components**, `"use cache"` entries go through a separate
+`cacheHandlers` setting (`default` for `"use cache"`, `remote` for
+`"use cache: remote"`). Its handler can implement `refreshTags()`, which
+Next.js calls before requests so every pod learns about invalidations from
+shared storage. Note that `use cache` entries never carry over to a new
+deploy: the build ID or `deploymentId` is part of every key.
+
+## Version skew during rolling deploys
+
+During a rolling update, a browser that loaded version 41 may send its next
+request to a pod already running version 42. Without protection you get
+missing JS chunks, unknown Server Action IDs, or incompatible prefetched
+payloads. With `deploymentId` set:
+
+```text
+static assets      -> /_next/static/chunk.js?dpl=v42
+navigation request -> header  x-deployment-id: v41
+server (v42)       -> mismatch detected -> hard navigation (full reload)
+```
+
+The full reload fetches a consistent set of assets. Component state is
+lost, so keep anything precious in the URL or storage.
+
+## Reverse proxy, streaming and CDN
+
+- Put **nginx or a cloud load balancer** in front of Next.js for TLS, slow
+  client protection, body-size limits and rate limiting.
+- Streaming (`loading.tsx`, `Suspense`, Partial Prerendering) only works if
+  **nothing buffers** the response. In nginx, send `X-Accel-Buffering: no`
+  via `headers()` in `next.config`, and check that every hop supports
+  chunked responses.
+- Next.js sets `Cache-Control` for you: immutable for hashed assets,
+  `s-maxage` plus `stale-while-revalidate` for ISR pages, and
+  `private, no-cache, no-store` for dynamic pages. Make sure the CDN respects them
+  rather than overriding with a blanket rule.
+
+## Graceful shutdown
+
+Kubernetes sends `SIGTERM` before killing a pod. Next.js finishes in-flight
+requests and pending `after()` callbacks before exiting, so give it time:
+
+```yaml
+# deployment.yaml (excerpt)
+spec:
+  terminationGracePeriodSeconds: 30
+  containers:
+    - name: web
+      image: registry.example.in/web:v42
+      env:
+        - name: DEPLOYMENT_VERSION
+          value: "v42"
+      readinessProbe:
+        httpGet: { path: /api/health, port: 3000 }
+```
+
+A `/api/health` Route Handler that returns 200 lets the load balancer stop
+sending traffic to pods that are not ready yet.
+
+### Try it yourself
+
+Containerise an app with `output: "standalone"` using the Dockerfile above
+and run two containers behind a local nginx with round-robin balancing.
+First build the two images **separately** with no fixed
+`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` and submit a Server Action form a few
+times — note the errors. Then fix it with one image built once with a
+shared key. Finally, estimate the monthly saving if the standalone image
+cuts each tag from 1.2 GB to 180 MB and you keep 50 tags at ₹2 per GB.

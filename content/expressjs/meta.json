@@ -1,0 +1,6 @@
+{
+  "title": "Express.js",
+  "description": "Build REST APIs with Express 5 — routing, middleware, validation, auth, databases, testing and deployment.",
+  "icon": "express",
+  "accent": "#334155"
+}

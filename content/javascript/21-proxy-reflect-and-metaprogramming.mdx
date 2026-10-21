@@ -1,0 +1,162 @@
+---
+title: "Proxy, Reflect & Metaprogramming"
+description: "Intercepting object operations with Proxy traps, forwarding them with Reflect, and how frameworks build reactivity on top."
+module: "Text & Metaprogramming"
+level: "advanced"
+order: 22
+---
+
+Metaprogramming means code that changes how other code behaves — here,
+intercepting the fundamental operations on an object (reading, writing,
+deleting, enumerating) instead of calling methods. `Proxy` is the reason
+Vue 3's reactivity, Immer's drafts and many mocking libraries can work on
+plain-looking objects, so senior interviews expect you to know it.
+
+## Proxy basics: target, handler, traps
+
+```js
+const target = { name: "Asha" };
+const handler = {
+  get(target, key, receiver) {
+    console.log(`read ${String(key)}`);
+    return Reflect.get(target, key, receiver);
+  },
+};
+const proxy = new Proxy(target, handler);
+
+proxy.name;          // logs "read name", returns "Asha"
+proxy === target;    // false — a proxy is a distinct object
+```
+
+Each handler method is a **trap** for one internal operation. There are 13:
+`get`, `set`, `has` (the `in` operator), `deleteProperty`, `ownKeys`
+(`Object.keys`, `for...in`), `getOwnPropertyDescriptor`,
+`defineProperty`, `getPrototypeOf`, `setPrototypeOf`, `isExtensible`,
+`preventExtensions`, plus `apply` and `construct` for function targets.
+Any trap you omit falls through to the target unchanged.
+
+## Reflect: the default behaviour as functions
+
+`Reflect` has one static method per trap with the same signature, so the
+idiomatic trap does its extra work and then delegates:
+
+```js
+Reflect.get(obj, "x", receiver);  // like obj.x, but with an explicit receiver
+Reflect.set(obj, "x", 1);         // returns true/false instead of throwing
+Reflect.has(obj, "x");            // like "x" in obj
+Reflect.ownKeys(obj);             // string AND symbol keys
+```
+
+Passing `receiver` matters for getters: with `target[key]`, a getter's
+`this` is the raw target, so property reads inside it bypass the proxy.
+`Reflect.get(target, key, receiver)` keeps `this` pointing at the proxy.
+
+## Validation example
+
+```js
+function typed(schema) {
+  return new Proxy({}, {
+    set(target, key, value, receiver) {
+      const expected = schema[key];
+      if (!expected) throw new TypeError(`Unknown field ${String(key)}`);
+      if (typeof value !== expected) {
+        throw new TypeError(`${String(key)} must be a ${expected}`);
+      }
+      return Reflect.set(target, key, value, receiver);
+    },
+  });
+}
+
+const order = typed({ item: "string", amountInr: "number" });
+order.amountInr = 499;     // ok
+order.amountInr = "499";   // TypeError: amountInr must be a number
+```
+
+A `set` trap must return `true` on success; returning a falsy value
+causes a `TypeError` in strict mode (all modules and classes).
+
+## Invariants: what a proxy cannot lie about
+
+The engine checks trap results against the target to keep the language
+consistent. For example:
+
+- `get` must return the real value for a non-configurable, non-writable
+  data property.
+- `ownKeys` must include every non-configurable own key of the target.
+- `has` cannot hide a non-configurable property.
+
+Violating an invariant throws a `TypeError`. That is why you cannot use a
+proxy to make a frozen object appear to have different values.
+`Proxy.revocable(target, handler)` returns `{ proxy, revoke }`; after
+`revoke()`, every operation on the proxy throws — useful for handing out
+temporary access.
+
+## Observables and Vue-style reactivity
+
+Vue 3's `reactive()` is a `Proxy` whose `get` trap records which running
+effect read which key (**track**) and whose `set` trap re-runs those
+effects (**trigger**). A simplified version:
+
+```js
+const targetMap = new WeakMap(); // target -> Map(key -> Set(effects))
+let activeEffect = null;
+
+function reactive(obj) {
+  return new Proxy(obj, {
+    get(t, key, r) {
+      if (activeEffect) {
+        let deps = targetMap.get(t);
+        if (!deps) targetMap.set(t, (deps = new Map()));
+        if (!deps.has(key)) deps.set(key, new Set());
+        deps.get(key).add(activeEffect);
+      }
+      return Reflect.get(t, key, r);
+    },
+    set(t, key, value, r) {
+      const ok = Reflect.set(t, key, value, r);
+      targetMap.get(t)?.get(key)?.forEach((fn) => fn());
+      return ok;
+    },
+  });
+}
+
+function effect(fn) { activeEffect = fn; fn(); activeEffect = null; }
+
+const cart = reactive({ total: 0 });
+effect(() => console.log(`Total: ₹${cart.total}`)); // Total: ₹0
+cart.total = 1250;                                   // Total: ₹1250
+```
+
+Vue 2 used `Object.defineProperty` getters/setters instead, which could
+not detect added properties or array index assignment — hence its
+`Vue.set` helper. A Proxy intercepts those operations natively. The
+`WeakMap` lets targets be garbage-collected once nothing else
+references them.
+
+## WeakMap-based private data
+
+Before `#private` fields, libraries hid per-instance state in a
+module-scoped `WeakMap` keyed by the instance:
+
+```js
+const secrets = new WeakMap();
+class Account {
+  constructor(balance) { secrets.set(this, { balance }); }
+  get balance() { return secrets.get(this).balance; }
+}
+```
+
+The data is unreachable from outside the module and is collected with
+the instance. One interview gotcha: wrapping a class instance that uses
+`#private` fields in a Proxy breaks its methods, because `this` becomes
+the proxy, which has no private slot — `TypeError: Cannot read private
+member`. The WeakMap pattern has the same problem unless the trap binds
+methods to the original target.
+
+### Try it yourself
+
+Build `readonly(obj)` that returns a Proxy whose `set`, `deleteProperty`
+and `defineProperty` traps throw, and whose `get` trap wraps nested
+objects in `readonly` lazily. Then explain which invariant would fire if
+you also tried to report a frozen target's property with a different
+value.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What happens to a class instance sent to a worker with postMessage?",
+      "options": [
+        "It arrives with its prototype and methods intact",
+        "It is shared by reference between both threads",
+        "postMessage throws because objects cannot be sent",
+        "It is structured-cloned and arrives as a plain object without its prototype or methods"
+      ],
+      "correctIndex": 3,
+      "explanation": "postMessage uses the structured clone algorithm, which copies data properties but drops prototypes. Functions cannot be cloned at all (DataCloneError)."
+    },
+    {
+      "question": "After `worker.postMessage(buffer, [buffer])`, what is `buffer.byteLength` in the sending thread?",
+      "options": [
+        "0, because the buffer was transferred and is now detached",
+        "Unchanged, because a copy was sent",
+        "undefined, because the variable is deleted",
+        "It throws a DataCloneError"
+      ],
+      "correctIndex": 0,
+      "explanation": "Listing the buffer in the transfer list moves ownership to the worker instead of copying it, leaving the sender with a detached, zero-length buffer."
+    },
+    {
+      "question": "What must a page do before browsers expose SharedArrayBuffer to it?",
+      "options": [
+        "Request a user permission prompt",
+        "Be cross-origin isolated by sending COOP: same-origin and COEP: require-corp headers",
+        "Run only inside a service worker",
+        "Use the v regex flag"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because shared memory enables high-resolution timing attacks like Spectre, browsers require cross-origin isolation, which you can check with self.crossOriginIsolated."
+    },
+    {
+      "question": "Which statement about Atomics is correct?",
+      "options": [
+        "Atomics.wait is the recommended way to pause the browser main thread",
+        "Atomics only work on regular ArrayBuffers",
+        "Atomics.wait throws on the browser main thread; Atomics.waitAsync is the non-blocking alternative",
+        "Atomics make postMessage faster"
+      ],
+      "correctIndex": 2,
+      "explanation": "Blocking the UI thread is disallowed, so Atomics.wait throws there. Atomics operations such as add, load, wait and notify operate on typed arrays over shared memory."
+    }
+  ]
+}

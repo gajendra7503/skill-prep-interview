@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `const [addFund, result] = useAddFundMutation()` do when the component renders?",
+      "options": [
+        "Sends the POST request immediately",
+        "Nothing is sent until you call addFund(...)",
+        "Fetches the fund list",
+        "Invalidates the Fund tags"
+      ],
+      "correctIndex": 1,
+      "explanation": "Mutation hooks return a trigger function and the latest result. The request is sent only when the trigger is called."
+    },
+    {
+      "question": "Why does the getFunds list query also provide a `{ type: \"Fund\", id: \"LIST\" }` tag?",
+      "options": [
+        "RTK Query requires every query to provide a LIST tag",
+        "It makes the list load faster",
+        "It limits how many items the list holds",
+        "So that adding a new item, whose id is not in any cached query yet, can invalidate the list"
+      ],
+      "correctIndex": 3,
+      "explanation": "A newly created item cannot match any existing per-id tag. Invalidating the LIST tag tells RTK Query that the collection itself has changed."
+    },
+    {
+      "question": "getFunds provides per-id tags plus LIST, and getFund(2) provides Fund/2. Both are subscribed. Which queries refetch after a mutation that invalidates `{ type: \"Fund\", id: 2 }`?",
+      "options": [
+        "Both getFund(2) and getFunds",
+        "Only getFund(2)",
+        "Only getFunds",
+        "Neither; you must call refetch manually"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every subscribed query that provides the invalidated tag refetches. The list provides Fund/2 for its item, and the detail query provides it too."
+    },
+    {
+      "question": "What does `invalidatesTags: [\"Fund\"]` (the bare type, no id) do?",
+      "options": [
+        "Invalidates only queries that provided the bare \"Fund\" tag",
+        "Throws, because an id is required",
+        "Invalidates every Fund tag, whatever its id",
+        "Invalidates only the LIST tag"
+      ],
+      "correctIndex": 2,
+      "explanation": "Invalidating a bare tag type matches every tag of that type, so all Fund queries refetch. This is simple but coarse."
+    }
+  ]
+}

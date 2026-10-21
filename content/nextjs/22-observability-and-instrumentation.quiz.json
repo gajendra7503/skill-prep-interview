@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "When does the `register()` function exported from `instrumentation.ts` run?",
+      "options": [
+        "Once when a new Next.js server instance starts, before it handles requests",
+        "On every incoming request",
+        "Only during `next build`",
+        "In the browser before hydration"
+      ],
+      "correctIndex": 0,
+      "explanation": "register() is called once per server instance and must complete before the server is ready. Client-side setup belongs in instrumentation-client.ts."
+    },
+    {
+      "question": "Why is the error's `digest` useful inside `onRequestError`?",
+      "options": [
+        "It contains the full stack trace from the browser",
+        "It encrypts the error before sending it",
+        "It lets you correlate the server log entry with the generic error the user saw, since React may have processed the original error",
+        "It tells Next.js to retry the request"
+      ],
+      "correctIndex": 2,
+      "explanation": "Errors thrown during Server Component rendering may be transformed by React. The digest ties the server-side report to the error shown in error.tsx."
+    },
+    {
+      "question": "Where does `console.log` inside a Server Component's render appear?",
+      "options": [
+        "Only in the browser DevTools console",
+        "In the server's output (terminal or platform logs), not the browser",
+        "Nowhere; logging is stripped from Server Components",
+        "In both the browser and the server, always"
+      ],
+      "correctIndex": 1,
+      "explanation": "Server Components never run in the browser, so their logs go to server stdout. It is Client Components that log in both places, because they also render on the server for the initial HTML."
+    },
+    {
+      "question": "Why is `useReportWebVitals` typically placed in its own small component rendered from the root layout?",
+      "options": [
+        "It only works inside `instrumentation.ts`",
+        "It must run before the server starts",
+        "Web Vitals can only be measured in Server Components",
+        "It requires \"use client\", so isolating it keeps the client boundary small instead of turning the whole layout into a Client Component"
+      ],
+      "correctIndex": 3,
+      "explanation": "The hook needs a Client Component. A dedicated WebVitals component confines the client boundary to that component."
+    }
+  ]
+}

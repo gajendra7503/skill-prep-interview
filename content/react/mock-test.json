@@ -1,0 +1,776 @@
+{
+  "title": "React Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "react-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-jsx-and-components",
+      "question": "Why must a custom component's name start with a capital letter when used in JSX?",
+      "options": [
+        "It is only a style convention enforced by ESLint",
+        "Lowercase tags are treated as built-in DOM elements (passed as strings), while capitalised tags are treated as references to components",
+        "Lowercase components cannot hold state",
+        "React sorts components alphabetically and capitals render first"
+      ],
+      "correctIndex": 1,
+      "explanation": "JSX compiles `<div>` to the string 'div' but `<Profile>` to the variable `Profile`. A lowercase `<profile>` would be rendered as an unknown HTML element. It is not merely a lint convention: the compiler output itself differs."
+    },
+    {
+      "id": "react-02",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "09-virtual-dom-and-reconciliation",
+      "question": "In the snippet, where should the `key` go?",
+      "code": "<ul>\n  {todos.map(todo => (\n    <li>\n      <span>{todo.text}</span>\n    </li>\n  ))}\n</ul>",
+      "codeLanguage": "jsx",
+      "options": [
+        "On the inner `<span>`",
+        "On the `<ul>`",
+        "On the `<li>` returned from `map`",
+        "Keys are optional when items have an `id` field"
+      ],
+      "correctIndex": 2,
+      "explanation": "The key belongs on the outermost element returned from each `map` iteration, because that is the element React must match between renders among its siblings. Putting it on a nested element or the parent list does nothing for sibling identification."
+    },
+    {
+      "id": "react-03",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-state-and-events",
+      "question": "What does `useState(initialValue)` return?",
+      "options": [
+        "An array of the current state value and a setter function",
+        "An object `{ value, setValue }`",
+        "Only the current value; updates happen via `this.setState`",
+        "A ref whose `.current` holds the value"
+      ],
+      "correctIndex": 0,
+      "explanation": "`useState` returns a two-element array, conventionally destructured as `[value, setValue]`. It is not an object, and unlike a ref, calling the setter schedules a re-render."
+    },
+    {
+      "id": "react-04",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-state-and-events",
+      "question": "What happens if you render `<input value={name} />` with no `onChange` handler (and no `readOnly`)?",
+      "options": [
+        "The input works normally and updates `name` automatically",
+        "React throws an error and the component unmounts",
+        "The input becomes uncontrolled",
+        "The field is effectively read-only, and React logs a warning in development"
+      ],
+      "correctIndex": 3,
+      "explanation": "Supplying `value` makes the input controlled: React keeps the DOM value equal to `name`. Without `onChange` to update `name`, typing has no lasting effect, and React warns about it. React does not two-way bind state automatically."
+    },
+    {
+      "id": "react-05",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "03-hooks-deep-dive",
+      "question": "When does an effect with an empty dependency array `useEffect(fn, [])` run (ignoring Strict Mode development behaviour)?",
+      "options": [
+        "Before every render",
+        "Once after the component first mounts; its cleanup runs on unmount",
+        "After every render",
+        "Only when the parent re-renders"
+      ],
+      "correctIndex": 1,
+      "explanation": "An empty array means no dependencies can change, so the effect runs once after the initial commit and its cleanup runs when the component unmounts. Omitting the array entirely (not passing `[]`) is what makes it run after every render."
+    },
+    {
+      "id": "react-06",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "21-building-custom-hooks",
+      "question": "Which of these breaks the Rules of Hooks?",
+      "options": [
+        "Calling `useState` twice at the top of a component",
+        "Calling a custom hook `useCart()` from another custom hook",
+        "Calling `useState` inside an `if (isLoggedIn)` block",
+        "Calling `useEffect` after `useMemo` at the top level"
+      ],
+      "correctIndex": 2,
+      "explanation": "Hooks must be called in the same order on every render, so they cannot be inside conditions, loops or nested functions. Multiple hooks at the top level, and hooks called from custom hooks, are perfectly fine. (`use()` is the one exception that may be called conditionally.)"
+    },
+    {
+      "id": "react-07",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "22-refs-portals-and-imperative-apis",
+      "question": "In React 19, how does a function component accept a `ref` from its parent?",
+      "options": [
+        "It reads `ref` as a normal prop, without needing `forwardRef`",
+        "It must be wrapped in `forwardRef`, as in earlier versions",
+        "Function components cannot receive refs, only class components can",
+        "It calls `useRef()` with the parent's name"
+      ],
+      "correctIndex": 0,
+      "explanation": "React 19 passes `ref` to function components as an ordinary prop, so `function Input({ ref }) { return <input ref={ref} /> }` works. `forwardRef` still works but is no longer necessary and is slated for deprecation."
+    },
+    {
+      "id": "react-08",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "08-error-boundaries-and-suspense",
+      "question": "What does the `fallback` prop of `<Suspense>` do?",
+      "options": [
+        "It renders when a child throws an error",
+        "It provides default props for lazy components",
+        "It caches the previous render of the children",
+        "It is shown in place of the children while something inside them is suspended (e.g. loading code or data)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Suspense shows its fallback while a descendant is suspended, such as a `lazy` component loading or `use(promise)` waiting. Errors are handled by error boundaries, not Suspense."
+    },
+    {
+      "id": "react-09",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "03-hooks-deep-dive",
+      "question": "In React 19, which is the new, shorter way to provide a context value?",
+      "options": [
+        "`<ThemeContext.Value value=\"dark\">`",
+        "`<ThemeContext value=\"dark\">`",
+        "`provide(ThemeContext, \"dark\")`",
+        "`<Provider context={ThemeContext} value=\"dark\">`"
+      ],
+      "correctIndex": 1,
+      "explanation": "React 19 lets you render the context object itself as the provider: `<ThemeContext value=\"dark\">`. `<ThemeContext.Provider>` still works but is expected to be deprecated. The other options are not React APIs."
+    },
+    {
+      "id": "react-10",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-state-and-events",
+      "question": "Why might `state.items.push(newItem); setState(state);` fail to update the screen?",
+      "options": [
+        "`push` is not allowed in React code",
+        "`setState` only accepts primitives",
+        "The same object reference is passed, so React's `Object.is` comparison sees no change and may skip the re-render",
+        "React freezes state objects, so `push` throws"
+      ],
+      "correctIndex": 2,
+      "explanation": "React compares the new state with the old using `Object.is`. Mutating and passing the same reference looks unchanged. The fix is to create a new object/array, e.g. `setState({ ...state, items: [...state.items, newItem] })`."
+    },
+    {
+      "id": "react-11",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-jsx-and-components",
+      "question": "What is the main purpose of a Fragment (`<>...</>`)?",
+      "options": [
+        "To group multiple children without adding an extra DOM node",
+        "To lazily load a group of components",
+        "To prevent children from re-rendering",
+        "To isolate CSS styles of its children"
+      ],
+      "correctIndex": 0,
+      "explanation": "A Fragment lets a component return several siblings without a wrapper `<div>`. Note that the short `<>` syntax cannot take a `key`; use `<Fragment key={...}>` in lists. It has no memoization or style-isolation effect."
+    },
+    {
+      "id": "react-12",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "09-virtual-dom-and-reconciliation",
+      "question": "A list uses the array index as `key`, and each row contains an uncontrolled `<input>`. A new item is inserted at the top. What goes wrong?",
+      "options": [
+        "Nothing; index keys are always safe",
+        "React throws a duplicate key error",
+        "All rows unmount and lose focus, but their text stays correct",
+        "Typed input values stay attached to positions, so they appear next to the wrong items"
+      ],
+      "correctIndex": 3,
+      "explanation": "Keys tell React which component instance is which. With index keys, the new item takes key 0, so React reuses the old first row's DOM input (with its typed text) for the new item. Every row's state shifts by one. Stable IDs fix this."
+    },
+    {
+      "id": "react-13",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "09-virtual-dom-and-reconciliation",
+      "question": "On re-render, the element at the same position changes from `<div><Counter /></div>` to `<section><Counter /></section>`. What happens to `Counter`'s state?",
+      "options": [
+        "It is preserved because `Counter` is the same component type",
+        "It is reset, because a different parent element type makes React tear down and rebuild that whole subtree",
+        "It is preserved only if `Counter` is wrapped in `memo`",
+        "React merges the old and new state"
+      ],
+      "correctIndex": 1,
+      "explanation": "Reconciliation compares element types at each position. When `div` becomes `section`, React unmounts the old subtree (including `Counter`) and mounts a new one, so state resets. `memo` only skips re-renders; it cannot keep state across an unmount."
+    },
+    {
+      "id": "react-14",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-performance-and-memoization",
+      "question": "`Child` is wrapped in `React.memo`, yet it re-renders every time `Parent` renders. Why?",
+      "code": "function Parent({ items }) {\n  const [selected, setSelected] = useState(null);\n  return (\n    <Child\n      items={items}\n      onSelect={id => setSelected(id)}\n    />\n  );\n}\nconst Child = React.memo(ChildImpl);",
+      "codeLanguage": "jsx",
+      "options": [
+        "`memo` only works on class components",
+        "`memo` compares props deeply and the function is too large",
+        "A new arrow function is created on every render, so the `onSelect` prop fails the shallow equality check",
+        "`memo` never prevents re-renders in React 19"
+      ],
+      "correctIndex": 2,
+      "explanation": "`memo` shallow-compares props. An inline arrow is a new function identity each render, so the props look changed. Wrapping the handler in `useCallback` (or letting the React Compiler memoize it) keeps the identity stable."
+    },
+    {
+      "id": "react-15",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-performance-and-memoization",
+      "question": "Which expression is equivalent to `useCallback(fn, deps)`?",
+      "options": [
+        "`useMemo(() => fn, deps)`",
+        "`useMemo(fn, deps)`",
+        "`useRef(fn).current`",
+        "`useEffect(fn, deps)`"
+      ],
+      "correctIndex": 0,
+      "explanation": "`useCallback` memoizes the function itself. `useMemo(() => fn, deps)` memoizes the return value of a factory that returns `fn`, which is the same thing. `useMemo(fn, deps)` would call `fn` and memoize its result instead."
+    },
+    {
+      "id": "react-16",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "10-advanced-hooks",
+      "question": "What happens when you assign `countRef.current = countRef.current + 1` inside an event handler?",
+      "options": [
+        "The component re-renders with the new value",
+        "React throws because refs are read-only",
+        "The value is reset on the next render",
+        "The value updates immediately, but no re-render is triggered"
+      ],
+      "correctIndex": 3,
+      "explanation": "A ref is a mutable box that persists across renders. Changing `.current` does not schedule a render, which is why refs suit values like timer IDs or DOM nodes that the UI doesn't display. Use state when the screen must update."
+    },
+    {
+      "id": "react-17",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "03-hooks-deep-dive",
+      "question": "An effect depends on `[roomId]` and returns a cleanup function. When `roomId` changes from 'a' to 'b', in what order do things run?",
+      "options": [
+        "The new effect for 'b' runs, then the cleanup for 'a'",
+        "The cleanup for 'a' runs, then the effect for 'b'",
+        "Only the effect for 'b' runs; cleanup runs on unmount only",
+        "Cleanup for 'a' and effect for 'b' run in parallel"
+      ],
+      "correctIndex": 1,
+      "explanation": "Before re-running an effect, React runs the previous effect's cleanup with the old values (disconnect from 'a'), then runs the new effect (connect to 'b'). Cleanup runs on every dependency change, not only on unmount."
+    },
+    {
+      "id": "react-18",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "13-concurrent-rendering",
+      "question": "What does wrapping a state update in `startTransition` (from `useTransition`) do?",
+      "options": [
+        "It delays the update by a fixed number of milliseconds",
+        "It runs the update in a Web Worker",
+        "It marks the update as non-urgent so React can interrupt it to handle urgent updates like typing, and exposes `isPending` meanwhile",
+        "It batches the update with the next network response"
+      ],
+      "correctIndex": 2,
+      "explanation": "Transitions are about priority, not timers or threads. React renders a transition in the background and can abandon it if a more urgent update arrives, keeping input responsive. `isPending` lets you show that work is in progress. Debouncing would use a fixed delay; transitions do not."
+    },
+    {
+      "id": "react-19",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "13-concurrent-rendering",
+      "question": "What is `useDeferredValue(query)` mainly used for?",
+      "options": [
+        "Getting a version of `query` that may lag behind during heavy renders, so the urgent UI (the input) stays responsive while an expensive list catches up",
+        "Debouncing network requests by 300 ms",
+        "Deferring an effect until after paint",
+        "Lazily initialising state from `query`"
+      ],
+      "correctIndex": 0,
+      "explanation": "`useDeferredValue` returns the previous value while React renders the new one in the background at lower priority. It is used when you don't control the state update (e.g. a prop). It has no fixed delay and does not cancel network requests by itself."
+    },
+    {
+      "id": "react-20",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-react-19-features",
+      "question": "What makes React 19's `use()` different from other hooks?",
+      "options": [
+        "It can only be used in Server Components",
+        "It runs after the component has painted",
+        "It replaces `useEffect` for data fetching side effects",
+        "It may be called conditionally or inside loops, though still only during render of a component or hook"
+      ],
+      "correctIndex": 3,
+      "explanation": "`use()` can read a promise or context and, unlike `useState` etc., may appear inside `if` statements or loops. It still must be called while rendering (not in event handlers). It works in Client Components too, as long as the promise is stable."
+    },
+    {
+      "id": "react-21",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-react-19-features",
+      "question": "What does `useActionState(action, initialState)` return?",
+      "options": [
+        "`[state, setState]`",
+        "`[state, formAction, isPending]`",
+        "`{ data, error, loading }`",
+        "`[formAction, reset]`"
+      ],
+      "correctIndex": 1,
+      "explanation": "`useActionState` returns the latest state returned by the action, a wrapped action to pass to `<form action>` or a button's `formAction`, and a pending flag. The action receives `(previousState, formData)`."
+    },
+    {
+      "id": "react-22",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-react-19-features",
+      "question": "With `useOptimistic`, what happens to the optimistic value once the surrounding action/transition finishes?",
+      "options": [
+        "It stays permanently until you manually clear it",
+        "It is saved to localStorage",
+        "React discards it and shows the real state passed to `useOptimistic` again, whether the action succeeded or failed",
+        "It throws if the server response differs"
+      ],
+      "correctIndex": 2,
+      "explanation": "The optimistic value only exists while the action is pending. When it settles, React renders from the actual state you passed in. If you updated that state on success, the change sticks. If the action failed and state wasn't updated, the UI reverts automatically."
+    },
+    {
+      "id": "react-23",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "02-state-and-events",
+      "question": "In React 18 and 19, what happens to two `setState` calls made inside a `setTimeout` callback?",
+      "options": [
+        "They are batched automatically into a single re-render",
+        "Each triggers its own synchronous re-render",
+        "The second call is ignored",
+        "They are batched only inside `ReactDOM.unstable_batchedUpdates`"
+      ],
+      "correctIndex": 0,
+      "explanation": "Since React 18, automatic batching applies everywhere: event handlers, timeouts, promises and native event listeners. Before React 18, only React event handlers were batched, which is the tempting outdated answer."
+    },
+    {
+      "id": "react-24",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-react-19-features",
+      "question": "Which statement about React Server Components is correct?",
+      "options": [
+        "They can use `useState` and `useEffect` like any component",
+        "They run in the browser after hydration",
+        "They must never import Client Components",
+        "They can be `async` and read data directly, and their own code is not shipped to the browser as JavaScript"
+      ],
+      "correctIndex": 3,
+      "explanation": "Server Components render on the server (at build or request time), can `await` data directly, and send only their rendered output to the client. They cannot use state or effects. They can render Client Components, passing serialisable props."
+    },
+    {
+      "id": "react-25",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-react-19-features",
+      "question": "What does the `'use client'` directive at the top of a file mean?",
+      "options": [
+        "The component is rendered only in the browser and never server-side rendered",
+        "It marks a boundary: this module and everything it imports become part of the client bundle and can use state, effects and event handlers",
+        "It turns every component in the app into a Client Component",
+        "It is required in every file that uses JSX"
+      ],
+      "correctIndex": 1,
+      "explanation": "`'use client'` marks the entry to the client module graph. Client Components can still be pre-rendered to HTML on the server; the directive means their code is also shipped and hydrated in the browser. It affects that module's import tree, not the whole app."
+    },
+    {
+      "id": "react-26",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-error-boundaries-and-suspense",
+      "question": "Which error will a React error boundary NOT catch?",
+      "options": [
+        "An error thrown while rendering a child component",
+        "An error thrown in a child's lifecycle method",
+        "An error thrown inside an `onClick` event handler",
+        "An error thrown by a lazy component that fails to load"
+      ],
+      "correctIndex": 2,
+      "explanation": "Error boundaries catch errors during rendering, in lifecycle methods/constructors of the tree below, and rejected lazy loads. Event handler errors happen outside rendering, so you handle them with try/catch (or by setting state that renders an error)."
+    },
+    {
+      "id": "react-27",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "09-virtual-dom-and-reconciliation",
+      "question": "A `ProfileForm` keeps a draft in local state. When the parent switches `userId`, the draft from the previous user must be cleared. What is the idiomatic React approach?",
+      "options": [
+        "Copy `userId` into state and compare it in `useEffect`, then reset the draft",
+        "Call `forceUpdate()` when `userId` changes",
+        "Store the draft in a ref instead of state",
+        "Render `<ProfileForm key={userId} userId={userId} />` so a new instance mounts per user"
+      ],
+      "correctIndex": 3,
+      "explanation": "Changing `key` tells React it's a different component instance, so all its state resets. Resetting in an effect works but causes an extra render with stale data first, and refs would not update the UI."
+    },
+    {
+      "id": "react-28",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "03-hooks-deep-dive",
+      "question": "What does this component display after 5 seconds (no Strict Mode)?",
+      "code": "function Ticker() {\n  const [count, setCount] = useState(0);\n  useEffect(() => {\n    const id = setInterval(() => {\n      setCount(count + 1);\n    }, 1000);\n    return () => clearInterval(id);\n  }, []);\n  return <p>{count}</p>;\n}",
+      "codeLanguage": "jsx",
+      "options": [
+        "It shows 1 and stays at 1",
+        "It counts 1, 2, 3, 4, 5",
+        "It stays at 0",
+        "It throws because `count` is undefined inside the interval"
+      ],
+      "correctIndex": 0,
+      "explanation": "The effect runs once, so the interval callback closes over `count` from the first render (0). Every tick calls `setCount(0 + 1)`, so it reaches 1 and stays there. `setCount(c => c + 1)` would fix the stale closure."
+    },
+    {
+      "id": "react-29",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-advanced-hooks",
+      "question": "When should you prefer `useLayoutEffect` over `useEffect`?",
+      "options": [
+        "For all data fetching, since it runs earlier",
+        "When you need to measure the DOM and update state before the browser paints, to avoid a visible flicker",
+        "When running code in a Server Component",
+        "When you want the effect to run before rendering"
+      ],
+      "correctIndex": 1,
+      "explanation": "`useLayoutEffect` runs synchronously after DOM mutations but before paint, so a measurement plus state update happens without flicker. It blocks painting, so it is the wrong choice for fetching. It still runs after render, and does not run on the server."
+    },
+    {
+      "id": "react-30",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "11-state-management-patterns",
+      "question": "`Sidebar` is wrapped in `memo` and receives no props, but it calls `useContext(ThemeContext)`. When will it re-render?",
+      "options": [
+        "Never, because it has no props",
+        "Only when its parent re-renders",
+        "Whenever the `ThemeContext` value it reads changes, even though `memo` sees no prop changes",
+        "Only if it is also wrapped in `useMemo`"
+      ],
+      "correctIndex": 2,
+      "explanation": "`memo` only skips re-renders caused by a parent re-rendering with equal props. A context change schedules a re-render directly on every consumer, bypassing `memo`. A parent re-render alone would be skipped."
+    },
+    {
+      "id": "react-31",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "11-state-management-patterns",
+      "question": "Every consumer of `AuthContext` re-renders whenever `App` re-renders, even when `user` hasn't changed. What is the cause?",
+      "code": "function App({ children }) {\n  const [user, setUser] = useState(null);\n  return (\n    <AuthContext value={{ user, setUser }}>\n      {children}\n    </AuthContext>\n  );\n}",
+      "codeLanguage": "jsx",
+      "options": [
+        "`useState` cannot be used next to a Provider",
+        "Context consumers always re-render with their parent",
+        "`children` changes identity on every render",
+        "The `value` object is recreated on every render, so React sees a new context value each time"
+      ],
+      "correctIndex": 3,
+      "explanation": "Context compares the value with `Object.is`. A new `{ user, setUser }` object each render counts as a change. Wrapping it in `useMemo(() => ({ user, setUser }), [user])` keeps the identity stable."
+    },
+    {
+      "id": "react-32",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "15-react-19-features",
+      "question": "What is wrong with this Client Component?",
+      "code": "'use client';\nimport { use } from 'react';\n\nfunction Profile({ id }) {\n  const user = use(fetch(`/api/users/${id}`).then(r => r.json()));\n  return <h2>{user.name}</h2>;\n}",
+      "codeLanguage": "jsx",
+      "options": [
+        "A new promise is created on every render, so the component keeps suspending and re-fetching instead of settling",
+        "`use()` cannot read promises, only context",
+        "`use()` must be called inside `useEffect`",
+        "Nothing; this is the recommended pattern"
+      ],
+      "correctIndex": 0,
+      "explanation": "`use()` needs a stable promise. Creating it during render makes a new promise each time the component re-renders after suspending, which causes repeated suspensions and fetches. Create the promise in a Server Component, a parent, or a cache, and pass it down."
+    },
+    {
+      "id": "react-33",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "22-refs-portals-and-imperative-apis",
+      "question": "In React 19, what happens if a callback ref returns a function?",
+      "options": [
+        "React ignores the return value",
+        "React treats the returned function as a cleanup and calls it when the element is detached, instead of calling the ref with `null`",
+        "React throws an error in development",
+        "React calls the returned function on every render"
+      ],
+      "correctIndex": 1,
+      "explanation": "React 19 added cleanup functions for ref callbacks, mirroring effects. When the element unmounts (or the ref callback changes), React calls the cleanup. Without a returned cleanup, React keeps the old behaviour of calling the ref with `null`."
+    },
+    {
+      "id": "react-34",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "21-building-custom-hooks",
+      "question": "What problem does `useSyncExternalStore` specifically solve?",
+      "options": [
+        "It syncs state to the server automatically",
+        "It replaces Context for all global state",
+        "It lets components subscribe to a store outside React consistently during concurrent rendering, avoiding 'tearing' where different components show different snapshots",
+        "It persists state to localStorage"
+      ],
+      "correctIndex": 2,
+      "explanation": "With concurrent rendering, a store that changes mid-render could make parts of the UI show different values (tearing). `useSyncExternalStore(subscribe, getSnapshot)` guarantees a consistent snapshot. It does no persistence or server syncing."
+    },
+    {
+      "id": "react-35",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "15-react-19-features",
+      "question": "In React 19, you write `<form action={saveAction}>` where `saveAction` is an async function. Which statement is true?",
+      "options": [
+        "`saveAction` receives a `SubmitEvent` and must call `preventDefault()`",
+        "The form does a full-page POST unless JavaScript is disabled",
+        "`saveAction` runs synchronously and cannot be async",
+        "`saveAction` receives the form's `FormData`, runs inside a transition, and uncontrolled fields are reset after it succeeds"
+      ],
+      "correctIndex": 3,
+      "explanation": "React 19 form actions receive `FormData` directly, with no `preventDefault` needed. They run as transitions (so `useFormStatus`/`isPending` work), and React automatically resets uncontrolled form fields after a successful action."
+    },
+    {
+      "id": "react-36",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-state-and-events",
+      "question": "Starting from 0, the button is clicked once. What number is displayed?",
+      "code": "function Counter() {\n  const [count, setCount] = useState(0);\n  function handleClick() {\n    setCount(count + 1);\n    setCount(count + 1);\n    setCount(count + 1);\n  }\n  return <button onClick={handleClick}>{count}</button>;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "1"
+      ],
+      "caseSensitive": false,
+      "explanation": "`count` is 0 throughout this render's handler, so all three calls queue 'set to 1'. The updates are batched and the result is 1, not 3."
+    },
+    {
+      "id": "react-37",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-state-and-events",
+      "question": "Starting from 0, the button is clicked once. What number is displayed?",
+      "code": "function Counter() {\n  const [count, setCount] = useState(0);\n  function handleClick() {\n    setCount(c => c + 1);\n    setCount(c => c + 1);\n    setCount(c => c + 1);\n  }\n  return <button onClick={handleClick}>{count}</button>;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "3"
+      ],
+      "caseSensitive": false,
+      "explanation": "Updater functions are queued and each receives the result of the previous one: 0 → 1 → 2 → 3."
+    },
+    {
+      "id": "react-38",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "22-refs-portals-and-imperative-apis",
+      "question": "Which hook fills the blank so the button can focus the input?",
+      "code": "function Search() {\n  const inputRef = ____(null);\n  return (\n    <>\n      <input ref={inputRef} />\n      <button onClick={() => inputRef.current.focus()}>Focus</button>\n    </>\n  );\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Type the hook name",
+      "acceptedAnswers": [
+        "useRef",
+        "useRef()",
+        "React.useRef"
+      ],
+      "caseSensitive": false,
+      "explanation": "`useRef(null)` creates a stable object whose `.current` React sets to the DOM node. `useState` would not give you a `.current` the ref attribute can fill."
+    },
+    {
+      "id": "react-39",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "18-accessibility",
+      "question": "Which hook fills the blank to generate a unique, SSR-safe id linking the label and input?",
+      "code": "function EmailField() {\n  const id = ____();\n  return (\n    <>\n      <label htmlFor={id}>Email</label>\n      <input id={id} type=\"email\" />\n    </>\n  );\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Type the hook name",
+      "acceptedAnswers": [
+        "useId",
+        "useId()",
+        "React.useId"
+      ],
+      "caseSensitive": false,
+      "explanation": "`useId` generates IDs that are stable across server and client renders, avoiding hydration mismatches that `Math.random()` would cause. It should not be used for list keys."
+    },
+    {
+      "id": "react-40",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "02-state-and-events",
+      "question": "Starting from 0, the button is clicked once. What number is displayed?",
+      "code": "function Counter() {\n  const [count, setCount] = useState(0);\n  function handleClick() {\n    setCount(count + 5);\n    setCount(c => c * 2);\n  }\n  return <button onClick={handleClick}>{count}</button>;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "10"
+      ],
+      "caseSensitive": false,
+      "explanation": "The queue is processed in order: 'replace with 0 + 5' gives 5, then the updater doubles it to 10."
+    },
+    {
+      "id": "react-41",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "03-hooks-deep-dive",
+      "question": "In a production build (no Strict Mode), the component mounts and the button is clicked 2 times. How many times does the effect body run in total?",
+      "code": "function Clicks() {\n  const [count, setCount] = useState(0);\n  useEffect(() => {\n    document.title = `Clicked ${count} times`;\n  }, [count]);\n  return <button onClick={() => setCount(count + 1)}>+1</button>;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "3"
+      ],
+      "caseSensitive": false,
+      "explanation": "The effect runs once after mount, then again after each render where `count` changed. Two clicks change `count` twice: 1 + 2 = 3."
+    },
+    {
+      "id": "react-42",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "02-state-and-events",
+      "question": "`count` starts at 0. The button is clicked once. What value does the alert show?",
+      "code": "function Counter() {\n  const [count, setCount] = useState(0);\n  function handleClick() {\n    setCount(count + 1);\n    alert(count);\n  }\n  return <button onClick={handleClick}>{count}</button>;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "0"
+      ],
+      "caseSensitive": false,
+      "explanation": "Setting state does not change `count` in the currently running handler; it schedules a new render. The alert reads this render's snapshot, 0. The button then shows 1."
+    },
+    {
+      "id": "react-43",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "15-react-19-features",
+      "question": "Which React 19 hook fills the blank to show the liked state instantly while the request is pending?",
+      "code": "function LikeButton({ liked, toggleLike }) {\n  const [optimisticLiked, setOptimisticLiked] = ____(liked);\n  async function action() {\n    setOptimisticLiked(!optimisticLiked);\n    await toggleLike();\n  }\n  return (\n    <form action={action}>\n      <button>{optimisticLiked ? 'Liked' : 'Like'}</button>\n    </form>\n  );\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Type the hook name",
+      "acceptedAnswers": [
+        "useOptimistic",
+        "useOptimistic()",
+        "React.useOptimistic"
+      ],
+      "caseSensitive": false,
+      "explanation": "`useOptimistic(state)` returns a temporary value plus a setter usable inside an action/transition. When the action settles, it falls back to the real `liked` prop."
+    },
+    {
+      "id": "react-44",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "15-react-19-features",
+      "question": "Which React 19 hook fills the blank?",
+      "code": "async function subscribe(prevState, formData) {\n  const email = formData.get('email');\n  if (!email) return { error: 'Email required' };\n  await api.subscribe(email);\n  return { error: null };\n}\n\nfunction Newsletter() {\n  const [state, formAction, isPending] = ____(subscribe, { error: null });\n  return <form action={formAction}>...</form>;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Type the hook name",
+      "acceptedAnswers": [
+        "useActionState",
+        "useActionState()",
+        "React.useActionState"
+      ],
+      "caseSensitive": false,
+      "explanation": "`useActionState` takes an action `(prevState, formData)` and an initial state, and returns `[state, formAction, isPending]`. It replaced the canary-era `useFormState`."
+    },
+    {
+      "id": "react-45",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "03-hooks-deep-dive",
+      "question": "In a production build (no Strict Mode), the component mounts and the button is clicked 3 times. How many times is 'effect' logged in total?",
+      "code": "function Panel() {\n  const [count, setCount] = useState(0);\n  useEffect(() => {\n    console.log('effect');\n  }, []);\n  return <button onClick={() => setCount(c => c + 1)}>{count}</button>;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "1"
+      ],
+      "caseSensitive": false,
+      "explanation": "An empty dependency array means the effect runs only after the initial mount. The three re-renders do not re-run it."
+    },
+    {
+      "id": "react-46",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "05-performance-and-memoization",
+      "question": "Which hook fills the blank so the expensive filtering only re-runs when `products` or `query` change?",
+      "code": "function ProductList({ products, query }) {\n  const visible = ____(\n    () => products.filter(p => p.name.includes(query)),\n    [products, query]\n  );\n  return <List items={visible} />;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Type the hook name",
+      "acceptedAnswers": [
+        "useMemo",
+        "useMemo()",
+        "React.useMemo"
+      ],
+      "caseSensitive": false,
+      "explanation": "`useMemo(factory, deps)` caches the computed value between renders. `useCallback` would cache the function itself, not the filtered array."
+    },
+    {
+      "id": "react-47",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "02-state-and-events",
+      "question": "Starting from 0, the button is clicked once. What number is displayed?",
+      "code": "function Counter() {\n  const [count, setCount] = useState(0);\n  function handleClick() {\n    setCount(count + 5);\n    setCount(c => c + 1);\n    setCount(count + 1);\n  }\n  return <button onClick={handleClick}>{count}</button>;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "1"
+      ],
+      "caseSensitive": false,
+      "explanation": "Processing the queue: replace with 0 + 5 = 5, the updater gives 6, then 'replace with 0 + 1' overwrites it with 1. The last plain value wins because `count` is still 0 in this closure."
+    },
+    {
+      "id": "react-48",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "02-state-and-events",
+      "question": "Starting from 0, the button is clicked once and you wait 2 seconds. What number is displayed?",
+      "code": "function Counter() {\n  const [count, setCount] = useState(0);\n  function handleClick() {\n    setCount(count + 1);\n    setTimeout(() => {\n      setCount(count + 1);\n    }, 1000);\n  }\n  return <button onClick={handleClick}>{count}</button>;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "1"
+      ],
+      "caseSensitive": false,
+      "explanation": "Both calls close over `count` from the render where the click happened (0). The first sets 1, and the timeout later sets 0 + 1 = 1 again. Using `c => c + 1` in the timeout would give 2."
+    },
+    {
+      "id": "react-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "09-virtual-dom-and-reconciliation",
+      "question": "You click the counter button 3 times, then click Switch once, then click the counter button once more. What number does the counter button show?",
+      "code": "function App() {\n  const [user, setUser] = useState('ana');\n  return (\n    <>\n      <Counter key={user} />\n      <button onClick={() => setUser(user === 'ana' ? 'ben' : 'ana')}>Switch</button>\n    </>\n  );\n}\nfunction Counter() {\n  const [n, setN] = useState(0);\n  return <button onClick={() => setN(n + 1)}>{n}</button>;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "1"
+      ],
+      "caseSensitive": false,
+      "explanation": "Changing the `key` from 'ana' to 'ben' unmounts the old Counter (state 3) and mounts a fresh one at 0. One more click gives 1. Without the key, the state would be preserved and the answer would be 4."
+    },
+    {
+      "id": "react-50",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "09-virtual-dom-and-reconciliation",
+      "question": "You click the Counter's button 2 times, then click Toggle once. What number does the Counter show?",
+      "code": "function App() {\n  const [fancy, setFancy] = useState(false);\n  return (\n    <div>\n      {fancy ? <Counter color=\"gold\" /> : <Counter color=\"gray\" />}\n      <button onClick={() => setFancy(!fancy)}>Toggle</button>\n    </div>\n  );\n}\nfunction Counter({ color }) {\n  const [n, setN] = useState(0);\n  return <button style={{ color }} onClick={() => setN(n + 1)}>{n}</button>;\n}",
+      "codeLanguage": "jsx",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "2"
+      ],
+      "caseSensitive": false,
+      "explanation": "Both branches render a `Counter` at the same position in the tree, so React treats it as the same instance and keeps its state; only the `color` prop changes. State would reset only if the type or key differed."
+    }
+  ]
+}

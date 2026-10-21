@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why can a JavaScript Map implement an LRU cache with O(1) operations?",
+      "options": [
+        "It iterates in insertion order, so delete-and-reinsert refreshes a key and keys().next() gives the oldest",
+        "Its keys are kept sorted",
+        "It evicts old keys automatically",
+        "It has a built-in capacity limit"
+      ],
+      "correctIndex": 0,
+      "explanation": "Insertion-order iteration lets the first key act as the least recently used; re-inserting on access moves a key to the newest end."
+    },
+    {
+      "question": "In the doubly linked list LRU, why does each node store its key?",
+      "options": [
+        "To keep the list sorted",
+        "So the evicted tail node's entry can be deleted from the hash map",
+        "To compute hash codes faster",
+        "It is not actually needed"
+      ],
+      "correctIndex": 1,
+      "explanation": "Eviction starts from the list's tail; without the key in the node, you cannot tell which map entry to remove."
+    },
+    {
+      "question": "Why is the monotonic-stack solution to next greater element O(n) despite its nested while loop?",
+      "options": [
+        "The while loop runs at most once per iteration",
+        "The array is sorted first",
+        "It is actually O(n log n)",
+        "Each index is pushed once and popped at most once"
+      ],
+      "correctIndex": 3,
+      "explanation": "Total pushes and pops are each at most n, so the amortised work across the whole pass is linear."
+    },
+    {
+      "question": "A token bucket has capacity 3 and refills 1 token per second. Five requests arrive at t = 0, then three at t = 2 s. How many of the later three are allowed?",
+      "options": [
+        "0",
+        "1",
+        "2",
+        "3"
+      ],
+      "correctIndex": 2,
+      "explanation": "The first three requests at t = 0 use all the tokens. By t = 2 s two tokens have refilled, so two of the later three pass."
+    }
+  ]
+}

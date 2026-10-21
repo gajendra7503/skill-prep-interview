@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is calling `fs.readFileSync` inside an HTTP request handler a problem, while calling it once at startup is acceptable?",
+      "options": [
+        "readFileSync is deprecated and will be removed",
+        "It blocks the single event loop thread, so every other request waits while the disk is read",
+        "It always returns a Buffer, which cannot be sent in a response",
+        "It reads the file on the libuv thread pool and therefore loses errors"
+      ],
+      "correctIndex": 1,
+      "explanation": "Synchronous fs calls block the event loop. At startup nothing else is waiting, but inside a handler they stall all concurrent requests."
+    },
+    {
+      "question": "Your code checks `fs.existsSync(file)` and then calls `readFile(file)`. What is the better pattern?",
+      "options": [
+        "Call existsSync twice to be sure",
+        "Use statSync instead of existsSync",
+        "Just attempt the read and handle an error with code ENOENT, avoiding the race between the check and the read",
+        "Wrap the read in setImmediate"
+      ],
+      "correctIndex": 2,
+      "explanation": "Check-then-act is a race: the file can change between the two calls. Attempting the operation and branching on err.code is both simpler and correct."
+    },
+    {
+      "question": "Which approach gives an atomic file update so a crash never leaves a half-written file?",
+      "options": [
+        "Write to a temp file in the same directory, then rename it over the target",
+        "Use appendFile instead of writeFile",
+        "Call writeFile with the flag \"wx\"",
+        "Write to a temp file in the OS temp directory, then copy it over the target"
+      ],
+      "correctIndex": 0,
+      "explanation": "rename is atomic within one filesystem, so readers see either the old or the new file. A temp file elsewhere may be on another filesystem, and copying is not atomic."
+    },
+    {
+      "question": "What does `await mkdir(\"a/b/c\", { recursive: true })` do if the directories already exist?",
+      "options": [
+        "Throws an error with code EEXIST",
+        "Deletes and recreates them",
+        "Throws an error with code ENOENT",
+        "Succeeds without an error, like mkdir -p"
+      ],
+      "correctIndex": 3,
+      "explanation": "With recursive: true, mkdir creates any missing parents and does not fail when the path already exists."
+    }
+  ]
+}

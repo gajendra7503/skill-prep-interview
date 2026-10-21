@@ -1,0 +1,789 @@
+{
+  "title": "Data Structures & Algorithms Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "dsa-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-what-is-dsa-and-how-to-practise",
+      "question": "What does this line print in Node?",
+      "code": "console.log([5, 25, 100, 1].sort());",
+      "codeLanguage": "js",
+      "options": [
+        "[ 1, 5, 25, 100 ]",
+        "[ 100, 25, 5, 1 ]",
+        "[ 1, 100, 25, 5 ]",
+        "[ 5, 25, 100, 1 ]"
+      ],
+      "correctIndex": 2,
+      "explanation": "With no comparator, `sort` converts elements to strings and compares them character by character, so \"100\" comes before \"25\" and \"5\". The numeric order [1, 5, 25, 100] needs `sort((a, b) => a - b)`; the array is not left unchanged, because `sort` always reorders in place."
+    },
+    {
+      "id": "dsa-02",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-big-o-and-complexity",
+      "question": "What is the time complexity of this function in terms of n?",
+      "code": "function steps(n) {\n  let count = 0;\n  for (let i = 1; i < n; i *= 2) count++;\n  return count;\n}",
+      "codeLanguage": "js",
+      "options": [
+        "O(n)",
+        "O(log n)",
+        "O(n log n)",
+        "O(√n)"
+      ],
+      "correctIndex": 1,
+      "explanation": "`i` doubles every iteration, so the loop runs about log₂(n) times: each doubling of n adds only one step. It is not O(n), which would need `i` to grow by a constant amount (i++) each time."
+    },
+    {
+      "id": "dsa-03",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "02-big-o-and-complexity",
+      "question": "Array `a` has length A and array `b` has length B. What is the worst-case time complexity of this function?",
+      "code": "function hasCommon(a, b) {\n  for (const x of a) if (b.includes(x)) return true;\n  return false;\n}",
+      "codeLanguage": "js",
+      "options": [
+        "O(A)",
+        "O(A + B)",
+        "O(n²)",
+        "O(A × B)"
+      ],
+      "correctIndex": 3,
+      "explanation": "`b.includes(x)` is a linear scan, O(B), and it runs once for each of the A elements, giving O(A × B). It looks like one loop, but includes hides the second. Calling it O(n²) is imprecise because the inputs have different sizes; converting `b` to a Set first would make it O(A + B)."
+    },
+    {
+      "id": "dsa-04",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-big-o-and-complexity",
+      "question": "`s` is a string of length n containing only lowercase letters. What is the time complexity of this function?",
+      "code": "function letterTable(s) {\n  let total = 0;\n  for (let i = 0; i < s.length; i++) {\n    for (let c = 0; c < 26; c++) {\n      if (s.charCodeAt(i) - 97 === c) total++;\n    }\n  }\n  return total;\n}",
+      "codeLanguage": "js",
+      "answerHint": "Type a Big-O expression, e.g. O(n²)",
+      "acceptedAnswers": [
+        "O(n)",
+        "n",
+        "O(26n)",
+        "O(26 n)",
+        "O(26*n)",
+        "O(26 * n)",
+        "linear"
+      ],
+      "caseSensitive": false,
+      "explanation": "The inner loop always runs a fixed 26 times, independent of n, so the total work is 26n, which simplifies to O(n) after dropping constants. Calling two nested loops O(n²) here is a classic mistake."
+    },
+    {
+      "id": "dsa-05",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "03-arrays-and-strings",
+      "question": "This version of Kadane's algorithm initialises `best` and `current` to 0. What does it return for `[-8, -3, -6]`?",
+      "code": "function maxSub(nums) {\n  let best = 0, current = 0;\n  for (const x of nums) {\n    current = Math.max(x, current + x);\n    best = Math.max(best, current);\n  }\n  return best;\n}\nconsole.log(maxSub([-8, -3, -6]));",
+      "codeLanguage": "js",
+      "options": [
+        "-3",
+        "-17",
+        "0",
+        "-8"
+      ],
+      "correctIndex": 2,
+      "explanation": "Every `current` value is negative, so `Math.max(best, current)` never beats the starting 0, and it returns 0. The correct answer, -3, needs `best` and `current` initialised to `nums[0]`. That is the classic Kadane bug for all-negative arrays."
+    },
+    {
+      "id": "dsa-06",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "03-arrays-and-strings",
+      "question": "What does this code print?",
+      "code": "function maxSubarraySum(nums) {\n  let best = nums[0];\n  let current = nums[0];\n  for (let i = 1; i < nums.length; i++) {\n    current = Math.max(nums[i], current + nums[i]);\n    best = Math.max(best, current);\n  }\n  return best;\n}\nconsole.log(maxSubarraySum([-2, 1, -3, 4, -1, 2, 1, -5, 4]));",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "6"
+      ],
+      "caseSensitive": false,
+      "explanation": "The best run of consecutive values is 4, -1, 2, 1 = 6. Tracing `current`: -2, 1, -2, 4, 3, 5, 6, 1, 5; `best` peaks at 6."
+    },
+    {
+      "id": "dsa-07",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "04-hash-maps-and-sets",
+      "question": "What does this line print?",
+      "code": "console.log(new Set([NaN, NaN, 0, -0, \"0\"]).size);",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "3"
+      ],
+      "caseSensitive": false,
+      "explanation": "Set uses SameValueZero: NaN equals NaN (one entry), 0 and -0 are equal (one entry), and the string \"0\" is a different type from the number 0 (one entry). That makes 3."
+    },
+    {
+      "id": "dsa-08",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "04-hash-maps-and-sets",
+      "question": "The Set-based longest consecutive sequence solution has a `while` loop nested inside a `for` loop, yet it runs in O(n). Why?",
+      "code": "for (const x of set) {\n  if (set.has(x - 1)) continue;\n  let len = 1;\n  while (set.has(x + len)) len++;\n  best = Math.max(best, len);\n}",
+      "codeLanguage": "js",
+      "options": [
+        "Set lookups are O(log n), which cancels out the inner loop",
+        "The inner loop only starts at the first number of a run, so each number is walked over at most once in total",
+        "The inner loop always runs a constant number of times",
+        "The Set is sorted, so the inner loop can stop early"
+      ],
+      "correctIndex": 1,
+      "explanation": "The `continue` skips any x that has a predecessor, so the `while` loop only starts at the beginning of a run, and across the whole loop each number is counted inside one run only once. The total is O(n). A Set is not sorted, and its lookups are O(1) on average, not O(log n)."
+    },
+    {
+      "id": "dsa-09",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-recursion-fundamentals",
+      "question": "A candidate writes fast exponentiation like this. What is its time complexity for a non-negative even n?",
+      "code": "function power(x, n) {\n  if (n === 0) return 1;\n  if (n % 2 === 0) return power(x, n / 2) * power(x, n / 2);\n  return x * power(x, n - 1);\n}",
+      "codeLanguage": "js",
+      "options": [
+        "O(n)",
+        "O(log n)",
+        "O(2ⁿ)",
+        "O(n log n)"
+      ],
+      "correctIndex": 0,
+      "explanation": "Halving gives log n levels, but making two calls at each level doubles the number of calls per level: 1 + 2 + 4 + ... + n ≈ 2n calls, so O(n). Computing `half` once and reusing it brings it down to O(log n). It is not O(2ⁿ), because the depth is log n, not n."
+    },
+    {
+      "id": "dsa-10",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "05-recursion-fundamentals",
+      "question": "What does this code print?",
+      "code": "function hanoi(n, from, to, via, moves = []) {\n  if (n === 0) return moves;\n  hanoi(n - 1, from, via, to, moves);\n  moves.push(`${from}->${to}`);\n  hanoi(n - 1, via, to, from, moves);\n  return moves;\n}\nconsole.log(hanoi(5, \"A\", \"C\", \"B\").length);",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "31"
+      ],
+      "caseSensitive": false,
+      "explanation": "Tower of Hanoi needs 2ⁿ - 1 moves: moves(n) = 2 × moves(n - 1) + 1. For n = 5 that is 32 - 1 = 31."
+    },
+    {
+      "id": "dsa-11",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "06-linked-lists",
+      "question": "Which operation is O(1) on a singly linked list (with a head pointer) but O(n) on an array?",
+      "options": [
+        "Reading the i-th element",
+        "Searching for a value",
+        "Appending at the end when there is no tail pointer",
+        "Inserting a new element at the front"
+      ],
+      "correctIndex": 3,
+      "explanation": "Prepending to a linked list only creates a node pointing at the old head: O(1). An array must shift every element right (`unshift`), which is O(n). Reading the i-th element is the reverse: O(1) for an array but O(n) for a list, because you must walk from the head."
+    },
+    {
+      "id": "dsa-12",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-linked-lists",
+      "question": "Compared with the iterative three-pointer reversal, what does this recursive linked-list reversal cost in time and extra space?",
+      "code": "function reverseRec(head) {\n  if (!head || !head.next) return head;\n  const newHead = reverseRec(head.next);\n  head.next.next = head;\n  head.next = null;\n  return newHead;\n}",
+      "codeLanguage": "js",
+      "options": [
+        "O(n) time and O(1) space, the same as the iterative version",
+        "O(n²) time and O(n) space",
+        "O(n) time and O(n) space, for the call stack",
+        "O(log n) time and O(log n) space"
+      ],
+      "correctIndex": 2,
+      "explanation": "It still touches each node once (O(n) time), but every node adds a stack frame until the base case, so extra space is O(n). Only the iterative version is O(1) space. It is not O(n²), because each call does O(1) work."
+    },
+    {
+      "id": "dsa-13",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-stacks-and-queues",
+      "question": "A worker uses `arr.push` to enqueue and `arr.shift` to dequeue. What is the total cost of enqueuing and then draining n jobs?",
+      "options": [
+        "O(n)",
+        "O(n²)",
+        "O(n log n)",
+        "O(1) amortised in total"
+      ],
+      "correctIndex": 1,
+      "explanation": "`shift` removes the first element and moves every remaining element down one slot, so each dequeue is O(n) and n dequeues are O(n²). A head index or a linked list makes dequeue O(1), and the whole drain O(n). push is amortised O(1), but it is the shift that dominates."
+    },
+    {
+      "id": "dsa-14",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "07-stacks-and-queues",
+      "question": "What does this code print?",
+      "code": "class TwoStackQueue {\n  #in = [];\n  #out = [];\n  enqueue(x) { this.#in.push(x); }\n  dequeue() {\n    if (this.#out.length === 0)\n      while (this.#in.length) this.#out.push(this.#in.pop());\n    return this.#out.pop();\n  }\n}\nconst q = new TwoStackQueue();\nq.enqueue(1); q.enqueue(2);\nconst a = q.dequeue();\nq.enqueue(3); q.enqueue(4);\nconst b = q.dequeue();\nconst c = q.dequeue();\nconsole.log(a, b, c);",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact output (values separated by spaces)",
+      "acceptedAnswers": [
+        "1 2 3",
+        "1,2,3",
+        "1, 2, 3"
+      ],
+      "caseSensitive": false,
+      "explanation": "The first dequeue moves [1, 2] into `out` in reverse and pops 1. `out` still holds 2, so the next dequeue pops 2 without refilling. Only when `out` is empty is it refilled from `in` ([3, 4]), so 3 comes next. The queue keeps FIFO order: 1 2 3."
+    },
+    {
+      "id": "dsa-15",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "08-two-pointers",
+      "question": "In \"container with most water\" (left and right pointers start at both ends), which pointer should move inward after recording the area?",
+      "options": [
+        "The pointer at the shorter line",
+        "The pointer at the taller line",
+        "Both pointers, every step",
+        "Always the left pointer"
+      ],
+      "correctIndex": 0,
+      "explanation": "The area is limited by the shorter line. Moving the taller one inward shrinks the width without raising that limit, so it can never be better. Only moving the shorter line has a chance of finding a taller limit."
+    },
+    {
+      "id": "dsa-16",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "08-two-pointers",
+      "question": "What does this code print?",
+      "code": "class ListNode { constructor(val, next = null) { this.val = val; this.next = next; } }\nconst fromArray = (arr) => arr.reduceRight((next, val) => new ListNode(val, next), null);\nfunction middle(head) {\n  let slow = head, fast = head;\n  while (fast && fast.next) { slow = slow.next; fast = fast.next.next; }\n  return slow;\n}\nconsole.log(middle(fromArray([10, 20, 30, 40, 50, 60])).val);",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "40"
+      ],
+      "caseSensitive": false,
+      "explanation": "`fast` moves two nodes for every one that `slow` moves. With 6 nodes, `slow` stops on the 4th node (index 3). For an even-length list this loop returns the second of the two middles, so it prints 40, not 30."
+    },
+    {
+      "id": "dsa-17",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "09-sliding-window",
+      "question": "The \"shrink while sum >= target\" sliding window returns 0 for target 7 on `[1, -5, 4, 3]`, although `[4, 3]` sums to 7. Why does the technique fail here?",
+      "options": [
+        "The window should shrink with `if`, not `while`",
+        "The window must have a fixed size",
+        "The array must be sorted first",
+        "With negative numbers, adding an element can decrease the sum, so shrinking from the left is no longer safe"
+      ],
+      "correctIndex": 3,
+      "explanation": "The shrink logic assumes that growing the window always increases the sum and shrinking always decreases it. Negatives break that, so valid windows get missed. For arrays with negatives, use prefix sums with a hash map. Changing `while` to `if` would not help; it only makes the window shrink less."
+    },
+    {
+      "id": "dsa-18",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "09-sliding-window",
+      "question": "What does `longestUniqueSubstring(\"pwwkew\")` return?",
+      "code": "function longestUniqueSubstring(s) {\n  const lastSeen = new Map();\n  let left = 0, best = 0;\n  for (let right = 0; right < s.length; right++) {\n    const ch = s[right];\n    if (lastSeen.has(ch) && lastSeen.get(ch) >= left) {\n      left = lastSeen.get(ch) + 1;\n    }\n    lastSeen.set(ch, right);\n    best = Math.max(best, right - left + 1);\n  }\n  return best;\n}",
+      "codeLanguage": "js",
+      "answerHint": "Type the number returned",
+      "acceptedAnswers": [
+        "3"
+      ],
+      "caseSensitive": false,
+      "explanation": "The second \"w\" moves `left` to index 2. The window then grows to \"wke\" (length 3). When the final \"w\" arrives, `left` jumps past index 2 to 3, giving \"kew\", also length 3. \"pwke\" is not a substring without repeats, because the two w's are adjacent."
+    },
+    {
+      "id": "dsa-19",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "10-prefix-sums",
+      "question": "What does this code print?",
+      "code": "function subarraySum(nums, k) {\n  const count = new Map([[0, 1]]);\n  let sum = 0, total = 0;\n  for (const x of nums) {\n    sum += x;\n    total += count.get(sum - k) ?? 0;\n    count.set(sum, (count.get(sum) ?? 0) + 1);\n  }\n  return total;\n}\nconsole.log(subarraySum([2, -1, 1, 2, -2, 3], 2));",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "5"
+      ],
+      "caseSensitive": false,
+      "explanation": "The running sums are 2, 1, 2, 4, 2, 5. At each step the code adds how many earlier prefixes equal `sum - 2`: +1 (the seeded 0), +0, +1 (0), +2 (sum 2 seen twice), +1 (0), +0 (3 never seen), for a total of 5. The subarrays are [2] at index 0, [2, -1, 1], [-1, 1, 2], [2] at index 3, and [2, -1, 1, 2, -2]."
+    },
+    {
+      "id": "dsa-20",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-prefix-sums",
+      "question": "In \"subarray sum equals k\", a candidate forgets to seed the map with `0 → 1` (they start with an empty Map). For `nums = [3, 4, -7, 3]` and `k = 3`, what is returned instead of the correct 3?",
+      "options": [
+        "0, because nothing is ever counted",
+        "4, because the empty subarray is counted",
+        "1, because subarrays starting at index 0 are missed",
+        "3, because the seed only matters when k = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "The correct subarrays are [3], [3, 4, -7, 3] and [4, -7, 3]. The first two start at index 0, so they are only found if the empty prefix (sum 0) has been recorded. Without the seed, only [4, -7, 3] is found and the function returns 1. The seed matters for every k, not only k = 0."
+    },
+    {
+      "id": "dsa-21",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "11-sorting-algorithms",
+      "question": "Which sorting algorithm is O(n log n) in every case and stable, but needs O(n) extra memory?",
+      "options": [
+        "Quicksort",
+        "Merge sort",
+        "Heapsort",
+        "Insertion sort"
+      ],
+      "correctIndex": 1,
+      "explanation": "Merge sort always splits into log n levels with O(n) merging work per level, and using `<=` in the merge keeps it stable; the merged output needs O(n) extra space. Heapsort is also always O(n log n) but is not stable and uses O(1) space. Quicksort can degrade to O(n²)."
+    },
+    {
+      "id": "dsa-22",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "11-sorting-algorithms",
+      "question": "A quicksort always picks the last element as its pivot. What is its running time on an array that is already sorted?",
+      "options": [
+        "O(n)",
+        "O(n log n)",
+        "O(log n)",
+        "O(n²)"
+      ],
+      "correctIndex": 3,
+      "explanation": "On sorted input the last element is the maximum, so each partition puts everything on one side and only removes the pivot. That gives n levels of O(n) work: O(n²). Random pivots make this worst case extremely unlikely, which is why O(n log n) is only quicksort's average case."
+    },
+    {
+      "id": "dsa-23",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-binary-search",
+      "question": "Using the `firstTrue` helper, what does `lowerBound(a, 25)` print?",
+      "code": "function firstTrue(lo, hi, pred) {\n  while (lo < hi) {\n    const mid = (lo + hi) >> 1;\n    if (pred(mid)) hi = mid;\n    else lo = mid + 1;\n  }\n  return lo;\n}\nconst lowerBound = (a, x) => firstTrue(0, a.length, (i) => a[i] >= x);\nconst a = [10, 20, 20, 20, 30, 40];\nconsole.log(lowerBound(a, 25));",
+      "codeLanguage": "js",
+      "options": [
+        "4",
+        "3",
+        "-1",
+        "5"
+      ],
+      "correctIndex": 0,
+      "explanation": "lowerBound returns the first index whose value is >= x. 25 is not present; the first value >= 25 is 30 at index 4, which is also where 25 would be inserted. It never returns -1; for a value larger than everything it returns `a.length`."
+    },
+    {
+      "id": "dsa-24",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "12-binary-search",
+      "question": "Parcels must ship in the given order within 2 days, and each day the van is loaded until the next parcel would exceed its capacity. What does this code print?",
+      "code": "function minCapacity(weights, days) {\n  const canShip = (cap) => {\n    let needed = 1, load = 0;\n    for (const w of weights) {\n      if (load + w > cap) { needed++; load = 0; }\n      load += w;\n    }\n    return needed <= days;\n  };\n  let lo = Math.max(...weights), hi = weights.reduce((s, w) => s + w, 0);\n  while (lo < hi) {\n    const mid = Math.floor((lo + hi) / 2);\n    if (canShip(mid)) hi = mid;\n    else lo = mid + 1;\n  }\n  return lo;\n}\nconsole.log(minCapacity([7, 2, 5, 10, 8], 2));",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "18"
+      ],
+      "caseSensitive": false,
+      "explanation": "This is binary search on the answer. The best split into two in-order groups is [7, 2, 5] = 14 and [10, 8] = 18, so the minimum capacity is 18. With 17, the loads would be [7, 2, 5] then [10] then [8], which needs 3 days."
+    },
+    {
+      "id": "dsa-25",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "13-trees-and-traversals",
+      "question": "Which traversal visits a binary tree level by level, and which data structure drives it?",
+      "options": [
+        "Preorder, using a stack",
+        "Inorder, using recursion",
+        "Level-order (BFS), using a queue",
+        "Postorder, using a queue"
+      ],
+      "correctIndex": 2,
+      "explanation": "Level-order traversal is breadth-first: a FIFO queue processes all nodes of one level before their children. Preorder, inorder and postorder are depth-first traversals that use the call stack (or an explicit stack), so they go deep before going wide."
+    },
+    {
+      "id": "dsa-26",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "13-trees-and-traversals",
+      "question": "`buildTree` builds a tree from a level-order array, where null means \"no node\". What does this print?",
+      "code": "// buildTree and TreeNode as in the lesson\nfunction postorder(node, out = []) {\n  if (node) { postorder(node.left, out); postorder(node.right, out); out.push(node.val); }\n  return out;\n}\nconsole.log(postorder(buildTree([1, 2, 3, null, 4, 5])).join(\" \"));",
+      "codeLanguage": "js",
+      "answerHint": "Type the values separated by spaces",
+      "acceptedAnswers": [
+        "4 2 5 3 1",
+        "4,2,5,3,1",
+        "4, 2, 5, 3, 1"
+      ],
+      "caseSensitive": false,
+      "explanation": "The tree is: 1 with children 2 and 3; 2 has no left child and a right child 4; 3 has a left child 5. Postorder visits left, right, then the node: for 2 that is 4, 2; for 3 that is 5, 3; and finally the root 1, giving 4 2 5 3 1."
+    },
+    {
+      "id": "dsa-27",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "14-binary-search-trees",
+      "question": "A validator checks only that each node's left child is smaller and its right child is larger. Which tree does it wrongly accept as a valid BST?",
+      "options": [
+        "10 with left child 5 and right child 15",
+        "10 with left child 5, and right child 15 whose children are 6 and 20",
+        "10 with left child 5 whose right child is 7",
+        "A single node 10"
+      ],
+      "correctIndex": 1,
+      "explanation": "6 is smaller than its parent 15, so the local check passes, but 6 sits in 10's right subtree, where every value must be greater than 10. Correct validation passes an allowed (low, high) range down from all ancestors. The other trees are all genuinely valid BSTs."
+    },
+    {
+      "id": "dsa-28",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "14-binary-search-trees",
+      "question": "In the BST 50 (children 30 and 70; 70 has children 60 and 80), you delete 50, which has two children. Using the standard approach, which value replaces 50 at the root?",
+      "options": [
+        "30, the left child",
+        "70, the right child",
+        "80, the largest value",
+        "60, the inorder successor (smallest value in the right subtree)"
+      ],
+      "correctIndex": 3,
+      "explanation": "With two children, copy in the inorder successor, which is the smallest value in the right subtree (60), and then delete that successor. Because it has no left child, removing it is the easy leaf or one-child case. Promoting 70 directly would leave its own left child (60) with nowhere to go."
+    },
+    {
+      "id": "dsa-29",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "15-heaps-and-priority-queues",
+      "question": "A binary heap is stored in a 0-based array. What is the index of the parent of the node at index i?",
+      "options": [
+        "Math.floor((i - 1) / 2)",
+        "Math.floor(i / 2)",
+        "2 * i + 1",
+        "i - 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "With 0-based indexing, the children of i are 2i + 1 and 2i + 2, so the parent is floor((i - 1) / 2). `Math.floor(i / 2)` is the formula for 1-based heaps; using it with 0-based indices is a common off-by-one bug. 2i + 1 is the left child."
+    },
+    {
+      "id": "dsa-30",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-heaps-and-priority-queues",
+      "question": "You need the kth largest value from a stream of n numbers without sorting. Which approach does the lesson recommend, and what does it cost?",
+      "options": [
+        "A max-heap of all n items, then pop k times: O(n) time",
+        "A max-heap of size k: O(n log k) time",
+        "A min-heap of size k, evicting the smallest when it grows past k: O(n log k) time, O(k) space",
+        "A sorted array of size k with binary search insertion: O(log k) time overall"
+      ],
+      "correctIndex": 2,
+      "explanation": "A size-k min-heap holds the k largest values seen so far, and its root (the smallest of them) is the kth largest. Each push or pop is O(log k), so n items cost O(n log k) with O(k) space. A max-heap of size k would give cheap access to the wrong end; you need the next value to evict."
+    },
+    {
+      "id": "dsa-31",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "15-heaps-and-priority-queues",
+      "question": "Building a heap from n items by sifting down every non-leaf, from index floor(n/2) - 1 back to 0, takes O(n), not O(n log n). Why?",
+      "options": [
+        "Sifting down is O(1) for every node",
+        "Most nodes are near the bottom and move only a step or two; only a few nodes near the top can travel log n levels",
+        "Only the root is sifted down",
+        "The array is sorted first, so no swaps are needed"
+      ],
+      "correctIndex": 1,
+      "explanation": "About half the nodes are leaves and are never sifted, a quarter move at most one level, an eighth at most two, and so on. That sum stays below 2n, so heapify is O(n). Pushing n items one at a time, by contrast, is O(n log n). Sifting down is not O(1) in general; the root can move log n levels."
+    },
+    {
+      "id": "dsa-32",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "16-backtracking",
+      "question": "In combination sum, where each coin may be used any number of times and order does not matter, what should the recursive call pass as the next start index?",
+      "code": "for (let i = start; i < coins.length; i++) {\n  if (coins[i] > remaining) break;\n  path.push(coins[i]);\n  backtrack(/* ? */, remaining - coins[i]);\n  path.pop();\n}",
+      "codeLanguage": "js",
+      "options": [
+        "0, so every coin is considered again",
+        "i + 1",
+        "start + 1",
+        "i"
+      ],
+      "correctIndex": 3,
+      "explanation": "Passing `i` lets the same coin be chosen again (reuse allowed) while never going back to earlier coins, which would create duplicate orderings such as [5, 2] alongside [2, 5]. `i + 1` is for \"each item at most once\", and starting from 0 is for problems where order matters (permutations)."
+    },
+    {
+      "id": "dsa-33",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "16-backtracking",
+      "question": "The lesson's `permutations(items)` function uses a `used` array and records a copy of `path` whenever it reaches full length. What does `permutations([\"a\", \"b\", \"c\", \"d\"]).length` return?",
+      "answerHint": "Type the number",
+      "acceptedAnswers": [
+        "24"
+      ],
+      "caseSensitive": false,
+      "explanation": "There are n! orderings of n distinct items: 4! = 4 × 3 × 2 × 1 = 24. That is also why permutation generation is O(n × n!) time: n! leaves, each copied in O(n)."
+    },
+    {
+      "id": "dsa-34",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "17-graphs-bfs-and-dfs",
+      "question": "In an unweighted graph of city routes, you need the route with the fewest hops between two cities. Which algorithm fits?",
+      "options": [
+        "Breadth-first search (BFS)",
+        "Depth-first search (DFS)",
+        "Topological sort",
+        "Kruskal's algorithm"
+      ],
+      "correctIndex": 0,
+      "explanation": "BFS explores in rings by distance, so the first time it reaches a node it has used the fewest possible edges. DFS goes deep along one branch and can reach the goal by a long detour first. Kruskal builds a minimum spanning tree, which is not a shortest-path algorithm."
+    },
+    {
+      "id": "dsa-35",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "17-graphs-bfs-and-dfs",
+      "question": "Why should BFS mark a node as seen when it is enqueued rather than when it is dequeued?",
+      "options": [
+        "Marking on dequeue makes BFS visit nodes in depth-first order",
+        "Marking on enqueue is required to handle weighted edges",
+        "Otherwise the same node can be added to the queue many times before it is processed",
+        "Marking on dequeue causes an infinite loop in every graph"
+      ],
+      "correctIndex": 2,
+      "explanation": "If marking waits until dequeue, several neighbours can each enqueue the same unvisited node, which bloats the queue and repeats work. The order stays breadth-first either way, and BFS still terminates; it is just wasteful. BFS does not handle weighted edges in either case."
+    },
+    {
+      "id": "dsa-36",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "18-shortest-paths",
+      "question": "A currency-exchange graph has some negative edge weights (but you are not sure there are no negative cycles). Which shortest-path algorithm should you use?",
+      "options": [
+        "Dijkstra with a min-heap",
+        "Bellman-Ford, which also detects negative cycles",
+        "Plain BFS",
+        "0-1 BFS with a deque"
+      ],
+      "correctIndex": 1,
+      "explanation": "Bellman-Ford relaxes every edge V - 1 times and handles negative weights; one extra pass that still improves a distance reveals a negative cycle (an arbitrage opportunity here). Dijkstra assumes non-negative weights, and BFS and 0-1 BFS only handle equal or 0/1 weights."
+    },
+    {
+      "id": "dsa-37",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "18-shortest-paths",
+      "question": "In \"cheapest flight with at most K stops\", the Bellman-Ford loop runs K + 1 rounds and copies the cost array at the start of each round (`const next = [...cost]`). What goes wrong if you update `cost` in place instead?",
+      "options": [
+        "Nothing; copying is only a speed optimisation",
+        "Negative cycles can no longer be detected",
+        "The algorithm returns Infinity for every destination",
+        "A single round can chain several edges together, so the answer may use more than K + 1 flights"
+      ],
+      "correctIndex": 3,
+      "explanation": "Reading old values and writing into a copy ensures each round extends paths by exactly one edge. In place, a value updated earlier in the same round can be relaxed again in that round, letting a path grow by two or more edges and breaking the stop limit. It is a correctness fix, not a speed optimisation."
+    },
+    {
+      "id": "dsa-38",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "19-topological-sort-and-union-find",
+      "question": "Kahn's algorithm on n courses returns an order with fewer than n courses. What does that tell you?",
+      "options": [
+        "The prerequisite graph has a directed cycle, so not all courses can be finished",
+        "Some courses have no prerequisites",
+        "The graph is disconnected",
+        "The in-degrees were computed for an undirected graph"
+      ],
+      "correctIndex": 0,
+      "explanation": "Nodes on a cycle wait on each other, so their in-degree never drops to 0 and they never enter the queue. A shorter output therefore means there is a cycle. Courses with no prerequisites are simply the starting points, and disconnected pieces are still all output, because every in-degree-0 node is enqueued at the start."
+    },
+    {
+      "id": "dsa-39",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "19-topological-sort-and-union-find",
+      "question": "Using the lesson's `UnionFind` class (union by size, path halving, and a `count` of groups that goes down on each successful union), what does this print?",
+      "code": "const uf = new UnionFind(7);\nuf.union(0, 1);\nuf.union(2, 3);\nuf.union(1, 3);\nuf.union(4, 5);\nuf.union(0, 2);\nconsole.log(uf.count);",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "3"
+      ],
+      "caseSensitive": false,
+      "explanation": "Starting from 7 groups: (0,1) gives 6, (2,3) gives 5, and (1,3) merges {0,1} with {2,3} for 4, then (4,5) gives 3. (0,2) finds both already have the same root, so it returns false and the count stays 3. The groups are {0,1,2,3}, {4,5} and {6}."
+    },
+    {
+      "id": "dsa-40",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "20-dynamic-programming-fundamentals",
+      "question": "Which two properties must a problem have for dynamic programming to help?",
+      "options": [
+        "Sorted input and a monotonic check",
+        "The greedy-choice property and a small input size",
+        "Optimal substructure and overlapping subproblems",
+        "A recursive solution and a depth of at most log n"
+      ],
+      "correctIndex": 2,
+      "explanation": "Optimal substructure means the answer can be built from answers to smaller versions; overlapping subproblems means those smaller versions repeat, so caching them pays off. Merge sort has substructure but no overlap, so plain divide and conquer is enough. The greedy-choice property is what greedy algorithms need, not DP."
+    },
+    {
+      "id": "dsa-41",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "20-dynamic-programming-fundamentals",
+      "question": "What does this code print?",
+      "code": "function minCoins(coins, amount) {\n  const dp = new Array(amount + 1).fill(Infinity);\n  dp[0] = 0;\n  for (let a = 1; a <= amount; a++) {\n    for (const c of coins) {\n      if (c <= a && dp[a - c] + 1 < dp[a]) dp[a] = dp[a - c] + 1;\n    }\n  }\n  return dp[amount] === Infinity ? -1 : dp[amount];\n}\nconsole.log(minCoins([1, 5, 6, 9], 11));",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "2"
+      ],
+      "caseSensitive": false,
+      "explanation": "5 + 6 = 11 uses 2 coins, and no single coin equals 11, so the DP returns 2. Greedy (largest first) would take 9 + 1 + 1 = 3 coins, which is why minimum-coin change with arbitrary coins needs DP."
+    },
+    {
+      "id": "dsa-42",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "21-dynamic-programming-patterns",
+      "question": "Items have weights [2, 3] and values [30, 50], and the capacity is 6. The 1-D knapsack is written with the capacity loop going UPWARDS. What does it print?",
+      "code": "const w = [2, 3], v = [30, 50], C = 6;\nconst dp = new Array(C + 1).fill(0);\nfor (let i = 0; i < w.length; i++) {\n  for (let c = w[i]; c <= C; c++) {\n    dp[c] = Math.max(dp[c], dp[c - w[i]] + v[i]);\n  }\n}\nconsole.log(dp[C]);",
+      "codeLanguage": "js",
+      "options": [
+        "80",
+        "100",
+        "90",
+        "50"
+      ],
+      "correctIndex": 1,
+      "explanation": "Looping upwards lets `dp[c - w[i]]` already include item i from the same pass, so an item can be reused. That is the unbounded knapsack: two of the weight-3 item gives 100. The 0/1 answer, 80 (one of each), needs the capacity loop to run downwards. 90 (three weight-2 items) is also reachable when reuse is allowed, but it is worse than 100."
+    },
+    {
+      "id": "dsa-43",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "21-dynamic-programming-patterns",
+      "question": "Using the lesson's `lcs(a, b)`, which fills `dp[i][j]` with the LCS length of the first i characters of a and the first j of b, what does `lcs(\"AGGTAB\", \"GXTXAYB\")` return?",
+      "answerHint": "Type the number",
+      "acceptedAnswers": [
+        "4"
+      ],
+      "caseSensitive": false,
+      "explanation": "The longest common subsequence is \"GTAB\": G, T, A and B appear in that order in both strings (not necessarily next to each other), so the length is 4. No common subsequence of length 5 exists."
+    },
+    {
+      "id": "dsa-44",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "22-greedy-algorithms",
+      "question": "To book the maximum number of non-overlapping meetings in one room, which greedy rule is provably optimal?",
+      "options": [
+        "Pick the meeting that starts earliest",
+        "Pick the shortest meeting first",
+        "Pick the meeting with the fewest conflicts",
+        "Pick the meeting that ends earliest"
+      ],
+      "correctIndex": 3,
+      "explanation": "Sorting by end time and taking each meeting that starts at or after the last chosen end leaves the most room for the rest. The exchange argument proves it: swapping any optimal schedule's first meeting for the earliest-ending one never creates an overlap. Earliest start fails when one long early meeting blocks many short ones."
+    },
+    {
+      "id": "dsa-45",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "23-tries-and-string-algorithms",
+      "question": "What is the KMP prefix-function (lps) array for the pattern \"aabaaab\"?",
+      "options": [
+        "[0, 1, 0, 1, 2, 2, 3]",
+        "[0, 1, 0, 1, 2, 3, 4]",
+        "[0, 0, 1, 2, 3, 0, 1]",
+        "[0, 1, 0, 0, 1, 2, 3]"
+      ],
+      "correctIndex": 0,
+      "explanation": "lps[i] is the length of the longest proper prefix of p[0..i] that is also a suffix. \"aa\" → 1, \"aab\" → 0, \"aaba\" → 1, \"aabaa\" → 2 (\"aa\"), \"aabaaa\" → 2 (the 3-character prefix \"aab\" does not match \"aaa\", so fall back to \"aa\"), and \"aabaaab\" → 3 (\"aab\"). Option [0, 1, 0, 1, 2, 3, 4] forgets that fallback at index 5."
+    },
+    {
+      "id": "dsa-46",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "24-segment-trees-and-fenwick-trees",
+      "question": "Prices change tick by tick and you must answer \"minimum price in [l, r]\" queries in O(log n). Why is a Fenwick tree the wrong tool here, while a segment tree works?",
+      "options": [
+        "Fenwick trees need O(n) per update",
+        "Fenwick trees only support 0-based indices",
+        "A Fenwick tree answers a range by subtracting two prefixes, and min has no inverse operation",
+        "Segment trees are faster for sums too, so Fenwick trees are never used"
+      ],
+      "correctIndex": 2,
+      "explanation": "A Fenwick range query is prefix(r) - prefix(l - 1), which needs an invertible operation such as sum or XOR. You cannot \"subtract\" a minimum. A segment tree combines any associative operation (min, max, gcd) over O(log n) covering nodes. Fenwick updates are O(log n), not O(n), and they are usually 1-based internally."
+    },
+    {
+      "id": "dsa-47",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "25-advanced-graph-algorithms",
+      "question": "You must connect 2,000 points with minimum total cable, and any pair of points can be linked (so there are about V²/2 candidate edges). Which MST approach does the lesson recommend?",
+      "options": [
+        "Kruskal, because sorting about 20 lakh edges is O(E log E)",
+        "Dijkstra from point 0, then keep the shortest-path tree",
+        "Bellman-Ford with V - 1 rounds",
+        "Array-based Prim, O(V²), which never builds or sorts the edge list"
+      ],
+      "correctIndex": 3,
+      "explanation": "For a dense complete graph, Prim with a simple array of \"cheapest link to the tree\" runs in O(V²) and computes distances on the fly, avoiding building and sorting E ≈ V²/2 edges. A shortest-path tree from Dijkstra minimises the distance from one source, not the total wiring, so it is not an MST in general."
+    },
+    {
+      "id": "dsa-48",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "26-bit-manipulation-and-bitmask-dp",
+      "question": "What does this line print in Node?",
+      "code": "console.log(1 << 31, -8 >> 1, 5 ^ 3);",
+      "codeLanguage": "js",
+      "options": [
+        "2147483648 -4 6",
+        "-2147483648 -4 6",
+        "-2147483648 2147483644 1",
+        "2147483648 -4 125"
+      ],
+      "correctIndex": 1,
+      "explanation": "Bitwise operators work on 32-bit signed integers, so setting bit 31 produces the sign bit: -2147483648 (`>>> 0` would show 2147483648). `>>` is an arithmetic shift that keeps the sign, so -8 >> 1 is -4. `^` is XOR, not power: 101 ^ 011 = 110 = 6."
+    },
+    {
+      "id": "dsa-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "27-designing-data-structures",
+      "question": "What does this monotonic-stack function return for `[3, 8, 4, 1, 9, 2]`?",
+      "code": "function nextGreater(nums) {\n  const res = new Array(nums.length).fill(-1);\n  const stack = [];\n  for (let i = 0; i < nums.length; i++) {\n    while (stack.length && nums[stack.at(-1)] < nums[i]) res[stack.pop()] = nums[i];\n    stack.push(i);\n  }\n  return res;\n}",
+      "codeLanguage": "js",
+      "answerHint": "Type the six values separated by spaces",
+      "acceptedAnswers": [
+        "8 9 9 9 -1 -1",
+        "[8, 9, 9, 9, -1, -1]",
+        "8, 9, 9, 9, -1, -1",
+        "8,9,9,9,-1,-1",
+        "[8,9,9,9,-1,-1]",
+        "[ 8, 9, 9, 9, -1, -1 ]"
+      ],
+      "caseSensitive": false,
+      "explanation": "8 answers 3. Then 4 and 1 wait on the stack above 8; when 9 arrives it pops 1, 4 and 8, answering all three with 9. Nothing after 9 or 2 is larger, so both stay -1. Each index is pushed and popped once, so the pass is O(n)."
+    },
+    {
+      "id": "dsa-50",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "28-project-delivery-route-planner",
+      "question": "In the delivery planner, loading the 100 kg van by highest ₹ per kg first earns ₹3,900, while DP earns ₹4,800. Why does the greedy rule fail here when it is optimal for the spice trader's truck?",
+      "options": [
+        "Parcels cannot be split, so this is 0/1 knapsack; the ratio rule is only optimal for fractional knapsack",
+        "Greedy sorted by the wrong key; sorting by weight would be optimal",
+        "The van's capacity is too large for greedy to handle",
+        "Greedy is optimal, but the DP double-counts parcels"
+      ],
+      "correctIndex": 0,
+      "explanation": "When items can be split (fractional knapsack), taking the best value per kg first is optimal. Whole parcels can leave capacity unused: greedy picks P6, P2 and P4 (75 kg) and then nothing else fits, while DP finds P1, P2 and P4 (100 kg). No single sort key fixes 0/1 knapsack in general; it needs DP."
+    }
+  ]
+}

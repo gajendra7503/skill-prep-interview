@@ -1,0 +1,186 @@
+---
+title: "Processes, Signals & Job Control"
+description: "Inspect running processes with ps and pgrep, stop them correctly with signals, and juggle foreground and background jobs in the shell."
+module: "System Basics"
+level: "intermediate"
+order: 11
+---
+
+Every running program is a **process**. When a deployment hangs, a port is
+"already in use" or a server feels slow, the first questions are always:
+which process is it, who started it, and how do I stop it cleanly? This
+lesson answers those.
+
+## What a process is
+
+Each process has a **PID** (process ID), a **PPID** (its parent's PID), an
+owning user, a state, a command line, an environment and open files.
+Processes form a tree whose root is PID 1 (`systemd` on Ubuntu and Fedora).
+A parent creates a child by copying itself (`fork`), and the child loads a
+new program (`exec`); that is how your shell starts every command (details in
+"Linux Internals: Kernel, System Calls, /proc & strace").
+
+## Listing processes: ps
+
+```bash
+ps aux                    # every process, BSD-style columns
+ps -ef                    # every process, System V style (shows PPID)
+ps -eo pid,ppid,user,stat,%cpu,%mem,cmd --sort=-%mem | head -5
+```
+
+Typical `ps aux` output on an Ubuntu server (your values will differ):
+
+```text
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           1  0.0  0.3 167744 12900 ?        Ss   Oct12   0:09 /sbin/init
+www-data    2210  0.0  0.1  55320  5600 ?        S    Oct12   0:00 nginx: worker process
+deploy      4182  1.2  4.8 1102340 195200 ?      Sl   09:10   0:42 node /srv/app/server.js
+deploy      5120  0.0  0.0   7060  2140 pts/0    R+   10:02   0:00 ps aux
+```
+
+`RSS` is resident memory in KiB; `TTY` is `?` for processes with no
+terminal, such as services.
+
+### Process states (the STAT column)
+
+| Code | State |
+|---|---|
+| `R` | running or runnable |
+| `S` | sleeping, waiting for an event (most processes, most of the time) |
+| `D` | uninterruptible sleep, usually waiting on disk or network I/O |
+| `T` | stopped (for example by Ctrl+Z) |
+| `Z` | zombie: finished, but the parent has not yet collected its exit status |
+
+Extra characters add detail: `s` session leader, `l` multi-threaded, `+` in
+the foreground process group, `N`/`<` low/high priority.
+
+### Finding a process by name
+
+```bash
+pgrep -a node             # PIDs plus command lines of matching processes
+pgrep -u deploy -f server.js
+pidof nginx               # PIDs of an exact program name
+```
+
+`pgrep` avoids the classic `ps aux | grep` problem of matching the grep
+itself. For a live, sorted view use `top` (press `M` to sort by memory, `P`
+by CPU, `q` to quit) or the friendlier `htop` if installed; reading those
+numbers properly is covered in "Performance Troubleshooting: CPU, Memory,
+Disk & the USE Method".
+
+## Signals
+
+A signal is a small notification the kernel delivers to a process. Most can
+be caught by the program to clean up; two cannot.
+
+| Signal | No. | Default effect | Typical source |
+|---|---|---|---|
+| `SIGHUP` | 1 | terminate | terminal closed; many daemons reload config on it |
+| `SIGINT` | 2 | terminate | Ctrl+C |
+| `SIGQUIT` | 3 | terminate and core dump | `Ctrl+\` |
+| `SIGKILL` | 9 | terminate, **cannot be caught** | `kill -9` |
+| `SIGTERM` | 15 | terminate | `kill` default; systemd and Docker stop |
+| `SIGSTOP` | 19 | stop, **cannot be caught** | `kill -STOP` |
+| `SIGTSTP` | 20 | stop | Ctrl+Z |
+| `SIGCONT` | 18 | resume if stopped | `fg`, `bg`, `kill -CONT` |
+
+The numbers above are those on x86 and ARM Linux. Prefer names in scripts:
+`kill -TERM 4182` reads better and is portable. `kill -l` lists them all.
+
+```bash
+kill 4182            # sends SIGTERM: "please shut down"
+kill -HUP 2201       # ask nginx's master process to reload its config
+pkill -f server.js   # signal by command-line match (careful: be specific)
+killall node         # by exact name; kills ALL node processes you own
+```
+
+### Why not kill -9 straight away?
+
+SIGTERM lets the program finish in-flight requests, flush buffers, delete
+lock files and close database connections. SIGKILL ends it instantly,
+possibly leaving corrupted temp files or half-written data. Send TERM, wait
+a few seconds, and only then use KILL. A process stuck in state `D` may not
+die even with SIGKILL until its I/O completes.
+
+### Exit codes reveal the signal
+
+When a signal kills a process, the shell reports exit status 128 plus the
+signal number:
+
+```bash
+sleep 30 & pid=$!; kill $pid; wait $pid; echo "exit=$?"
+# exit=143          (128 + 15, SIGTERM)
+sleep 30 & pid=$!; kill -9 $pid; wait $pid; echo "exit=$?"
+# exit=137          (128 + 9, SIGKILL)
+```
+
+Exit 137 in a container log very often means the kernel's out-of-memory
+killer sent SIGKILL. Interviewers love this one.
+
+A script can catch catchable signals with `trap` to clean up:
+
+```bash
+trap 'echo "got TERM, cleaning up"; exit 0' TERM
+```
+
+Traps are covered properly in "Robust Shell Scripts: set -euo pipefail,
+traps & getopts".
+
+## Job control in an interactive shell
+
+| Action | What it does |
+|---|---|
+| `cmd &` | start in the background; `$!` holds its PID |
+| Ctrl+Z | stop (pause) the foreground job |
+| `jobs` | list this shell's jobs with numbers |
+| `bg %1` | resume job 1 in the background |
+| `fg %1` | bring job 1 to the foreground |
+| `kill %1` | signal job 1 by job number |
+| `wait` | block until background jobs finish |
+
+```bash
+sleep 20 &
+sleep 30 &
+jobs
+# [1]-  Running                    sleep 20 &
+# [2]+  Running                    sleep 30 &
+kill %1
+```
+
+`+` marks the current job (the default for `fg`/`bg`), `-` the previous one.
+A typical flow: you start a long `tar` command, realise you need the
+terminal, press Ctrl+Z, then type `bg` so it carries on in the background.
+
+### Surviving logout
+
+When you close an SSH session, the shell sends SIGHUP to its jobs and they
+usually die. `nohup ./long-task.sh > task.log 2>&1 &` ignores SIGHUP;
+`disown %1` detaches an already running job; `tmux` or `screen` keeps a whole
+terminal session alive. For anything long-lived, run it as a service (see
+"systemd Services, Timers & journalctl").
+
+## Priority: nice and renice
+
+Niceness ranges from -20 (highest priority) to 19 (lowest); the default is 0.
+Ordinary users may only lower priority: `nice -n 10 ./build-reports.sh`
+starts a job politely, and `sudo renice -n 5 -p 4182` adjusts a running one.
+
+## Interview angles
+
+- **"What is a zombie process and how do you get rid of it?"** It has
+  exited but its parent has not called `wait` to read the exit status. It
+  uses no CPU, just a process-table entry. You cannot kill a
+  zombie; fix or restart the parent. If the parent dies, the zombie is
+  re-parented to PID 1, which reaps it.
+- **"What is an orphan?"** A running process whose parent exited; it is
+  adopted by PID 1 (or a designated subreaper).
+
+### Try it yourself
+
+1. Start `sleep 300 &`, find its PID three ways (`$!`, `jobs -l`, `pgrep`),
+   then stop it with SIGTERM and print the exit status.
+2. Run `sleep 100`, press Ctrl+Z, check `jobs`, resume it with `bg`, then
+   bring it back with `fg` and end it with Ctrl+C.
+3. Use `ps -eo pid,ppid,stat,cmd` to draw the chain of parents from your
+   current shell back to PID 1 (`ps -o ppid= -p $$` gives your shell's
+   parent).

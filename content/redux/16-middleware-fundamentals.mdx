@@ -1,0 +1,182 @@
+---
+title: "Middleware: How It Works & Writing Your Own"
+description: "Understand the store => next => action signature, the onion order of a middleware chain, and how to write and type your own Redux middleware."
+module: "Advanced Redux"
+level: "intermediate"
+order: 16
+---
+
+Reducers must be pure, so where do logging, analytics, API calls and other
+side effects go? Redux's answer is **middleware**: functions that wrap
+`store.dispatch` and see every action **before** it reaches the reducers.
+Thunks, RTK Query and the listener middleware are all built on this one
+extension point, so understanding it explains most of the Redux ecosystem.
+
+## The signature: three nested functions
+
+```js
+const logger = store => next => action => {
+  console.log('dispatching', action.type, 'before:', store.getState().counter.value)
+  const result = next(action) // pass the action on down the chain
+  console.log('next state', store.getState().counter.value)
+  return result               // becomes the return value of dispatch()
+}
+```
+
+| Layer | Called | Receives |
+|---|---|---|
+| `store => ...` | once, when the store is created | `{ getState, dispatch }` (not the full store) |
+| `next => ...` | once, while the chain is being built | the next middleware's dispatch, or the real one |
+| `action => ...` | on every dispatch | whatever was passed to `dispatch` |
+
+The curried shape exists so that `applyMiddleware` can inject `store` and
+`next` up front and end up with a plain `action => result` function.
+
+A middleware can do four things with an action: **pass it on** (`next`),
+**dispatch something else** (`store.dispatch`, which re-enters the whole
+chain from the top), **change it** (`next({ ...action, meta })`) or
+**swallow it** (return without calling `next`).
+
+## Adding middleware with configureStore
+
+`configureStore` already installs thunk plus development-only checks (see
+"configureStore, Middleware Defaults & Redux DevTools"). Keep those by
+building on `getDefaultMiddleware` rather than replacing it:
+
+```js
+const store = configureStore({
+  reducer: { counter: counter.reducer },
+  middleware: getDefaultMiddleware => getDefaultMiddleware().concat(tag('A'), tag('B'), logger),
+})
+```
+
+`.concat()` adds to the end of the chain; `.prepend()` adds to the front.
+If you truly want only your own middleware, return a `Tuple` (exported by
+RTK) — TypeScript rejects a plain array here:
+
+```ts
+middleware: () => new Tuple(myThunk)
+```
+
+## The onion: order matters
+
+With a helper that logs on the way in and out:
+
+```js
+const tag = name => () => next => action => {
+  console.log(`${name} in`)
+  const r = next(action)
+  console.log(`${name} out`)
+  return r
+}
+
+store.dispatch(counter.actions.incremented())
+// A in
+// B in
+// dispatching counter/incremented before: 0
+// next state 1
+// B out
+// A out
+```
+
+Each middleware wraps the ones after it. Code before `next()` runs
+outer-to-inner, code after it runs inner-to-outer, and the reducer runs in
+the middle. So a middleware that must see *every* action untouched (such as
+the listener middleware or a crash reporter) is usually **prepended**.
+
+## Writing thunk yourself
+
+The whole idea of `redux-thunk` fits in three lines: if the "action" is a
+function, call it instead of passing it on.
+
+```js
+const myThunk = ({ dispatch, getState }) => next => action =>
+  typeof action === 'function' ? action(dispatch, getState) : next(action)
+
+const r = store.dispatch(async dispatch => {
+  dispatch(orders.actions.placed({ id: 'ORD-2', amount: 1000 }))
+  return 'done'
+})
+console.log(r instanceof Promise, await r) // true done
+```
+
+This is why `dispatch(thunk)` can return a promise: middleware decides what
+`dispatch` returns. Reducers never see the function.
+
+## Real examples: analytics and blocking
+
+Run analytics **after** `next` so you can read the updated state:
+
+```js
+const analytics = store => next => action => {
+  const result = next(action)
+  if (isAction(action) && action.type === orders.actions.placed.type) {
+    track({ event: 'order_placed', amount: action.payload.amount, total: store.getState().list.length })
+  }
+  return result
+}
+// track() receives { event: 'order_placed', amount: 25000, total: 1 }
+```
+
+A middleware can also stop an action entirely — for example, ignoring
+`payments/send` while the app is in a read-only demo mode:
+
+```js
+const blockInDemo = () => next => action => {
+  if (isAction(action) && action.type === 'payments/send') return undefined // swallowed
+  return next(action)
+}
+```
+
+## Typing middleware
+
+In Redux 5 the `action` parameter is typed `unknown`, because anything (a
+function, a promise) may arrive. Narrow it with `isAction`, or better, with
+an action creator's `.match()`:
+
+```ts
+import { isAction, type Middleware } from '@reduxjs/toolkit'
+import type { RootState } from './store'
+
+export const auditLog: Middleware<{}, RootState> = store => next => action => {
+  if (placed.match(action)) {
+    console.log('order', action.payload.id, 'count before', store.getState().orders.list.length)
+  } else if (isAction(action)) {
+    console.log(action.type)
+  }
+  return next(action)
+}
+```
+
+One trap: if `RootState` is `ReturnType<typeof store.getState>` and that
+store includes `auditLog`, TypeScript reports "RootState circularly
+references itself". Derive it from the reducer instead:
+`type RootState = ReturnType<typeof rootReducer>`.
+
+## Rules and gotchas
+
+- **Do not dispatch while the middleware is being created.** Redux throws:
+  `Dispatching while constructing your middleware is not allowed. Other middleware would not be applied to this dispatch.`
+- **Always return `next(action)`'s result** unless you mean to change what
+  `dispatch` returns; forgetting breaks `await dispatch(thunk)` for callers.
+- **Avoid infinite loops.** Calling `store.dispatch` for an action your own
+  middleware also reacts to will recurse.
+- **Keep middleware generic.** Feature-specific "when X happens, do Y"
+  logic is cleaner in the listener middleware (see "Side Effects with the
+  Listener Middleware"). RTK also offers `createDynamicMiddleware` for adding
+  middleware at runtime in code-split apps.
+
+Interviewers often ask: "Why is middleware curried instead of
+`(store, next, action)`?" Answer: the outer two layers are applied once
+during setup (via function composition), leaving a cheap `action => ...`
+function to run on every dispatch; it also lets each middleware close over
+`next`.
+
+### Try it yourself
+
+1. Write a `timing` middleware that logs how many milliseconds each reducer
+   pass took, using `performance.now()` before and after `next(action)`.
+2. Write a middleware that adds `meta: { at: Date.now() }` to every plain
+   action, then check in Redux DevTools that it appears.
+3. Swap the order of `tag('A')` and `tag('B')` and predict the output before
+   running it.

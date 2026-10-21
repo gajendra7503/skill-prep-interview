@@ -1,0 +1,192 @@
+---
+title: "Real Project: Expense Tracker CLI"
+description: "Build a command-line expense tracker with argparse, dataclasses, JSON persistence, collections-based summaries and pytest tests."
+module: "Real-World Project"
+level: "pro"
+order: 28
+---
+
+Time to combine the course into one small but genuinely useful tool: a
+command-line expense tracker that adds expenses, lists them, and prints a
+per-category summary — persisting everything to a JSON file. It is the kind
+of take-home task interviewers use to judge structure, typing and testing.
+
+## 1. The data model: a dataclass
+
+```python
+# expenses.py
+from __future__ import annotations
+
+import json
+from collections import Counter
+from dataclasses import dataclass, asdict, field
+from datetime import date
+from pathlib import Path
+
+@dataclass(frozen=True)
+class Expense:
+    amount: float
+    category: str
+    note: str = ""
+    spent_on: str = field(default_factory=lambda: date.today().isoformat())
+
+    def __post_init__(self) -> None:
+        if self.amount <= 0:
+            raise ValueError("amount must be positive")
+```
+
+`frozen=True` makes instances immutable and hashable, and `__post_init__`
+validates input at construction time so bad data never reaches storage.
+Dates are stored as ISO strings so they serialise to JSON directly.
+
+## 2. Persistence: a small repository class with pathlib
+
+```python
+class ExpenseStore:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+
+    def load(self) -> list[Expense]:
+        if not self.path.exists():
+            return []
+        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        return [Expense(**item) for item in raw]
+
+    def save(self, expenses: list[Expense]) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        data = [asdict(e) for e in expenses]
+        self.path.write_text(json.dumps(data, indent=2, ensure_ascii=False),
+                             encoding="utf-8")
+
+    def add(self, expense: Expense) -> None:
+        expenses = self.load()
+        expenses.append(expense)
+        self.save(expenses)
+```
+
+`asdict` converts a dataclass to a plain dict for JSON, and `Expense(**item)`
+rebuilds it — re-running validation on load as a bonus.
+
+## 3. Summaries with collections
+
+```python
+def summarise(expenses: list[Expense]) -> Counter[str]:
+    totals: Counter[str] = Counter()
+    for e in expenses:
+        totals[e.category] += e.amount
+    return totals
+
+def format_inr(amount: float) -> str:
+    return f"₹{amount:,.2f}"   # note: Western grouping, e.g. ₹1,25,000 shows as ₹125,000.00
+```
+
+`Counter` behaves like a dict with a default of 0, and `most_common()`
+returns categories sorted by total, highest first.
+
+## 4. The CLI with argparse subcommands
+
+```python
+import argparse
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="expenses")
+    parser.add_argument("--file", type=Path, default=Path.home() / ".expenses.json")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    add = sub.add_parser("add", help="record an expense")
+    add.add_argument("amount", type=float)
+    add.add_argument("category")
+    add.add_argument("--note", default="")
+
+    sub.add_parser("list", help="show all expenses")
+    sub.add_parser("summary", help="totals per category")
+    return parser
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    store = ExpenseStore(args.file)
+
+    match args.command:
+        case "add":
+            store.add(Expense(args.amount, args.category.lower(), args.note))
+            print(f"Added {format_inr(args.amount)} to {args.category}")
+        case "list":
+            for e in store.load():
+                print(f"{e.spent_on}  {format_inr(e.amount):>12}  {e.category:10} {e.note}")
+        case "summary":
+            totals = summarise(store.load())
+            for category, total in totals.most_common():
+                print(f"{category:10} {format_inr(total)}")
+            print(f"{'TOTAL':10} {format_inr(sum(totals.values()))}")
+    return 0
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+```
+
+Accepting `argv` as a parameter (instead of always reading `sys.argv`) is
+what makes `main` testable.
+
+## 5. Using it
+
+```bash
+python expenses.py add 450 food --note "Lunch with team"
+python expenses.py add 1200 transport --note "Cab to airport"
+python expenses.py add 350 food
+python expenses.py summary
+# transport  ₹1,200.00
+# food       ₹800.00
+# TOTAL      ₹2,000.00
+```
+
+## 6. Tests with pytest
+
+```python
+# test_expenses.py
+import pytest
+from expenses import Expense, ExpenseStore, main, summarise
+
+def test_rejects_non_positive_amount():
+    with pytest.raises(ValueError):
+        Expense(0, "food")
+
+def test_store_round_trip(tmp_path):
+    store = ExpenseStore(tmp_path / "data.json")
+    store.add(Expense(450, "food", spent_on="2026-01-15"))
+    assert store.load() == [Expense(450, "food", spent_on="2026-01-15")]
+
+def test_summary_groups_by_category():
+    totals = summarise([Expense(450, "food"), Expense(350, "food"),
+                        Expense(1200, "transport")])
+    assert totals == {"food": 800, "transport": 1200}
+
+def test_cli_summary(tmp_path, capsys):
+    f = str(tmp_path / "e.json")
+    main(["--file", f, "add", "500", "Rent"])
+    main(["--file", f, "summary"])
+    assert "rent       ₹500.00" in capsys.readouterr().out
+```
+
+`tmp_path` keeps tests away from the real data file, and `capsys` captures
+printed output so the CLI can be tested end to end without a subprocess.
+
+## What this project demonstrates
+
+- **Dataclasses** give a typed, validated, comparable model with almost no
+  boilerplate — `==` in the round-trip test works because of the generated
+  `__eq__`.
+- **Separation of concerns**: model, storage, summary logic and CLI are
+  independent, so each is testable on its own.
+- **pathlib and json** handle cross-platform file paths and readable
+  persistence; `ensure_ascii=False` keeps the data human-readable.
+- **Structural pattern matching** (`match`/`case`) dispatches subcommands
+  cleanly.
+
+### Extend it yourself
+
+- Store amounts as `decimal.Decimal` (or integer paise) instead of `float`
+  to avoid rounding errors — and explain why money should never be a float.
+- Add a `--month 2026-01` filter to `list` and `summary`.
+- Write a `format_inr` that uses Indian digit grouping (₹1,25,000.00) and
+  parametrise its tests.
+- Add an `export` subcommand that writes a CSV using the `csv` module.

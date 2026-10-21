@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `[f() for f in [lambda: i for i in range(3)]]` evaluate to?",
+      "options": [
+        "[0, 1, 2]",
+        "[2, 2, 2]",
+        "[0, 0, 0]",
+        "A NameError because i is out of scope"
+      ],
+      "correctIndex": 1,
+      "explanation": "Closures look up i when they run, not when they are defined. All three lambdas share the same i, which is 2 after the loop finishes. Binding it as a default argument (lambda i=i: i) fixes this."
+    },
+    {
+      "question": "Which is exactly equivalent to placing `@timed` above `def add(a, b): ...`?",
+      "options": [
+        "Calling timed(add) every time add is called",
+        "add = add(timed)",
+        "timed is applied lazily the first time add is called",
+        "add = timed(add), executed once when the def statement runs"
+      ],
+      "correctIndex": 3,
+      "explanation": "Decorator syntax is sugar for rebinding the name to decorator(func), and it runs once at definition time, usually at import, not on every call."
+    },
+    {
+      "question": "What is the main purpose of `functools.wraps` inside a decorator?",
+      "options": [
+        "It copies metadata such as __name__ and __doc__ from the original function onto the wrapper and sets __wrapped__",
+        "It makes the wrapper run faster by caching results",
+        "It allows the decorator to accept arguments",
+        "It prevents the decorator from running at import time"
+      ],
+      "correctIndex": 0,
+      "explanation": "Without functools.wraps the decorated function reports the wrapper's name and docstring. wraps copies __name__, __doc__, __module__ and __qualname__ and sets __wrapped__, which help() and inspect rely on."
+    },
+    {
+      "question": "For a decorator used as `@retry(times=3)`, how many levels of nested functions are normally needed?",
+      "options": [
+        "One: retry itself is the wrapper",
+        "Two: retry returns the wrapper directly",
+        "Three: retry(times) returns a decorator, which takes func and returns the wrapper",
+        "None: arguments are passed using functools.partial automatically"
+      ],
+      "correctIndex": 2,
+      "explanation": "retry(times=3) is called first and must return the actual decorator, which receives func and returns the wrapper. So it is retry, then decorator, then wrapper."
+    }
+  ]
+}

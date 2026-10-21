@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "How do you write a catch-all wildcard route under `/files` in Express 5?",
+      "options": [
+        "`app.get(\"/files/*\", handler)`",
+        "`app.get(\"/files/(.*)\", handler)`",
+        "`app.get(\"/files/*splat\", handler)`",
+        "`app.get(\"/files/:path+\", handler)`"
+      ],
+      "correctIndex": 2,
+      "explanation": "Express 5 uses path-to-regexp v8, where wildcards must be named, e.g. `/*splat`. The matched segments are available as an array in `req.params.splat`."
+    },
+    {
+      "question": "Routes `GET /accounts/:id` and `GET /accounts/me` are registered in that order. What does `GET /accounts/me` return?",
+      "options": [
+        "The `/accounts/:id` handler runs with `req.params.id === \"me\"`",
+        "The `/accounts/me` handler runs because static paths always win",
+        "Express throws a duplicate-route error at startup",
+        "Both handlers run and their responses are merged"
+      ],
+      "correctIndex": 0,
+      "explanation": "Express matches routes in registration order and the first match wins, so the parameterised route captures `me`. Register specific routes before parameterised ones."
+    },
+    {
+      "question": "Which Express 5 route makes the file extension optional, matching both `/download/report` and `/download/report.pdf`?",
+      "options": [
+        "`/download/:file.:ext?`",
+        "`/download/:file(.:ext)?`",
+        "`/download/:file*`",
+        "`/download/:file{.:ext}`"
+      ],
+      "correctIndex": 3,
+      "explanation": "Optional segments use braces in Express 5. The `?` modifier from Express 4 is no longer allowed in string paths."
+    },
+    {
+      "question": "A middleware in an Express 5 app does `req.query = parsedQuery`. What is the problem?",
+      "options": [
+        "Nothing, it works the same as Express 4",
+        "`req.query` is a getter in Express 5, so the assignment does not replace it; store the result on another property",
+        "It converts all query values to numbers",
+        "It throws a 400 response to the client"
+      ],
+      "correctIndex": 1,
+      "explanation": "In Express 5 `req.query` is exposed through a getter and is not writable. Put validated or transformed values on a separate property such as `req.validatedQuery`."
+    }
+  ]
+}

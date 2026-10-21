@@ -1,0 +1,189 @@
+---
+title: "Classes, Access Modifiers & Abstract Classes"
+description: "Typed class fields, public, private, protected and readonly, TypeScript private versus JavaScript #private, parameter properties, implements, abstract classes and override."
+module: "Core Type System"
+level: "intermediate"
+order: 9
+---
+
+TypeScript classes are JavaScript classes plus annotations and a few
+compile-time-only keywords. Interviewers probe which parts survive to runtime.
+
+## Fields and constructors
+
+Fields must be declared with their types. Under `strict` (specifically
+`strictPropertyInitialization`) every field must be definitely assigned,
+either inline or in the constructor:
+
+```ts
+class Account {
+  holder: string;
+  balance = 0;            // inferred as number
+  nickname?: string;      // optional, may be undefined
+  lastLogin!: Date;       // "trust me, it gets set before use"
+
+  constructor(holder: string) {
+    this.holder = holder;
+  }
+
+  deposit(amount: number): void {
+    this.balance += amount;
+  }
+}
+```
+
+The `!` (definite assignment assertion) silences the check. Use it only
+when a framework genuinely initialises the field, such as Angular's
+`@ViewChild` — you are turning off a safety net.
+
+## Access modifiers
+
+| Modifier | Accessible from | Enforced at runtime? |
+|---|---|---|
+| `public` (default) | Anywhere | — |
+| `protected` | The class and its subclasses | No |
+| `private` | Only the declaring class | No |
+| `#field` (JavaScript private) | Only the declaring class | **Yes** |
+| `readonly` | Read anywhere, assign only in declaration or constructor | No |
+
+```ts
+class Wallet {
+  private pin = "4321";
+  protected limit = 100000;
+  readonly id: string;
+  constructor(id: string) { this.id = id; }
+}
+
+class PremiumWallet extends Wallet {
+  raiseLimit() {
+    this.limit = 500000; // OK — protected is visible in subclasses
+    // this.pin;         // Error: Property 'pin' is private and only accessible within class 'Wallet'
+  }
+}
+
+const w = new Wallet("W-1");
+w.id = "W-2";   // Error: Cannot assign to 'id' because it is a read-only property
+w.pin;          // Error: Property 'pin' is private ...
+```
+
+## `private` vs `#private`
+
+Interviewers often ask: "Is TypeScript's `private` really private?" No.
+It is a compile-time check only; the emitted JavaScript is a normal
+property, and TypeScript even allows bracket access as an escape hatch:
+
+```ts
+class Vault {
+  private secret = "tsPrivate";
+  #hidden = "jsPrivate";
+
+  reveal() {
+    return this.#hidden;
+  }
+}
+
+const v = new Vault();
+console.log(v["secret"]);           // "tsPrivate" — allowed by TypeScript
+console.log(JSON.stringify(v));     // {"secret":"tsPrivate"}
+console.log(v.reveal());            // "jsPrivate"
+// v.#hidden;                       // Syntax error outside the class
+```
+
+`#hidden` is a real JavaScript private field, invisible to
+`JSON.stringify`, `Object.keys` and bracket access. Choose `#` when privacy
+must hold at runtime (for example in a library); `private` is fine for
+ordinary application code.
+
+## Parameter properties
+
+A modifier on a constructor parameter declares and assigns the field in
+one go:
+
+```ts
+class Customer {
+  constructor(
+    public readonly id: string,
+    private email: string,
+  ) {}
+}
+
+const c = new Customer("C-101", "asha@example.in");
+console.log(c.id); // "C-101"
+```
+
+Common in Angular and NestJS services, but it **generates code** (the
+`this.id = id` assignments), so it is not erasable: Node's built-in type
+stripping rejects it and the `erasableSyntaxOnly` flag reports it. Teams
+running `.ts` directly on Node write the fields out explicitly.
+
+## `implements`: checking a class against an interface
+
+```ts
+interface Notifier {
+  send(to: string, message: string): Promise<boolean>;
+}
+
+class SmsNotifier implements Notifier {
+  async send(to: string, message: string) { return true; }
+}
+```
+
+`implements` only **checks** the class against the interface; it adds no
+members. Being structural, any object with a matching `send` is a
+`Notifier`, `implements` or not.
+
+## Abstract classes
+
+An `abstract` class cannot be instantiated. It can mix implemented methods
+with `abstract` ones that subclasses must provide:
+
+```ts
+abstract class PaymentGateway {
+  abstract charge(amountRupees: number): string;
+
+  pay(amountRupees: number): string {
+    if (amountRupees <= 0) throw new Error("Invalid amount");
+    return this.charge(amountRupees);   // template method pattern
+  }
+}
+
+class UpiGateway extends PaymentGateway {
+  override charge(amountRupees: number) {
+    return `Collected ₹${amountRupees} via UPI`;
+  }
+}
+
+console.log(new UpiGateway().pay(1499)); // "Collected ₹1499 via UPI"
+new PaymentGateway(); // Error: Cannot create an instance of an abstract class
+```
+
+`override` marks a method that replaces a base-class one. With
+`noImplicitOverride`, omitting it is an error; and `override` on a method
+the base lacks (say, after a rename) is always an error.
+
+## Abstract class vs interface
+
+| | Interface | Abstract class |
+|---|---|---|
+| Exists at runtime | No | Yes |
+| Can contain implementation | No | Yes |
+| A class can use several | Yes (`implements A, B`) | No — single `extends` |
+| Works with `instanceof` | No | Yes |
+
+Start with an interface for a contract; reach for an abstract class when
+subclasses share real code or state.
+
+Classes are structural too: with `class Point { x = 0; y = 0; }`, a plain
+object `{ x: 1, y: 2 }` is a valid `Point`. Adding a `private` or `#`
+member makes only real instances compatible — a handy way to make a class
+nominal. Generic classes are covered in "Generics Fundamentals".
+
+### Try it yourself
+
+1. Write an abstract `Shape` with an abstract `area()` and a concrete
+   `describe()` that prints the area to two decimals. Implement `Circle`
+   and `Rectangle` using `override`.
+2. Rewrite a parameter-property class with explicit fields and run it with
+   `node file.ts`.
+3. Create a class with both `private token` and `#token`, and compare what
+   `JSON.stringify`, `Object.keys` and `obj["token"]` reveal for each.

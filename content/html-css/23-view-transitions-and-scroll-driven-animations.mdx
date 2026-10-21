@@ -1,0 +1,176 @@
+---
+title: "View Transitions & Scroll-Driven Animations"
+description: "Animating between DOM states and between pages with the View Transition API, and tying animations to scroll position without JavaScript."
+module: "Pro Level"
+level: pro
+order: 24
+---
+
+Two features have moved effects that once needed animation libraries and
+scroll listeners into the platform. Senior interviews now ask how they work
+under the hood, what they cost, and how to ship them safely when not every
+browser supports them.
+
+## Same-document view transitions
+
+The idea: the browser takes a **snapshot** of the old state, you update the
+DOM, it snapshots the new state, then cross-fades between them using
+pseudo-elements you can style.
+
+```js
+function showTab(id) {
+  // Fallback: no API, just update instantly
+  if (!document.startViewTransition) {
+    renderTab(id);
+    return;
+  }
+  const transition = document.startViewTransition(() => renderTab(id));
+  transition.finished.then(() => console.log("done"));
+  // logs "done" once the animation ends
+}
+```
+
+While the transition runs, the browser builds a tree of pseudo-elements
+over the page:
+
+```text
+::view-transition
+└── ::view-transition-group(root)
+    └── ::view-transition-image-pair(root)
+        ├── ::view-transition-old(root)   snapshot of the old state
+        └── ::view-transition-new(root)   live render of the new state
+```
+
+The default is a cross-fade of the whole page (`root`). You customise it
+with ordinary CSS animations:
+
+```css
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 250ms;
+}
+```
+
+## Morphing individual elements
+
+Give an element a `view-transition-name` and the browser animates it
+separately: it tweens the group's position and size from the old box to
+the new box, which produces a "shared element" morph — a product
+thumbnail growing into a hero image, for example.
+
+```css
+.product-thumb { view-transition-name: product-hero; }
+.detail-hero   { view-transition-name: product-hero; }
+
+::view-transition-group(product-hero) {
+  animation-duration: 400ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+```
+
+Rules that bite in production:
+
+- A `view-transition-name` must be **unique** among rendered elements at
+  snapshot time. Two visible elements with the same name abort the
+  transition (the DOM update still happens, without animation).
+- For lists, generate names per item, e.g. an inline
+  `style="view-transition-name: card-42"`, or use
+  `view-transition-name: match-element` in browsers that support it.
+- `view-transition-class` lets many named elements share one set of
+  animation rules: `::view-transition-group(*.card)`.
+- During the transition the snapshots sit on top of the page and the page
+  does not receive pointer events, so keep durations short.
+
+## Cross-document (multi-page) transitions
+
+For ordinary page navigations on the **same origin**, both pages opt in
+with CSS — no JavaScript:
+
+```css
+@view-transition {
+  navigation: auto;
+}
+```
+
+Named elements on the outgoing and incoming pages morph just as above.
+This makes a plain server-rendered site feel like a single-page app.
+Support: same-document transitions work in all major engines in recent
+versions (Firefox was the last to ship, in late 2025). Cross-document
+transitions shipped in Chromium and Safari first; check current support
+data for Firefox before relying on them.
+
+## Respecting reduced motion
+
+Morphs and slides can trigger vestibular discomfort. Always tone them
+down:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+```
+
+## Scroll-driven animations
+
+Normally an animation's progress is driven by time. With
+`animation-timeline`, progress is driven by **scroll position** instead,
+and the work can run off the main thread.
+
+```css
+/* A reading-progress bar that fills as the page scrolls */
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.progress {
+  position: fixed; inset: 0 0 auto 0; height: 4px;
+  transform-origin: left;
+  animation: grow linear both;
+  animation-timeline: scroll(root block);  /* nearest scroller: scroll() */
+}
+```
+
+`view()` tracks an element's visibility within its scroll container,
+perfect for reveal-on-scroll without an `IntersectionObserver`:
+
+```css
+@keyframes reveal { from { opacity: 0; translate: 0 2rem; } }
+
+.card {
+  animation: reveal linear both;
+  animation-timeline: view();
+  animation-range: entry 0% cover 30%;  /* animate while entering */
+}
+```
+
+Note that `animation-timeline` must come **after** the `animation`
+shorthand, because the shorthand resets it to `auto`. Leave the duration out (it is effectively
+`auto` on a scroll timeline, so the animation spans the whole range) and
+keep `linear` easing for a direct scroll-to-progress mapping.
+
+## Shipping safely
+
+Scroll-driven animations are supported in Chromium and in recent Safari;
+Firefox support has lagged behind a flag. Treat them as progressive
+enhancement:
+
+```css
+@supports (animation-timeline: view()) {
+  .card { animation: reveal linear both; animation-timeline: view(); }
+}
+```
+
+Animate only `transform` and `opacity` (and `translate`/`scale`
+individually) so the compositor can handle the work; animating `top` or
+`height` from a scroll timeline still forces layout on every frame.
+
+### Try it yourself
+
+Build a product grid where clicking a card swaps to a detail view inside
+`document.startViewTransition()`, with the card image and the detail hero
+sharing a `view-transition-name`. Add a fallback branch for browsers
+without the API and a reduced-motion override. Then add a reading-progress
+bar driven by `scroll(root)` and a `view()`-based fade-in for the cards,
+wrapped in `@supports`.

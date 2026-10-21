@@ -1,0 +1,147 @@
+---
+title: "Testing with pytest"
+description: "Write clear, maintainable tests with pytest: plain asserts, fixtures, parametrize, mocking and coverage."
+module: "Testing"
+level: "advanced"
+order: 22
+---
+
+pytest is the de facto standard for testing Python code, and many
+interviews include "write a test for this function" as a follow-up. Knowing
+fixtures, parametrisation and mocking well signals that you have shipped
+real code, not just solved puzzles.
+
+## Basics: plain functions and plain assert
+
+pytest discovers files named `test_*.py` (or `*_test.py`) and runs every
+function whose name starts with `test`. No classes or special assertion
+methods are required.
+
+```python
+# pricing.py
+def apply_discount(price: float, percent: float) -> float:
+    if not 0 <= percent <= 100:
+        raise ValueError("percent must be between 0 and 100")
+    return round(price * (1 - percent / 100), 2)
+
+# test_pricing.py
+import pytest
+from pricing import apply_discount
+
+def test_apply_discount():
+    assert apply_discount(1000, 10) == 900.0
+
+def test_invalid_percent_raises():
+    with pytest.raises(ValueError, match="between 0 and 100"):
+        apply_discount(1000, 150)
+```
+
+```bash
+pip install pytest
+pytest -v          # verbose; -x stops at first failure, -k filters by name
+```
+
+## Assertion rewriting
+
+pytest rewrites `assert` statements in test modules at import time, so a
+failure shows the actual values involved instead of a bare
+`AssertionError`:
+
+```python
+def test_totals():
+    assert sum([100, 200]) == 400
+# E   assert 300 == 400
+# E    +  where 300 = sum([100, 200])
+```
+
+Floats deserve care: use `pytest.approx` rather than `==` when rounding
+error is possible, e.g. `assert 0.1 + 0.2 == pytest.approx(0.3)`.
+
+## Fixtures: reusable setup and teardown
+
+A fixture is a function decorated with `@pytest.fixture`. Tests request it
+simply by naming it as a parameter, and pytest injects the return value.
+
+```python
+import pytest
+
+@pytest.fixture
+def account():
+    acc = {"owner": "Asha", "balance": 5000}
+    yield acc               # code after yield runs as teardown
+    acc.clear()
+
+def test_balance(account):
+    assert account["balance"] == 5000
+```
+
+Fixtures can depend on other fixtures, and `scope="module"` or
+`scope="session"` shares one instance across many tests (useful for
+expensive resources like a database connection). Put shared fixtures in
+`conftest.py` to make them available to every test in that directory.
+Built-in fixtures include `tmp_path` (a fresh temporary `pathlib.Path`),
+`capsys` (captured stdout/stderr) and `monkeypatch`.
+
+## Parametrize: one test, many cases
+
+```python
+@pytest.mark.parametrize(
+    "price, percent, expected",
+    [(1000, 10, 900.0), (500, 0, 500.0), (200, 100, 0.0)],
+)
+def test_discount_cases(price, percent, expected):
+    assert apply_discount(price, percent) == expected
+```
+
+Each tuple becomes a separate test with its own pass/fail result, which is
+far clearer than a loop inside one test.
+
+## Mocking: monkeypatch and unittest.mock
+
+Isolate code from slow or non-deterministic dependencies (network, time,
+environment variables). `monkeypatch` changes attributes and env vars and
+undoes the change automatically after the test:
+
+```python
+import os
+
+def get_api_key() -> str:
+    return os.environ["API_KEY"]
+
+def test_api_key(monkeypatch):
+    monkeypatch.setenv("API_KEY", "test-123")
+    assert get_api_key() == "test-123"
+```
+
+`unittest.mock` provides `Mock`/`MagicMock` objects that record calls, and
+`patch` to swap them in. Patch the name **where it is looked up**, not
+where it is defined:
+
+```python
+from unittest.mock import patch
+import weather   # weather.py does: import requests; requests.get(...)
+
+def test_forecast():
+    with patch("weather.requests.get") as fake_get:
+        fake_get.return_value.json.return_value = {"temp": 31}
+        assert weather.today() == 31
+        fake_get.assert_called_once()
+```
+
+## Coverage
+
+```bash
+pip install pytest-cov
+pytest --cov=pricing --cov-report=term-missing
+```
+
+The report shows the percentage of lines executed and which line numbers
+were missed. High coverage proves code *ran*, not that it was *checked* —
+a test with no meaningful assert still counts.
+
+### Try it yourself
+
+Write a `split_bill(total, people)` function that returns each share
+rounded to two decimals and raises `ValueError` for zero people. Test it
+with a parametrised test (including a float case using `pytest.approx`), a
+`pytest.raises` test, and run it with `--cov` until every line is covered.

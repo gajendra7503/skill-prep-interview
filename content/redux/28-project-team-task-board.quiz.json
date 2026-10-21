@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In the task board, why does `moveTask` have no `invalidatesTags`?",
+      "options": [
+        "Mutations cannot invalidate tags",
+        "The optimistic patch already makes the cache match the server, so a refetch would only add traffic",
+        "Tags only work with queries that take arguments",
+        "Invalidation would undo the optimistic patch permanently"
+      ],
+      "correctIndex": 1,
+      "explanation": "On success the patched cache equals the server state; on failure patch.undo() restores it. Refetching the list would be redundant."
+    },
+    {
+      "question": "Moving blocked task 3 to Done returns HTTP 409. What does the board show after `await` of the mutation?",
+      "options": [
+        "Task 3 stays in Done until the page reloads",
+        "Task 3 disappears from all columns",
+        "Task 3 is back in Doing, because the catch block called patch.undo()",
+        "The whole task list is refetched and emptied"
+      ],
+      "correctIndex": 2,
+      "explanation": "onQueryStarted applies the patch immediately; when queryFulfilled rejects, patch.undo() reverts the cached list, so task 3 returns to Doing."
+    },
+    {
+      "question": "Why does `selectAllTasks` return a module-level `EMPTY` array instead of `r.data ?? []`?",
+      "options": [
+        "A new [] on every call would give a new reference while loading and defeat memoisation downstream",
+        "Redux state cannot contain empty arrays",
+        "TypeScript cannot infer the type of []",
+        "RTK Query requires a frozen array"
+      ],
+      "correctIndex": 0,
+      "explanation": "Memoised selectors compare inputs by reference. A fresh empty array each time would make selectBoardColumns recompute and return a new object on every call."
+    },
+    {
+      "question": "Why did the test call `tasksApi.util.resetApiState()` after unsubscribing?",
+      "options": [
+        "To make the rollback assertion pass",
+        "Because node:test forbids open subscriptions",
+        "To reset the UI slice's filter",
+        "To clear the cache-expiry timer (keepUnusedDataFor) that otherwise kept the process alive for about a minute"
+      ],
+      "correctIndex": 3,
+      "explanation": "After the last subscriber leaves, RTK Query keeps the entry for keepUnusedDataFor (60 seconds by default) using a timer. Resetting the API state clears it so the test run exits promptly."
+    }
+  ]
+}

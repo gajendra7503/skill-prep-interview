@@ -1,0 +1,38 @@
+{
+  "questions": [
+    {
+      "question": "What is the quickest way to start a new Next.js project with the recommended defaults?",
+      "options": [
+        "npm install react and write a webpack config by hand",
+        "npx create-next-app@latest my-app --yes",
+        "Download a zip of the Next.js source code",
+        "npm run build in an empty folder"
+      ],
+      "correctIndex": 1,
+      "explanation": "create-next-app scaffolds the project and installs dependencies; --yes accepts the recommended defaults (TypeScript, ESLint, Tailwind, App Router, Turbopack)."
+    },
+    {
+      "question": "You create the file app/contact/page.tsx. Which URL serves it?",
+      "options": ["/app/contact", "/page/contact", "/contact.tsx", "/contact"],
+      "correctIndex": 3,
+      "explanation": "In the App Router, folders become URL segments and page.tsx makes the segment publicly reachable, so app/contact/page.tsx is served at /contact."
+    },
+    {
+      "question": "You changed a page, but `npm run start` still shows the old version. Why?",
+      "options": [
+        "Production mode serves the last build and does not watch files, so you must run npm run build again",
+        "Fast Refresh is broken and Node.js must be reinstalled",
+        "npm run start only works with JavaScript, not TypeScript",
+        "The browser cache must be cleared every time"
+      ],
+      "correctIndex": 0,
+      "explanation": "next start serves the output in .next/ from the last next build. Only next dev watches files and applies Fast Refresh."
+    },
+    {
+      "question": "What is the minimum Node.js version recent Next.js releases require?",
+      "options": ["Node.js 14", "Node.js 16.8", "Node.js 20.9", "Any version works"],
+      "correctIndex": 2,
+      "explanation": "The lesson notes that recent versions of Next.js need Node.js 20.9 or newer; check with node --version."
+    }
+  ]
+}

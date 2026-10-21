@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does the lesson recommend downloading the LTS release of Node.js?",
+      "options": [
+        "LTS releases are the only ones that include npm",
+        "LTS releases get security fixes for years and are what companies run in production",
+        "LTS releases are the only ones that can run Express",
+        "LTS releases run JavaScript in the browser"
+      ],
+      "correctIndex": 1,
+      "explanation": "LTS (Long Term Support) releases receive security fixes for a long period, which is why production systems use them. Express 5 needs Node 18 or newer, so any current LTS works."
+    },
+    {
+      "question": "What does setting `\"type\": \"module\"` in `package.json` do?",
+      "options": [
+        "Installs Express automatically",
+        "Makes Node run the project in the browser",
+        "Prevents `node_modules` from being committed",
+        "Tells Node to treat `.js` files as ES modules so you can use `import` and `export`"
+      ],
+      "correctIndex": 3,
+      "explanation": "With `\"type\": \"module\"`, `.js` files are ES modules, so you write `import express from \"express\"` instead of `require`. Every lesson in the course uses ES modules."
+    },
+    {
+      "question": "Which pair of rules about version control does the lesson give?",
+      "options": [
+        "Commit `node_modules/`; do not commit `package-lock.json`",
+        "Commit neither `node_modules/` nor `package-lock.json`",
+        "Do not commit `node_modules/`; do commit `package-lock.json`",
+        "Commit both so the project works offline"
+      ],
+      "correctIndex": 2,
+      "explanation": "`node_modules/` can be recreated with `npm install`, so it goes in `.gitignore`. `package-lock.json` pins exact installed versions so every machine gets the same code, so it should be committed."
+    },
+    {
+      "question": "Why would you use `curl` or a tool like Postman instead of just the browser address bar?",
+      "options": [
+        "The address bar easily sends only GET requests, while API clients can send POST, PUT and DELETE with JSON bodies",
+        "Browsers cannot connect to localhost",
+        "Express only accepts requests from curl",
+        "Postman is required to start a Node server"
+      ],
+      "correctIndex": 0,
+      "explanation": "Typing a URL into a browser sends a GET request. To test endpoints that create, update or delete data with JSON bodies, you need curl or a GUI API client."
+    }
+  ]
+}

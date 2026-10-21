@@ -1,0 +1,244 @@
+---
+title: "Real Project: Delivery Route Planner"
+description: "Build a route planner for a fictional logistics firm using a weighted graph, Dijkstra with a min-heap, Kruskal with union-find, and knapsack DP for van loading."
+module: "Real-World Project"
+level: "pro"
+order: 28
+---
+
+**Dakiya Express** (a fictional logistics firm) runs trucks across
+Maharashtra, Gujarat and Madhya Pradesh. The operations team wants a small
+planning tool that answers three questions every morning:
+
+1. What is the **fastest route** between two hubs? (Dijkstra + min-heap)
+2. Which **linehaul lanes** should link our depots at the lowest yearly
+   cost? (Kruskal + union-find)
+3. Which **parcels** go on a capacity-limited van to earn the most?
+   (0/1 knapsack DP, compared with greedy)
+
+Paste the blocks below, in order, into one file `planner.js` and run
+`node planner.js`. All distances and costs are illustrative.
+
+## Part 1: the weighted city graph
+
+Undirected roads, weights in minutes, stored as an adjacency list (a `Map`
+from city to `[neighbour, minutes]` pairs). Building it is `O(V + E)`.
+
+```js
+// planner.js — Dakiya Express route planner (fictional company, illustrative data)
+const ROADS = [
+  ["Mumbai", "Pune", 180], ["Mumbai", "Nashik", 200], ["Mumbai", "Surat", 270],
+  ["Pune", "Nashik", 240], ["Pune", "Aurangabad", 270], ["Nashik", "Aurangabad", 210],
+  ["Nashik", "Surat", 260], ["Surat", "Vadodara", 150], ["Vadodara", "Ahmedabad", 110],
+  ["Surat", "Ahmedabad", 250], ["Vadodara", "Indore", 330], ["Aurangabad", "Indore", 420],
+];
+const graph = new Map();
+for (const [a, b, mins] of ROADS) {
+  if (!graph.has(a)) graph.set(a, []);
+  if (!graph.has(b)) graph.set(b, []);
+  graph.get(a).push([b, mins]);
+  graph.get(b).push([a, mins]);
+}
+```
+
+```text
+                  Ahmedabad
+                 /         \
+               250         110
+               /             \
+          Surat ----150---- Vadodara ----330---- Indore
+         /     \                                   |
+       270     260                                420
+       /         \                                 |
+  Mumbai --200-- Nashik ---------210--------- Aurangabad
+       \           |                              /
+       180        240         ---------270-------'
+         \         |         /
+          `------- Pune ----'
+```
+
+## Part 2: Dijkstra with a min-heap
+
+JavaScript has no built-in priority queue, so we write a binary min-heap
+of `[priority, value]` pairs (see "Heaps & Priority Queues" for the
+details). Dijkstra itself follows "Shortest Paths: Dijkstra, Bellman-Ford &
+0-1 BFS": pop the closest unsettled city, relax its roads, skip stale
+entries, and record `prev` to rebuild the path.
+
+```js
+class MinHeap {
+  a = [];
+  get size() { return this.a.length; }
+  push(x) {
+    const a = this.a; a.push(x);
+    for (let i = a.length - 1, p; i > 0 && a[p = (i - 1) >> 1][0] > a[i][0]; i = p) [a[p], a[i]] = [a[i], a[p]];
+  }
+  pop() {
+    const a = this.a, top = a[0], last = a.pop();
+    if (a.length) {
+      a[0] = last;
+      for (let i = 0; ;) {
+        const l = 2 * i + 1, r = l + 1; let m = i;
+        if (l < a.length && a[l][0] < a[m][0]) m = l;
+        if (r < a.length && a[r][0] < a[m][0]) m = r;
+        if (m === i) break;
+        [a[m], a[i]] = [a[i], a[m]]; i = m;
+      }
+    }
+    return top;
+  }
+}
+
+function fastestRoute(g, from, to) {
+  const dist = new Map([[from, 0]]), prev = new Map(), heap = new MinHeap();
+  heap.push([0, from]);
+  while (heap.size) {
+    const [d, city] = heap.pop();
+    if (d > dist.get(city)) continue; // stale entry
+    if (city === to) break;           // first pop of the target is final
+    for (const [next, mins] of g.get(city)) {
+      const nd = d + mins;
+      if (nd < (dist.get(next) ?? Infinity)) { dist.set(next, nd); prev.set(next, city); heap.push([nd, next]); }
+    }
+  }
+  if (!dist.has(to)) return null;
+  const path = [to];
+  while (path[0] !== from) path.unshift(prev.get(path[0]));
+  return { minutes: dist.get(to), path };
+}
+```
+
+**Complexity:** `O((V + E) log V)` time with lazy deletion, `O(V + E)`
+space. Breaking at the target is safe because weights are non-negative.
+
+## Part 3: depot network with union-find + Kruskal
+
+Five depots must be connected by dedicated linehaul lanes. Each candidate
+lane has a yearly cost; pick the cheapest set that connects every depot —
+a minimum spanning tree (see "Advanced Graphs: MST, SCC & Bridges"). This
+DSU keys on city names with a `Map`, using path halving and union by size.
+
+```js
+class DSU {
+  constructor(items) { this.parent = new Map(items.map((x) => [x, x])); this.size = new Map(items.map((x) => [x, 1])); }
+  find(x) {
+    while (this.parent.get(x) !== x) { this.parent.set(x, this.parent.get(this.parent.get(x))); x = this.parent.get(x); }
+    return x;
+  }
+  union(a, b) {
+    let ra = this.find(a), rb = this.find(b);
+    if (ra === rb) return false;
+    if (this.size.get(ra) < this.size.get(rb)) [ra, rb] = [rb, ra];
+    this.parent.set(rb, ra); this.size.set(ra, this.size.get(ra) + this.size.get(rb));
+    return true;
+  }
+}
+function depotNetwork(depots, links) {
+  const dsu = new DSU(depots), chosen = []; let total = 0;
+  for (const [a, b, lakh] of [...links].sort((x, y) => x[2] - y[2])) {
+    if (dsu.union(a, b)) { chosen.push(`${a}-${b} (₹${lakh} lakh)`); total += lakh; }
+  }
+  return chosen.length === depots.length - 1 ? { total, chosen } : null; // null: cannot connect all
+}
+```
+
+**Complexity:** `O(E log E)` for the sort; each DSU operation is nearly
+`O(1)` amortised. Space `O(V + E)`.
+
+## Part 4: van loading with DP (and why not greedy)
+
+A van carries 100 kg. Each parcel has a weight and a delivery fee; parcels
+cannot be split, so this is 0/1 knapsack (see "DP Patterns: Knapsack, LIS,
+LCS, Grid & Interval"). We also run the tempting greedy rule — highest ₹ per
+kg first — to see it lose (compare "Greedy Algorithms").
+
+```js
+function loadVan(parcels, cap) {
+  const n = parcels.length;
+  const dp = Array.from({ length: n + 1 }, () => new Array(cap + 1).fill(0));
+  for (let i = 1; i <= n; i++) {
+    const { kg, fee } = parcels[i - 1];
+    for (let c = 0; c <= cap; c++) dp[i][c] = Math.max(dp[i - 1][c], kg <= c ? dp[i - 1][c - kg] + fee : 0);
+  }
+  const picked = []; // walk back through the table to recover the choice
+  for (let i = n, c = cap; i > 0; i--) if (dp[i][c] !== dp[i - 1][c]) { picked.unshift(parcels[i - 1].id); c -= parcels[i - 1].kg; }
+  return { fee: dp[n][cap], picked };
+}
+function greedyLoad(parcels, cap) {
+  let fee = 0; const picked = [];
+  for (const p of [...parcels].sort((a, b) => b.fee / b.kg - a.fee / a.kg)) {
+    if (p.kg <= cap) { cap -= p.kg; fee += p.fee; picked.push(p.id); }
+  }
+  return { fee, picked };
+}
+```
+
+**Complexity:** DP is `O(n * C)` time and space (`C` = capacity in kg;
+pseudo-polynomial). Greedy is `O(n log n)` but not optimal.
+
+## Part 5: run the morning plan
+
+```js
+const fmt = (m) => `${Math.floor(m / 60)}h ${m % 60}m`;
+for (const [a, b] of [["Mumbai", "Ahmedabad"], ["Pune", "Indore"], ["Nashik", "Vadodara"]]) {
+  const r = fastestRoute(graph, a, b);
+  console.log(`${a} -> ${b}: ${fmt(r.minutes)} via ${r.path.join(" > ")}`);
+}
+const DEPOTS = ["Mumbai", "Pune", "Nashik", "Surat", "Ahmedabad"];
+const LINKS = [ // yearly lane cost, ₹ lakh
+  ["Mumbai", "Pune", 12], ["Mumbai", "Nashik", 14], ["Mumbai", "Surat", 18], ["Pune", "Nashik", 16],
+  ["Nashik", "Surat", 17], ["Surat", "Ahmedabad", 15], ["Mumbai", "Ahmedabad", 30],
+];
+const net = depotNetwork(DEPOTS, LINKS);
+console.log(`Depot network: ₹${net.total} lakh/yr -> ${net.chosen.join(", ")}`);
+const PARCELS = [
+  { id: "P1", kg: 40, fee: 1800 }, { id: "P2", kg: 25, fee: 1300 }, { id: "P3", kg: 60, fee: 2600 },
+  { id: "P4", kg: 35, fee: 1700 }, { id: "P5", kg: 50, fee: 2000 }, { id: "P6", kg: 15, fee: 900 },
+];
+for (const [label, plan] of [["DP", loadVan(PARCELS, 100)], ["Greedy", greedyLoad(PARCELS, 100)]]) {
+  console.log(`Van 100 kg, ${label}: ₹${plan.fee.toLocaleString("en-IN")} from ${plan.picked.join(", ")}`);
+}
+```
+
+```text
+Mumbai -> Ahmedabad: 8h 40m via Mumbai > Surat > Ahmedabad
+Pune -> Indore: 11h 30m via Pune > Aurangabad > Indore
+Nashik -> Vadodara: 6h 50m via Nashik > Surat > Vadodara
+Depot network: ₹58 lakh/yr -> Mumbai-Pune (₹12 lakh), Mumbai-Nashik (₹14 lakh), Surat-Ahmedabad (₹15 lakh), Nashik-Surat (₹17 lakh)
+Van 100 kg, DP: ₹4,800 from P1, P2, P4
+Van 100 kg, Greedy: ₹3,900 from P6, P2, P4
+```
+
+Greedy grabs the best-ratio parcels (P6, P2, P4 = 75 kg), then nothing
+else fits, wasting 25 kg. DP finds P1, P2, P4 (100 kg) for ₹900 more per van.
+
+## Complexity summary
+
+| Part | Technique | Time | Space |
+|---|---|---|---|
+| Graph build | adjacency list | `O(V + E)` | `O(V + E)` |
+| Fastest route | Dijkstra + binary heap | `O((V + E) log V)` | `O(V + E)` |
+| Depot network | Kruskal + union-find | `O(E log E)` | `O(V + E)` |
+| Van loading | 0/1 knapsack DP | `O(n * C)` | `O(n * C)`, reducible to `O(C)` without path recovery |
+
+## Extend it
+
+- **Live traffic:** reweight edges by time of day and re-run Dijkstra; for
+  many queries on a fixed map, precompute all-pairs distances.
+- **Many vans:** first-fit decreasing bin packing to estimate how many vans
+  a day's parcels need, then knapsack per van for priority parcels.
+- **Multi-stop routes:** order up to about 15 drops with bitmask DP (see
+  "Bit Manipulation & Bitmask DP").
+- **Resilience:** run bridge detection on the road graph to find lanes
+  whose closure would cut off a hub.
+
+### Try it yourself
+
+1. Add a `toll` field to each road and find the cheapest route under a
+   maximum of 9 hours of driving (hint: Dijkstra over `(city, minutes)`
+   states, or a weighted sum of time and ₹).
+2. Make `loadVan` use a single 1-D array, iterating capacity downwards, and
+   confirm it still returns ₹4,800.
+3. Add Indore as a sixth depot. First run `depotNetwork` with no lane to
+   Indore and handle the `null` result with a clear message; then add
+   candidate lanes and compare the new yearly cost.

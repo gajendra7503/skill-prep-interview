@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A route serves files with `path.resolve(ROOT, req.query.name)`. Which check reliably prevents path traversal?",
+      "options": [
+        "Reject names that contain the string \"..\" only at the start",
+        "Use path.join instead of path.resolve",
+        "Verify the resolved path starts with ROOT + path.sep",
+        "Encode the name with encodeURIComponent before resolving"
+      ],
+      "correctIndex": 2,
+      "explanation": "Resolve the final absolute path and confirm it is still inside the root folder; adding path.sep stops sibling folders like uploads-private from passing."
+    },
+    {
+      "question": "Why is a regex like /^(a+)+$/ a security risk in a Node.js server?",
+      "options": [
+        "Catastrophic backtracking on crafted input blocks the single event loop thread",
+        "It leaks memory because regexes are never garbage collected",
+        "It allows SQL injection through the matched groups",
+        "Node.js refuses to compile nested quantifiers at startup"
+      ],
+      "correctIndex": 0,
+      "explanation": "Nested quantifiers can backtrack exponentially (ReDoS). Since JavaScript runs on one thread, one malicious request can freeze every other request."
+    },
+    {
+      "question": "Which change does NOT help against prototype pollution?",
+      "options": [
+        "Using a Map or Object.create(null) for user-keyed dictionaries",
+        "Skipping __proto__, constructor and prototype keys during merges",
+        "Running Node with --disable-proto=delete",
+        "Wrapping the merge call in try/catch"
+      ],
+      "correctIndex": 3,
+      "explanation": "Pollution does not throw, so try/catch changes nothing. Safe dictionaries, key filtering, strict schemas and --disable-proto all reduce the risk."
+    },
+    {
+      "question": "Which command installs exactly what the lockfile specifies while skipping package lifecycle scripts such as postinstall?",
+      "options": [
+        "npm install --save-exact",
+        "npm ci --ignore-scripts",
+        "npm audit fix --force",
+        "npm update --omit=dev"
+      ],
+      "correctIndex": 1,
+      "explanation": "npm ci installs strictly from package-lock.json, and --ignore-scripts prevents dependencies from running install-time code."
+    }
+  ]
+}

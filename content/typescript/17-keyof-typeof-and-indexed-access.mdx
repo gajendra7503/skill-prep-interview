@@ -1,0 +1,179 @@
+---
+title: "keyof, typeof & Indexed Access Types"
+description: "Derive types from other types and from values with keyof, typeof and T[K], so a single source of truth drives your keys, unions and lookups."
+module: "Advanced Types"
+level: "advanced"
+order: 17
+---
+
+So far you have mostly *written* types by hand. Advanced TypeScript is about
+*deriving* them: compute a union of keys from an object type, lift a type out
+of a runtime value, or look up the type of one property. Three operators do
+almost all of this work, and they are the building blocks for conditional,
+mapped and template literal types later in this module.
+
+| Operator | Input | Output | Example |
+|---|---|---|---|
+| `keyof T` | a type | union of its keys | `keyof Investor` (all its keys) |
+| `typeof x` (in a type position) | a value | its static type | `typeof defaults` |
+| `T[K]` | a type and a key type | the property type | `Investor["name"]` gives `string` |
+
+## keyof: the keys of a type, as a union
+
+```ts
+type Investor = { id: number; name: string; city: string };
+
+type InvestorKey = keyof Investor; // "id" | "name" | "city"
+
+const ok: InvestorKey = "city";
+const bad: InvestorKey = "email"; // Error: '"email"' is not assignable to type 'keyof Investor'
+```
+
+Index signatures behave differently, and this shows up in interviews:
+
+```ts
+type Dict = { [key: string]: number };
+type DictKey = keyof Dict;  // string | number
+
+type ByIndex = { [i: number]: string };
+type IndexKey = keyof ByIndex; // number
+```
+
+Why `string | number` for a string index signature? Because JavaScript converts
+numeric property keys to strings, so `dict[5]` is the same as `dict["5"]`. A
+string index signature therefore accepts number keys too.
+
+## typeof: from a value to a type
+
+In an expression, `typeof` is the JavaScript runtime operator that returns
+`"string"`, `"object"` and so on. In a **type position** it is a different
+operator: it asks the compiler for the static type of a variable or property.
+
+```ts
+const defaults = { currency: "INR", locale: "en-IN", pageSize: 20 };
+
+type Defaults = typeof defaults;
+// { currency: string; locale: string; pageSize: number }
+
+type SettingKey = keyof typeof defaults; // "currency" | "locale" | "pageSize"
+```
+
+`keyof typeof obj` is an extremely common idiom: the object is the single source
+of truth, and the key union updates itself when someone adds a setting.
+
+Limits worth knowing: type-level `typeof` only accepts identifiers and property
+access (`typeof config.db`), not arbitrary expressions such as function calls.
+To get a function's return type, combine it with the built-in utility:
+`ReturnType<typeof makeOrder>`.
+
+### typeof respects widening
+
+Because `defaults` above is a mutable object, its properties widen to `string`
+and `number`. If you want the literal values, freeze the inference with
+`as const` (covered in "Enums, as const & satisfies"):
+
+```ts
+const STATUS = { ACTIVE: "active", PAUSED: "paused" } as const;
+type Status = (typeof STATUS)[keyof typeof STATUS]; // "active" | "paused"
+
+const STATUS_LOOSE = { ACTIVE: "active", PAUSED: "paused" };
+type Loose = (typeof STATUS_LOOSE)[keyof typeof STATUS_LOOSE]; // string
+```
+
+That `Status` line uses all three operators at once: `typeof` lifts the value,
+`keyof` gets the keys, and the indexed access reads every value type.
+
+## Indexed access: T[K]
+
+Indexed access types use bracket syntax to read the type of a property. The
+key must be a type, so you write a string literal type, not a dot:
+
+```ts
+type Name = Investor["name"];            // string
+type IdOrCity = Investor["id" | "city"]; // number | string (a union key gives a union)
+type AnyValue = Investor[keyof Investor]; // number | string
+// type Wrong = Investor.name;           // Error: use Investor["name"]
+```
+
+They chain, which is great for reaching into nested API response types
+without declaring every inner type separately:
+
+```ts
+type Order = {
+  id: string;
+  items: { sku: string; priceInr: number }[];
+  customer: { address: { pin: string } };
+};
+
+type Pin = Order["customer"]["address"]["pin"]; // string
+type LineItem = Order["items"][number];         // { sku: string; priceInr: number }
+```
+
+`[number]` means "the type you get by indexing with any number", which is the
+element type of an array.
+
+### Arrays to unions
+
+Combine `as const` with `[number]` to derive a union from a runtime list. The
+array stays usable at runtime (for a dropdown, say) and the type can never fall
+out of sync:
+
+```ts
+const PLANS = ["basic", "silver", "gold"] as const;
+type Plan = (typeof PLANS)[number]; // "basic" | "silver" | "gold"
+
+const p: Plan = "platinum"; // Error
+```
+
+## Putting it together: a type-safe getter
+
+The classic interview question is "write a `getProperty` function whose return
+type depends on the key". `K extends keyof T` limits the key, and `T[K]` is the
+return type:
+
+```ts
+function getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key];
+}
+
+const asha: Investor = { id: 1, name: "Asha", city: "Pune" };
+const id = getProperty(asha, "id");     // number
+const city = getProperty(asha, "city"); // string
+getProperty(asha, "email");             // Error: not assignable to 'keyof Investor'
+```
+
+Compare that with `key: keyof T` and return type `T[keyof T]`: it compiles, but
+every call returns `number | string`. The separate generic `K` is what lets the
+compiler remember *which* key you passed.
+
+## Why Object.keys returns string[]
+
+Interviewers often ask why `Object.keys(asha)` is `string[]` rather than
+`(keyof Investor)[]`. TypeScript is structural: a value of type `Investor` may
+legally carry extra properties at runtime (any object with at least those three
+fields is assignable). Claiming the keys are exactly `"id" | "name" | "city"`
+would be a lie. If you know the object is exact, cast deliberately:
+
+```ts
+const keys = Object.keys(asha) as (keyof Investor)[]; // your promise, not the compiler's
+```
+
+The soundness trade-offs behind this are explored in "Structural Typing,
+Variance & Soundness Holes".
+
+## Common mistakes
+
+- Using a `let` variable as a key: `let k = "name"` widens to `string`, so
+  `Investor[typeof k]` is an error. Use `const`.
+- Forgetting `as const` and getting `string` instead of a literal union.
+- Writing `keyof` on a value (`keyof defaults`) instead of `keyof typeof defaults`.
+
+### Try it yourself
+
+1. Given `const ROLES = ["admin", "advisor", "viewer"] as const;`, derive a
+   `Role` union and write `function hasRole(r: string): r is Role`.
+2. Write `pluck<T, K extends keyof T>(items: T[], key: K)` that returns an array
+   of `T[K]`, and check that plucking `"priceInr"` from line items gives
+   `number[]`.
+3. From a `const ENDPOINTS = { funds: "/api/funds", sips: "/api/sips" } as const`
+   object, derive both the key union and the URL union.

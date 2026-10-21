@@ -1,0 +1,172 @@
+---
+title: "Tool Use & Agents"
+description: "Define tools, run the tool-use loop correctly, handle parallel calls and errors, and decide when an agent is worth it over a fixed workflow."
+module: "Building with the API"
+level: "advanced"
+order: 21
+---
+
+A model on its own can only produce text. **Tool use** lets it ask your code
+to do something — look up an order, query a database, send an email — and
+then continue with the result. The model never runs anything itself: it
+emits a structured request, your program executes it, and you send the
+result back. Getting that loop right is the core skill behind every "agent".
+
+## Defining a tool
+
+A tool is a name, a description and a JSON Schema for its input. The
+description is a prompt in its own right: say what the tool does, when to
+use it (and when not to), and what each parameter means.
+
+```python
+tools = [
+    {
+        "name": "get_order_status",
+        "description": (
+            "Look up the current status of a customer order in the ShopKart "
+            "order system. Use this whenever the user asks where an order is, "
+            "whether it shipped, or when it will arrive. Do not guess statuses."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "order_id": {
+                    "type": "string",
+                    "description": "Order ID in the form SK-123456, as written by the customer.",
+                },
+            },
+            "required": ["order_id"],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    }
+]
+```
+
+Adding `"strict": True` at the top level of the tool guarantees the model's
+input matches the schema. It requires `additionalProperties: false` and a
+`required` list, as above.
+
+## The tool-use loop
+
+When Claude wants a tool, the response has `stop_reason == "tool_use"` and
+one or more `tool_use` blocks. You append the assistant turn **unchanged**,
+run every requested tool, and send **one** user message containing all the
+`tool_result` blocks. Repeat until `stop_reason == "end_turn"`.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY
+
+def run_tool(name: str, args: dict) -> str:
+    if name == "get_order_status":
+        return lookup_order(args["order_id"])  # your own function
+    raise ValueError(f"Unknown tool: {name}")
+
+messages = [{"role": "user", "content": "Where are orders SK-100231 and SK-100877?"}]
+
+while True:
+    response = client.messages.create(
+        model="claude-opus-5-5",
+        max_tokens=16000,
+        system="You are a support assistant for ShopKart, a fictional Indian e-commerce company.",
+        tools=tools,
+        messages=messages,
+    )
+    if response.stop_reason != "tool_use":
+        break
+
+    messages.append({"role": "assistant", "content": response.content})
+    results = []
+    for block in response.content:
+        if block.type != "tool_use":
+            continue
+        try:
+            output = run_tool(block.name, block.input)  # block.input is already a dict
+            results.append({"type": "tool_result", "tool_use_id": block.id, "content": output})
+        except Exception as exc:
+            results.append({"type": "tool_result", "tool_use_id": block.id,
+                            "content": f"Error: {exc}", "is_error": True})
+    messages.append({"role": "user", "content": results})
+
+print("".join(b.text for b in response.content if b.type == "text"))
+```
+
+Points interviewers and reviewers look for:
+
+- `block.input` is a parsed object. Read fields from it; never string-match
+  the raw text of the response to find tool calls.
+- Every `tool_use` block needs a matching `tool_result` with the same
+  `tool_use_id`, or the next request fails.
+- Check `block.type` rather than assuming the first block is text.
+
+## Parallel tool calls
+
+In the example above, Claude will usually request both order lookups in a
+single response — two `tool_use` blocks. That is why the loop iterates over
+all blocks and returns all results together in one user message. Splitting
+them into separate user messages breaks the pattern and teaches the model to
+stop parallelising. If the tools are independent, you can also execute them
+concurrently in your own code.
+
+## Errors are results too
+
+If a tool fails — order not found, timeout, permission denied — return a
+`tool_result` with `"is_error": True` and a helpful message instead of
+crashing the loop. The model can then retry with corrected input, try a
+different tool, or explain the problem to the user. Make error text
+actionable: "Order SK-10023 not found; IDs have six digits" beats a stack
+trace.
+
+## Choosing tools without forcing
+
+On `claude-opus-5-5` and `claude-sonnet-5-5`, forced tool choice
+(`tool_choice` of type `any` or `tool`) returns a 400 error. Use the default
+`{"type": "auto"}` and say clearly in the prompt when a tool must be used.
+If what you really want is a fixed JSON shape, use structured outputs
+(`client.messages.parse`) rather than a fake tool.
+
+## Agent or fixed workflow?
+
+An **agent** is just this loop with the model deciding which tools to call
+and when to stop. That flexibility costs latency, tokens and predictability.
+
+| Use a fixed workflow when | Use an agent when |
+| --- | --- |
+| The steps are known in advance | The steps depend on what is discovered |
+| Each step is one prompt or one function | The task needs several rounds of tool calls |
+| You need predictable cost and audit trail | Inputs vary widely and rules can't enumerate them |
+
+A KYC document check with five known steps should be a chain of prompts. A
+"research why this batch of payouts failed" task, where each finding decides
+the next query, is a reasonable agent.
+
+## Human approval before risky actions
+
+Read-only tools (look up, search) can run automatically. Tools with side
+effects — issuing a refund, sending an email, deleting records — should
+pause for a human. Implement this in your code, not in the prompt:
+
+```python
+RISKY = {"issue_refund", "send_email"}
+
+def run_tool_with_approval(name: str, args: dict) -> str:
+    if name in RISKY:
+        answer = input(f"Approve {name} with {args}? [y/N] ")
+        if answer.strip().lower() != "y":
+            raise PermissionError("Action rejected by human reviewer.")
+    return run_tool(name, args)
+```
+
+A rejection flows back as an error result, so the model can tell the user
+the action needs manual handling. Prompts can be bypassed; code checks
+cannot.
+
+### Try it yourself
+
+Add a second tool, `get_refund_policy`, that takes a product category and
+returns the refund window in days. Ask a question that needs both tools,
+log every `tool_use` block, and confirm both calls arrive in one response.
+Then make `get_order_status` raise for unknown IDs and check that Claude
+recovers gracefully from the `is_error` result.

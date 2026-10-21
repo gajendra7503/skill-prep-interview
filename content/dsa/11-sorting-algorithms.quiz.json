@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `[10, 9, 1, 100].sort()` return in JavaScript?",
+      "options": [
+        "[1, 9, 10, 100]",
+        "[100, 10, 9, 1]",
+        "[1, 10, 100, 9]",
+        "[9, 1, 10, 100]"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without a comparator, elements are converted to strings and compared, so '10' and '100' come before '9'. Pass (a, b) => a - b for numeric order."
+    },
+    {
+      "question": "Which sort guarantees O(n log n) in the worst case and is stable, at the cost of O(n) extra space?",
+      "options": [
+        "Merge sort",
+        "Quicksort",
+        "Heapsort",
+        "Insertion sort"
+      ],
+      "correctIndex": 0,
+      "explanation": "Merge sort always does log n levels of O(n) merging and keeps equal elements in order if the merge prefers the left half on ties, but it needs an auxiliary array."
+    },
+    {
+      "question": "How can counting sort run faster than the Ω(n log n) lower bound?",
+      "options": [
+        "It uses a random pivot",
+        "It is not a comparison sort; it uses key values directly as array indices",
+        "It only works on already sorted data",
+        "It sorts in parallel threads"
+      ],
+      "correctIndex": 1,
+      "explanation": "The lower bound applies to comparison-based sorts. Counting sort counts occurrences of small integer keys, giving O(n + k)."
+    },
+    {
+      "question": "In the merge-intervals solution, why is Math.max(last[1], e) used instead of just e?",
+      "options": [
+        "To keep the sort stable",
+        "Because intervals must be sorted by end time",
+        "To avoid mutating the input",
+        "Because the current interval may lie entirely inside the last merged one, as with [1, 10] followed by [2, 3]"
+      ],
+      "correctIndex": 3,
+      "explanation": "If the current interval ends earlier than the merged one, using e would wrongly shrink the merged interval."
+    }
+  ]
+}

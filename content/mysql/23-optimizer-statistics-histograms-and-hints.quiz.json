@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A query suddenly runs far slower after a bulk load with no code change. What is the first fix the lesson suggests?",
+      "options": [
+        "Add an optimizer hint to every query",
+        "Run ANALYZE TABLE and check the statistics",
+        "Switch to a different storage engine",
+        "Rebuild the table with ALGORITHM=COPY"
+      ],
+      "correctIndex": 1,
+      "explanation": "A plan flip often comes from an unlucky statistics sample; ANALYZE TABLE re-samples cheaply without rebuilding."
+    },
+    {
+      "question": "When is a histogram most useful?",
+      "options": [
+        "To speed up a single-table scan on one column",
+        "To replace the primary key",
+        "To give better estimates for low-cardinality unindexed columns, especially in joins",
+        "To update statistics automatically"
+      ],
+      "correctIndex": 2,
+      "explanation": "Histograms improve estimates and so join order; they do not make scans faster, and an index is still the fix for single-column filters."
+    },
+    {
+      "question": "How are histograms kept up to date?",
+      "options": [
+        "Automatically after every 10 percent change",
+        "They are not updated automatically; rebuild them yourself",
+        "Every time ANALYZE TABLE runs without options",
+        "Only when the server restarts"
+      ],
+      "correctIndex": 1,
+      "explanation": "The lesson states histograms are not updated automatically and must be rebuilt on a schedule or after big loads."
+    },
+    {
+      "question": "What happens if an optimizer hint is invalid?",
+      "options": [
+        "The statement fails with an error",
+        "The server crashes",
+        "The query is rewritten automatically",
+        "The hint is ignored with a warning, so check SHOW WARNINGS"
+      ],
+      "correctIndex": 3,
+      "explanation": "Invalid hints do not raise errors; they produce a warning only."
+    }
+  ]
+}

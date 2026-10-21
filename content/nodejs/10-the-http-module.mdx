@@ -1,0 +1,158 @@
+---
+title: "The HTTP Module"
+description: "Building a server with node:http — requests and responses, status codes and headers, hand-written routing, JSON bodies, keep-alive, and why frameworks exist."
+module: "Networking"
+level: "intermediate"
+order: 13
+---
+
+Express, Fastify and Next.js all sit on top of `node:http`. You will rarely
+ship a raw `http` server, but interviewers ask about it because it shows
+whether you understand what a framework does for you: parsing URLs, reading
+bodies, setting headers and handling errors.
+
+## The smallest server
+
+```js
+import http from "node:http";
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+  res.end("Namaste from Node\n");
+});
+
+server.listen(3000, () => console.log("listening on http://localhost:3000"));
+```
+
+```bash
+curl -i http://localhost:3000
+# HTTP/1.1 200 OK
+# Content-Type: text/plain; charset=utf-8
+# ...
+# Namaste from Node
+```
+
+The callback runs once per request. `req` is an `http.IncomingMessage` (a
+**readable stream** of the body plus `method`, `url` and `headers`), and
+`res` is an `http.ServerResponse` (a **writable stream**). Header names in
+`req.headers` are always lowercase.
+
+## Status codes and headers
+
+```js
+res.statusCode = 201;
+res.setHeader("Content-Type", "application/json");
+res.setHeader("Location", "/orders/42");
+res.end(JSON.stringify({ id: 42, amount: 1499, currency: "INR" }));
+```
+
+`writeHead` sets status and headers in one call. Headers must be set
+**before** the body starts — calling `setHeader` after the first `write`
+throws `ERR_HTTP_HEADERS_SENT`, a common bug when two code paths both try to
+respond. Always call `res.end()`, or the client hangs until it times out.
+
+## Routing by hand
+
+```js
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+
+  try {
+    if (req.method === "GET" && url.pathname === "/health") {
+      return sendJson(res, 200, { status: "ok" });
+    }
+    const match = url.pathname.match(/^\/orders\/(\d+)$/);
+    if (req.method === "GET" && match) {
+      return sendJson(res, 200, { id: Number(match[1]), total: "₹1,499" });
+    }
+    if (req.method === "POST" && url.pathname === "/orders") {
+      const body = await readJson(req);
+      return sendJson(res, 201, { id: 43, ...body });
+    }
+    sendJson(res, 404, { error: "Not found" });
+  } catch (err) {
+    sendJson(res, err.status ?? 500, { error: err.status ? err.message : "Internal error" });
+  }
+});
+
+function sendJson(res, status, data) {
+  const body = JSON.stringify(data);
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Content-Length": Buffer.byteLength(body), // bytes, not body.length
+  });
+  res.end(body);
+}
+```
+
+`req.url` is only the path and query (`/orders/42?x=1`), so build a full
+`URL` to parse it. Note the `try`/`catch`: an exception thrown inside an
+`async` handler becomes an unhandled rejection, not a 500 response.
+
+## Reading a JSON body
+
+The body arrives as a stream of chunks, so you must collect it — and cap
+its size, or one client can send gigabytes and exhaust memory.
+
+```js
+async function readJson(req, limit = 1_000_000) {
+  if (!req.headers["content-type"]?.startsWith("application/json")) {
+    throw Object.assign(new Error("Expected JSON"), { status: 415 });
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > limit) throw Object.assign(new Error("Body too large"), { status: 413 });
+    chunks.push(chunk);
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw Object.assign(new Error("Invalid JSON"), { status: 400 });
+  }
+}
+```
+
+```bash
+curl -X POST localhost:3000/orders -H "content-type: application/json" -d '{"item":"SIP"}'
+# {"id":43,"item":"SIP"}
+```
+
+Concatenating Buffers before decoding avoids splitting multi-byte
+characters like `₹` across chunks.
+
+## Keep-alive and timeouts
+
+HTTP/1.1 connections are **persistent** by default: after a response the
+TCP socket stays open for the next request, avoiding a new handshake each
+time. Node's server closes idle sockets after `server.keepAliveTimeout`
+(5000 ms by default). Behind a load balancer, set it **higher** than the
+balancer's idle timeout, otherwise Node may close a socket the balancer is
+about to reuse, producing sporadic 502 errors.
+
+```js
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 66_000;   // keep it above keepAliveTimeout
+```
+
+On the client side, the global `fetch` and `http.Agent` reuse connections
+too. For graceful shutdown, `server.close()` stops accepting new
+connections, and `server.closeIdleConnections()` drops idle keep-alive
+sockets so the process can exit.
+
+## Why frameworks exist
+
+Look at everything written by hand above: URL parsing, path parameters
+with regexes, method checks, body parsing with limits, content-type checks,
+error-to-status mapping, `Content-Length`. Add cookies, CORS, compression,
+static files and middleware ordering, and you have rebuilt Express badly.
+Frameworks give you routing, a middleware pipeline, body parsers and
+centralised error handling — but knowing the raw layer lets you debug them.
+
+### Try it yourself
+
+Extend the server with an in-memory `Map` of orders: `GET /orders` lists
+them, `POST /orders` validates that `amount` is a positive number (reply
+`422` otherwise) and stores it with a total formatted as `₹`, and
+`DELETE /orders/:id` replies `204`. Test each route with `curl -i`.

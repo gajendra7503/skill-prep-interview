@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "An endpoint lists 50 orders and then reads `order.customer.name` for each through an ORM with lazy loading. What happens and what is the fix?",
+      "options": [
+        "One JOIN query runs; no fix is needed",
+        "The ORM caches all customers at startup, so only one query runs",
+        "1 query for orders plus 50 for customers (N+1); fix it with eager loading such as selectinload or include",
+        "The query fails because lazy loading is not allowed in loops"
+      ],
+      "correctIndex": 2,
+      "explanation": "Lazy loading fires one query per parent row. Eager loading fetches related rows in a fixed number of queries, e.g. one extra WHERE id IN (...) query."
+    },
+    {
+      "question": "Your application catches MySQL error 1213 inside a multi-statement transaction. What is the correct handling?",
+      "options": [
+        "Roll back and retry the entire transaction a bounded number of times with a short backoff",
+        "Retry only the statement that failed and then commit",
+        "Commit immediately to keep the work done so far",
+        "Increase innodb_lock_wait_timeout and continue"
+      ],
+      "correctIndex": 0,
+      "explanation": "A deadlock rolls back the victim's whole transaction, so re-running only the last statement would lose earlier work. Retry the full transaction."
+    },
+    {
+      "question": "In mysql2 for Node.js, what is the difference between `pool.execute()` and `pool.query()`?",
+      "options": [
+        "execute() is synchronous and query() is asynchronous",
+        "query() supports placeholders and execute() does not",
+        "They are identical aliases",
+        "execute() uses a server-side prepared statement; query() escapes values client-side and sends plain SQL"
+      ],
+      "correctIndex": 3,
+      "explanation": "Both accept ? placeholders, but execute() prepares the statement on the server and caches it per connection, while query() interpolates escaped values on the client."
+    },
+    {
+      "question": "20 application pods each run a pool of 10 connections against a server with the default `max_connections`. What is likely to happen under load?",
+      "options": [
+        "Nothing, because MySQL queues extra connections indefinitely",
+        "Up to 200 connections exceed the default of 151, so some fail with error 1040 Too many connections",
+        "MySQL automatically raises max_connections to fit",
+        "Each pod is limited to one connection"
+      ],
+      "correctIndex": 1,
+      "explanation": "Total connections are instances times pool size. That must stay below max_connections (default 151) with headroom, or use a proxy to multiplex."
+    }
+  ]
+}

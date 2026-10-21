@@ -1,0 +1,162 @@
+---
+title: "Signal Inputs, Queries & Resource"
+description: "The signal-based component APIs — input(), model(), output(), signal queries, linkedSignal and resource — and how to migrate from decorators."
+module: "Modern Angular"
+level: "intermediate"
+order: 13
+---
+
+Earlier lessons used `@Input()`, `@Output()` and `@ViewChild()`. Since
+Angular 19 the framework has stable **function-based** equivalents that
+return signals, so a component's inputs and queries plug straight into
+`computed()` and `effect()`. New code — and most interview questions about
+"modern Angular" — use these.
+
+## `input()` and `input.required()`
+
+```ts
+import { Component, input, computed, booleanAttribute } from "@angular/core";
+
+@Component({
+  selector: "app-fund-card",
+  template: `
+    <h3>{{ name() }}</h3>
+    <p>NAV: {{ navLabel() }}</p>
+  `,
+})
+export class FundCardComponent {
+  name = input.required<string>();
+  nav = input(0);                                    // InputSignal<number>, default 0
+  compact = input(false, { transform: booleanAttribute });
+  schemeCode = input<string>("", { alias: "code" });
+
+  navLabel = computed(() => `₹${this.nav().toFixed(2)}`);
+}
+```
+
+- An input is a **read-only signal** — call it (`name()`) to read it. You
+  cannot `.set()` it from inside the component.
+- `input.required()` makes a missing binding a **compile-time** error,
+  replacing the `@Input() name!: string` non-null-assertion hack.
+- Because inputs are signals, derived values are just `computed()` — no
+  `ngOnChanges` needed.
+
+## `model()`: two-way binding
+
+When a child needs to *write back* to a value the parent owns, use `model()`.
+It is a writable signal that also creates a matching `quantityChange` output:
+
+```ts
+@Component({
+  selector: "app-qty-stepper",
+  template: `<button (click)="quantity.update(q => q + 1)">+</button> {{ quantity() }}`,
+})
+export class QtyStepperComponent {
+  quantity = model(1);
+}
+```
+
+```html
+<!-- parent: units is a signal(1); the binding keeps both in sync -->
+<app-qty-stepper [(quantity)]="units" />
+```
+
+## `output()`
+
+```ts
+export class OrderFormComponent {
+  submitted = output<Order>();          // OutputEmitterRef<Order>
+
+  save(order: Order) {
+    this.submitted.emit(order);
+  }
+}
+```
+
+`output()` is not an RxJS `Subject` — it has only `emit()` and `subscribe()`.
+To bridge an Observable, use `outputFromObservable()` from
+`@angular/core/rxjs-interop`.
+
+## Signal queries: `viewChild()` and `contentChildren()`
+
+```ts
+export class StatementComponent {
+  searchBox = viewChild.required<ElementRef<HTMLInputElement>>("search");
+  chart = viewChild(ChartComponent);          // Signal<ChartComponent | undefined>
+  rows = contentChildren(StatementRowComponent); // Signal<readonly StatementRowComponent[]>
+
+  rowCount = computed(() => this.rows().length);
+
+  focusSearch() {
+    this.searchBox().nativeElement.focus();
+  }
+}
+```
+
+Query results update automatically as the view changes, so there is no
+`ngAfterViewInit` timing dance and no `QueryList.changes` subscription.
+
+## `linkedSignal`: writable state that resets with its source
+
+A common need: a "selected plan" the user can change, which must reset when
+the list of plans changes. `computed()` is read-only and `effect()` syncing
+is an anti-pattern — `linkedSignal` (stable in Angular 20) solves it:
+
+```ts
+plans = input.required<Plan[]>();
+selected = linkedSignal(() => this.plans()[0]);   // resets when plans() changes
+
+choose(plan: Plan) {
+  this.selected.set(plan);                        // still writable locally
+}
+```
+
+## `resource` and `httpResource` (experimental)
+
+`resource()` connects async data to signals: when its `params` change, it
+re-runs the loader and aborts the previous request. `httpResource()` is a
+thin wrapper over `HttpClient` (so interceptors still apply). Both are
+**experimental** as of Angular 20 — the API has already changed (v19's
+`request` option became `params`), so check your version's docs.
+
+```ts
+export class FundDetailComponent {
+  fundId = input.required<string>();
+
+  fund = httpResource<Fund>(() => `/api/funds/${this.fundId()}`);
+
+  holdings = resource({
+    params: () => ({ id: this.fundId() }),
+    loader: ({ params, abortSignal }) =>
+      fetch(`/api/funds/${params.id}/holdings`, { signal: abortSignal }).then((r) => r.json()),
+  });
+}
+```
+
+```html
+@if (fund.isLoading()) { <app-spinner /> }
+@else if (fund.error()) { <p>Could not load fund.</p> }
+@else if (fund.hasValue()) { <h2>{{ fund.value().name }}</h2> }
+```
+
+## Migrating from decorators
+
+Angular ships schematics that rewrite decorators safely, skipping cases
+they cannot convert (for example, inputs that are written to internally):
+
+```bash
+ng generate @angular/core:signal-input-migration
+ng generate @angular/core:output-migration
+ng generate @angular/core:signal-queries-migration
+```
+
+After migrating, template reads change from `name` to `name()`, and any
+`ngOnChanges` logic usually becomes a `computed()` or `linkedSignal`.
+
+### Try it yourself
+
+Convert a `FundCardComponent` that uses `@Input()`, `@Output()` and
+`@ViewChild()` to `input.required()`, `output()` and `viewChild()`. Add a
+`model()`-based quantity stepper bound with `[(quantity)]`, and load the
+fund's details with `httpResource` keyed on the `fundId` input, showing
+loading and error states.

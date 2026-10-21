@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A regex `const re = /\\d/g;` is called as `re.test(\"a1\")` twice in a row. What do the two calls return?",
+      "options": [
+        "true, then true",
+        "true, then false",
+        "false, then true",
+        "It throws because test() cannot be used with the g flag"
+      ],
+      "correctIndex": 1,
+      "explanation": "With g (or y), test() resumes from lastIndex. After the first match lastIndex is 2, so the second search starts past the digit, fails, and resets lastIndex to 0."
+    },
+    {
+      "question": "What happens if you call `str.matchAll(/x/)` with a regex that has no g flag?",
+      "options": [
+        "It returns only the first match",
+        "It returns an empty iterator",
+        "It throws a TypeError",
+        "It silently adds the g flag"
+      ],
+      "correctIndex": 2,
+      "explanation": "matchAll (and replaceAll with a regex) requires the global flag and throws a TypeError otherwise."
+    },
+    {
+      "question": "Which flag makes `.` match newline characters?",
+      "options": [
+        "s (dotAll)",
+        "m (multiline)",
+        "u (unicode)",
+        "y (sticky)"
+      ],
+      "correctIndex": 0,
+      "explanation": "The s flag enables dotAll mode. The m flag only changes ^ and $ to match at line boundaries."
+    },
+    {
+      "question": "Why is `/^(a+)+$/` dangerous to run on untrusted input such as a long run of a's followed by '!'?",
+      "options": [
+        "It matches too many strings, causing false positives",
+        "Nested quantifiers cause exponential backtracking when the match fails, which can freeze the single JS thread",
+        "It allocates a new string for every character",
+        "Anchors ^ and $ are not supported with nested groups"
+      ],
+      "correctIndex": 1,
+      "explanation": "The backtracking engine tries every way of splitting the a's between the inner and outer quantifier before failing — a regular expression denial of service (ReDoS)."
+    }
+  ]
+}

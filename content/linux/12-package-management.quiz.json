@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `sudo apt update` do?",
+      "options": [
+        "Upgrades all installed packages to their latest versions",
+        "Downloads the latest package lists from the repositories without changing installed software",
+        "Upgrades the Ubuntu release to the next version",
+        "Removes packages that are no longer needed"
+      ],
+      "correctIndex": 1,
+      "explanation": "apt update only refreshes the package index. apt upgrade installs newer versions, and apt autoremove removes unneeded dependencies."
+    },
+    {
+      "question": "What is the difference between `apt remove nginx` and `apt purge nginx`?",
+      "options": [
+        "remove deletes users' home directories; purge does not",
+        "remove works only on snaps",
+        "There is no difference",
+        "purge also deletes the package's system configuration files; remove keeps them"
+      ],
+      "correctIndex": 3,
+      "explanation": "remove uninstalls the package but leaves its configuration under /etc in place; purge deletes that configuration too. Neither touches home directories."
+    },
+    {
+      "question": "Which command tells you which Debian/Ubuntu package installed /usr/bin/curl?",
+      "options": [
+        "dpkg -S /usr/bin/curl",
+        "dpkg -L /usr/bin/curl",
+        "apt show /usr/bin/curl",
+        "rpm -ql /usr/bin/curl"
+      ],
+      "correctIndex": 0,
+      "explanation": "dpkg -S searches for the package that owns a file. dpkg -L lists the files of a package, and rpm is the RPM-family equivalent (rpm -qf on Fedora/RHEL)."
+    },
+    {
+      "question": "Why is `apt-get` preferred over `apt` in scripts and Dockerfiles?",
+      "options": [
+        "apt-get can install snaps while apt cannot",
+        "apt-get skips signature verification, making it faster",
+        "apt-get has a stable command-line interface, while apt's output may change and it warns when used in scripts",
+        "apt is not available on Ubuntu servers"
+      ],
+      "correctIndex": 2,
+      "explanation": "apt is designed for interactive use and does not promise a stable CLI. apt-get and apt-cache keep a stable interface suited to automation."
+    }
+  ]
+}

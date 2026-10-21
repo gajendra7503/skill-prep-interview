@@ -1,0 +1,203 @@
+// SkillPrep database schema (MySQL). Apply changes with `npm run db:migrate`.
+// Course and lesson content lives in /content as files; the database stores only per-user data.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id               String   @id @db.Char(36)
+  email            String   @unique @db.VarChar(255)
+  name             String?  @db.VarChar(80)
+  passwordSalt     String   @map("password_salt") @db.Char(32)
+  passwordHash     String   @map("password_hash") @db.Char(128)
+  /// Opted in to appearing on public leaderboards. Off unless the user turns it on.
+  leaderboardOptIn Boolean  @default(false) @map("leaderboard_opt_in")
+  /// learner | admin. Admin is granted only from the command line (npm run admin:grant).
+  role             String   @default("learner") @db.VarChar(16)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  sessions         Session[]
+  completedLessons CompletedLesson[]
+  certificates     Certificate[]
+  testAttempts     TestAttempt[]
+  bookmarks        Bookmark[]
+  badges           UserBadge[]
+  teamMemberships  TeamMember[]
+  tutorMessages    TutorMessage[]
+
+  @@map("users")
+}
+
+/// Sign-in sessions. Only a SHA-256 hash of the cookie token is stored.
+model Session {
+  tokenHash String   @id @map("token_hash") @db.Char(64)
+  userId    String   @map("user_id") @db.Char(36)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model CompletedLesson {
+  id          Int      @id @default(autoincrement())
+  userId      String   @map("user_id") @db.Char(36)
+  courseSlug  String   @map("course_slug") @db.VarChar(64)
+  lessonSlug  String   @map("lesson_slug") @db.VarChar(128)
+  completedAt DateTime @default(now()) @map("completed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseSlug, lessonSlug])
+  @@map("completed_lessons")
+}
+
+/// One certificate per user per course. `rank` is the learner's completion position for that course.
+model Certificate {
+  id         String    @id @db.VarChar(16)
+  userId     String    @map("user_id") @db.Char(36)
+  courseSlug String    @map("course_slug") @db.VarChar(64)
+  rank       Int
+  startedAt  DateTime? @map("started_at")
+  issuedAt   DateTime  @default(now()) @map("issued_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseSlug])
+  @@unique([courseSlug, rank])
+  @@map("certificates")
+}
+
+model TestAttempt {
+  id               String   @id @db.Char(36)
+  userId           String   @map("user_id") @db.Char(36)
+  courseSlug       String   @map("course_slug") @db.VarChar(64)
+  /// Null on attempts recorded before quick tests existed (those were full tests).
+  questionCount    Int?     @map("question_count")
+  /// quick | full | easy | medium | hard. Null on attempts recorded before modes existed.
+  mode             String?  @db.VarChar(16)
+  score            Float
+  maxScore         Int      @map("max_score")
+  correct          Int
+  incorrect        Int
+  unattempted      Int
+  accuracy         Int
+  timeTakenSeconds Int      @map("time_taken_seconds")
+  submittedAt      DateTime @default(now()) @map("submitted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, courseSlug, submittedAt])
+  @@index([courseSlug, mode, submittedAt])
+  @@map("test_attempts")
+}
+
+model Bookmark {
+  userId     String   @map("user_id") @db.Char(36)
+  courseSlug String   @map("course_slug") @db.VarChar(64)
+  questionId String   @map("question_id") @db.VarChar(32)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, courseSlug, questionId])
+  @@map("bookmarks")
+}
+
+/// Sign-in attempts, used to lock an email out after repeated failures (website and API alike).
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  email     String   @db.VarChar(255)
+  succeeded Boolean
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, createdAt])
+  @@map("login_attempts")
+}
+
+/// Badges a user has earned, with when they first qualified.
+model UserBadge {
+  userId    String   @map("user_id") @db.Char(36)
+  badgeId   String   @map("badge_id") @db.VarChar(48)
+  awardedAt DateTime @default(now()) @map("awarded_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, badgeId])
+  @@map("user_badges")
+}
+
+model Team {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(80)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  members     TeamMember[]
+  assignments Assignment[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  teamId   Int      @map("team_id")
+  userId   String   @map("user_id") @db.Char(36)
+  /// member | manager. Managers can view their team's progress.
+  role     String   @default("member") @db.VarChar(16)
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+/// A course or learning path a team must complete, optionally by a due date.
+model Assignment {
+  id         Int       @id @default(autoincrement())
+  teamId     Int       @map("team_id")
+  /// course | path
+  kind       String    @db.VarChar(16)
+  targetSlug String    @map("target_slug") @db.VarChar(64)
+  dueDate    DateTime? @map("due_date") @db.Date
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, kind, targetSlug])
+  @@map("assignments")
+}
+
+/// AI tutor questions and answers, with token usage for daily limits and cost tracking.
+model TutorMessage {
+  id               Int      @id @default(autoincrement())
+  userId           String   @map("user_id") @db.Char(36)
+  courseSlug       String   @map("course_slug") @db.VarChar(64)
+  lessonSlug       String   @map("lesson_slug") @db.VarChar(128)
+  question         String   @db.Text
+  answer           String   @db.Text
+  /// ok | refused | truncated | error
+  status           String   @db.VarChar(16)
+  model            String?  @db.VarChar(64)
+  inputTokens      Int      @default(0) @map("input_tokens")
+  cacheReadTokens  Int      @default(0) @map("cache_read_tokens")
+  cacheWriteTokens Int      @default(0) @map("cache_write_tokens")
+  outputTokens     Int      @default(0) @map("output_tokens")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("tutor_messages")
+}

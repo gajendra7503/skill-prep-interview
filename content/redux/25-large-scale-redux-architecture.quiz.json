@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Logging out must clear the cart, the portfolio and the notifications slices. Which approach scales best across teams?",
+      "options": [
+        "The auth feature imports each slice's reset action and dispatches all of them",
+        "Dispatch one shared `session/ended` event and let each slice handle it in extraReducers",
+        "Reload the page on logout",
+        "Store all three slices inside the auth slice"
+      ],
+      "correctIndex": 1,
+      "explanation": "A shared event keeps features decoupled: the auth feature does not need to know who reacts, and each owning team handles the event in its own slice."
+    },
+    {
+      "question": "In a layered Redux architecture, which import is a violation of the dependency rule?",
+      "options": [
+        "features/cart importing a typed hook from shared/",
+        "app/ importing the cart reducer",
+        "features/cart importing a selector from features/portfolio",
+        "entities/user importing the base API from shared/api"
+      ],
+      "correctIndex": 2,
+      "explanation": "Features must not import other features. Shared logic moves down to entities or shared, and imports only flow downwards."
+    },
+    {
+      "question": "Why is a single RTK Query `createApi` with `injectEndpoints` usually preferred over one `createApi` per team?",
+      "options": [
+        "Tags can only be invalidated within the same API slice, and each extra API adds its own reducer and middleware",
+        "createApi can only be called once per application",
+        "injectEndpoints makes requests faster",
+        "Multiple APIs cannot use fetchBaseQuery"
+      ],
+      "correctIndex": 0,
+      "explanation": "Cache tags are scoped to one API slice, so separate APIs cannot invalidate each other. A single base API with injected endpoints keeps invalidation consistent and avoids extra middleware."
+    },
+    {
+      "question": "Which configureStore option helps keep personal data such as PAN numbers out of Redux DevTools?",
+      "options": [
+        "middleware: (gDM) => gDM({ serializableCheck: false })",
+        "preloadedState",
+        "enhancers",
+        "devTools: { stateSanitizer, actionSanitizer }"
+      ],
+      "correctIndex": 3,
+      "explanation": "The devTools options accept stateSanitizer and actionSanitizer functions (and actionsDenylist) that transform data before it is sent to the extension."
+    }
+  ]
+}

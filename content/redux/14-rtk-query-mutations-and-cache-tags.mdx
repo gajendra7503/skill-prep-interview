@@ -1,0 +1,187 @@
+---
+title: "RTK Query Mutations & Cache Invalidation with Tags"
+description: "Send create, update and delete requests with build.mutation, and keep cached queries fresh automatically using providesTags and invalidatesTags."
+module: "Data Fetching"
+level: "intermediate"
+order: 14
+---
+
+Queries read data; **mutations** change it on the server. After a mutation
+the cached lists and details are stale, and someone has to refetch them.
+RTK Query solves this declaratively with **tags**: queries say which data
+they *provide*, mutations say which data they *invalidate*, and RTK Query
+refetches the affected queries for you. This builds on the `fundsApi` from
+"RTK Query Basics: createApi & Query Hooks".
+
+## Defining mutations
+
+```ts
+export const fundsApi = createApi({
+  reducerPath: "fundsApi",
+  baseQuery: fetchBaseQuery({ baseUrl: "https://api.nivesh.example" }),
+  tagTypes: ["Fund"], // declare every tag type up front
+  endpoints: (build) => ({
+    // ...queries below
+    addFund: build.mutation<Fund, Omit<Fund, "id">>({
+      query: (newFund) => ({ url: "/funds", method: "POST", body: newFund }),
+      invalidatesTags: [{ type: "Fund", id: "LIST" }],
+    }),
+    updateFund: build.mutation<Fund, Pick<Fund, "id"> & Partial<Fund>>({
+      query: ({ id, ...patch }) => ({ url: `/funds/${id}`, method: "PATCH", body: patch }),
+      invalidatesTags: (result, error, { id }) => [{ type: "Fund", id }],
+    }),
+    deleteFund: build.mutation<{ id: number }, number>({
+      query: (id) => ({ url: `/funds/${id}`, method: "DELETE" }),
+      invalidatesTags: (result, error, id) => [{ type: "Fund", id }],
+    }),
+  }),
+});
+
+export const { useAddFundMutation, useUpdateFundMutation, useDeleteFundMutation } = fundsApi;
+```
+
+`fetchBaseQuery` serialises a plain-object `body` to JSON and sets the
+`Content-Type` header for you.
+
+## Providing tags from queries
+
+```ts
+getFunds: build.query<Fund[], void>({
+  query: () => "/funds",
+  providesTags: (result) =>
+    result
+      ? [
+          ...result.map(({ id }) => ({ type: "Fund" as const, id })),
+          { type: "Fund" as const, id: "LIST" },
+        ]
+      : [{ type: "Fund" as const, id: "LIST" }], // still provide LIST on error
+}),
+getFund: build.query<Fund, number>({
+  query: (id) => `/funds/${id}`,
+  providesTags: (result, error, id) => [{ type: "Fund", id }],
+}),
+```
+
+The list provides one tag **per item** plus a special `"LIST"` tag that stands
+for "the collection itself". The id `"LIST"` is only a convention: any
+string not used as a real id works.
+
+After loading the list and funds 1 and 2, the store's `provided` map shows
+which cache entries own which tags (real output):
+
+```js
+{
+  Fund: {
+    '1': [ 'getFund(1)', 'getFunds(undefined)' ],
+    '2': [ 'getFunds(undefined)', 'getFund(2)' ],
+    LIST: [ 'getFunds(undefined)' ]
+  }
+}
+```
+
+## What refetches after each mutation
+
+With all three queries subscribed, I ran each mutation against a local test
+server and logged the requests (real output):
+
+```text
+after addFund:        [ 'POST /funds', 'GET /funds' ]
+after updateFund(2):  [ 'PATCH /funds/2', 'GET /funds/2', 'GET /funds' ]
+after deleteFund(1):  [ 'DELETE /funds/1', 'GET /funds/1', 'GET /funds' ]
+```
+
+| Mutation | Invalidates | Refetched | Why |
+|---|---|---|---|
+| `addFund` | `Fund/LIST` | list only | a new item has no detail query yet |
+| `updateFund(2)` | `Fund/2` | `getFund(2)` and list | both provide `Fund/2` |
+| `deleteFund(1)` | `Fund/1` | `getFund(1)` and list | both provide `Fund/1` |
+
+Only queries with **active subscriptions** refetch immediately. An
+invalidated entry with no subscribers is refetched the next time a component
+asks for it.
+
+Notice the delete row: the detail query for fund 1 refetched and got a 404,
+because a component was still subscribed to it. In a real UI, navigate away
+from the detail page (or skip the query) after a successful delete.
+
+## Using a mutation hook
+
+A mutation hook returns a tuple: a **trigger** function and the latest
+result. Nothing is sent until you call the trigger.
+
+```tsx
+function AddFundForm() {
+  const [addFund, { isLoading, isError }] = useAddFundMutation();
+  const [name, setName] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const fund = await addFund({ name, category: "Debt", navInr: 10 }).unwrap();
+      toast(`Added ${fund.name}`);
+      setName("");
+    } catch (err) {
+      toast("Could not add fund");
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input value={name} onChange={(e) => setName(e.target.value)} />
+      <button disabled={isLoading}>{isLoading ? "Saving..." : "Add fund"}</button>
+      {isError && <p>Something went wrong.</p>}
+    </form>
+  );
+}
+```
+
+The `FundList` from the previous lesson needs no changes: once the mutation
+succeeds, the list's `LIST` tag is invalidated and it refetches on its own.
+As with queries, `.unwrap()` returns the response data or throws the error
+object, here `{ status: 404, data: { message: "Fund not found" } }`.
+
+## Choosing tag granularity
+
+```ts
+providesTags: ["Fund"]                    // coarse: any Fund change refetches everything
+providesTags: [{ type: "Fund", id: 7 }]   // fine: only changes to fund 7
+```
+
+- **Coarse tags** (just the type) are simple and fine for small apps, but
+  one update refetches every Fund query.
+- **Per-id tags plus `LIST`** refetch only what changed. This is the
+  pattern from the RTK Query docs and the one to describe in interviews.
+- Invalidating a bare type, `invalidatesTags: ["Fund"]`, invalidates
+  **every** Fund tag, whatever its id.
+
+You can also invalidate from outside a mutation, for example after a
+WebSocket message or a logout:
+
+```js
+store.dispatch(fundsApi.util.invalidateTags(["Fund"]));
+// refetched: [ 'GET /funds/1', 'GET /funds/2', 'GET /funds' ]
+```
+
+## Tags vs updating the cache directly
+
+Tag invalidation always costs one extra request per affected query, but it is
+simple and always correct, because the server's response is the source of
+truth. When that round trip makes the UI feel slow (toggling a "favourite"
+star, for example), RTK Query can patch cached data directly and roll back on
+failure. That is covered in "Advanced RTK Query: Optimistic Updates, Polling
+& Code Splitting".
+
+Interviewers often ask: "How does RTK Query know to refetch the list after I
+add an item?" Explain `tagTypes`, `providesTags` on the query,
+`invalidatesTags` on the mutation, and why the list provides a `LIST` tag:
+a brand-new item's id cannot already be in any cached query.
+
+### Try it yourself
+
+1. Add `tagTypes: ["User"]` to a users API, with per-id tags plus `LIST` on
+   `getUsers`, and an `addUser` mutation that invalidates `LIST`. Watch the
+   Network tab refetch the list after you add a user.
+2. Change `updateUser` to invalidate the bare `"User"` type and count how
+   many extra requests fire compared with the per-id version.
+3. After `deleteUser(id).unwrap()` succeeds, navigate away from the detail
+   page so the deleted user's query does not refetch into a 404.

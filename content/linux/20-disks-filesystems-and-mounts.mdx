@@ -1,0 +1,186 @@
+---
+title: "Disks, Filesystems & Mounts"
+description: "Find disks and partitions with lsblk, check space with df and du, format and mount a new volume, make it permanent in /etc/fstab, and fix full disks."
+module: "Administration"
+level: "advanced"
+order: 20
+---
+
+Sooner or later a server fills up, or you attach a new cloud volume for a
+database and need to make it usable. Linux has no drive letters: every disk
+is attached (**mounted**) somewhere inside the single directory tree that
+starts at `/`. This lesson walks through finding disks, formatting them,
+mounting them permanently, and handling the "disk full" alert.
+
+## Devices, partitions and filesystems
+
+Three layers to keep separate:
+
+1. **Block device**: the raw disk. Names depend on the driver: `/dev/sda`
+   (SATA/SCSI), `/dev/vda` (many VMs), `/dev/nvme0n1` (NVMe, common on cloud
+   instances).
+2. **Partition**: a slice of a disk: `/dev/sda1`, or `/dev/nvme0n1p1` for
+   NVMe (note the `p`).
+3. **Filesystem**: the on-disk format that stores files: ext4, XFS, Btrfs.
+   A partition (or a whole disk) holds one filesystem, which you mount on a
+   directory.
+
+```text
+$ lsblk
+NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+sda       8:0    0   40G  0 disk
+├─sda1    8:1    0 39.9G  0 part /
+└─sda15   8:15   0  106M  0 part /boot/efi
+sdb       8:16   0  100G  0 disk
+```
+
+Here `sdb` is a new, empty 100 GB volume: no partitions and no mount
+point. `lsblk -f` adds filesystem type, label and UUID columns.
+
+| Filesystem | Where you meet it |
+|---|---|
+| ext4 | Ubuntu and Debian default; mature, can grow and shrink |
+| XFS | Fedora/RHEL server default; great for large files, can grow but not shrink |
+| Btrfs | snapshots and checksums; Fedora desktop default |
+| tmpfs | RAM-backed, e.g. `/run`; gone after reboot |
+| vfat | EFI boot partition, USB sticks |
+
+## How full is it? df and du
+
+`df` reports space per **filesystem**; `du` measures space used by
+**files and directories**.
+
+```text
+$ df -h
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1        39G   35G  4.1G  90% /
+/dev/sda15      105M  6.1M   99M   6% /boot/efi
+tmpfs           392M  1.1M  391M   1% /run
+```
+
+To find what is eating the space, drill down one level at a time:
+
+```bash
+sudo du -h --max-depth=1 /var | sort -hr | head
+# 21G   /var
+# 18G   /var/log
+# 2.4G  /var/lib
+# 412M  /var/cache
+sudo du -sh /var/log/* | sort -h      # biggest last
+```
+
+`sort -h` understands the `K`, `M`, `G` suffixes. Add `-x` to `du` to stay
+on one filesystem and skip other mounts.
+
+## Adding and mounting a new disk
+
+**Warning:** `mkfs` erases everything on the target. Run `lsblk` first and
+triple-check the device name; formatting `/dev/sda` instead of `/dev/sdb`
+destroys the operating system.
+
+```bash
+lsblk                                    # confirm sdb is the empty disk
+sudo mkfs.ext4 -L data /dev/sdb          # create an ext4 filesystem labelled "data"
+sudo mkdir -p /data
+sudo mount /dev/sdb /data                # attach it to the tree
+df -h /data                              # verify
+```
+
+Formatting the whole disk is common for cloud data volumes. On a disk you
+want to split, first create partitions with `sudo parted` or `sudo fdisk`
+and then format `/dev/sdb1`. For XFS use `mkfs.xfs`.
+
+A `mount` command lasts only until reboot. Use `umount /data` (no "n") to
+detach. If it says "target is busy", a process has a file or working
+directory there; find it with `sudo lsof +D /data` or `sudo fuser -vm /data`.
+
+## Making it permanent: /etc/fstab
+
+Device names like `/dev/sdb` can change between boots when disks are added
+or removed, so fstab entries should use the filesystem **UUID**:
+
+```text
+$ sudo blkid /dev/sdb
+/dev/sdb: LABEL="data" UUID="3f1c9a2e-7b4d-4c1e-9f2a-1d5e8b6c0a47" BLOCK_SIZE="4096" TYPE="ext4"
+```
+
+```bash
+# /etc/fstab
+UUID=3f1c9a2e-7b4d-4c1e-9f2a-1d5e8b6c0a47  /data  ext4  defaults,nofail  0  2
+```
+
+| Field | Example | Meaning |
+|---|---|---|
+| 1 | `UUID=...` | what to mount |
+| 2 | `/data` | mount point |
+| 3 | `ext4` | filesystem type |
+| 4 | `defaults,nofail` | mount options |
+| 5 | `0` | dump (legacy backup flag; leave 0) |
+| 6 | `2` | fsck order: `1` for root, `2` for others, `0` to skip |
+
+**Always test before rebooting.** A broken fstab line can leave the server
+stuck in emergency mode at boot, which on a cloud VM may mean you cannot
+SSH in:
+
+```bash
+sudo findmnt --verify      # check fstab syntax and devices
+sudo umount /data && sudo mount -a   # mount everything listed; errors appear now
+```
+
+`nofail` lets the system boot even if this disk is missing. Useful mount
+options: `ro` (read-only), `noatime` (skip access-time writes),
+`noexec` and `nosuid` (block running programs from the mount, e.g. for
+upload directories). On systemd systems run `sudo systemctl daemon-reload`
+after editing fstab, because systemd generates mount units from it.
+
+## "Disk full" troubleshooting
+
+Interviewers often ask: "`df` says 100% but `du` cannot find the files.
+Why?" Common causes:
+
+- **Deleted but still open files.** If you `rm` a huge log that a process
+  still has open, the space is not freed until the process closes it.
+  `sudo lsof +L1` lists deleted-but-open files. Restart or reload the
+  process to release them. To empty a live log, truncate it instead:
+  `sudo truncate -s 0 /var/log/app.log`.
+- **Inodes exhausted.** Millions of tiny files (sessions, cache) can use up
+  inodes while bytes remain. Check with `df -i`.
+- **Reserved blocks.** ext4 reserves about 5% of space for root by default,
+  so ordinary users see "full" slightly before `df` shows 100%.
+- **Files hidden under a mount point.** Data written to `/data` before the
+  disk was mounted is hidden underneath the mount, still using the root
+  filesystem.
+
+## Growing a disk and adding swap
+
+Cloud providers let you enlarge a volume online. Afterwards, grow the
+partition and then the filesystem:
+
+```bash
+sudo growpart /dev/sda 1      # from the cloud-guest-utils package
+sudo resize2fs /dev/sda1      # ext4
+sudo xfs_growfs /             # XFS: takes the mount point
+```
+
+Small VMs often benefit from a swap file as a safety net against the
+out-of-memory killer:
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+swapon --show
+```
+
+Larger setups use **LVM** (logical volumes that span disks and resize
+easily); the ideas of format, mount and fstab stay the same.
+
+### Try it yourself
+
+1. Run `lsblk -f` and `df -hT` on a Linux machine or WSL and match each
+   mounted filesystem to its device and type.
+2. Write the exact command sequence to format a new disk `/dev/nvme1n1` as
+   XFS, mount it at `/srv/uploads` with `noexec,nosuid`, and add a UUID-based
+   fstab line. Explain how you would verify it before rebooting.
+3. Find the five largest directories under `/var` with `du` and `sort`, and
+   check whether any deleted files are still holding space with `lsof +L1`.

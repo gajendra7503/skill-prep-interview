@@ -1,0 +1,176 @@
+---
+title: "Cancellation & Resource Management"
+description: "Design cancellable async APIs with AbortController and AbortSignal, compose timeouts with AbortSignal.any, and guarantee cleanup with using and Symbol.dispose."
+module: "Pro Level"
+level: "pro"
+order: 26
+---
+
+Promises have no built-in "cancel" button. In production that gap shows up
+as wasted work and leaks: a user types five characters and five search
+requests race each other; a request handler times out but its database
+query keeps running; a component unmounts but its interval keeps firing.
+Senior engineers design every long-running async API to be **cancellable**
+and every resource to be **reliably released**. JavaScript now has standard
+tools for both.
+
+## AbortController and AbortSignal
+
+The pattern splits two roles: whoever *starts* the work holds the
+**controller** (and can abort); the work itself receives only the
+**signal** (and can observe):
+
+```js
+const controller = new AbortController();
+
+fetch("/api/search?q=pune", { signal: controller.signal })
+  .then((res) => res.json())
+  .catch((err) => {
+    if (err.name === "AbortError") return; // cancellation is not a failure
+    throw err;
+  });
+
+controller.abort(); // the request is cancelled at the network level
+```
+
+A signal exposes `aborted`, `reason`, an `abort` event and
+`throwIfAborted()`. You can abort with your own reason:
+`controller.abort(new Error("user left page"))` makes that error the
+`reason` and the rejection value.
+
+## Making your own functions cancellable
+
+Accept a `signal` option, check it up front, and listen for `abort` to tear
+down whatever you started:
+
+```js
+function sleep(ms, { signal } = {}) {
+  return new Promise((resolve, reject) => {
+    signal?.throwIfAborted(); // already aborted? fail fast
+    const id = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(id);       // release the resource...
+      reject(signal.reason);  // ...and settle the promise
+    }, { once: true });
+  });
+}
+```
+
+The golden rule is **propagation**: pass the same signal down to every
+async call you make (`fetch`, database drivers, child functions), so one
+`abort()` at the top stops the whole tree. Many Node APIs accept a signal,
+for example `timers/promises`, `fs.promises.readFile`, `events.once` and
+`child_process.spawn`.
+
+## Timeouts and combining signals
+
+```js
+// A signal that aborts itself after 50 ms, with a "TimeoutError"
+const timeout = AbortSignal.timeout(50);
+
+// Abort when EITHER the user cancels OR the deadline passes
+const user = new AbortController();
+const signal = AbortSignal.any([user.signal, timeout]);
+
+try {
+  await sleep(1000, { signal });
+} catch (err) {
+  console.log(err.name); // "TimeoutError"
+}
+```
+
+`AbortSignal.any` returns a signal that aborts as soon as any input does,
+taking that input's reason — so callers can tell "timed out" from "user
+cancelled". This replaces the old `Promise.race` timeout trick, which only
+stopped *waiting* while the underlying work kept running.
+
+A classic use is "latest request wins" for search boxes:
+
+```js
+let current;
+async function search(query) {
+  current?.abort();                // cancel the previous request
+  current = new AbortController();
+  const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+    signal: AbortSignal.any([current.signal, AbortSignal.timeout(5000)]),
+  });
+  return res.json();
+}
+```
+
+## Signals also remove event listeners
+
+```js
+const controller = new AbortController();
+window.addEventListener("resize", onResize, { signal: controller.signal });
+window.addEventListener("scroll", onScroll, { signal: controller.signal });
+
+controller.abort(); // removes BOTH listeners — no need to keep references
+```
+
+This is a clean way to implement teardown in components: one controller
+per component, aborted on unmount.
+
+## Guaranteed cleanup with using
+
+`try/finally` works for cleanup but gets deeply nested with several
+resources. **Explicit resource management** adds `using` declarations: when
+the enclosing block exits — normally *or* by an exception — the engine calls
+the value's `[Symbol.dispose]()` method, in reverse order of declaration:
+
+```js
+function openConn(name) {
+  console.log("open", name);
+  return { name, [Symbol.dispose]() { console.log("close", name); } };
+}
+
+function work() {
+  using db = openConn("db");
+  using cache = openConn("cache");
+  throw new Error("boom");
+}
+
+try { work(); } catch (e) { console.log("caught", e.message); }
+// open db
+// open cache
+// close cache   <- reverse order, like nested finally blocks
+// close db
+// caught boom
+```
+
+For async cleanup (flushing a file, closing a pool) use `await using` with
+`[Symbol.asyncDispose]()`. `DisposableStack` (and `AsyncDisposableStack`)
+collects ad-hoc cleanups when you don't have a disposable object:
+
+```js
+{
+  using stack = new DisposableStack();
+  const id = setInterval(tick, 1000);
+  stack.defer(() => clearInterval(id)); // runs when the block exits
+  stack.use(openConn("file"));          // disposed too, in reverse order
+}
+```
+
+Support: this works in Node 24 and recent Chromium-based browsers, and
+TypeScript compiles it for older targets; check your other target browsers
+before shipping it untranspiled. If disposal itself throws while an error is
+already propagating, both are preserved in a `SuppressedError`.
+
+## Design checklist for cancellable APIs
+
+- Accept `{ signal }` as an option; never invent a custom `cancel()` token.
+- Check `signal.aborted` before starting expensive work and between steps.
+- Reject with `signal.reason`, so callers see `AbortError` or
+  `TimeoutError` as appropriate.
+- Remove your own `abort` listener once the work finishes, or use
+  `{ once: true }`, to avoid accumulating listeners on long-lived signals.
+- Treat aborts as expected control flow: don't log them as errors or retry
+  them.
+
+### Try it yourself
+
+Write `fetchWithRetry(url, { signal, retries = 3 })` that retries failed
+requests with exponential backoff using the cancellable `sleep` above.
+Combine the caller's signal with an overall `AbortSignal.timeout(10_000)`,
+make sure an abort stops both the in-flight `fetch` and any pending backoff
+wait, and verify that an `AbortError` is never retried.

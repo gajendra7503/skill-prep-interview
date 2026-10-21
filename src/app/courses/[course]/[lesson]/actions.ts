@@ -2,41 +2,25 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getLessons } from "@/lib/content";
+import { syncBadges } from "@/lib/gamification";
+import {
+  getCurrentUser,
+  issueCertificateIfComplete,
+  toggleLessonCompletion,
+} from "@/lib/local-auth";
 
-export async function toggleLessonComplete(
-  courseSlug: string,
-  lessonSlug: string,
-  currentlyCompleted: boolean
-) {
-  if (!isSupabaseConfigured()) return;
+export async function toggleLessonComplete(courseSlug: string, lessonSlug: string) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  if (currentlyCompleted) {
-    await supabase
-      .from("lesson_progress")
-      .delete()
-      .match({ user_id: user.id, course_slug: courseSlug, lesson_slug: lessonSlug });
-  } else {
-    await supabase.from("lesson_progress").upsert({
-      user_id: user.id,
-      course_slug: courseSlug,
-      lesson_slug: lessonSlug,
-      completed: true,
-      completed_at: new Date().toISOString(),
-    });
-  }
+  await toggleLessonCompletion(user.id, courseSlug, lessonSlug);
+  const lessonSlugs = getLessons(courseSlug).map((lesson) => lesson.slug);
+  const result = await issueCertificateIfComplete(user.id, courseSlug, lessonSlugs);
+  await syncBadges(user.id);
 
   revalidatePath(`/courses/${courseSlug}/${lessonSlug}`);
   revalidatePath(`/courses/${courseSlug}`);
   revalidatePath("/dashboard");
+  if (result?.isNew) redirect(`/courses/${courseSlug}/certificate`);
 }

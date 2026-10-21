@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is using `push` with `shift` a poor choice for a large queue in JavaScript?",
+      "options": [
+        "shift returns elements in LIFO order",
+        "shift generally moves every remaining element, so draining n items costs O(n²)",
+        "push is O(n) on large arrays",
+        "Arrays cannot hold more than 65,536 elements"
+      ],
+      "correctIndex": 1,
+      "explanation": "Removing the front element shifts the rest down. A head-index queue or a linked list avoids moving elements and keeps dequeue O(1)."
+    },
+    {
+      "question": "In the two-stack queue, when should elements be moved from the `in` stack to the `out` stack?",
+      "options": [
+        "On every enqueue",
+        "On every dequeue, regardless of the out stack",
+        "Only when the out stack is empty",
+        "Only when the in stack is full"
+      ],
+      "correctIndex": 2,
+      "explanation": "Refilling only when out is empty preserves FIFO order and ensures each element moves once, giving amortised O(1) dequeue."
+    },
+    {
+      "question": "A bracket checker pushes opening brackets and pops on closing ones, but returns true as soon as the loop ends. Which input does it wrongly accept?",
+      "options": [
+        "\"((\"",
+        "\"([)]\"",
+        "\"))\"",
+        "\"{[()()]}\""
+      ],
+      "correctIndex": 0,
+      "explanation": "\"((\" never triggers a mismatch, but two brackets remain open. The final `stack.length === 0` check is what rejects it."
+    },
+    {
+      "question": "How does the MinStack return the minimum in O(1)?",
+      "options": [
+        "It sorts the items on every push",
+        "It scans the items array from the top",
+        "It stores the minimum in a single variable updated on push",
+        "It keeps a parallel stack where each entry is the minimum of all items at or below that level"
+      ],
+      "correctIndex": 3,
+      "explanation": "A single variable cannot be restored after popping the minimum. The parallel stack remembers the minimum at every level, so pop restores it automatically."
+    }
+  ]
+}

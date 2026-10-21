@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "The city column holds 'Pune', 'Pune', 'Delhi' and NULL. What does `SELECT COUNT(*), COUNT(city), COUNT(DISTINCT city)` return?",
+      "options": [
+        "4, 4, 3",
+        "4, 3, 2",
+        "3, 3, 2",
+        "4, 3, 3"
+      ],
+      "correctIndex": 1,
+      "explanation": "COUNT(*) counts all rows; COUNT(col) skips NULLs; COUNT(DISTINCT col) counts distinct non-NULL values."
+    },
+    {
+      "question": "Under ONLY_FULL_GROUP_BY, which query is accepted?",
+      "options": [
+        "SELECT city, name, COUNT(*) FROM customers GROUP BY city",
+        "SELECT name, COUNT(*) FROM customers GROUP BY city",
+        "SELECT city, email FROM customers GROUP BY city",
+        "SELECT id, name, city FROM customers GROUP BY id"
+      ],
+      "correctIndex": 3,
+      "explanation": "Grouping by the primary key makes every other column of that table functionally dependent, so MySQL allows them; the others select columns not determined by city."
+    },
+    {
+      "question": "Where should the condition `status <> 'cancelled'` go in a query that totals revenue per customer?",
+      "options": [
+        "In WHERE, because it filters individual rows before grouping and can use indexes",
+        "In HAVING, because all conditions in an aggregate query belong there",
+        "In GROUP BY",
+        "It does not matter; WHERE and HAVING are equivalent"
+      ],
+      "correctIndex": 0,
+      "explanation": "WHERE filters rows before aggregation; HAVING filters groups and is meant for conditions on aggregates such as SUM(total) >= 10000."
+    },
+    {
+      "question": "A GROUP_CONCAT result is cut off mid-word with only a warning. What is the cause?",
+      "options": [
+        "GROUP_CONCAT only works on VARCHAR(255) columns",
+        "The SEPARATOR was too long",
+        "The result exceeded group_concat_max_len, which defaults to 1,024 bytes",
+        "WITH ROLLUP was not specified"
+      ],
+      "correctIndex": 2,
+      "explanation": "GROUP_CONCAT output is silently truncated at group_concat_max_len; raise it with SET SESSION group_concat_max_len = ... before running the query."
+    }
+  ]
+}

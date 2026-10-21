@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which isolation model does the lesson describe as the cheapest, but with isolation depending entirely on your application code?",
+      "options": [
+        "Database per tenant",
+        "Schema per tenant",
+        "Shared schema with a `tenantId` column on every table",
+        "One deployment per tenant"
+      ],
+      "correctIndex": 2,
+      "explanation": "In the shared-schema model every tenant's rows live in the same tables, separated only by `tenantId`. It is cheap and easy to migrate, but nothing stops a leak except your code."
+    },
+    {
+      "question": "Where should an Express API get the tenant ID for a request?",
+      "options": [
+        "From something the server has verified, such as a claim in a signed access token",
+        "From an `X-Tenant-Id` header sent by the client, without further checks",
+        "From a `tenant` query string parameter",
+        "From the first row returned by the database"
+      ],
+      "correctIndex": 0,
+      "explanation": "The tenant must come from a verified source. A header or query value the client can edit must always be checked against the user's memberships, or a user could read another tenant's data."
+    },
+    {
+      "question": "Why does `currentTenant()` throw when no tenant is in the AsyncLocalStorage context?",
+      "options": [
+        "AsyncLocalStorage cannot store numbers",
+        "So code running outside a request, such as a background job, fails closed instead of silently querying every tenant's data",
+        "To force every request to be retried once",
+        "Because Express 5 removes the store after the first `await`"
+      ],
+      "correctIndex": 1,
+      "explanation": "Failing closed means a missing context is a loud error rather than an unscoped query. Background jobs must start their own context with `als.run({ tenantId }, job)`."
+    },
+    {
+      "question": "In a cross-tenant leak test, tenant B requests tenant A's expense by ID. What response does the lesson expect?",
+      "options": [
+        "200 with the expense, since the ID is valid",
+        "403 Forbidden, to explain that the expense belongs to someone else",
+        "500, because the Prisma extension throws",
+        "404 Not Found, so the API does not reveal that the ID exists"
+      ],
+      "correctIndex": 3,
+      "explanation": "The scoped query finds nothing for tenant B, and returning 404 rather than 403 avoids confirming that a record with that ID exists in another tenant."
+    }
+  ]
+}

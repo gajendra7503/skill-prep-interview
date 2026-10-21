@@ -1,0 +1,136 @@
+---
+title: "Cluster & Scaling"
+description: "Using every CPU core with the cluster module and PM2, keeping processes stateless, and scaling Node horizontally across machines."
+module: "Advanced Node"
+level: "advanced"
+order: 17
+---
+
+One Node process runs your JavaScript on one core. On an 8-core server that
+leaves most of the machine idle. Interviewers want to hear how you scale
+**vertically** (more processes per machine) and **horizontally** (more
+machines), and why both only work if your app is **stateless**.
+
+## The cluster module
+
+`node:cluster` lets a **primary** process fork several **worker** processes
+that all share the same server port. Each worker is a full Node process
+with its own event loop and memory.
+
+```js
+import cluster from "node:cluster";
+import http from "node:http";
+import { availableParallelism } from "node:os";
+
+if (cluster.isPrimary) {
+  const count = availableParallelism();          // e.g. 8
+  console.log(`primary ${process.pid} forking ${count} workers`);
+  for (let i = 0; i < count; i++) cluster.fork();
+
+  cluster.on("exit", (worker, code, signal) => {
+    console.log(`worker ${worker.process.pid} died (${signal || code}), restarting`);
+    cluster.fork();                               // keep the pool full
+  });
+} else {
+  http
+    .createServer((req, res) => res.end(`handled by ${process.pid}\n`))
+    .listen(3000);
+}
+// $ curl localhost:3000  → handled by 4102
+// $ curl localhost:3000  → handled by 4103
+```
+
+`cluster.isPrimary` replaced the older `cluster.isMaster`, which is
+deprecated. Use `os.availableParallelism()` rather than
+`os.cpus().length` — it is the recommended way to size a pool.
+
+## How connections are distributed
+
+By default the primary accepts connections and hands them to workers
+**round-robin** on every platform except Windows, where the operating
+system decides (so one worker may receive most requests in a quick local
+test). The policy is controlled by `cluster.schedulingPolicy` or the
+`NODE_CLUSTER_SCHED_POLICY` environment variable.
+
+Workers never share memory. Each holds its own copy of any in-process
+cache, counter or session map — which leads to the most important point
+in this lesson.
+
+## Statelessness: the real prerequisite
+
+```js
+// BROKEN under cluster or multiple servers
+const sessions = new Map();                       // lives in ONE worker
+app.post("/login", (req, res) => {
+  sessions.set(token, user);                      // stored in worker A
+});
+app.get("/cart", (req, res) => {
+  sessions.get(token);                            // worker B: undefined
+});
+```
+
+Move shared state out of the process:
+
+- **Sessions and caches** → Redis (or signed JWTs carrying no server state)
+- **Uploaded files** → object storage such as S3, not the local disk
+- **Scheduled jobs** → a job queue (BullMQ) or run cron on one instance only
+- **WebSocket fan-out** → a pub/sub adapter so every instance gets the event
+
+If any process can serve any request, you can add or kill processes freely.
+"Sticky sessions" at the load balancer are a workaround, not a fix.
+
+## PM2: cluster mode without writing cluster code
+
+In production most teams let a process manager do the forking, restarts
+and log handling. PM2 is the common choice on plain VMs:
+
+```bash
+npm install -g pm2
+pm2 start server.js -i max --name api   # one process per core, cluster mode
+pm2 reload api                          # rolling restart, one instance at a time
+pm2 restart api                         # stops and starts all instances at once
+pm2 logs api                            # tail logs from all instances
+pm2 startup && pm2 save                 # restart the app list on reboot
+```
+
+An `ecosystem.config.cjs` file captures the same settings in version control:
+
+```js
+module.exports = {
+  apps: [{ name: "api", script: "server.js", instances: "max", exec_mode: "cluster",
+           max_memory_restart: "500M", env: { NODE_ENV: "production" } }],
+};
+```
+
+## Horizontal scaling and containers
+
+With Docker and Kubernetes the usual advice changes: run **one Node process
+per container** and let the orchestrator create replicas, restart crashed
+pods and spread load via a Service or load balancer. Running PM2 or cluster
+inside a container duplicates what the platform already does.
+
+```bash
+# Kubernetes: scale the deployment to 6 replicas behind one Service
+kubectl scale deployment api --replicas=6
+```
+
+Whatever runs your processes, each one must handle `SIGTERM` gracefully
+(stop accepting connections, finish in-flight requests, then exit) so
+rolling deploys do not drop requests.
+
+## Cluster vs worker threads
+
+| | cluster / multiple processes | worker_threads |
+| --- | --- | --- |
+| Goal | Serve more concurrent requests | Offload CPU-heavy tasks |
+| Memory | Separate per process | Same process, can share buffers |
+| Crash impact | One worker dies, others survive | Worker error can be caught by the parent |
+| Typical use | Web servers | Image processing, parsing, hashing |
+
+### Try it yourself
+
+Build a cluster server that returns `{ pid, visits }` where `visits` is an
+in-memory counter. Hit it 20 times with `curl` or `autocannon` and observe
+that each worker reports its own count. Then explain how you would make the
+count correct across workers (for example with Redis `INCR`) and how a
+payment of ₹2,500 recorded in one worker's memory could be lost on restart.

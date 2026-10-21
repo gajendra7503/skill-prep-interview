@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What happens at runtime when you call `def add(a: int, b: int) -> int` with two strings?",
+      "options": [
+        "A TypeError is raised before the function body runs",
+        "The function runs normally; Python does not enforce annotations",
+        "The strings are converted to ints automatically",
+        "A warning is printed and None is returned"
+      ],
+      "correctIndex": 1,
+      "explanation": "Annotations are stored as metadata only. Mismatches are reported by static checkers like mypy or pyright, not the interpreter."
+    },
+    {
+      "question": "What does `Optional[str]` mean in a type hint?",
+      "options": [
+        "The parameter can be omitted by the caller",
+        "The value is a string with a default",
+        "The value may be a str or None, equivalent to `str | None`",
+        "The value is lazily evaluated"
+      ],
+      "correctIndex": 2,
+      "explanation": "Optional[X] is shorthand for X | None. It says nothing about whether the parameter has a default value."
+    },
+    {
+      "question": "Which is valid Python 3.12 PEP 695 syntax for a generic function?",
+      "options": [
+        "def first[T](items: list[T]) -> T:",
+        "def first<T>(items: list<T>) -> T:",
+        "generic T def first(items: list[T]) -> T:",
+        "def first(items: list[T]) -> T where T:"
+      ],
+      "correctIndex": 0,
+      "explanation": "PEP 695 places type parameters in square brackets after the function or class name, replacing manual TypeVar declarations."
+    },
+    {
+      "question": "What is a value annotated with a `TypedDict` type at runtime?",
+      "options": [
+        "An instance of a generated dataclass",
+        "A frozen mapping that rejects unknown keys",
+        "A dict subclass that validates types on assignment",
+        "A plain dict; TypedDict only informs static type checkers"
+      ],
+      "correctIndex": 3,
+      "explanation": "TypedDict describes the shape of a dict for type checkers. At runtime the object is an ordinary dict with no validation."
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+---
+title: "Production Operations: Log Rotation, Backups & Incident Response"
+description: "Keep production servers healthy with logrotate and journald limits, backups you have actually restored, and a calm, structured incident response process."
+module: "Pro Level"
+level: "pro"
+order: 27
+---
+
+Most production outages are not exotic. A disk fills with logs, a backup
+turns out to be empty on the day you need it, or a team loses an hour
+because nobody knows who is in charge. This lesson covers the boring
+operational habits that prevent those days.
+
+## Log rotation with logrotate
+
+Applications that write their own log files will fill the disk unless the
+files are rotated. On Debian/Ubuntu and Fedora/RHEL, `logrotate` runs once
+a day (from a systemd timer or a cron job, depending on the release) and
+reads `/etc/logrotate.conf` plus every file in `/etc/logrotate.d/`.
+
+```ini
+# /etc/logrotate.d/payments-api
+/var/log/payments-api/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 payments adm
+    sharedscripts
+    postrotate
+        systemctl kill -s HUP payments-api.service >/dev/null 2>&1 || true
+    endscript
+}
+```
+
+| Directive | Meaning |
+|---|---|
+| `daily` / `weekly` / `size 100M` | when to rotate |
+| `rotate 14` | keep 14 old files, delete older ones |
+| `compress` + `delaycompress` | gzip old logs, but leave the newest rotated file uncompressed for one cycle |
+| `missingok`, `notifempty` | no error if the log is missing; skip empty logs |
+| `create 0640 payments adm` | create a fresh log with this mode and owner |
+| `postrotate ... endscript` | run after rotating; `sharedscripts` runs it once, not per file |
+
+The key question is **how the app learns about the new file**. A process
+keeps writing to the file descriptor it opened, so after a rename it keeps
+writing to `app.log.1`. Either signal it to reopen its logs (nginx and many
+daemons reopen on `USR1` or `HUP`; check your app's documentation), or use
+`copytruncate`, which copies the file and truncates the original in place.
+`copytruncate` needs no app support but can **lose lines** written between
+the copy and the truncate.
+
+Always test before trusting a config:
+
+```bash
+sudo logrotate -d /etc/logrotate.d/payments-api   # debug: shows what it would do, changes nothing
+sudo logrotate -f /etc/logrotate.d/payments-api   # force a rotation now
+```
+
+If the log directory is world-writable or writable by a non-root group,
+logrotate skips it ("insecure permissions") until you add an
+`su payments payments` line, which is a deliberate safety check.
+
+## Keeping the journal in check
+
+Services that log to stdout under systemd go to the **journal**. It caps
+itself (by default as a percentage of the filesystem), but set explicit
+limits on busy servers:
+
+```ini
+# /etc/systemd/journald.conf.d/size.conf
+[Journal]
+SystemMaxUse=1G
+MaxRetentionSec=1month
+```
+
+```bash
+sudo systemctl restart systemd-journald
+journalctl --disk-usage
+sudo journalctl --vacuum-time=14d     # delete archived entries older than 14 days
+```
+
+Logs you must keep for audits belong on a central system, off the box.
+
+## Backups: only restores matter
+
+Two numbers drive every backup design:
+
+- **RPO** (Recovery Point Objective): how much data you can afford to lose.
+  Nightly backups mean an RPO of up to 24 hours.
+- **RTO** (Recovery Time Objective): how long you can be down while restoring.
+
+If one hour of downtime costs the fictional broker NiveshKart ₹4 lakh in
+lost orders, a restore process that takes a day is not acceptable,
+however good the backup files are.
+
+The **3-2-1 rule**: at least **3** copies of the data, on **2** different
+kinds of storage, with **1** copy off-site. Add one more for ransomware:
+at least one copy that the production server **cannot delete** (an
+immutable or versioned bucket, or a pull-based backup server).
+
+Rules that separate real backups from wishful thinking:
+
+1. **Back up databases with database tools**, not by copying live data
+   files: `pg_dump -Fc`, `mysqldump --single-transaction`, or the
+   database's own physical backup and WAL/binlog archiving for point-in-time recovery.
+2. **Verify integrity** with a checksum written next to each archive.
+   Create it from inside the backup directory, because `sha256sum` stores
+   the path exactly as given:
+
+```bash
+cd /var/backups/app
+sha256sum app-2026-10-15_1322.tar.gz > app-2026-10-15_1322.tar.gz.sha256
+sha256sum -c app-2026-10-15_1322.tar.gz.sha256
+```
+
+```text
+app-2026-10-15_1322.tar.gz: OK
+```
+
+A corrupted archive prints `FAILED` and `WARNING: 1 computed checksum did
+NOT match`, and `sha256sum -c` exits with status 1, so a script can alert on it.
+
+3. **Encrypt** off-site copies (tools like restic and BorgBackup do
+   deduplication and encryption for you).
+4. **Monitor** that backups ran and are a sensible size; a 0-byte dump
+   that "succeeded" every night for a month is a classic finding.
+5. **Rehearse restores** on a schedule: restore into a fresh VM, start the
+   app, and time it. That measured time is your real RTO.
+
+For file trees, `rsync --link-dest` gives cheap daily snapshots: unchanged
+files become hard links to the previous snapshot, so each day looks like a
+full copy but only changed files use new space.
+
+```bash
+today=$(date +%F)
+rsync -a --delete --link-dest=/backups/latest /srv/app/uploads/ "/backups/$today/"
+ln -sfn "/backups/$today" /backups/latest
+```
+
+## Incident response
+
+When production breaks, structure beats heroics.
+
+| Phase | What happens |
+|---|---|
+| **Detect** | an alert or user report; declare an incident early, it costs nothing |
+| **Triage** | assign a severity; name one **incident commander** who coordinates |
+| **Communicate** | one channel, regular status updates to stakeholders |
+| **Mitigate** | restore service first: roll back, fail over, scale up, disable a feature |
+| **Resolve** | find and fix the root cause once users are no longer affected |
+| **Learn** | a **blameless postmortem** with a timeline and action items |
+
+**Mitigation before diagnosis** is the most important habit: if the
+problem started with the 14:05 deploy, roll back at 14:10 and investigate
+afterwards. A first-five-minutes routine on a Linux host:
+
+```bash
+systemctl status payments-api --no-pager
+journalctl -u payments-api --since "15 min ago" -p warning
+df -h; df -i; free -h; uptime
+sudo ss -tlnp | grep -E ':(80|443|3000)\b'
+journalctl -k --since "1 hour ago" | grep -iE 'oom|error'
+```
+
+Record what you run and when, in the incident channel: it becomes the
+postmortem timeline. Preserve evidence (logs, a copy of the bad config)
+before you rebuild anything, especially if a security breach is possible.
+
+A blameless postmortem asks "how did our system allow this?" rather than
+"who did this?". Its output is concrete action items with owners, such as
+"add disk-usage alert at 80%" or "write a runbook for failover". A
+**runbook** is a step-by-step document for a known situation, so the
+person on call at 3 a.m. does not have to invent the procedure.
+
+Interviewers often ask: "How do you know your backups work?" The only
+convincing answer is: "We restore them regularly, automatically verify
+checksums and sizes, and we know our measured restore time."
+
+### Try it yourself
+
+1. Write a logrotate config for `/tmp/demo/*.log` with `rotate 3`, `size 1k`
+   and `compress`, generate a few KB of log lines, and run
+   `logrotate -s /tmp/demo/state -v yourconfig` as a normal user several times.
+2. Write a script that creates a `tar.gz` of a directory plus a `.sha256`
+   file, then corrupt a copy of the archive and confirm that `sha256sum -c` fails.
+3. Write a one-page runbook for "disk full on the web server": how to
+   confirm it, safe things to delete, and how to prevent a repeat.

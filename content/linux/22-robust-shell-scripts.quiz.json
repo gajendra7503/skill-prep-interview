@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Under `set -euo pipefail`, what happens when the script reaches `false | true`?",
+      "options": [
+        "Nothing; the pipeline succeeds because true runs last",
+        "The script exits, because pipefail makes the pipeline fail if any command in it fails",
+        "Bash prints a warning but continues",
+        "Only the true command is skipped"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without pipefail only the last command's status counts. With pipefail the pipeline returns the failing status, and -e then stops the script."
+    },
+    {
+      "question": "In a strict-mode script, why does `local out=$(false)` NOT stop the script?",
+      "options": [
+        "Command substitution is never checked by set -e",
+        "local is a builtin that ignores set -u",
+        "The exit status of the line is that of `local`, which succeeds, masking the failure",
+        "Functions run in a subshell"
+      ],
+      "correctIndex": 2,
+      "explanation": "The status of `local out=$(false)` is the status of the local builtin (0). Declare first (`local out`) and assign on a separate line so the failure is seen."
+    },
+    {
+      "question": "Which trap is the right place to delete a temporary directory so it is removed on both success and failure?",
+      "options": [
+        "trap ... ERR",
+        "trap ... INT",
+        "trap ... DEBUG",
+        "trap ... EXIT"
+      ],
+      "correctIndex": 3,
+      "explanation": "The EXIT trap fires whenever the script exits, whether it finished normally or was stopped by an error, so it suits cleanup."
+    },
+    {
+      "question": "In `getopts \":vk:d:\" opt`, what does the colon after `k` mean?",
+      "options": [
+        "Option -k requires a value, available in $OPTARG",
+        "Option -k is optional",
+        "Option -k can be given only once",
+        "Option -k enables silent error mode"
+      ],
+      "correctIndex": 0,
+      "explanation": "A colon after a letter means the option takes an argument, stored in OPTARG. The leading colon of the whole string is what enables silent error handling."
+    }
+  ]
+}

@@ -1,0 +1,164 @@
+---
+title: "Structuring a Redux App: Feature Folders & What Belongs in Redux"
+description: "Organise a Redux Toolkit codebase by feature, decide which state belongs in the store, model actions as events, and avoid circular imports between slices."
+module: "Redux Toolkit"
+level: "intermediate"
+order: 12
+---
+
+Knowing the APIs is half the job. The other half is deciding **where code
+lives** and **what goes in the store at all**. These choices decide whether
+a Redux codebase stays pleasant at 50 files or becomes a maze at 500.
+Interviewers for mid-level roles ask about this more than about any single API.
+
+## Organise by feature, not by type
+
+Older Redux apps split files by kind: `actions/`, `reducers/`, `constants/`,
+`containers/`. Adding one feature meant touching four folders. The Redux
+style guide now recommends **feature folders**, with each slice in a single
+file:
+
+```text
+src/
+  app/
+    store.ts          # configureStore, RootState, AppDispatch
+    hooks.ts          # useAppSelector, useAppDispatch (typed)
+  features/
+    cart/
+      cartSlice.ts    # slice: state, reducers, actions, selectors
+      CartPage.tsx
+      CartItemRow.tsx
+    orders/
+      ordersSlice.ts
+      ordersThunks.ts # only if the slice file gets long
+      OrderHistory.tsx
+    auth/
+      authSlice.ts
+      LoginForm.tsx
+  services/
+    api.ts            # RTK Query createApi (one per backend base URL)
+  components/         # shared, Redux-free UI (Button, Modal)
+```
+
+Rules of thumb:
+
+- **One slice file per feature.** `createSlice` keeps the reducer, action
+  creators and simple selectors together. This "single file" idea is often
+  called the ducks pattern.
+- **`app/` is for wiring only.** The store imports reducers; features never
+  import the store object directly. Components reach the store through hooks.
+- **Shared UI stays Redux-free.** A `Button` should take props, not call
+  `useAppSelector`, so it is reusable and easy to test.
+- Split a slice file only when it grows large, for example moving thunks into
+  `ordersThunks.ts`.
+
+## What belongs in Redux?
+
+Not all state is global. Ask these questions about each piece:
+
+| Question | If yes |
+|---|---|
+| Do many unrelated parts of the app read it? | Redux |
+| Does it need to survive the component unmounting? | Redux (or URL) |
+| Do you want to debug or replay it in DevTools? | Redux |
+| Is it data fetched from a server and cached? | RTK Query (lives in the store, managed for you) |
+| Is it only used by one component or a small subtree? | `useState` / `useReducer` |
+| Is it the value of a form field while typing? | local state or a form library |
+| Should it be shareable via a link (filters, page number)? | URL search params |
+| Is it non-serializable (Promise, class instance, DOM node, socket)? | keep it **out** of the store |
+
+Examples for a fictional loan portal, "Udaan Finance":
+
+- **Redux:** logged-in user, selected branch, the application wizard's
+  saved steps, feature flags.
+- **RTK Query:** list of loan products, EMI schedules, applicant profiles.
+- **Local state:** whether a dropdown is open, an unsubmitted comment box.
+- **URL:** `?status=approved&page=3` on the applications table.
+
+Putting **everything** in Redux is a common anti-pattern. It adds actions
+and re-renders for state no one else needs. Keeping server data in
+hand-written slices is the other big mistake today; RTK Query removes most of
+that code (see "RTK Query Basics: createApi & Query Hooks").
+
+The serializability rule is enforced in development: `configureStore`'s
+serializable check warns if a non-serializable value lands in state or an
+action. Store an id or a plain object instead, and keep the live object
+(socket, Date instance) elsewhere.
+
+## Model actions as events, not setters
+
+Name actions after **what happened**, past tense, not after which field to
+set. Then several slices can react to one event independently:
+
+```js
+// shared/events.js
+import { createAction } from "@reduxjs/toolkit";
+export const orderPlaced = createAction("checkout/orderPlaced");
+
+// features/cart/cartSlice.js
+extraReducers: (builder) =>
+  builder.addCase(orderPlaced, (state) => { state.items = []; }),
+
+// features/orders/ordersSlice.js
+extraReducers: (builder) =>
+  builder.addCase(orderPlaced, (state, action) => {
+    state.history.push(action.payload);
+  }),
+```
+
+```js
+store.dispatch(orderPlaced({ orderId: "KC-1042", totalInr: 490 }));
+console.log(JSON.stringify(store.getState()));
+// {"cart":{"items":[]},"orders":{"history":[{"orderId":"KC-1042","totalInr":490}]}}
+```
+
+Compare with the setter style: the component dispatches `setCartItems([])`
+**and** `addOrderToHistory(order)`. The component now knows about two
+slices, DevTools shows two actions for one user event, and forgetting one
+call leaves the state inconsistent.
+
+## Avoid circular imports between slices
+
+If `cartSlice` imports an action from `ordersSlice`, and `ordersSlice`
+imports one from `cartSlice`, the bundler may evaluate one file before the
+other is ready. The symptom is a confusing runtime error that something is
+`undefined` when the slice is created.
+
+Fixes, in order of preference:
+
+1. Move the shared event into its own file with `createAction`, as above,
+   and have both slices import from it.
+2. Put cross-slice logic in a thunk or listener in a third file.
+3. Only `import type` across slices, which is erased at compile time.
+
+## Keep components thin
+
+- Components **select** data and **dispatch** events. Business rules
+  (discount calculation, validation that spans slices) live in reducers,
+  selectors or thunks, where they can be unit tested without React.
+- Export selectors from the slice file and use them everywhere instead of
+  writing `state.cart.items` inline in twenty components.
+- Prefer many small `useAppSelector` calls that return exactly what the
+  component needs, rather than selecting a whole slice object.
+
+## One store, many slices
+
+A Redux app should have **one** store. Split by slice, not by store. If the
+app is large and you want to load features on demand, inject slices later
+instead of creating extra stores (see "Lazy-Loading Slices with
+combineSlices").
+
+Interviewers often ask: "What state would you NOT put in Redux?" A good
+answer gives concrete examples (form input values, open/closed UI toggles,
+non-serializable objects, server cache that RTK Query or another fetching
+library handles) and the reason: global state has a cost, so it must be
+earned.
+
+### Try it yourself
+
+1. Take a small app organised as `actions/` and `reducers/` and refactor it
+   into `features/<name>/<name>Slice.ts` files plus `app/store.ts`.
+2. List every piece of state in an app you know and classify each as Redux,
+   RTK Query, local state or URL, using the table above.
+3. Replace a `setX` action pair with one past-tense event handled by two
+   slices through `extraReducers`.

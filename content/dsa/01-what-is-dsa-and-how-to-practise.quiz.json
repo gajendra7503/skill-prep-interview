@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `[10, 9, 1, 100].sort()` return in JavaScript?",
+      "options": [
+        "[1, 9, 10, 100]",
+        "[100, 10, 9, 1]",
+        "[1, 10, 100, 9]",
+        "It throws because no comparator was given"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without a comparator, sort converts elements to strings and compares them lexicographically, so \"100\" comes before \"9\". Use `(a, b) => a - b` for numbers."
+    },
+    {
+      "question": "In the six-step routine, which step should come before writing any code?",
+      "options": [
+        "Understanding the problem and working small examples by hand",
+        "Writing the most optimised solution you know",
+        "Measuring the running time with performance.now()",
+        "Memorising the solution pattern"
+      ],
+      "correctIndex": 0,
+      "explanation": "Restating the problem, clarifying edge cases and working examples by hand come first. Skipping this is the most common reason candidates solve the wrong problem."
+    },
+    {
+      "question": "Why does `Array(3).fill([])` cause bugs when building a 2D grid?",
+      "options": [
+        "fill() only works with numbers",
+        "It creates three empty slots that cannot be written to",
+        "It creates a frozen array",
+        "All three slots hold the same array object, so pushing into one row changes every row"
+      ],
+      "correctIndex": 3,
+      "explanation": "fill() puts the same reference in every slot. Use `Array.from({ length: 3 }, () => [])` to create a separate array per row."
+    },
+    {
+      "question": "A `maxPrice` function starts with `let best = 0`. Which test case exposes the bug?",
+      "options": [
+        "[499, 1299, 799]",
+        "[-5, -2, -9]",
+        "[250]",
+        "[100, 100]"
+      ],
+      "correctIndex": 1,
+      "explanation": "With all negative values, no element beats 0, so the function wrongly returns 0. Initialising with the first element fixes it."
+    }
+  ]
+}

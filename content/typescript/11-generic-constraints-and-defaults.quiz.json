@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `function emptyOf<T extends { length: number }>(s: T): T { return { length: 0 }; }` fail to compile?",
+      "options": [
+        "Object literals cannot be returned from generic functions",
+        "The caller chooses T, which could be a more specific type such as string, so an object that only satisfies the constraint is not necessarily a T",
+        "The constraint should use implements instead of extends",
+        "length is a reserved property name"
+      ],
+      "correctIndex": 1,
+      "explanation": "Satisfying the constraint is not the same as being T. If T is string, returning { length: 0 } would break the promise that the function returns a string."
+    },
+    {
+      "question": "What advantage does `function longest<T extends { length: number }>(a: T, b: T): T` have over `function longest(a: { length: number }, b: { length: number })`?",
+      "options": [
+        "It runs faster",
+        "It accepts numbers as well",
+        "It allows any number of arguments",
+        "It preserves the caller's actual type, so `longest(\"a\", \"bb\")` returns the string literal type \"a\" | \"bb\" rather than { length: number }"
+      ],
+      "correctIndex": 3,
+      "explanation": "A constraint sets a minimum requirement while the type parameter keeps the specific type, so string methods remain available on the result."
+    },
+    {
+      "question": "Which type parameter list is a compile error?",
+      "options": [
+        "<A = string, B>",
+        "<A, B = string>",
+        "<T extends object = {}>",
+        "<T = unknown>"
+      ],
+      "correctIndex": 0,
+      "explanation": "Required type parameters may not follow optional ones, just as with function parameters. Defaults must come after all required type parameters."
+    },
+    {
+      "question": "In `function pickDefault<C extends string>(options: C[], fallback: NoInfer<C>)`, what does NoInfer change?",
+      "options": [
+        "It makes fallback optional",
+        "It disables type checking for fallback",
+        "C is inferred only from options, so a fallback outside those values is an error",
+        "It forces callers to pass C explicitly"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without NoInfer, C would be inferred from both arguments and widened to include the fallback. NoInfer excludes that position from inference so it is only checked against C."
+    }
+  ]
+}

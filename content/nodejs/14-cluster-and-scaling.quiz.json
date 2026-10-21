@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "An app stores logged-in sessions in a JavaScript Map. After switching to cluster mode with 4 workers, users are randomly logged out. Why?",
+      "options": [
+        "Cluster mode disables cookies",
+        "Each worker is a separate process with its own memory, so a session saved in one worker is missing in the others",
+        "Maps are not supported in cluster workers",
+        "The primary process deletes sessions on every fork"
+      ],
+      "correctIndex": 1,
+      "explanation": "Cluster workers do not share memory. Shared state such as sessions must move to an external store like Redis (or be carried in a stateless token) so any process can serve any request."
+    },
+    {
+      "question": "Which is the recommended way to decide how many cluster workers to fork?",
+      "options": [
+        "Always fork exactly 4 workers",
+        "Use process.argv.length",
+        "Use os.availableParallelism()",
+        "Use UV_THREADPOOL_SIZE"
+      ],
+      "correctIndex": 2,
+      "explanation": "os.availableParallelism() reports how many parallel tasks the machine can run and is the recommended replacement for os.cpus().length when sizing process or thread pools."
+    },
+    {
+      "question": "You deploy a Node API on Kubernetes. What is the usual recommendation?",
+      "options": [
+        "Run one Node process per container and scale with replicas",
+        "Run PM2 in cluster mode with max instances inside every container",
+        "Run all services in a single container to save memory",
+        "Disable SIGTERM handling so pods stop faster"
+      ],
+      "correctIndex": 0,
+      "explanation": "The orchestrator already restarts crashed containers and balances load across replicas, so one process per container keeps things simple. Each process should still handle SIGTERM for graceful shutdown."
+    },
+    {
+      "question": "What does `pm2 reload api` provide that `pm2 restart api` does not?",
+      "options": [
+        "It reinstalls npm dependencies",
+        "It clears the PM2 log files",
+        "It converts fork mode to cluster mode",
+        "A rolling restart of cluster instances, so the app keeps serving requests during the restart"
+      ],
+      "correctIndex": 3,
+      "explanation": "In cluster mode, reload restarts instances one at a time, keeping others online, which gives a zero-downtime restart. restart stops and starts all instances together."
+    }
+  ]
+}

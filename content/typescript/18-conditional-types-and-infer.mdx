@@ -1,0 +1,178 @@
+---
+title: "Conditional Types & infer"
+description: "Write types that choose between outcomes, understand distribution over unions, and extract inner types with infer, the way built-in utilities do."
+module: "Advanced Types"
+level: "advanced"
+order: 18
+---
+
+Conditional types are `if` statements for the type system. Together with
+`infer`, they power most built-in utility types (`Exclude`, `ReturnType`,
+`Awaited`) and nearly every clever library type. Once you can read them, library
+error messages stop being scary.
+
+## The syntax
+
+```ts
+type IsString<T> = T extends string ? "yes" : "no";
+type A = IsString<"hello">; // "yes"
+type B = IsString<42>;      // "no"
+```
+
+Read `T extends string` as "is `T` assignable to `string`?". It is the same
+assignability check the compiler uses everywhere, not class inheritance. The
+result is the type after `?` or after `:`.
+
+A practical use is choosing a shape based on input:
+
+```ts
+type ApiResult<T> = T extends string ? { text: T } : { data: T };
+type R1 = ApiResult<"ok">;      // { text: "ok" }
+type R2 = ApiResult<number[]>;  // { data: number[] }
+```
+
+## Distribution over unions
+
+This is the part interviewers love. When the checked type is a **naked type
+parameter** and you pass a union, the conditional is applied to each member
+separately and the results are unioned:
+
+```ts
+type Result = IsString<string | number>;
+// = IsString<string> | IsString<number>
+// = "yes" | "no"
+type ToArray<T> = T extends unknown ? T[] : never;
+type Arrs = ToArray<string | number>; // string[] | number[]
+
+// Switch distribution off by wrapping both sides in a one-element tuple:
+type ToArrayWhole<T> = [T] extends [unknown] ? T[] : never;
+type Arr = ToArrayWhole<string | number>; // (string | number)[]
+```
+
+Distribution is exactly how the built-in filters work:
+
+```ts
+type MyExclude<T, U> = T extends U ? never : T;
+type MyExtract<T, U> = T extends U ? T : never;
+type MyNonNullable<T> = T extends null | undefined ? never : T;
+type Status = "draft" | "active" | "closed";
+type Open = MyExclude<Status, "closed">;              // "draft" | "active"
+type Clean = MyNonNullable<string | null | undefined>; // string
+```
+
+Each member is tested; members that map to `never` vanish, because `never` is
+the empty union.
+
+### The never surprise
+
+`never` is an empty union, so a distributive conditional over it has nothing to
+iterate and returns `never`, whatever the branches say:
+
+```ts
+type N = IsString<never>; // never, not "no"
+type IsNever<T> = [T] extends [never] ? true : false;
+type Yes = IsNever<never>;  // true
+type No = IsNever<string>;  // false
+```
+
+If a conditional type mysteriously produces `never`, check whether `never`
+flowed into a naked type parameter.
+
+## infer: pattern matching on types
+
+Inside the `extends` clause you can declare a type variable with `infer`. If
+the match succeeds, the variable holds whatever part of the type was in that
+position, and you can use it in the true branch:
+
+```ts
+type ElementType<T> = T extends (infer E)[] ? E : T;
+type E1 = ElementType<number[]>; // number
+type E2 = ElementType<string>;   // string (no match, so the false branch)
+```
+
+The same idea extracts parts of function types. These mirror the built-in
+`ReturnType` and `Parameters`:
+
+```ts
+type MyReturnType<F> = F extends (...args: any[]) => infer R ? R : never;
+type FirstParam<F> = F extends (first: infer P, ...rest: any[]) => any ? P : never;
+function createSip(amountInr: number, day: number) {
+  return { id: "s1", amountInr, day };
+}
+type Sip = MyReturnType<typeof createSip>;     // { id: string; amountInr: number; day: number }
+type Amount = FirstParam<typeof createSip>;    // number
+```
+
+Promises work the same way. A single level of unwrapping is easy; the built-in
+`Awaited` goes further and unwraps nested promises recursively:
+
+```ts
+type Unwrap<T> = T extends Promise<infer V> ? V : T;
+type U1 = Unwrap<Promise<string>>;            // string
+type U2 = Unwrap<Promise<Promise<number>>>;   // Promise<number>
+type U3 = Awaited<Promise<Promise<number>>>;  // number
+```
+
+Tuples can be destructured too, and an `infer` variable can carry its own
+constraint with `infer X extends ...`, which only matches when the inferred type
+satisfies it:
+
+```ts
+type Head<T extends readonly unknown[]> = T extends readonly [infer H, ...unknown[]] ? H : never;
+type H1 = Head<[1, 2, 3]>; // 1
+type FirstString<T> = T extends [infer S extends string, ...unknown[]] ? S : never;
+type S1 = FirstString<["a", 1]>; // "a"
+type S2 = FirstString<[1, "a"]>; // never
+```
+
+`infer` also works inside template literal types to parse strings; see
+"Template Literal Types". Recursive conditional types are covered in
+"Type-Level Programming: Recursive & Variadic Types".
+
+## infer with unions and overloads
+
+Distribution and `infer` combine naturally. Passing a union pulls the matching
+piece from each member and drops the rest:
+
+```ts
+type IdOf<T> = T extends { id: infer I } ? I : never;
+type Ids = IdOf<{ id: number } | { id: string } | { name: string }>; // number | string
+```
+
+Two edge cases are worth remembering:
+
+| Situation | What infer gives |
+|---|---|
+| Overloaded function | only the **last** overload signature is used |
+| Same `infer U` in two property positions | a union of the candidates |
+| Same `infer U` in two parameter positions | an intersection (here `string & number`, which is `never`) |
+
+```ts
+declare function parse(x: string): string;
+declare function parse(x: number): number;
+type P = ReturnType<typeof parse>; // number (last overload)
+```
+
+## Limits in function bodies
+
+In a function body `T` is unresolved, so the compiler generally cannot prove
+that the body returns the right branch:
+
+```ts
+function format<T extends string | number>(v: T): T extends string ? string : number {
+  return typeof v === "string" ? v.toUpperCase() : v * 2;
+  // Error: not assignable to 'T extends string ? string : number'
+}
+```
+
+Common fixes are function overloads (often the clearest) or a deliberate
+assertion in the implementation.
+
+### Try it yourself
+
+1. Write `ArrayOrSingle<T>` that turns `string` into `string | string[]`, and
+   check what `ArrayOrSingle<string | number>` produces with and without the
+   tuple wrapper.
+2. Write `LastParam<F>` that extracts the type of a function's last parameter.
+3. Write `UnwrapArrayPromise<T>` so that `Promise<Fund[]>` becomes `Fund`, using
+   two `infer` steps.

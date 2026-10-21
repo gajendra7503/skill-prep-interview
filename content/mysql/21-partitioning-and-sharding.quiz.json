@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `CREATE TABLE ... PRIMARY KEY (id) ... PARTITION BY RANGE COLUMNS (created_at)` fail?",
+      "options": [
+        "RANGE COLUMNS does not support DATETIME",
+        "Partitioned tables cannot have an AUTO_INCREMENT column",
+        "Every unique key, including the primary key, must include all columns of the partitioning expression",
+        "The primary key must be the first column of the table"
+      ],
+      "correctIndex": 2,
+      "explanation": "MySQL enforces uniqueness only within a partition, so unique keys must contain the partition column. PRIMARY KEY (id, created_at) works."
+    },
+    {
+      "question": "A table is partitioned monthly by `created_at`. Which query will EXPLAIN show touching only one partition?",
+      "options": [
+        "SELECT * FROM orders_p WHERE created_at >= '2025-02-01' AND created_at < '2025-03-01'",
+        "SELECT * FROM orders_p WHERE customer_id = 42",
+        "SELECT * FROM orders_p WHERE YEAR(created_at) = 2025 AND MONTH(created_at) = 2",
+        "SELECT * FROM orders_p WHERE status = 'shipped'"
+      ],
+      "correctIndex": 0,
+      "explanation": "Pruning needs a direct constraint on the partition column. Filtering on other columns or on functions of the column checks every partition."
+    },
+    {
+      "question": "What is the strongest practical reason to partition a large orders table by month?",
+      "options": [
+        "Primary-key lookups become dramatically faster",
+        "It lets the table use more CPU cores across multiple servers",
+        "Queries on any column automatically become faster",
+        "Old data can be removed instantly with DROP PARTITION instead of a huge, log-heavy DELETE"
+      ],
+      "correctIndex": 3,
+      "explanation": "DROP PARTITION is a metadata operation that avoids massive undo/redo, locking and replication lag. Partitioning does not add server capacity or speed up unrelated queries."
+    },
+    {
+      "question": "For a sharded e-commerce database, why is `customer_id` usually a better shard key than `created_at`?",
+      "options": [
+        "created_at cannot be indexed",
+        "customer_id keeps a customer's orders on one shard and spreads writes evenly, while created_at sends all new writes to the latest shard",
+        "customer_id allows cross-shard foreign keys",
+        "Sharding by created_at requires Vitess"
+      ],
+      "correctIndex": 1,
+      "explanation": "A good shard key has high cardinality, spreads load and keeps a request's rows together. Time-based keys create a write hotspot on the newest shard."
+    }
+  ]
+}

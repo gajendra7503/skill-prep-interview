@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A class defines `bank = \"SkillPrep Bank\"` at class level. After `a.bank = \"Other Bank\"` on one instance, what does another instance `b.bank` return?",
+      "options": [
+        "\"Other Bank\", because class attributes are shared",
+        "An AttributeError",
+        "None",
+        "\"SkillPrep Bank\", because the assignment created an instance attribute only on a"
+      ],
+      "correctIndex": 3,
+      "explanation": "Assigning through an instance always creates or updates an attribute in that instance's __dict__. The class attribute is untouched, so b still finds it on the class."
+    },
+    {
+      "question": "Why does `members = []` defined at class level cause a bug when instances call `self.members.append(...)`?",
+      "options": [
+        "Lists cannot be class attributes in Python",
+        "All instances share the same list object, so appending through one instance is visible from every other",
+        "append raises an error on class attributes",
+        "Each instance gets a copy, so the appended values are lost"
+      ],
+      "correctIndex": 1,
+      "explanation": "append mutates the existing object found via lookup on the class rather than rebinding a name, so every instance sees the same shared list. Create the list in __init__ instead."
+    },
+    {
+      "question": "Which statement about `@classmethod` and `@staticmethod` is correct?",
+      "options": [
+        "A classmethod receives the class as its first argument, making it suitable for alternative constructors; a staticmethod receives no implicit first argument",
+        "A staticmethod receives the class, a classmethod receives the instance",
+        "Both receive self, but classmethods cannot be called on instances",
+        "They are identical; the names are just conventions"
+      ],
+      "correctIndex": 0,
+      "explanation": "A classmethod gets cls (the class or subclass it was called on), so cls(...) builds the right type. A staticmethod is a plain function namespaced in the class."
+    },
+    {
+      "question": "What happens when you assign `p.z = 3` on an instance of a class with `__slots__ = (\"x\", \"y\")`?",
+      "options": [
+        "z is silently stored in the instance __dict__",
+        "z is added to __slots__ automatically",
+        "An AttributeError is raised because there is no slot or __dict__ for z",
+        "z becomes a class attribute"
+      ],
+      "correctIndex": 2,
+      "explanation": "__slots__ replaces the per-instance __dict__ with fixed storage for the listed names, so assigning any other attribute fails with AttributeError."
+    }
+  ]
+}

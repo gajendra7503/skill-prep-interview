@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why do production Node services usually prefer structured JSON logs (e.g. pino) over console.log text lines?",
+      "options": [
+        "console.log is not available in production builds",
+        "JSON logs are encrypted automatically",
+        "Each line has consistent, machine-searchable fields and a level, so logs can be filtered and aggregated across servers",
+        "JSON logs never need to be shipped anywhere"
+      ],
+      "correctIndex": 2,
+      "explanation": "Structured logs carry fields like level, requestId and orderId that log platforms can index, and levels let you turn debug noise off in production."
+    },
+    {
+      "question": "A pino logger is created with level \"info\". What happens to `logger.debug(\"cache miss\")`?",
+      "options": [
+        "It is not written, because debug is below the configured info level",
+        "It is written as an info line",
+        "It throws an error",
+        "It is buffered and written on exit"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only messages at or above the configured level are emitted. The level can be raised to debug through an env var like LOG_LEVEL when investigating."
+    },
+    {
+      "question": "What does `node --inspect-brk script.js` do compared with `--inspect`?",
+      "options": [
+        "It disables breakpoints",
+        "It exposes the debugger on all network interfaces",
+        "It restarts the script when files change",
+        "It enables the inspector and pauses before the first line of user code runs"
+      ],
+      "correctIndex": 3,
+      "explanation": "--inspect-brk is useful for debugging start-up code, because execution waits until a debugger such as Chrome DevTools (via chrome://inspect) attaches and resumes."
+    },
+    {
+      "question": "Why is running `node --inspect=0.0.0.0` on a public server dangerous?",
+      "options": [
+        "It slows the event loop by 50%",
+        "Anyone who can reach the inspector port can execute arbitrary code in the process",
+        "It deletes logs on every restart",
+        "It disables structured logging"
+      ],
+      "correctIndex": 1,
+      "explanation": "The inspector protocol allows full code execution. It binds to 127.0.0.1 by default for this reason; never expose it publicly."
+    }
+  ]
+}

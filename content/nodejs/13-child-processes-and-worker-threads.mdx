@@ -1,0 +1,142 @@
+---
+title: "Child Processes & Worker Threads"
+description: "Running external programs with spawn, exec and execFile without shell injection, and offloading CPU-heavy JavaScript to worker_threads."
+module: "Advanced Node"
+level: "advanced"
+order: 16
+---
+
+Node runs your JavaScript on one thread, so two questions come up in every
+backend interview: "How do you run another program from Node?" and "What do
+you do with CPU-heavy work that would block the event loop?" The answers are
+`node:child_process` and `node:worker_threads` — and knowing when to pick
+which is the real test.
+
+## spawn: streaming output from a process
+
+`spawn` starts a process and gives you its `stdout`/`stderr` as **streams**,
+so output is handled as it arrives and memory stays flat even for huge
+outputs.
+
+```js
+import { spawn } from "node:child_process";
+
+const child = spawn("git", ["log", "--oneline", "-n", "3"]);
+
+child.stdout.on("data", (chunk) => process.stdout.write(`git: ${chunk}`));
+child.stderr.on("data", (chunk) => console.error(`err: ${chunk}`));
+child.on("error", (err) => console.error("failed to start:", err.message)); // e.g. ENOENT
+child.on("close", (code) => console.log("exited with", code));
+// git: 8b3a5b5 Add SkillPrep learning platform
+// ...
+// exited with 0
+```
+
+Listen for `error` as well as `close`: a missing binary emits `error`
+(`ENOENT`), not a non-zero exit code. Pass `{ stdio: "inherit" }` to let the
+child write straight to your terminal, and `{ cwd, env }` to control where
+and with what environment it runs.
+
+## exec vs execFile, and shell injection
+
+`exec` runs a command string **through a shell** and buffers all output
+(`maxBuffer` caps it, 1 MB by default). `execFile` runs a binary
+**directly** with an argument array — no shell involved.
+
+```js
+import { exec, execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+
+// DANGEROUS: user input is interpolated into a shell command
+const file = "report.txt; rm -rf ~";        // attacker-controlled
+exec(`cat ${file}`);                        // the shell runs BOTH commands
+
+// SAFE: arguments are passed as data, never parsed by a shell
+const { stdout } = await execFileAsync("cat", [file]);
+// rejects (cat exits with 1): no file is literally named "report.txt; rm -rf ~"
+```
+
+This is the classic **command injection** interview question. Rules of
+thumb: prefer `spawn`/`execFile` with an argument array, never build shell
+strings from user input, and avoid `{ shell: true }` unless the input is
+fully trusted. The promisified `execFile` rejects when the exit code is
+non-zero; the error carries `code`, `stdout` and `stderr`.
+
+## fork: a Node child with an IPC channel
+
+`fork` is `spawn` specialised for Node scripts. It opens an **IPC channel**,
+so parent and child exchange messages with `send()` and the `message` event.
+
+```js
+// parent.js
+import { fork } from "node:child_process";
+const child = fork("./pricing-job.js");
+child.send({ items: [499, 1299] });
+child.on("message", (msg) => console.log("total ₹", msg.total)); // total ₹ 1798
+
+// pricing-job.js
+process.on("message", ({ items }) => {
+  process.send({ total: items.reduce((a, b) => a + b, 0) });
+  process.exit(0);
+});
+```
+
+Each child is a full process with its own memory and V8 instance — roughly
+tens of megabytes and noticeable start-up time. That isolation is the point:
+a crash in the child cannot take down the parent.
+
+## worker_threads for CPU-bound JavaScript
+
+Hashing, image resizing, parsing a large file or heavy maths blocks the event
+loop, so every other request waits. A **worker thread** runs JavaScript in
+parallel inside the same process, with its own event loop and V8 isolate.
+
+```js
+import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
+
+if (isMainThread) {
+  const run = (n) =>
+    new Promise((resolve, reject) => {
+      const w = new Worker(new URL(import.meta.url), { workerData: n });
+      w.once("message", resolve);
+      w.once("error", reject);
+      w.once("exit", (code) => code !== 0 && reject(new Error(`exit ${code}`)));
+    });
+
+  console.log(await Promise.all([30, 31, 32, 33].map(run)));
+  // [ 832040, 1346269, 2178309, 3524578 ] — computed on 4 threads in parallel
+} else {
+  const fib = (n) => (n < 2 ? n : fib(n - 1) + fib(n - 2));
+  parentPort.postMessage(fib(workerData));
+}
+```
+
+Messages are copied with the **structured clone** algorithm. To avoid
+copying large binary data, transfer an `ArrayBuffer` (`postMessage(buf,
+[buf])`) or share a `SharedArrayBuffer` and coordinate with `Atomics`.
+Creating a worker is not free, so production code reuses a **pool** sized
+to `os.availableParallelism()` — the `piscina` package is a popular choice.
+
+## Choosing the right tool
+
+| Need | Use |
+| --- | --- |
+| Run a non-Node program (ffmpeg, git, Python) | `spawn` / `execFile` |
+| Short command, small output, trusted input | `exec` |
+| Isolated Node script with messaging | `fork` |
+| CPU-heavy JavaScript inside one service | `worker_threads` |
+| Async I/O (files, network, DB) | Neither — libuv already handles it |
+
+A common interview trap: workers do **not** speed up I/O. `fs` and network
+calls already run off the main thread (in libuv's thread pool or the OS), so
+wrapping them in workers only adds overhead.
+
+### Try it yourself
+
+Write a script that computes SHA-256 hashes of 200 strings (for example,
+invoice IDs for ₹ payments) first on the main thread, then split across a
+pool of `os.availableParallelism()` workers, and compare the timings. Then
+call `execFile("node", ["--version"])` via `promisify` and print the result,
+and explain why `exec` with an interpolated filename is unsafe.

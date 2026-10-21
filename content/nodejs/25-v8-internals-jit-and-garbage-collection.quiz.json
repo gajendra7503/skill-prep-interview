@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is a deoptimisation in V8?",
+      "options": [
+        "Discarding optimised machine code and falling back to a lower tier when a speculation about types fails",
+        "Deleting unused variables during garbage collection",
+        "Turning off the JIT for the whole process",
+        "Compressing bytecode to save memory"
+      ],
+      "correctIndex": 0,
+      "explanation": "Optimising tiers speculate using type feedback; when an assumption breaks (for example a string where numbers were seen), V8 deoptimises."
+    },
+    {
+      "question": "Why can delete obj.key on a hot object hurt performance?",
+      "options": [
+        "It triggers a full garbage collection",
+        "It can push the object into slow dictionary mode, losing its fast hidden-class layout",
+        "It makes the object immutable",
+        "It converts the object into an array"
+      ],
+      "correctIndex": 1,
+      "explanation": "Deleting properties can turn an object into dictionary mode; setting the field to undefined or building a new object keeps fast properties."
+    },
+    {
+      "question": "An inline cache at a property-access site has seen many different object shapes. What is it called?",
+      "options": [
+        "Monomorphic",
+        "Polymorphic",
+        "Megamorphic",
+        "Holey"
+      ],
+      "correctIndex": 2,
+      "explanation": "One shape is monomorphic, a few is polymorphic, and many shapes is megamorphic, which falls back to slow generic lookups."
+    },
+    {
+      "question": "Which garbage-collection event is most likely to show up as p99 latency spikes?",
+      "options": [
+        "Ignition bytecode compilation",
+        "A young-generation Scavenge",
+        "Inline cache updates",
+        "A long old-generation Mark-Compact pause"
+      ],
+      "correctIndex": 3,
+      "explanation": "Scavenges are short; long Mark-Compact pauses in the old generation stop JavaScript longer and appear as tail-latency spikes."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the average time complexity of `x in s` when `s` is a set, versus when it is a list?",
+      "options": [
+        "O(n) for a set, O(1) for a list",
+        "O(log n) for both",
+        "O(1) for both",
+        "O(1) for a set, O(n) for a list"
+      ],
+      "correctIndex": 3,
+      "explanation": "Sets are hash tables with average O(1) membership; a list must be scanned linearly."
+    },
+    {
+      "question": "What does `d = {1: \"int\"}; d[1.0] = \"float\"; d[True] = \"bool\"` leave in `d`?",
+      "options": [
+        "{1: 'bool'}",
+        "{1: 'int', 1.0: 'float', True: 'bool'}",
+        "{True: 'bool'}",
+        "It raises a TypeError because floats are unhashable"
+      ],
+      "correctIndex": 0,
+      "explanation": "1, 1.0 and True are equal and hash the same, so they are one key; the original key object is kept and the value is overwritten."
+    },
+    {
+      "question": "After `shallow = orig.copy()` where `orig = [[1, 2], [3]]`, what happens when you run `orig[0].append(99)`?",
+      "options": [
+        "Only orig changes, because copy() duplicates everything",
+        "shallow[0] also shows 99, because the inner lists are shared",
+        "It raises an error because the list was copied",
+        "shallow becomes empty"
+      ],
+      "correctIndex": 1,
+      "explanation": "A shallow copy creates a new outer list but reuses the same inner objects; use copy.deepcopy for full independence."
+    },
+    {
+      "question": "What does `first, *middle, last = [1, 2, 3, 4, 5]` assign to `middle`?",
+      "options": [
+        "(2, 3, 4)",
+        "2",
+        "[2, 3, 4]",
+        "It raises a ValueError"
+      ],
+      "correctIndex": 2,
+      "explanation": "A starred target in unpacking collects all remaining items into a list."
+    }
+  ]
+}

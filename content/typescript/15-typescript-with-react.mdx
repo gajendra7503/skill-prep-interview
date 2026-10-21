@@ -1,0 +1,179 @@
+---
+title: "TypeScript with React"
+description: "Type props, children, events, state, refs, reducers, custom hooks and generic components so your React code catches mistakes before the browser does."
+module: "TypeScript in Practice"
+level: "intermediate"
+order: 15
+---
+
+React and TypeScript are the most common pairing in frontend job descriptions,
+and you only need a handful of patterns: components are functions, props are an
+object type, and hooks are generic functions that infer well. Examples assume a
+`.tsx` file and the official `@types/react` package.
+
+## Typing props
+
+A component is a function whose single parameter is its props object. Give that
+object a type and destructure it, with defaults for optional props:
+
+```tsx
+import type { ReactNode } from "react";
+type BadgeProps = {
+  label: string;
+  tone?: "info" | "warning"; // optional, limited to two values
+  children?: ReactNode;
+};
+function Badge({ label, tone = "info", children }: BadgeProps) {
+  return <span className={`badge badge-${tone}`}>{label}{children}</span>;
+}
+
+<Badge label="New" />;                 // OK
+<Badge label="New" tone="danger" />;   // Error: '"danger"' is not assignable to '"info" | "warning"'
+<Badge tone="info" />;                 // Error: Property 'label' is missing
+```
+
+`ReactNode` is the widest "renderable" type: elements, strings, numbers,
+`null`, `undefined`, booleans and arrays of these. Use it for `children`.
+`ReactElement` and `JSX.Element` mean a single JSX element only, which is rarely
+what you want.
+
+### React.FC or a plain function?
+
+Interviewers often ask whether you use `React.FC`. Both work, but most teams now
+prefer plain functions with an annotated props parameter: simpler, friendlier to
+generics, and older `React.FC` versions added an implicit `children` prop.
+
+## Extending native elements
+
+A design-system `Button` should accept everything a real `button` does. Do not
+retype `onClick`, `disabled` and friends by hand; borrow them:
+
+```tsx
+import type { ComponentProps } from "react";
+type ButtonProps = ComponentProps<"button"> & { variant: "primary" | "ghost" };
+function Button({ variant, className, ...rest }: ButtonProps) {
+  return <button className={`${variant} ${className ?? ""}`} {...rest} />;
+}
+
+<Button variant="primary" disabled onClick={() => alert("Paid")}>Pay ₹499</Button>;
+```
+
+## Events
+
+Inline handlers infer their event type from the JSX attribute, so you rarely
+annotate them. When you extract a handler into a named function, you must
+name the event type yourself:
+
+```tsx
+import { useState, type ChangeEvent, type FormEvent } from "react";
+function SearchBox() {
+  const [query, setQuery] = useState("");
+  function handleChange(e: ChangeEvent<HTMLInputElement>) {
+    setQuery(e.target.value); // e.target is HTMLInputElement, so .value is string
+  }
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+  }
+  return (
+    <form onSubmit={handleSubmit}>
+      <input value={query} onChange={handleChange} />
+      <input onChange={(e) => setQuery(e.target.value)} /> {/* inferred */}
+    </form>
+  );
+}
+```
+
+Tip: hover the `onChange` attribute in your editor to see the exact type. Common
+ones are `ChangeEvent`, `FormEvent`, `MouseEvent` and `KeyboardEvent`.
+
+## State and refs
+
+`useState` infers from its initial value. Pass a type argument only when the
+initial value does not describe every future value, typically `null` now and
+an object later:
+
+```tsx
+const [count, setCount] = useState(0); // number
+setCount("5");                         // Error: string is not assignable
+type Investor = { id: number; name: string };
+const [investor, setInvestor] = useState<Investor | null>(null);
+investor.name;   // Error: 'investor' is possibly 'null'
+investor?.name;  // OK: string | undefined
+```
+
+For DOM refs, pass the element type and `null`. With recent `@types/react`
+(React 19 types), `useRef` requires an initial argument, and the resulting
+`ref.current` is typed `HTMLInputElement | null`:
+
+```tsx
+const inputRef = useRef<HTMLInputElement>(null);
+inputRef.current?.focus(); // optional chaining because it may be null
+```
+
+## Reducers with action unions
+
+`useReducer` shines with TypeScript because actions become a union keyed by a
+`type` field. Each `case` narrows the action, so `action.price` exists only in
+the branch where it is defined (the design behind this is covered in "Modelling
+State with Discriminated Unions"):
+
+```tsx
+type CartState = { items: string[]; total: number };
+type CartAction = { type: "add"; item: string; price: number } | { type: "clear" };
+function cartReducer(state: CartState, action: CartAction): CartState {
+  switch (action.type) {
+    case "add":
+      return { items: [...state.items, action.item], total: state.total + action.price };
+    case "clear":
+      return { items: [], total: 0 };
+  }
+}
+const [cart, dispatch] = useReducer(cartReducer, { items: [], total: 0 });
+dispatch({ type: "add", item: "SIP starter kit", price: 499 }); // OK
+dispatch({ type: "add", item: "Gift card" });  // Error: Property 'price' is missing
+```
+
+## Custom hooks: return tuples with as const
+
+A returned array literal is inferred as an array of a union, not a tuple:
+
+```tsx
+function useToggle(initial = false) {
+  const [on, setOn] = useState(initial);
+  const toggle = () => setOn((v) => !v);
+  return [on, toggle] as const; // readonly [boolean, () => void]
+}
+
+const [isOpen, toggleOpen] = useToggle();
+toggleOpen(); // OK. Without "as const": (boolean | (() => void))[] and an error
+```
+
+## Generic components
+
+A list component should not care what it lists, but it should make sure
+`renderItem` receives the same type that `items` holds. Make the component
+generic and TypeScript infers `T` from the `items` prop:
+
+```tsx
+type ListProps<T> = {
+  items: T[];
+  getKey: (item: T) => string | number;
+  renderItem: (item: T) => ReactNode;
+};
+function List<T>({ items, getKey, renderItem }: ListProps<T>) {
+  return <ul>{items.map((item) => <li key={getKey(item)}>{renderItem(item)}</li>)}</ul>;
+}
+const funds = [{ code: "EQ01", nav: 152.4 }];
+<List items={funds} getKey={(f) => f.code} renderItem={(f) => f.nav.toFixed(2)} />; // f inferred
+<List items={funds} getKey={(f) => f.code} renderItem={(f) => f.price} />; // Error: no 'price'
+```
+
+This is a strong interview answer to "show me a generic you wrote recently".
+
+### Try it yourself
+
+1. Write a `Modal` with props `title`, `isOpen`, `onClose: () => void` and
+   `children`. Confirm that omitting `onClose` is a compile error.
+2. Build an `Input` component that accepts every native `input` prop plus a
+   required `label: string`, and forwards the rest to the real element.
+3. Write a `useFetch<T>(url)` hook that keeps `data` as `T | null` in state.

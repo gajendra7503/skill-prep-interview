@@ -1,0 +1,167 @@
+---
+title: "Popover API & CSS Anchor Positioning"
+description: "Declarative popovers in the top layer, light dismiss and accessibility semantics, animating entry and exit, and tethering menus and tooltips to their trigger with anchor positioning."
+module: "Pro Level"
+level: pro
+order: 25
+---
+
+Menus, tooltips, toasts and dropdowns used to need a positioning library,
+a portal to escape `overflow: hidden`, a z-index scale, and hand-written
+click-outside and Escape handling. The platform now covers all of that.
+Knowing exactly what it does — and what it does not do — is the
+senior-level part.
+
+## The `popover` attribute
+
+```html
+<button popovertarget="account-menu">Account</button>
+
+<div id="account-menu" popover>
+  <a href="/profile">Profile</a>
+  <a href="/statements">Statements</a>
+  <button popovertarget="account-menu" popovertargetaction="hide">Close</button>
+</div>
+```
+
+With zero JavaScript you get:
+
+- **Top layer rendering**: the popover paints above everything, ignoring
+  z-index and ancestor stacking contexts, and is not clipped by an
+  ancestor's `overflow: hidden`. No portal needed.
+- **Light dismiss** for `popover` (which means `popover="auto"`): clicking
+  outside or pressing Escape closes it, and opening one auto popover closes
+  other unrelated auto popovers (nested ones stay open).
+- **Invoker semantics**: the button toggles it (`popovertargetaction` can be
+  `toggle`, `show` or `hide`), and supporting browsers expose the
+  expanded or collapsed state of the button to assistive technology.
+- Hidden by default via the UA stylesheet (`display: none` until open).
+
+## `auto` vs `manual` vs `hint`
+
+| Value | Light dismiss | Closes other popovers | Use for |
+| --- | --- | --- | --- |
+| `auto` (default) | Yes | Yes (unrelated autos) | Menus, pickers, disclosure panels |
+| `manual` | No | No | Toasts, persistent panels you close yourself |
+| `hint` | Yes | Only other hints | Hover tooltips (newer, not yet in every browser) |
+
+JavaScript control is there when you need it:
+
+```js
+const menu = document.getElementById("account-menu");
+menu.showPopover();
+menu.togglePopover();
+menu.addEventListener("toggle", (e) => console.log(e.newState));
+// logs "open" or "closed"
+```
+
+## Popover vs `dialog` — the interview question
+
+A popover is **non-modal**: the rest of the page stays interactive and focus
+is not trapped. A `<dialog>` opened with `showModal()` is **modal**: the rest
+of the page becomes inert, focus is contained, and Escape closes it. Both
+use the top layer and both support `::backdrop`.
+
+Rule of thumb: if the user must answer before continuing (confirm a ₹50,000
+transfer), use a modal dialog. If it is a transient helper they can ignore
+(a menu, a hint), use a popover. You can also combine them:
+`<dialog popover>` gives dialog semantics with popover behaviour.
+
+## Styling and animating open/close
+
+```css
+[popover] {
+  opacity: 0;
+  translate: 0 -0.5rem;
+  transition:
+    opacity 150ms, translate 150ms,
+    display 150ms allow-discrete,   /* keep it rendered while fading out */
+    overlay 150ms allow-discrete;   /* stay in the top layer while fading out */
+}
+
+[popover]:popover-open {
+  opacity: 1;
+  translate: 0 0;
+}
+
+/* Starting values for the entry animation (from display: none) */
+@starting-style {
+  [popover]:popover-open { opacity: 0; translate: 0 -0.5rem; }
+}
+
+[popover]::backdrop { background: rgb(0 0 0 / 0.2); }
+```
+
+Two pieces make this work. `@starting-style` gives the browser a "before"
+state for an element that was just shown, since there is no previous frame
+to transition from. `transition-behavior: allow-discrete` (here via the
+`allow-discrete` keyword) lets discrete properties like `display` flip at
+the **end** of the exit transition instead of instantly. Browsers that do
+not support these simply skip the animation.
+
+## Anchor positioning: tethering to the trigger
+
+Anchor positioning lets one element position itself relative to another
+**anywhere in the DOM**, purely in CSS.
+
+```css
+.account-btn { anchor-name: --account; }
+
+#account-menu {
+  position-anchor: --account;
+  inset: auto;                         /* undo the popover's default inset: 0 */
+  margin: 0;                           /* undo the default centring margin */
+  position-area: block-end span-inline-end;   /* below, aligned to the start edge */
+  min-width: anchor-size(width);       /* at least as wide as the button */
+  position-try-fallbacks: flip-block;  /* flip above if there is no room below */
+}
+```
+
+The same placement written with the `anchor()` function, which gives
+finer control:
+
+```css
+#account-menu {
+  position: fixed;
+  position-anchor: --account;
+  top: anchor(bottom);       /* menu's top edge at the button's bottom edge */
+  left: anchor(left);
+  margin-top: 0.25rem;
+}
+```
+
+Key points:
+
+- The positioned element must be absolutely or fixed positioned (popovers
+  already are `position: fixed`).
+- `position-try-fallbacks` accepts built-in flips (`flip-block`,
+  `flip-inline`) or your own named `@position-try` rules; the browser picks
+  the first that does not overflow.
+- `position-visibility: anchors-visible` hides the menu when its anchor
+  scrolls out of view.
+- If several elements share an anchor name (every card in a list, say),
+  the last one in the DOM wins; use `anchor-scope` on each card to limit
+  the name to that subtree.
+
+## Support and fallbacks
+
+The Popover API is Baseline since 2024. Anchor positioning shipped in
+Chromium in 2024 and in Safari 26; Firefox support was still arriving when
+this was written, so check current data. Feature-detect and fall back to a
+simple fixed placement:
+
+```css
+@supports not (anchor-name: --a) {
+  #account-menu { inset: auto 1rem auto auto; top: 4rem; }
+}
+```
+
+### Try it yourself
+
+Build an account menu: a `popover` element toggled by a button, anchored
+below the button with `position-area`, flipping above when near the bottom
+of the viewport, at least as wide as its trigger, and fading in and out
+with `@starting-style` and `allow-discrete`. Then add a `manual` toast that
+appears after "Payment of ₹2,499 received" and closes itself after four
+seconds with `hidePopover()`. Explain in one sentence why the menu should
+not be a modal dialog.

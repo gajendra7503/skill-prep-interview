@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the main reason to wrap examples in `<example>` tags inside an `<examples>` block?",
+      "options": [
+        "It is required for the model to read them at all",
+        "It reduces the token count of the examples",
+        "It clearly separates demonstrations from the real input so they are not confused",
+        "It makes the model ignore the examples' format"
+      ],
+      "correctIndex": 2,
+      "explanation": "Tags delimit each example and keep demonstrations distinct from the actual input to be processed."
+    },
+    {
+      "question": "All of your example replies start with \"Dear Sir/Madam\". What problem is likely?",
+      "options": [
+        "The model copies that greeting into every reply, even where it does not fit",
+        "The model refuses to use any greeting",
+        "The model ignores the examples entirely",
+        "Nothing, since models only copy the task, not the wording"
+      ],
+      "correctIndex": 0,
+      "explanation": "Models over-fit to shared surface features; vary incidental features or state explicitly which aspects to copy."
+    },
+    {
+      "question": "Which set of examples is best for a ticket classifier?",
+      "options": [
+        "Five short, polite examples from the most common category",
+        "Examples covering every category, varied in length and tone, including boundary cases",
+        "One very long example that mentions all categories",
+        "Invented examples that are all perfectly formatted"
+      ],
+      "correctIndex": 1,
+      "explanation": "Diverse, representative examples that include rare categories and hard cases teach the real rule rather than incidental patterns."
+    },
+    {
+      "question": "If an example contradicts your written instructions, what often happens?",
+      "options": [
+        "The model always follows the instructions",
+        "The model returns an error",
+        "The model averages the two behaviours exactly",
+        "The model often follows the example, so instructions and examples must be consistent"
+      ],
+      "correctIndex": 3,
+      "explanation": "Examples are copied very faithfully and can override instructions, so check that they agree."
+    }
+  ]
+}

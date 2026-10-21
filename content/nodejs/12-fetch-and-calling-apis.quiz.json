@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "An API returns HTTP 500. What does `await fetch(url)` do?",
+      "options": [
+        "Resolves with a Response whose ok is false and status is 500",
+        "Rejects with an HttpError",
+        "Rejects with TypeError: fetch failed",
+        "Retries automatically three times"
+      ],
+      "correctIndex": 0,
+      "explanation": "fetch only rejects when no HTTP response arrives (network failure or abort). Error statuses resolve normally, so you must check res.ok yourself."
+    },
+    {
+      "question": "How do you stop a fetch from waiting more than 2 seconds?",
+      "options": [
+        "fetch(url, { timeout: 2000 })",
+        "Wrap it in setTimeout(fetch, 2000)",
+        "Set process.env.FETCH_TIMEOUT = 2000",
+        "fetch(url, { signal: AbortSignal.timeout(2000) }), then handle the TimeoutError"
+      ],
+      "correctIndex": 3,
+      "explanation": "fetch has no timeout option. AbortSignal.timeout creates a signal that aborts after the delay, and the fetch rejects with an error named TimeoutError."
+    },
+    {
+      "question": "Which response should a retry helper NOT retry?",
+      "options": [
+        "503 Service Unavailable",
+        "429 Too Many Requests",
+        "422 Unprocessable Entity",
+        "A network error where fetch rejected with TypeError: fetch failed"
+      ],
+      "correctIndex": 2,
+      "explanation": "4xx errors such as 400, 404 and 422 mean the request itself is wrong, so repeating it will fail again. 429, 5xx and network errors are usually transient."
+    },
+    {
+      "question": "Why is blindly retrying a timed-out `POST /payments` dangerous, and what is the usual fix?",
+      "options": [
+        "POST bodies cannot be resent; use GET instead",
+        "The first attempt may have succeeded, so a retry could charge twice; send an idempotency key so the server can detect duplicates",
+        "Retries are always blocked by CORS",
+        "There is no danger as long as you use exponential backoff"
+      ],
+      "correctIndex": 1,
+      "explanation": "A timeout does not mean the server failed. POST is not idempotent, so payment APIs accept an idempotency key that makes repeated requests safe."
+    }
+  ]
+}

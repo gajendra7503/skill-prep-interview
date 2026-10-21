@@ -1,0 +1,189 @@
+---
+title: "Typing Functions"
+description: "Annotating parameters and return types, optional, default and rest parameters, function types for callbacks, and function overloads."
+module: "Fundamentals"
+level: "beginner"
+order: 3
+---
+
+Functions are where types pay off the most. A typed signature is a
+contract: callers know exactly what to pass, and the function body knows
+exactly what it receives. This lesson covers everything you need to type
+the functions you write every day.
+
+## Parameters and return types
+
+```ts
+function simpleInterest(principal: number, ratePercent: number, years: number): number {
+  return (principal * ratePercent * years) / 100;
+}
+
+console.log(simpleInterest(100000, 7.5, 2)); // 15000
+
+simpleInterest(100000, 7.5);
+// Error: Expected 3 arguments, but got 2.
+```
+
+TypeScript checks the **number** of arguments as well as their types —
+something JavaScript never does. Parameters always need annotations
+(otherwise strict mode reports an implicit `any`). The return type can be
+inferred, but writing it on exported functions documents intent and
+catches mistakes inside the body:
+
+```ts
+function getDiscount(isMember: boolean): number {
+  if (isMember) {
+    return 10;
+  }
+  // Error: Function lacks ending return statement and return type
+  // does not include 'undefined'.
+}
+```
+
+Arrow functions use the same syntax:
+
+```ts
+const addGst = (amount: number): number => amount * 1.18;
+```
+
+## Optional and default parameters
+
+Add `?` to make a parameter optional. Inside the function its type
+includes `undefined`, so you must handle that case:
+
+```ts
+function formatName(first: string, last?: string): string {
+  return last ? `${first} ${last}` : first;
+}
+
+formatName("Kiran");          // "Kiran"
+formatName("Kiran", "Rao");   // "Kiran Rao"
+```
+
+A default value makes a parameter optional too, and its type is inferred
+from the default:
+
+```ts
+function emi(principal: number, months = 12): number {
+  return Math.round(principal / months);
+}
+
+emi(600000);      // 50000
+emi(600000, 24);  // 25000
+```
+
+Optional parameters must come after required ones.
+
+## Rest parameters
+
+A rest parameter collects remaining arguments into an array, so its type
+is an array type:
+
+```ts
+function sumAll(...amounts: number[]): number {
+  return amounts.reduce((total, n) => total + n, 0);
+}
+
+sumAll(1200, 800, 450); // 2450
+```
+
+## void return type
+
+`void` says "the caller should not use the return value":
+
+```ts
+function logPayment(id: string, amount: number): void {
+  console.log(`Payment ${id}: ₹${amount}`);
+}
+```
+
+## Function types
+
+Functions are values, so they have types too. A **function type** looks
+like an arrow function signature:
+
+```ts
+type PriceRule = (price: number) => number;
+
+const festiveSale: PriceRule = (price) => price * 0.8;  // price inferred as number
+const flatOff: PriceRule = (price) => price - 500;
+
+function applyRules(price: number, rules: PriceRule[]): number {
+  return rules.reduce((current, rule) => rule(current), price);
+}
+
+console.log(applyRules(5000, [festiveSale, flatOff])); // 3500
+```
+
+Notice that `price` in `festiveSale` needed no annotation. TypeScript uses
+the expected type to infer it — this is called **contextual typing**, and
+it is why callbacks passed to `map`, `filter` or `addEventListener` rarely
+need annotations:
+
+```ts
+const prices = [499, 999, 1499];
+const withGst = prices.map((p) => p * 1.18); // p: number, result: number[]
+```
+
+Parameter names in a function type are just labels; they do not need to
+match. Also, a function with **fewer** parameters is assignable to a
+function type with more — that is why you can pass `(p) => ...` where
+`(value, index, array) => ...` is expected.
+
+One subtle rule interviewers like: a callback typed to return `void` may
+still be given a function that returns something. The value is simply
+ignored:
+
+```ts
+const ids: number[] = [];
+[1, 2, 3].forEach((n) => ids.push(n)); // push returns a number; allowed
+```
+
+## Overloads
+
+Sometimes a function returns different types depending on its arguments.
+**Overload signatures** describe each valid way to call it, followed by
+one implementation that handles them all:
+
+```ts
+function parseInput(value: string): number;
+function parseInput(value: string[]): number[];
+function parseInput(value: string | string[]): number | number[] {
+  return Array.isArray(value) ? value.map(Number) : Number(value);
+}
+
+const one = parseInput("42");          // number
+const many = parseInput(["1", "2"]);   // number[]
+```
+
+Callers only see the overload signatures, not the implementation
+signature. Prefer a union parameter (see "Union & Literal Types") or
+generics (see "Generics Fundamentals") when they can express the same
+thing — overloads are best when the return type truly depends on the input.
+
+## Typing `this` and methods
+
+Methods in object types can be written two ways:
+
+```ts
+type Account = {
+  balance: number;
+  deposit(amount: number): void;          // method syntax
+  withdraw: (amount: number) => boolean;  // property syntax
+};
+```
+
+Both work for everyday code. (The difference in how strictly their
+parameters are checked is a senior-level topic covered in "Structural
+Typing, Variance & Soundness Holes".)
+
+### Try it yourself
+
+1. Write `function sip(monthly: number, years: number, annualRate = 12): number`
+   that returns the future value of a monthly investment (you may use a
+   simple loop). Call it with and without the third argument.
+2. Define `type Validator = (value: string) => boolean`, write two
+   validators (`isPincode` for six digits, `isMobile` for ten digits), and
+   a function `validateAll(value: string, checks: Validator[]): boolean`.
+3. Write overloads for `toArray` so that `toArray("a")` returns `string[]`
+   and `toArray(5)` returns `number[]`.

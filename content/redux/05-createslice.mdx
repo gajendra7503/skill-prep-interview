@@ -1,0 +1,195 @@
+---
+title: "Writing Slices with createSlice"
+description: "Use createSlice to define state, reducers and action creators together, customise payloads with prepare, respond to other actions with extraReducers, and colocate selectors."
+module: "Core Concepts"
+level: "beginner"
+order: 5
+---
+
+`createSlice` is the function you will write most often in Redux Toolkit.
+One call replaces the action type constants, action creators and switch
+statement you wrote by hand in "Actions, Reducers & the Store". A **slice**
+is one feature's share of the state — `todos`, `cart`, `auth` — together
+with the logic that updates it.
+
+## The anatomy of a slice
+
+You met the basic shape in "Setting Up Redux Toolkit in a React App":
+`createSlice({ name, initialState, reducers })`. `name` prefixes every
+action type, `initialState` is the slice's starting state, and each key in
+`reducers` becomes both a case reducer and an action creator. For a slice
+called `counterSlice`:
+
+| You get | What it is |
+|---|---|
+| `counterSlice.reducer` | The slice reducer to pass to `configureStore` |
+| `counterSlice.actions` | One action creator per key in `reducers` |
+| `counterSlice.caseReducers` | The raw case reducer functions (handy in tests) |
+| `counterSlice.getInitialState()` | Returns the initial state |
+| `counterSlice.selectors` | Selectors bound to the slice's state (see below) |
+| `counterSlice.name` / `reducerPath` | `"counter"` by default |
+
+Reducers receive an Immer draft, so "mutating" `state` is safe — the rules
+and pitfalls are in "Immutability, Pure Reducers & Immer".
+
+## A realistic slice: a to-do list
+
+```ts
+// features/todos/todosSlice.ts
+import { createSlice, nanoid, isAnyOf, type PayloadAction } from "@reduxjs/toolkit";
+import { userLoggedOut } from "../auth/authActions";
+
+export interface Todo { id: string; text: string; done: boolean; createdAt: string }
+type Filter = "all" | "pending" | "done";
+interface TodosState { items: Todo[]; filter: Filter; unsaved: boolean }
+
+const initialState: TodosState = { items: [], filter: "all", unsaved: false };
+
+export const todosSlice = createSlice({
+  name: "todos",
+  initialState,
+  reducers: {
+    todoAdded: {
+      reducer(state, action: PayloadAction<Todo>) {
+        state.items.push(action.payload);
+      },
+      prepare(text: string) {
+        return {
+          payload: { id: nanoid(), text, done: false, createdAt: new Date().toISOString() },
+        };
+      },
+    },
+    todoToggled(state, action: PayloadAction<string>) {
+      const todo = state.items.find((t) => t.id === action.payload);
+      if (todo) todo.done = !todo.done;
+    },
+    todoDeleted(state, action: PayloadAction<string>) {
+      state.items = state.items.filter((t) => t.id !== action.payload);
+    },
+    filterChanged(state, action: PayloadAction<Filter>) {
+      state.filter = action.payload;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(userLoggedOut, () => initialState)
+      .addMatcher(
+        isAnyOf(todosSlice.actions.todoAdded, todosSlice.actions.todoToggled, todosSlice.actions.todoDeleted),
+        (state) => { state.unsaved = true; }
+      );
+  },
+  selectors: {
+    selectFilter: (state) => state.filter,
+    selectPendingCount: (state) => state.items.filter((t) => !t.done).length,
+  },
+});
+
+export const { todoAdded, todoToggled, todoDeleted, filterChanged } = todosSlice.actions;
+export const { selectFilter, selectPendingCount } = todosSlice.selectors;
+export default todosSlice.reducer;
+```
+
+Let us go through the new pieces.
+
+## Generated action creators
+
+```ts
+console.log(todoAdded.type);            // todos/todoAdded
+const action = todoAdded("Pay electricity bill");
+console.log(action);
+// {
+//   type: 'todos/todoAdded',
+//   payload: { id: 'vuQiptZblr0ohyTRIfNoP', text: 'Pay electricity bill',
+//              done: false, createdAt: '2026-10-15T07:57:55.288Z' }
+// }
+console.log(todoAdded.match(action), todoToggled.match(action)); // true false
+```
+
+The type is always `name + "/" + key`. `.match()` is a type guard you can
+use in middleware or tests. Keep slice `name`s unique — two slices called
+`"todos"` would produce clashing action types.
+
+## `prepare`: shaping the payload
+
+A plain case reducer's action creator takes one argument and uses it as the
+payload. When you need to **generate** data (an ID, a timestamp) or accept
+several arguments, use the object form with `reducer` and `prepare`.
+`prepare` runs inside the action creator, *before* dispatch, so the reducer
+stays pure. It may also return `meta` and `error` alongside `payload`.
+
+## `extraReducers`: responding to other actions
+
+`reducers` defines actions that the slice **owns**. `extraReducers` lets
+the slice respond to actions defined **elsewhere** — another slice's
+action, a standalone `createAction`, or the pending/fulfilled/rejected
+actions of a thunk (see "Async Logic with Thunks & createAsyncThunk").
+
+| Builder method | Use |
+|---|---|
+| `addCase(actionCreator, reducer)` | Handle one specific action type |
+| `addMatcher(predicate, reducer)` | Handle every action the predicate accepts (`isAnyOf`, `isPending`, ...) |
+| `addDefaultCase(reducer)` | Run for actions nothing else handled |
+
+Order matters: all `addCase` calls first, then `addMatcher`, then
+`addDefaultCase`. Matchers run *in addition to* a matching case.
+
+Here, logging out resets the to-do list without the auth slice needing to
+know todos exist — the "events, not setters" idea in action:
+
+```ts
+store.dispatch(todoAdded("Pay electricity bill"));
+store.dispatch(userLoggedOut());
+console.log(store.getState()); // { todos: { items: [], filter: 'all', unsaved: false } }
+```
+
+Always use the builder callback form shown here; the older object syntax
+for `extraReducers` was removed in RTK 2.
+
+## Colocated selectors
+
+The `selectors` field defines functions that receive **this slice's
+state**. The generated `todosSlice.selectors` versions accept the **root**
+state and look up `state.todos` for you:
+
+```ts
+store.dispatch(todoAdded("Pay electricity bill"));
+store.dispatch(todoAdded("Renew bike insurance"));
+store.dispatch(todoToggled(action.payload.id)); // mark the first one done
+store.dispatch(filterChanged("pending"));
+
+console.log(selectPendingCount(store.getState()), selectFilter(store.getState()));
+// 1 pending
+```
+
+This assumes the reducer is mounted under the key `todos` (the slice
+name). Memoising derived data such as filtered lists is covered in
+"Selectors & Memoization with createSelector".
+
+## Conventions and gotchas
+
+- **Name actions as events**: `todoAdded`, `filterChanged` — not `setTodos`.
+- **Default-export the reducer, named-export the actions** — the pattern
+  used in the official templates.
+- **Keep state serialisable**: plain objects, arrays, strings, numbers. A
+  `Date` object triggers a warning; store an ISO string as above.
+- **Avoid circular imports**: if two slices import each other's actions,
+  move shared actions (like `userLoggedOut`) into their own file.
+- **`initialState` can be a function** — `initialState: () => loadDefaults()`
+  — called when the reducer first runs or `getInitialState()` is called.
+## Interview angles
+
+- **"What does createSlice generate?"** A reducer, action creators with
+  `type`s prefixed by `name`, and optional bound selectors.
+- **"reducers vs extraReducers?"** `reducers` creates new actions owned by
+  the slice; `extraReducers` handles actions created elsewhere.
+- **"Where do IDs and timestamps go?"** In a `prepare` callback, never in
+  the reducer.
+
+### Try it yourself
+
+1. Add a `todoEdited` reducer whose action creator takes two arguments
+   (`id`, `text`) using `prepare`. Log the action it creates.
+2. Add a `selectDoneCount` selector to the slice and test it against the
+   store.
+3. Create a standalone `createAction("app/dataCleared")` and make two
+   different slices reset themselves when it is dispatched.

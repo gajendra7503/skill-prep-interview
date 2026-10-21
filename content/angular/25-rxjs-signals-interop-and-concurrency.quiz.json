@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "question": "Which flattening operator should back a 'Pay now' button so rapid double-clicks send only one payment request?",
+      "options": ["switchMap", "mergeMap", "concatMap", "exhaustMap"],
+      "correctIndex": 3,
+      "explanation": "exhaustMap ignores new source values while the current inner Observable is still running, so extra clicks are dropped."
+    },
+    {
+      "question": "A search stream uses `switchMap(t => api.search(t))` followed by an outer `catchError(() => of([]))`. What happens after one failed request?",
+      "options": [
+        "The stream completes, so later searches never run",
+        "The failed request is retried automatically",
+        "Only that one result is skipped and searching continues",
+        "Angular restarts the stream on the next change detection"
+      ],
+      "correctIndex": 0,
+      "explanation": "An error reaching the outer pipe ends the stream; catchError replaces it with of([]) which then completes. Catch inside the inner Observable instead."
+    },
+    {
+      "question": "What happens if you call `toSignal(obs$)` inside a click handler with no injector option?",
+      "options": [
+        "It works but never unsubscribes",
+        "It throws because toSignal needs an injection context to manage cleanup",
+        "It returns undefined forever",
+        "It converts the click handler into an effect"
+      ],
+      "correctIndex": 1,
+      "explanation": "toSignal ties its subscription to the current injection context's lifetime; outside one you must pass an injector."
+    },
+    {
+      "question": "What does `shareReplay({ bufferSize: 1, refCount: true })` give a config Observable consumed by ten components?",
+      "options": [
+        "Ten separate HTTP requests, one per component",
+        "A request that repeats every second",
+        "One shared HTTP request, with late subscribers receiving the cached last value",
+        "Automatic retry on failure"
+      ],
+      "correctIndex": 2,
+      "explanation": "shareReplay multicasts a single subscription to the source and replays the buffered latest value to new subscribers."
+    }
+  ]
+}

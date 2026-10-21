@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "How does Express identify a middleware function as error-handling middleware?",
+      "options": [
+        "It must be registered with app.error()",
+        "Its name must end in 'Error'",
+        "It must be declared with exactly four parameters: (err, req, res, next)",
+        "It must be an async function"
+      ],
+      "correctIndex": 2,
+      "explanation": "Express checks the function's arity. With only three parameters it is treated as ordinary middleware and never receives errors."
+    },
+    {
+      "question": "In Express 5, an async route handler awaits a database call that rejects. What happens?",
+      "options": [
+        "The router catches the rejection and calls next(err), so the error middleware handles it",
+        "The request hangs until it times out",
+        "The process crashes immediately with an unhandled rejection",
+        "Express retries the handler once before failing"
+      ],
+      "correctIndex": 0,
+      "explanation": "Express 5 forwards rejected promises from handlers and middleware to error middleware automatically, which removes the need for wrappers like express-async-errors."
+    },
+    {
+      "question": "Where should the 404 'route not found' middleware be registered?",
+      "options": [
+        "Before express.json() so it runs first",
+        "Inside the error handler",
+        "As the very first app.use() call",
+        "After all routes but before the error-handling middleware"
+      ],
+      "correctIndex": 3,
+      "explanation": "A request reaches it only if no route matched. It then forwards an HttpError(404) to the error handler, which must stay last."
+    },
+    {
+      "question": "Why does a good error handler check res.headersSent before responding?",
+      "options": [
+        "To avoid logging the same error twice",
+        "Because once headers are sent a new status cannot be set, so it should delegate to Express's default handler with next(err)",
+        "Because Express 5 requires it for async handlers",
+        "To decide whether the request was a GET or a POST"
+      ],
+      "correctIndex": 1,
+      "explanation": "If an error occurs mid-response (for example while streaming), sending a fresh status and body is impossible; next(err) lets Express close the connection."
+    }
+  ]
+}

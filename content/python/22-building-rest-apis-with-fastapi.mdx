@@ -1,0 +1,174 @@
+---
+title: "Building REST APIs with FastAPI"
+description: "Routes, path and query parameters, Pydantic v2 validation, dependency injection, async endpoints, error handling and testing with TestClient."
+module: "Practical Python"
+level: "advanced"
+order: 23
+---
+
+FastAPI has become the default choice for new Python APIs because it turns
+type hints into request validation, serialisation and OpenAPI docs for
+free. Interviews focus on what those hints actually do at runtime, how
+dependencies are wired, and when `async def` helps or hurts.
+
+## A first app
+
+```python
+# main.py
+from fastapi import FastAPI
+
+app = FastAPI(title="Payments API")
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+```
+
+Run it with `fastapi dev main.py` (the FastAPI CLI, auto-reload) or
+`uvicorn main:app --reload`. Interactive docs are generated at `/docs`
+(Swagger UI) and `/redoc` from the same type information.
+
+## Path and query parameters
+
+```python
+from typing import Annotated
+from fastapi import Query, Path
+
+@app.get("/accounts/{account_id}/txns")
+def list_txns(
+    account_id: Annotated[int, Path(gt=0)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    category: str | None = None,
+):
+    return {"account": account_id, "limit": limit, "category": category}
+```
+
+A parameter named in the path template (`account_id` here) is a path
+parameter; any other simple-typed parameter is a query parameter, and a
+default makes it optional. FastAPI converts `"42"` to `42` and returns
+**422 Unprocessable Entity** with a detailed error body if conversion
+or a constraint like `le=100` fails. `Annotated` is the recommended
+style for attaching metadata.
+
+## Pydantic v2 models for request and response bodies
+
+```python
+from decimal import Decimal
+from pydantic import BaseModel, Field, field_validator
+
+class PaymentIn(BaseModel):
+    payee_upi: str = Field(pattern=r"^[\w.\-]+@[\w]+$")
+    amount_inr: Decimal = Field(gt=0, le=Decimal("100000"))
+    note: str | None = Field(default=None, max_length=140)
+
+    @field_validator("note")
+    @classmethod
+    def strip_note(cls, v: str | None) -> str | None:
+        return v.strip() if v else v
+
+class PaymentOut(BaseModel):
+    id: int
+    payee_upi: str
+    amount_inr: Decimal
+```
+
+A parameter typed as a `BaseModel` is read from the JSON body.
+Pydantic v2 (rewritten with a Rust core) renamed the main methods:
+`model_dump()` replaces `.dict()`, `model_validate()` replaces
+`parse_obj()`, `model_dump_json()` replaces `.json()`, and
+`@field_validator` replaces `@validator`. Set
+`model_config = ConfigDict(from_attributes=True)` to build models from
+ORM objects (the old `orm_mode`).
+
+## Status codes and `HTTPException`
+
+```python
+from fastapi import HTTPException, status
+
+PAYMENTS: dict[int, PaymentOut] = {}
+
+@app.post("/payments", response_model=PaymentOut, status_code=status.HTTP_201_CREATED)
+def create_payment(body: PaymentIn) -> PaymentOut:
+    payment = PaymentOut(id=len(PAYMENTS) + 1, **body.model_dump(exclude={"note"}))
+    PAYMENTS[payment.id] = payment
+    return payment
+
+@app.get("/payments/{payment_id}", response_model=PaymentOut)
+def get_payment(payment_id: int) -> PaymentOut:
+    if payment_id not in PAYMENTS:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    return PAYMENTS[payment_id]
+```
+
+`response_model` filters the output to the declared fields, which stops
+internal fields like password hashes leaking. Raising `HTTPException`
+short-circuits the request and returns `detail` as JSON.
+
+## Dependency injection with `Depends`
+
+```python
+from fastapi import Depends, Header
+
+def get_db():                    # use as: db: Annotated[Session, Depends(get_db)]
+    db = SessionLocal()          # e.g. a SQLAlchemy session factory
+    try:
+        yield db                 # injected value
+    finally:
+        db.close()               # runs after the response is sent
+
+def current_user(x_api_key: Annotated[str, Header()]) -> str:
+    if x_api_key != "secret-key":
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid API key")
+    return "asha"
+
+@app.get("/me")
+def me(user: Annotated[str, Depends(current_user)]):
+    return {"user": user}
+```
+
+Dependencies can depend on other dependencies, are cached once per
+request, and a `yield` dependency gives setup/teardown semantics like a
+context manager. Tests swap them via `app.dependency_overrides`.
+
+## `async def` vs `def`
+
+FastAPI runs `async def` endpoints on the event loop and plain `def`
+endpoints in a threadpool. Use `async def` only when everything inside
+awaits (e.g. `httpx.AsyncClient`, async DB drivers). Calling blocking
+code — `requests.get`, `time.sleep`, a sync DB driver — inside
+`async def` freezes the whole event loop for every client; in that case a
+plain `def` is the correct choice.
+
+## Testing with `TestClient`
+
+```python
+from fastapi.testclient import TestClient
+from main import app, current_user
+
+client = TestClient(app)
+
+def test_create_and_fetch_payment():
+    r = client.post("/payments", json={"payee_upi": "ravi@okbank", "amount_inr": "1500.00"})
+    assert r.status_code == 201
+    assert client.get(f"/payments/{r.json()['id']}").status_code == 200
+
+def test_rejects_negative_amount():
+    r = client.post("/payments", json={"payee_upi": "ravi@okbank", "amount_inr": "-5"})
+    assert r.status_code == 422
+
+def test_me_with_override():
+    app.dependency_overrides[current_user] = lambda: "test-user"
+    assert client.get("/me").json() == {"user": "test-user"}
+    app.dependency_overrides.clear()
+```
+
+`TestClient` (built on `httpx`) calls the app in-process — no server
+needed — and works with plain `pytest` functions.
+
+### Try it yourself
+
+Extend the payments API with `GET /payments?min_amount=...` using a
+validated `Decimal` query parameter, a `PATCH /payments/{payment_id}`
+endpoint that returns 409 if the payment is already settled, and a
+`yield` dependency providing an in-memory store. Write `TestClient`
+tests that override the store dependency.

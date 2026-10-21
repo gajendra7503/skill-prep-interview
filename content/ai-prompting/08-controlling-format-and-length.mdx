@@ -1,0 +1,126 @@
+---
+title: "Controlling Format and Length"
+description: "Get output of the right size and shape for its destination by specifying length, structure, templates, and what to leave out."
+module: "Output Control"
+level: "intermediate"
+order: 10
+---
+
+A correct answer in the wrong shape still creates work: a 600-word essay
+when you needed three bullets for a WhatsApp update, or Markdown asterisks
+pasted into an email client that shows them literally. The model cannot see
+where its output is going, so you have to tell it.
+
+## Specify length in units the model can count
+
+"Keep it short" means different things to different people. Use concrete
+units instead:
+
+| Vague | Concrete |
+| --- | --- |
+| Keep it brief | Reply in at most 80 words |
+| Summarise the key points | Give exactly 5 bullets, one line each |
+| Write a detailed report | Write 4 sections, each 2-3 paragraphs |
+
+Words, sentences, bullets, and sections all work. Word counts are
+approximate — expect the model to land near the target rather than on it —
+so if a hard limit matters (an SMS, a form field), also enforce it in code.
+
+## Prose or bullets: decide deliberately
+
+Bullets are good for scannable, parallel items: action points, checklists,
+options. Prose is better for explanations, reasoning, and anything where the
+connections between ideas matter. Many models drift towards heavy bullet
+use by default, so if you want flowing paragraphs, say so — and say why.
+
+```text
+Explain to the branch team why the new KYC re-verification step was added.
+Write it as two short paragraphs of plain prose, not bullet points, because
+the team will read it aloud in the morning huddle.
+```
+
+## Match your prompt style to the output style
+
+The style of your prompt influences the style of the response. A prompt
+written as a dense bulleted Markdown spec tends to produce bulleted Markdown
+back; a prompt written in plain conversational paragraphs nudges the model
+towards plain paragraphs. If you want minimal formatting, reduce the
+formatting in your own prompt too.
+
+## Use a template for repeatable output
+
+When the same shape is needed every time — a weekly status note, a
+call summary, a ticket triage — give the model a template to fill.
+
+```text
+Summarise the customer call transcript below using exactly this template.
+Keep each field to one line. Write "Not discussed" if a field was not
+covered in the call.
+
+Customer: [name and city]
+Issue: [one sentence]
+Promised action: [what we committed to, with owner]
+Follow-up date: [DD-MM-YYYY or "Not discussed"]
+Sentiment: [Positive / Neutral / Negative]
+
+<transcript>
+...
+</transcript>
+```
+
+Templates make outputs easy to compare, paste into a CRM, or check
+automatically.
+
+## Tell the model what to leave out
+
+Models tend to add helpful extras: a preamble ("Sure, here is your
+summary!"), a closing offer to help further, caveats, or a restatement of
+the question. If you are going to paste the output somewhere, ask for it to
+be omitted.
+
+Weak:
+
+```text
+Write a reply to this customer email.
+```
+
+Improved:
+
+```text
+Write the body of a reply to the customer email below. Output only the
+email body, starting with "Dear Mr Iyer," and ending with the signature
+"Team Nirmal Finserv (fictional)". Do not include a subject line, any
+explanation of your choices, or alternative versions.
+```
+
+Phrasing positively also helps: "write in plain sentences" tends to work
+better than "don't use Markdown" alone, because it tells the model what to
+do instead.
+
+## Format for the destination
+
+Name where the text will be used, and the model can choose sensible
+formatting on its own. Some common destinations:
+
+- **Email (Outlook, Gmail):** plain text paragraphs; Markdown symbols like
+  `**` and `#` show up literally in many clients.
+- **WhatsApp:** short lines; WhatsApp uses single asterisks for bold and
+  underscores for italics, not Markdown headings or tables.
+- **Slack or Teams:** light Markdown works, but long tables do not.
+- **A web page or docs tool that renders Markdown:** headings, lists, and
+  tables are fine.
+
+```text
+Turn the notes below into a WhatsApp message for the Pune field sales
+group. Use at most 6 short lines, no headings or tables, and put the one
+key deadline in bold using WhatsApp's single-asterisk style.
+```
+
+### Try it yourself
+
+1. Take a prompt you use regularly and replace every vague length word
+   ("short", "detailed") with a countable unit.
+2. Design a 5-field template for a recurring output in your team, including
+   what to write when a field is missing.
+3. Ask for the same content twice — once for email and once for WhatsApp —
+   and compare how the formatting instructions change the result.

@@ -1,0 +1,148 @@
+---
+title: "The File System Module"
+description: "Reading, writing and organising files with node:fs — sync, callback and promise APIs, directories, stat, watching and safe atomic writes."
+module: "Working with Data"
+level: "intermediate"
+order: 10
+---
+
+Almost every backend touches the disk: config files, uploads, generated
+reports, logs. `node:fs` looks simple, but interviewers probe whether you
+know which of its three API styles to use where, how errors surface, and
+how to avoid corrupting a file when the process crashes mid-write.
+
+## Three styles of the same API
+
+```js
+import fs from "node:fs";                     // sync + callback
+import { readFile } from "node:fs/promises";  // promise-based
+
+// 1. Synchronous: blocks the event loop until done
+const a = fs.readFileSync("config.json", "utf8");
+
+// 2. Callback: error-first, non-blocking
+fs.readFile("config.json", "utf8", (err, b) => {
+  if (err) return console.error(err.code);
+});
+
+// 3. Promise: non-blocking, works with async/await
+const c = await readFile("config.json", "utf8");
+```
+
+| Style | Use it for |
+| --- | --- |
+| `fs.xxxSync` | Startup code and CLI scripts, where blocking is harmless |
+| Callback | Legacy code; avoid in new code |
+| `node:fs/promises` | Default choice inside servers and anything concurrent |
+
+The sync versions are not "wrong" — reading a config once at boot with
+`readFileSync` is fine. Calling it inside a request handler is the bug:
+every other request waits while the disk is read. Pass an encoding such as
+`"utf8"` to get a string; without it you get a `Buffer`.
+
+## Reading, writing and appending
+
+```js
+import { readFile, writeFile, appendFile } from "node:fs/promises";
+
+await writeFile("bill.txt", "Fee: ₹1,200\n");    // create or truncate
+await appendFile("bill.txt", "Tax: ₹216\n");     // add to the end
+console.log(await readFile("bill.txt", "utf8"));
+// Fee: ₹1,200
+// Tax: ₹216
+
+// Exclusive create: fail instead of overwriting
+await writeFile("bill.txt", "x", { flag: "wx" }); // throws, code "EEXIST"
+```
+
+`readFile` loads the **whole file into memory**. That is fine for a
+config file and a disaster for a 4 GB log — use streams (see "Streams and Pipelines") for
+large files. For JSON, combine the two steps:
+
+```js
+const settings = JSON.parse(await readFile("settings.json", "utf8"));
+await writeFile("settings.json", JSON.stringify(settings, null, 2));
+```
+
+## Errors have codes — branch on them
+
+```js
+try {
+  await readFile("missing.txt", "utf8");
+} catch (err) {
+  if (err.code === "ENOENT") console.log("no such file, using defaults");
+  else throw err;                    // permission errors etc. should surface
+}
+// no such file, using defaults
+```
+
+Common codes: `ENOENT` (not found), `EEXIST` (already exists), `EACCES` /
+`EPERM` (permission), `EISDIR` (expected a file, got a directory),
+`EMFILE` (too many open files). Prefer "try it and handle the error" over
+checking `fs.existsSync` first — the check-then-act gap is a race
+condition, because another process can delete the file in between.
+
+## Directories and metadata
+
+```js
+import { mkdir, readdir, stat, rename, rm } from "node:fs/promises";
+
+await mkdir("reports/2026/10", { recursive: true }); // like mkdir -p, no error if present
+const entries = await readdir("reports", { withFileTypes: true });
+for (const e of entries) console.log(e.name, e.isDirectory() ? "dir" : "file");
+
+const info = await stat("bill.txt");
+console.log(info.size, info.isFile(), info.mtime); // bytes, true, Date
+
+await rename("bill.txt", "reports/bill.txt");       // move or rename
+await rm("reports", { recursive: true, force: true }); // like rm -rf
+```
+
+`readdir` also accepts `{ recursive: true }` in recent Node versions to
+walk a whole tree. `rmdir` with `recursive` is deprecated — use `rm`.
+
+## Watching for changes
+
+```js
+import { watch } from "node:fs/promises";
+
+const ac = new AbortController();
+for await (const event of watch("./config", { signal: ac.signal })) {
+  console.log(event.eventType, event.filename); // e.g. "change settings.json"
+}
+```
+
+`fs.watch` uses the operating system's native notifications, so it is
+efficient but platform-dependent: events can fire twice for one save, and
+`filename` is not guaranteed on every platform. Debounce in real code, or
+use a library such as chokidar when you need consistent cross-platform
+behaviour. For restarting your own app during development, `node --watch`
+already exists.
+
+## Atomic writes
+
+Writing directly to `orders.json` is risky: if the process crashes halfway,
+the file is left truncated and the next start fails to parse it.
+
+```js
+import { writeFile, rename } from "node:fs/promises";
+import path from "node:path";
+
+async function writeJsonAtomic(file, data) {
+  const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.tmp`);
+  await writeFile(tmp, JSON.stringify(data, null, 2));
+  await rename(tmp, file); // readers see the old file or the new one, never half
+}
+```
+
+The temp file must be in the **same directory** (same filesystem), because
+`rename` is only atomic within one filesystem. For extra durability against
+power loss, open the temp file with a `FileHandle` and call
+`handle.sync()` before renaming.
+
+### Try it yourself
+
+Write `ledger.mjs` that appends a line like `2026-10-14,₹499,coffee` to
+`data/ledger.csv` (creating `data/` if needed), then reads the file back and
+prints the total spent. Handle `ENOENT` on the first run, and save a
+`summary.json` using `writeJsonAtomic`.

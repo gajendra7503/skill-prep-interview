@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which cookie flag stops an XSS script from reading the session cookie via document.cookie?",
+      "options": [
+        "secure",
+        "sameSite: \"lax\"",
+        "httpOnly",
+        "signed"
+      ],
+      "correctIndex": 2,
+      "explanation": "httpOnly hides the cookie from client-side JavaScript. secure only restricts it to HTTPS, sameSite controls cross-site sending, and signing only detects tampering."
+    },
+    {
+      "question": "Why is the default express-session MemoryStore unsuitable for production?",
+      "options": [
+        "It leaks memory, loses sessions on restart and cannot be shared across multiple instances",
+        "It stores session data in the cookie, which the browser can read",
+        "It does not support the httpOnly flag",
+        "It only works with HTTP/2"
+      ],
+      "correctIndex": 0,
+      "explanation": "MemoryStore lives inside one process. Production apps need a shared store such as Redis or a database so every instance can find every session and sessions survive restarts."
+    },
+    {
+      "question": "What is the correct way to store user passwords?",
+      "options": [
+        "Encrypt them with AES so they can be decrypted for support staff",
+        "Hash them once with SHA-256",
+        "Store them in a signed cookie",
+        "Hash them with a slow, salted algorithm such as bcrypt or argon2"
+      ],
+      "correctIndex": 3,
+      "explanation": "Fast hashes like SHA-256 can be brute-forced at enormous speed, and reversible encryption means a key leak exposes every password. bcrypt and argon2 are deliberately slow and embed a salt."
+    },
+    {
+      "question": "Behind a TLS-terminating load balancer, your secure session cookie is never set. What is the most likely fix?",
+      "options": [
+        "Set saveUninitialized: true",
+        "Configure app.set(\"trust proxy\", ...) so Express recognises the original request as HTTPS",
+        "Change sameSite to \"none\"",
+        "Remove the httpOnly flag"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without trust proxy, Express sees the proxy's plain-HTTP request and refuses to send a secure cookie. Trusting the proxy lets it read X-Forwarded-Proto."
+    }
+  ]
+}

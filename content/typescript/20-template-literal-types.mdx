@@ -1,0 +1,178 @@
+---
+title: "Template Literal Types"
+description: "Build and parse string types with template literal syntax, intrinsic string helpers and infer, from CSS units to typed event names and route parameters."
+module: "Advanced Types"
+level: "advanced"
+order: 20
+---
+
+JavaScript template literals build strings at runtime. Template literal
+**types** use the same backtick syntax to build *string types* at compile time.
+They let you say "a string that starts with `user_`" or "every combination of
+these sizes and colours", and with `infer` they can even pull pieces out of a
+string type. Libraries use them for typed routes, CSS-in-JS, event emitters and
+environment variables.
+
+## Building string types
+
+Put a type inside `${}` in a backtick type:
+
+```ts
+type Greeting = `Hello, ${string}`;
+const ok: Greeting = "Hello, Pune";  // OK
+const bad: Greeting = "Hi, Pune";    // Error: not assignable to '`Hello, ${string}`'
+```
+
+When the placeholders are unions, the result is the **cross product** of every
+combination:
+
+```ts
+type Size = "sm" | "md" | "lg";
+type Tone = "primary" | "danger";
+type ButtonClass = `btn-${Tone}-${Size}`;
+// "btn-primary-sm" | "btn-primary-md" | "btn-primary-lg"
+// | "btn-danger-sm" | "btn-danger-md" | "btn-danger-lg"
+```
+
+Placeholders can also be the primitive types `string`, `number`, `bigint` and
+`boolean`, which turns the template into a **pattern**:
+
+```ts
+type Px = `${number}px`;
+const w1: Px = "12.5px";   // OK
+const w2: Px = "12rem";    // Error
+const w3: Px = "wide px";  // Error: "wide" is not a number
+
+type FileId = `${"fund" | "sip"}_${number}`;
+const id1: FileId = "fund_42";  // OK
+const id2: FileId = "fund_abc"; // Error
+
+type CssVar = `--${string}`;     // "--brand-color", "--gap" ...
+type Bool = `${boolean}`;        // "true" | "false"
+```
+
+## Intrinsic string helpers
+
+TypeScript ships four built-in types that transform string literal types. They
+are implemented inside the compiler, so you cannot write them yourself:
+
+| Helper | Input | Output |
+|---|---|---|
+| `Uppercase<S>` | `"get"` | `"GET"` |
+| `Lowercase<S>` | `"INR"` | `"inr"` |
+| `Capitalize<S>` | `"click"` | `"Click"` |
+| `Uncapitalize<S>` | `"Name"` | `"name"` |
+
+They distribute over unions and combine naturally with templates:
+
+```ts
+type DomEvent = "click" | "focus";
+type HandlerName = `on${Capitalize<DomEvent>}`; // "onClick" | "onFocus"
+
+type Method = "get" | "post";
+type Path = "/funds" | "/sips";
+type Endpoint = `${Uppercase<Method>} ${Path}`;
+// "GET /funds" | "GET /sips" | "POST /funds" | "POST /sips"
+```
+
+## With mapped types: generated method names
+
+Template literals are most powerful inside the `as` clause of a mapped type
+(introduced in "Mapped Types & Key Remapping"). Here a map of event payloads
+becomes a typed set of listener properties:
+
+```ts
+type Events = {
+  sipCreated: { amountInr: number };
+  sipCancelled: { reason: string };
+};
+type Listeners<T> = {
+  [K in keyof T as `on${Capitalize<string & K>}`]: (payload: T[K]) => void;
+};
+type SipListeners = Listeners<Events>;
+// {
+//   onSipCreated: (payload: { amountInr: number }) => void;
+//   onSipCancelled: (payload: { reason: string }) => void;
+// }
+```
+
+A second classic, often asked in interviews, is a typed "watch" API where the
+event name is derived from a property name and the callback receives that
+property's type:
+
+```ts
+type Watchable<T> = {
+  on<K extends string & keyof T>(event: `${K}Changed`, cb: (newValue: T[K]) => void): void;
+};
+declare function makeWatchable<T>(obj: T): T & Watchable<T>;
+
+const fund = makeWatchable({ name: "Northwind Equity", navInr: 152.4 });
+fund.on("navInrChanged", (v) => v.toFixed(2)); // v: number
+fund.on("navChanged", () => {});               // Error: not a valid event name
+```
+
+TypeScript infers `K` as `"navInr"` by matching the literal against the
+`${K}Changed` pattern, then looks up `T[K]` for the callback.
+
+## Parsing strings with infer
+
+In a conditional type, `infer` can capture parts of a string. The compiler
+matches the literal text and fills in the placeholders:
+
+```ts
+type ExtractId<T> = T extends `user_${infer Id}` ? Id : never;
+type A = ExtractId<"user_9f2c">; // "9f2c"
+type B = ExtractId<"order_1">;   // never
+
+type SplitOnce<S extends string> =
+  S extends `${infer Head}.${infer Tail}` ? [Head, Tail] : [S];
+type C = SplitOnce<"funds.equity.large">; // ["funds", "equity.large"]
+```
+
+When two `infer` placeholders sit next to a delimiter, the first one is
+matched as **short as possible**, which is why `Head` is `"funds"`, not
+`"funds.equity"`.
+
+`infer ... extends` converts a numeric string into a number literal type:
+
+```ts
+type ToNumber<S> = S extends `${infer N extends number}` ? N : never;
+type N = ToNumber<"42">; // 42
+```
+
+With recursion you can parse a whole string, such as extracting route
+parameters for a typed router:
+
+```ts
+type Params<R> =
+  R extends `${string}:${infer P}/${infer Rest}` ? P | Params<`/${Rest}`>
+  : R extends `${string}:${infer P}` ? P
+  : never;
+
+type P1 = Params<"/funds/:fundId/sips/:sipId">; // "fundId" | "sipId"
+```
+
+Recursive techniques like this are explored properly in "Type-Level
+Programming: Recursive & Variadic Types".
+
+## Limits and pitfalls
+
+- **Union explosion.** Cross products multiply. Four placeholders of ten digits
+  each give 10,000 members and still compile; adding a fifth (100,000) fails
+  with "Expression produces a union type that is too complex to represent".
+  Prefer a `${number}` pattern over enumerating values.
+- **Patterns are approximate.** `${number}px` accepts anything the compiler
+  considers a numeric string, including `"1e3px"`. Do not treat it as
+  validation; runtime input still needs real checks.
+- **Inference needs literals.** A value typed as plain `string` matches only
+  `${string}` patterns. Use `as const` or literal parameters so there is
+  something specific to match.
+
+### Try it yourself
+
+1. Define `Spacing` as `${number}px` or `${number}rem` and write a function
+   `pad(value: Spacing)`. Check that `pad("8px")` compiles and `pad(8)` does not.
+2. Write `Setters<T>` that maps `{ amountInr: number }` to
+   `{ setAmountInr: (v: number) => void }`.
+3. Write `StripPrefix<S, P>` so that `StripPrefix<"NEXT_PUBLIC_API_URL", "NEXT_PUBLIC_">`
+   gives `"API_URL"`, and returns `S` unchanged when the prefix is absent.

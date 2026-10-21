@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `re.findall(\"\\bcat\\b\", text)` (a normal, non-raw string) usually find nothing?",
+      "options": [
+        "findall does not support word boundaries",
+        "Python turns \\b into a backspace character before re sees the pattern",
+        "Word boundaries only work with re.compile",
+        "It needs the re.MULTILINE flag"
+      ],
+      "correctIndex": 1,
+      "explanation": "String escapes are processed first, so \"\\b\" is a backspace (\\x08). A raw string r\"\\b\" passes the backslash through so re reads a word boundary."
+    },
+    {
+      "question": "Which function should you use to validate that an entire string is a 6-digit PIN code?",
+      "options": [
+        "re.match",
+        "re.search",
+        "re.findall",
+        "re.fullmatch"
+      ],
+      "correctIndex": 3,
+      "explanation": "fullmatch requires the pattern to consume the whole string. match only anchors at the start, so it accepts trailing garbage."
+    },
+    {
+      "question": "What does `re.findall(r\"<.+>\", \"<b>bold</b>\")` return?",
+      "options": [
+        "['<b>bold</b>'] because .+ is greedy",
+        "['<b>', '</b>'] because .+ stops at the first >",
+        "[] because < must be escaped",
+        "['b', '/b']"
+      ],
+      "correctIndex": 0,
+      "explanation": "Greedy quantifiers match as much as possible, so .+ runs to the last >. The lazy form .+? or the class [^>]+ yields each tag separately."
+    },
+    {
+      "question": "Why might `\"café\" == \"cafe\\u0301\"` be False even though both look identical?",
+      "options": [
+        "Python compares strings by memory address",
+        "One uses a composed é and the other e plus a combining accent; normalising both with unicodedata.normalize(\"NFC\", ...) makes them equal",
+        "String literals with accents are bytes, not str",
+        "casefold() must be called before any comparison"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unicode allows different code point sequences for the same visible text. Normalising to NFC (or NFKC for search keys) before comparing removes the difference."
+    }
+  ]
+}

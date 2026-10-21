@@ -34,15 +34,15 @@
       "explanation": "The proxy runs ahead of routing, so an unauthorized request is redirected before any page/data-fetching code executes."
     },
     {
-      "question": "What is a key limitation of the proxy/middleware runtime?",
+      "question": "Which statement about the proxy runtime in Next.js 16 is correct?",
       "options": [
-        "It cannot return a redirect",
-        "It runs in a restricted Edge runtime without filesystem access and only a subset of npm packages",
-        "It can only run on GET requests",
+        "It runs only in the Edge runtime, without filesystem access",
+        "It runs on the Node.js runtime, and setting the runtime option in proxy.ts throws an error",
+        "It runs only for GET requests",
         "It cannot read cookies"
       ],
       "correctIndex": 1,
-      "explanation": "The Edge runtime is intentionally lightweight — no Node.js filesystem APIs and limited package compatibility — so heavier logic belongs in a page or Server Action."
+      "explanation": "Since Next.js 16, proxy defaults to the Node.js runtime and the runtime segment option is not allowed in proxy files. Because it runs on every matched request, it should still stay lightweight."
     }
   ]
 }

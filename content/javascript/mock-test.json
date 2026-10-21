@@ -1,0 +1,825 @@
+{
+  "title": "JavaScript Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "js-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-variables-scope-and-hoisting",
+      "question": "Which declaration creates a block-scoped binding that cannot be reassigned?",
+      "options": [
+        "var",
+        "let",
+        "const",
+        "function"
+      ],
+      "correctIndex": 2,
+      "explanation": "`const` is block-scoped and cannot be reassigned (though an object it points to can still be mutated). `let` is also block-scoped but allows reassignment; `var` is function-scoped."
+    },
+    {
+      "id": "js-02",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-data-types-and-coercion",
+      "question": "What does this code log?",
+      "code": "console.log(typeof NaN);",
+      "codeLanguage": "js",
+      "options": [
+        "\"number\"",
+        "\"NaN\"",
+        "\"undefined\"",
+        "\"object\""
+      ],
+      "correctIndex": 0,
+      "explanation": "NaN (\"Not-a-Number\") is a special value of the Number type, so `typeof NaN` is \"number\". There is no \"NaN\" type in JavaScript."
+    },
+    {
+      "id": "js-03",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "02-data-types-and-coercion",
+      "question": "What does this code log?",
+      "code": "console.log([] + {});",
+      "codeLanguage": "js",
+      "options": [
+        "{}",
+        "0",
+        "NaN",
+        "[object Object]"
+      ],
+      "correctIndex": 3,
+      "explanation": "With `+`, both operands are converted to primitives. `[]` becomes the empty string \"\" and `{}` becomes \"[object Object]\", and since one is a string the result is string concatenation. It is not numeric addition, so the result is not 0 or NaN."
+    },
+    {
+      "id": "js-04",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-data-types-and-coercion",
+      "question": "What does this code log?",
+      "code": "console.log(null == undefined, null === undefined);",
+      "codeLanguage": "js",
+      "options": [
+        "false false",
+        "true false",
+        "true true",
+        "false true"
+      ],
+      "correctIndex": 1,
+      "explanation": "Loose equality treats `null` and `undefined` as equal to each other (and to nothing else). Strict equality also compares types, and they are different types, so `===` gives false."
+    },
+    {
+      "id": "js-05",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "03-functions-and-closures",
+      "question": "What does this code log?",
+      "code": "function makeCounter() {\n  let count = 0;\n  return () => ++count;\n}\nconst a = makeCounter();\nconst b = makeCounter();\na(); a();\nconsole.log(a(), b());",
+      "codeLanguage": "js",
+      "options": [
+        "3 3",
+        "3 1",
+        "1 1",
+        "2 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each call to `makeCounter` creates a new `count` variable captured by its own closure. `a` has been called twice before, so the third call returns 3; `b` has its own independent counter, so its first call returns 1."
+    },
+    {
+      "id": "js-06",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "04-this-call-apply-bind",
+      "question": "What happens when this code runs?",
+      "code": "\"use strict\";\nconst account = {\n  owner: \"Asha\",\n  getOwner() { return this.owner; }\n};\nconst fn = account.getOwner;\nconsole.log(fn());",
+      "codeLanguage": "js",
+      "options": [
+        "It logs \"Asha\"",
+        "It logs undefined",
+        "It logs an empty string",
+        "A TypeError is thrown because `this` is undefined"
+      ],
+      "correctIndex": 3,
+      "explanation": "`this` is decided by how a function is called, not where it is defined. `fn()` is a plain call, so in strict mode `this` is `undefined`, and reading `undefined.owner` throws a TypeError. It would log \"Asha\" only if called as `account.getOwner()`."
+    },
+    {
+      "id": "js-07",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "04-this-call-apply-bind",
+      "question": "What does this code log?",
+      "code": "function show() { return this.label; }\nconst a = { label: \"A\" };\nconst b = { label: \"B\" };\nconst bound = show.bind(a).bind(b);\nconsole.log(bound());",
+      "codeLanguage": "js",
+      "options": [
+        "A",
+        "B",
+        "undefined",
+        "A TypeError is thrown"
+      ],
+      "correctIndex": 0,
+      "explanation": "A bound function's `this` is fixed permanently by the first `bind`. Calling `bind` again on it creates another wrapper, but the inner bound function ignores the new `this`, so the result is \"A\", not \"B\"."
+    },
+    {
+      "id": "js-08",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-prototypes-and-inheritance",
+      "question": "What does this code log?",
+      "code": "const base = { kind: \"base\" };\nconst child = Object.create(base);\nchild.name = \"child\";\nconsole.log(child.kind, Object.hasOwn(child, \"kind\"));",
+      "codeLanguage": "js",
+      "options": [
+        "undefined false",
+        "base true",
+        "base false",
+        "undefined true"
+      ],
+      "correctIndex": 2,
+      "explanation": "`Object.create(base)` sets `base` as the prototype of `child`, so `child.kind` is found through the prototype chain. `Object.hasOwn` checks only the object's own properties, so it returns false."
+    },
+    {
+      "id": "js-09",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "05-prototypes-and-inheritance",
+      "question": "What does this code log?",
+      "code": "class Greeter {\n  greet = () => \"field\";\n  greet() { return \"method\"; }\n}\nconsole.log(new Greeter().greet());",
+      "codeLanguage": "js",
+      "options": [
+        "method",
+        "A SyntaxError for the duplicate name",
+        "undefined",
+        "field"
+      ],
+      "correctIndex": 3,
+      "explanation": "The method `greet` lives on `Greeter.prototype`, while the class field `greet` is created as an own property on each instance when the constructor runs. Own properties shadow prototype properties, so the field wins. Using the same name for a field and a method is allowed, so there is no SyntaxError."
+    },
+    {
+      "id": "js-10",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "06-objects-and-arrays-deep-dive",
+      "question": "Which array method returns a new array and leaves the original array unchanged?",
+      "options": [
+        "slice()",
+        "splice()",
+        "sort()",
+        "reverse()"
+      ],
+      "correctIndex": 0,
+      "explanation": "`slice()` returns a shallow copy of part of the array. `splice()`, `sort()` and `reverse()` all modify the array in place (ES2023 added non-mutating versions: `toSpliced`, `toSorted`, `toReversed`)."
+    },
+    {
+      "id": "js-11",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-objects-and-arrays-deep-dive",
+      "question": "Which expression makes a deep copy of `order`, so that changing `copy.address.city` leaves `order.address.city` unchanged?",
+      "code": "const order = { amount: 1500, address: { city: \"Pune\" } };",
+      "codeLanguage": "js",
+      "options": [
+        "{ ...order }",
+        "Object.assign({}, order)",
+        "structuredClone(order)",
+        "Object.freeze(order)"
+      ],
+      "correctIndex": 2,
+      "explanation": "`structuredClone` copies nested objects recursively. Spread and `Object.assign` make shallow copies, so `address` would still be the same shared object. `Object.freeze` does not copy at all."
+    },
+    {
+      "id": "js-12",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-the-event-loop",
+      "question": "In what order are the letters logged?",
+      "code": "console.log(\"A\");\nsetTimeout(() => console.log(\"B\"), 0);\n(async () => {\n  console.log(\"C\");\n  await null;\n  console.log(\"D\");\n})();\nconsole.log(\"E\");",
+      "codeLanguage": "js",
+      "options": [
+        "A C D E B",
+        "A C E D B",
+        "A E C D B",
+        "A C E B D"
+      ],
+      "correctIndex": 1,
+      "explanation": "An async function runs synchronously until its first `await`, so C logs right after A. The code after `await` is queued as a microtask, which runs once the synchronous code (E) has finished but before the setTimeout task (B)."
+    },
+    {
+      "id": "js-13",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "07-the-event-loop",
+      "question": "In what order are the numbers logged?",
+      "code": "Promise.resolve()\n  .then(() => console.log(1))\n  .then(() => console.log(2));\nPromise.resolve()\n  .then(() => console.log(3))\n  .then(() => console.log(4));",
+      "codeLanguage": "js",
+      "options": [
+        "1 3 2 4",
+        "1 2 3 4",
+        "1 3 4 2",
+        "3 1 4 2"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both first `.then` callbacks are queued as microtasks right away, so 1 and 3 run first. Each second `.then` is queued only when the previous callback finishes, so 2 is queued after 1 and 4 after 3. The two chains therefore interleave; one chain does not finish before the other starts."
+    },
+    {
+      "id": "js-14",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-promises",
+      "question": "What does `Promise.any([p1, p2, p3])` do if all three promises reject?",
+      "options": [
+        "It resolves with undefined",
+        "It rejects with the first rejection reason",
+        "It resolves with an array of the rejection reasons",
+        "It rejects with an AggregateError that holds all the rejection reasons"
+      ],
+      "correctIndex": 3,
+      "explanation": "`Promise.any` fulfils with the first promise that fulfils. It rejects only when every promise rejects, and then the reason is an `AggregateError` whose `errors` array lists every reason. Rejecting with the first reason is how `Promise.all` and `Promise.race` behave."
+    },
+    {
+      "id": "js-15",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "09-async-await",
+      "question": "Inside a regular (non-module) script, which keyword must a function be declared with before `await` can be used inside it?",
+      "options": [
+        "yield",
+        "defer",
+        "async",
+        "static"
+      ],
+      "correctIndex": 2,
+      "explanation": "`await` is only valid inside an `async` function (or at the top level of an ES module). `yield` belongs to generator functions."
+    },
+    {
+      "id": "js-16",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "09-async-await",
+      "question": "Why does \"done\" print before any of the \"fetched\" lines?",
+      "code": "const ids = [1, 2, 3];\nids.forEach(async (id) => {\n  await fetchOrder(id);\n  console.log(\"fetched\", id);\n});\nconsole.log(\"done\");",
+      "codeLanguage": "js",
+      "options": [
+        "forEach runs its callbacks in reverse order",
+        "forEach ignores the promises returned by the async callback, so it does not wait for them",
+        "await is not allowed inside arrow functions",
+        "console.log is asynchronous and its output gets reordered"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each async callback returns a promise as soon as it reaches `await`, and `forEach` discards that return value. The loop ends and \"done\" logs straight away. Use `for...of` with `await` (one after another) or `await Promise.all(ids.map(...))` (in parallel). Arrow functions can be async, so `await` is valid there."
+    },
+    {
+      "id": "js-17",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "06-objects-and-arrays-deep-dive",
+      "question": "What does this code log?",
+      "code": "const prices = [120, 80, 300];\nconst total = prices.reduce((sum, p) => sum + p, 0);\nconsole.log(`₹${total}`);",
+      "codeLanguage": "js",
+      "options": [
+        "₹300",
+        "₹120",
+        "₹NaN",
+        "₹500"
+      ],
+      "correctIndex": 3,
+      "explanation": "`reduce` starts the accumulator at 0 and adds each price: 0 + 120 + 80 + 300 = 500. Because an initial value is given, there is no risk of NaN or of skipping the first element."
+    },
+    {
+      "id": "js-18",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-memory-management-and-performance",
+      "question": "Which statement correctly describes debounce and throttle?",
+      "options": [
+        "Debounce runs the function only after calls have stopped for the wait period; throttle runs it at most once per interval",
+        "Debounce runs the function at most once per interval; throttle runs it only after calls have stopped",
+        "Both delay every call by the same fixed time and then run all of them",
+        "Debounce cancels the function permanently after the first call; throttle runs every call"
+      ],
+      "correctIndex": 0,
+      "explanation": "Debounce suits search-as-you-type: it waits until input pauses. Throttle suits scroll or resize handlers: it guarantees regular runs, at most one per interval, while events keep firing. The second option swaps the two definitions."
+    },
+    {
+      "id": "js-19",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "11-design-patterns",
+      "question": "Which design pattern lets many subscribers be notified automatically when a subject's state changes?",
+      "options": [
+        "Singleton",
+        "Factory",
+        "Observer",
+        "Decorator"
+      ],
+      "correctIndex": 2,
+      "explanation": "In the Observer (publish/subscribe) pattern, a subject keeps a list of listeners and notifies them of changes. DOM event listeners and EventEmitter work this way. A Singleton only ensures there is a single instance."
+    },
+    {
+      "id": "js-20",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "21-proxy-reflect-and-metaprogramming",
+      "question": "Why is a WeakMap a good choice for caching extra data about DOM nodes or other objects?",
+      "options": [
+        "It is faster to iterate over than a Map",
+        "Its keys are held weakly, so an entry does not stop the key object from being garbage-collected",
+        "It accepts strings and numbers as keys",
+        "It automatically saves its contents to localStorage"
+      ],
+      "correctIndex": 1,
+      "explanation": "When nothing else refers to the key object, the garbage collector can reclaim it, and the WeakMap entry goes with it, so the cache does not leak memory. WeakMaps cannot be iterated at all, and their keys must be objects (or non-registered symbols), not strings or numbers."
+    },
+    {
+      "id": "js-21",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "13-es6-plus-features",
+      "question": "What does this code log?",
+      "code": "const user = { name: \"Ravi\" };\nconsole.log(user?.address?.city);",
+      "codeLanguage": "js",
+      "options": [
+        "undefined",
+        "TypeError: Cannot read properties of undefined",
+        "null",
+        "An empty string"
+      ],
+      "correctIndex": 0,
+      "explanation": "`user.address` is undefined, and `?.` short-circuits the rest of the chain to `undefined` instead of throwing. Without the second `?.`, reading `.city` on undefined would throw a TypeError."
+    },
+    {
+      "id": "js-22",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "13-es6-plus-features",
+      "question": "What does this code log?",
+      "code": "console.log(0 ?? 5, 0 || 5);",
+      "codeLanguage": "js",
+      "options": [
+        "5 5",
+        "0 0",
+        "0 5",
+        "5 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "`??` falls back only when the left side is `null` or `undefined`, so `0 ?? 5` is 0. `||` falls back for any falsy value, and 0 is falsy, so `0 || 5` is 5."
+    },
+    {
+      "id": "js-23",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "14-iterators-generators-and-symbols",
+      "question": "What do `Object.keys(order)` and `JSON.stringify(order)` return?",
+      "code": "const id = Symbol(\"id\");\nconst order = { amount: 999, [id]: 42 };",
+      "codeLanguage": "js",
+      "options": [
+        "[\"amount\", \"id\"] and '{\"amount\":999,\"id\":42}'",
+        "[\"amount\"] and '{\"amount\":999,\"Symbol(id)\":42}'",
+        "[\"amount\", Symbol(id)] and '{\"amount\":999}'",
+        "[\"amount\"] and '{\"amount\":999}'"
+      ],
+      "correctIndex": 3,
+      "explanation": "Symbol-keyed properties are skipped by `Object.keys`, `for...in` and `JSON.stringify`. You can read them with `Object.getOwnPropertySymbols` or `Reflect.ownKeys`."
+    },
+    {
+      "id": "js-24",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "14-iterators-generators-and-symbols",
+      "question": "What does this code log?",
+      "code": "function* calc() {\n  const x = yield 1;\n  yield x * 2;\n}\nconst it = calc();\nit.next();\nconsole.log(it.next(5).value);",
+      "codeLanguage": "js",
+      "options": [
+        "2",
+        "10",
+        "NaN",
+        "undefined"
+      ],
+      "correctIndex": 1,
+      "explanation": "The first `next()` runs up to `yield 1` and pauses. The argument to the second `next(5)` becomes the result of that paused `yield` expression, so `x` is 5 and the generator yields 10. It would be NaN only if `x` were undefined, as with a plain `next()`."
+    },
+    {
+      "id": "js-25",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "14-iterators-generators-and-symbols",
+      "question": "What must a plain object provide to be usable in a `for...of` loop?",
+      "options": [
+        "A length property and numeric keys",
+        "A forEach method",
+        "A toString method that returns a list",
+        "A [Symbol.iterator] method that returns an iterator"
+      ],
+      "correctIndex": 3,
+      "explanation": "`for...of`, spread and array destructuring use the iterable protocol: they call `obj[Symbol.iterator]()` and then call `next()` on the returned iterator. An object with only `length` and numeric keys is array-like, which works with `Array.from` but not with `for...of`."
+    },
+    {
+      "id": "js-26",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "15-modules-and-tooling",
+      "question": "With ES modules, what does `main.js` log?",
+      "code": "// counter.js\nexport let count = 0;\nexport function increment() { count++; }\n\n// main.js\nimport { count, increment } from \"./counter.js\";\nincrement();\nconsole.log(count);",
+      "codeLanguage": "js",
+      "options": [
+        "1",
+        "0",
+        "TypeError: Assignment to constant variable.",
+        "undefined"
+      ],
+      "correctIndex": 0,
+      "explanation": "ES module imports are live, read-only bindings to the exporting module's variables, so `main.js` sees the updated value 1. (Assigning `count = 5` inside `main.js` would throw, but `counter.js` can change its own variable.) With CommonJS, destructuring `require()` copies the value, so you would get 0."
+    },
+    {
+      "id": "js-27",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "16-the-dom-and-browser-apis",
+      "question": "Attaching one listener to a parent `<ul>` and using `event.target` to handle clicks on any of its `<li>` children is called:",
+      "options": [
+        "Event capturing",
+        "Event delegation",
+        "Debouncing",
+        "Event cloning"
+      ],
+      "correctIndex": 1,
+      "explanation": "Event delegation relies on events bubbling up from the child to the parent. One listener then serves all current and future children. Capturing is the opposite phase, running from the window down to the target."
+    },
+    {
+      "id": "js-28",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "16-the-dom-and-browser-apis",
+      "question": "What does calling `event.preventDefault()` in a form's submit handler do?",
+      "options": [
+        "It stops the event from bubbling to parent elements",
+        "It removes the listener after its first call",
+        "It stops the browser's default action (submitting and reloading the page) but the event still propagates",
+        "It stops other listeners on the same element from running"
+      ],
+      "correctIndex": 2,
+      "explanation": "`preventDefault()` cancels only the default browser behaviour. Stopping propagation is `stopPropagation()`, and stopping other listeners on the same element is `stopImmediatePropagation()`."
+    },
+    {
+      "id": "js-29",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "17-error-handling-and-debugging",
+      "question": "What does this code log?",
+      "code": "function getStatus() {\n  try {\n    return \"try\";\n  } finally {\n    return \"finally\";\n  }\n}\nconsole.log(getStatus());",
+      "codeLanguage": "js",
+      "options": [
+        "finally",
+        "try",
+        "undefined",
+        "A SyntaxError is thrown"
+      ],
+      "correctIndex": 0,
+      "explanation": "The `finally` block always runs before the function returns. A `return` inside `finally` replaces the pending return value from `try`, and would even swallow a thrown error, which is why returning from `finally` is discouraged."
+    },
+    {
+      "id": "js-30",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "17-error-handling-and-debugging",
+      "question": "Which kind of error does this code throw?",
+      "code": "const config = null;\nconsole.log(config.theme);",
+      "codeLanguage": "js",
+      "options": [
+        "ReferenceError",
+        "SyntaxError",
+        "RangeError",
+        "TypeError"
+      ],
+      "correctIndex": 3,
+      "explanation": "Reading a property of `null` or `undefined` throws a TypeError. A ReferenceError is for a variable that is not declared at all, but `config` is declared; it just holds null."
+    },
+    {
+      "id": "js-31",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "18-testing-javascript",
+      "question": "In Jest or Vitest, what is the result of these two assertions?",
+      "code": "expect({ amount: 500 }).toBe({ amount: 500 });\nexpect({ amount: 500 }).toEqual({ amount: 500 });",
+      "codeLanguage": "js",
+      "options": [
+        "Both pass",
+        "The first fails and the second passes",
+        "Both fail",
+        "The first passes and the second fails"
+      ],
+      "correctIndex": 1,
+      "explanation": "`toBe` compares with `Object.is`, i.e. by reference, and these are two different object literals. `toEqual` compares recursively by value, so it passes."
+    },
+    {
+      "id": "js-32",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "20-regular-expressions",
+      "question": "What does this code log?",
+      "code": "const re = /pune/g;\nconsole.log(re.test(\"pune\"), re.test(\"pune\"));",
+      "codeLanguage": "js",
+      "options": [
+        "true true",
+        "false true",
+        "true false",
+        "false false"
+      ],
+      "correctIndex": 2,
+      "explanation": "With the `g` (or `y`) flag, `test()` updates `re.lastIndex`. After the first match `lastIndex` is 4, so the second search starts at the end of the string, fails, and resets `lastIndex` to 0. That is why reusing a global regex across calls gives alternating results."
+    },
+    {
+      "id": "js-33",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "20-regular-expressions",
+      "question": "What does this code log?",
+      "code": "const text = \"₹1500 and ₹200\";\nconsole.log(text.match(/\\d+(?= and)/)[0]);",
+      "codeLanguage": "js",
+      "options": [
+        "1500 and",
+        "1500",
+        "200",
+        "₹1500"
+      ],
+      "correctIndex": 1,
+      "explanation": "`(?= and)` is a positive lookahead: it requires \" and\" to follow, but does not include it in the match. Only 1500 is followed by \" and\", and `\\d+` does not match the ₹ symbol."
+    },
+    {
+      "id": "js-34",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "21-proxy-reflect-and-metaprogramming",
+      "question": "What happens when this code runs?",
+      "code": "\"use strict\";\nconst wallet = new Proxy({}, {\n  set(target, key, value) {\n    if (value < 0) return false;\n    target[key] = value;\n    return true;\n  }\n});\nwallet.balance = -100;",
+      "codeLanguage": "js",
+      "options": [
+        "A TypeError is thrown because the set trap returned false in strict mode",
+        "balance is set to -100",
+        "The assignment is silently ignored, with no error",
+        "A RangeError is thrown"
+      ],
+      "correctIndex": 0,
+      "explanation": "A `set` trap that returns false signals a failed assignment. In strict mode, a failed assignment throws a TypeError. The assignment would be silently ignored only in sloppy mode."
+    },
+    {
+      "id": "js-35",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "22-web-workers-and-concurrency",
+      "question": "In the main thread, what does this code log?",
+      "code": "const buf = new ArrayBuffer(1024);\nworker.postMessage(buf, [buf]);\nconsole.log(buf.byteLength);",
+      "codeLanguage": "js",
+      "options": [
+        "1024",
+        "undefined",
+        "0",
+        "A DataCloneError is thrown"
+      ],
+      "correctIndex": 2,
+      "explanation": "Listing `buf` in the transfer list moves ownership of the memory to the worker without copying it. The sender's ArrayBuffer is left detached, with a `byteLength` of 0. Without the transfer list it would be copied and still be 1024."
+    },
+    {
+      "id": "js-36",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-data-types-and-coercion",
+      "question": "What does this code print?",
+      "code": "console.log(0.1 + 0.2 === 0.3);",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "false"
+      ],
+      "caseSensitive": false,
+      "explanation": "0.1 and 0.2 cannot be stored exactly in binary floating point, so their sum is 0.30000000000000004, which is not strictly equal to 0.3. Compare with a tolerance instead, e.g. `Math.abs(a - b) < Number.EPSILON`."
+    },
+    {
+      "id": "js-37",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "06-objects-and-arrays-deep-dive",
+      "question": "What does this code print?",
+      "code": "const fees = [499, 1299, 250]; // ₹\nconsole.log(Math.max(...fees));",
+      "codeLanguage": "js",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "1299",
+        "₹1299",
+        "1,299"
+      ],
+      "caseSensitive": false,
+      "explanation": "Spread passes the array elements as separate arguments, so this is `Math.max(499, 1299, 250)`, which is 1299. Without the spread, `Math.max(fees)` would give NaN."
+    },
+    {
+      "id": "js-38",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-data-types-and-coercion",
+      "question": "What does this code print?",
+      "code": "console.log(\"5\" * \"2\");",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "10"
+      ],
+      "caseSensitive": false,
+      "explanation": "Unlike `+`, the `*` operator has no string meaning, so both strings are converted to numbers and the result is the number 10, not \"52\"."
+    },
+    {
+      "id": "js-39",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "17-error-handling-and-debugging",
+      "question": "Fill in the blank so `data` becomes a JavaScript object: `const data = JSON.____(\"{\\\"amount\\\":500}\");`",
+      "answerHint": "Type the missing method name",
+      "acceptedAnswers": [
+        "parse",
+        "JSON.parse",
+        "parse()",
+        "JSON.parse()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`JSON.parse` turns a JSON string into a JavaScript value. `JSON.stringify` does the reverse."
+    },
+    {
+      "id": "js-40",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "01-variables-scope-and-hoisting",
+      "question": "What does this code print?",
+      "code": "function test() {\n  console.log(typeof checkout);\n  var checkout = () => \"done\";\n}\ntest();",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "undefined",
+        "\"undefined\"",
+        "'undefined'"
+      ],
+      "caseSensitive": false,
+      "explanation": "Only the `var checkout` declaration is hoisted, initialised to `undefined`; the arrow function is assigned later. `typeof undefined` is \"undefined\". With `let` or `const` it would throw a ReferenceError (temporal dead zone)."
+    },
+    {
+      "id": "js-41",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "06-objects-and-arrays-deep-dive",
+      "question": "What does this code print?",
+      "code": "console.log([10, 1, 3].sort().join(\",\"));",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "1,10,3",
+        "1, 10, 3",
+        "\"1,10,3\""
+      ],
+      "caseSensitive": false,
+      "explanation": "With no compare function, `sort()` converts the elements to strings and sorts them in UTF-16 order, so \"10\" comes before \"3\". Use `sort((a, b) => a - b)` for numeric order."
+    },
+    {
+      "id": "js-42",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "07-the-event-loop",
+      "question": "What does this code print?",
+      "code": "const out = [];\nsetTimeout(() => out.push(\"t\"), 0);\nPromise.resolve().then(() => out.push(\"p\"));\nqueueMicrotask(() => out.push(\"q\"));\nout.push(\"s\");\nsetTimeout(() => console.log(out.join(\"\")), 0);",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "spqt",
+        "\"spqt\""
+      ],
+      "caseSensitive": false,
+      "explanation": "Synchronous code pushes \"s\" first. Next, the microtasks run in the order they were queued: \"p\", then \"q\". Then the timer tasks run in order: the first pushes \"t\" and the second logs the result."
+    },
+    {
+      "id": "js-43",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "06-objects-and-arrays-deep-dive",
+      "question": "What does this code print?",
+      "code": "const { a = 1, b = 2 } = { a: undefined, b: null };\nconsole.log(a, b);",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "1 null",
+        "1, null"
+      ],
+      "caseSensitive": false,
+      "explanation": "Destructuring defaults apply only when the value is `undefined`. `a` is undefined, so it takes the default 1, but `b` is null, which is kept."
+    },
+    {
+      "id": "js-44",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "04-this-call-apply-bind",
+      "question": "What does this code print (the amount in ₹ including 18% GST)?",
+      "code": "function withGst(rate, amount) {\n  return amount + (amount * rate) / 100;\n}\nconst withGst18 = withGst.bind(null, 18);\nconsole.log(withGst18(1000));",
+      "codeLanguage": "js",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "1180",
+        "₹1180",
+        "1,180",
+        "1180.0"
+      ],
+      "caseSensitive": false,
+      "explanation": "`bind(null, 18)` partially applies the first argument, so `rate` is 18 and `amount` is 1000: 1000 + 180 = 1180."
+    },
+    {
+      "id": "js-45",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "06-objects-and-arrays-deep-dive",
+      "question": "Fill in the blank so that adding, removing or changing the top-level properties of `settings` fails: `Object.____(settings);`",
+      "answerHint": "Type the missing method name",
+      "acceptedAnswers": [
+        "freeze",
+        "Object.freeze",
+        "freeze()",
+        "Object.freeze()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`Object.freeze` makes an object's own properties non-writable and non-configurable, and the object non-extensible. It is shallow: nested objects can still change. `Object.seal` would still let existing values change."
+    },
+    {
+      "id": "js-46",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "13-es6-plus-features",
+      "question": "What does this code print?",
+      "code": "console.log(new Set(\"banana\").size);",
+      "codeLanguage": "js",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "3"
+      ],
+      "caseSensitive": false,
+      "explanation": "A string is iterable character by character, and a Set keeps only unique values: \"b\", \"a\" and \"n\". So the size is 3."
+    },
+    {
+      "id": "js-47",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "09-async-await",
+      "question": "What numbers does this code print, in order?",
+      "code": "async function a() {\n  console.log(1);\n  await b();\n  console.log(2);\n}\nasync function b() {\n  console.log(3);\n}\na();\nconsole.log(4);",
+      "codeLanguage": "js",
+      "answerHint": "Type the four numbers in order, separated by spaces",
+      "acceptedAnswers": [
+        "1 3 4 2",
+        "1342",
+        "1,3,4,2",
+        "1, 3, 4, 2"
+      ],
+      "caseSensitive": false,
+      "explanation": "`a()` logs 1, then calls `b()` synchronously, which logs 3. The `await` suspends `a`, so control returns to the caller and 4 is logged. The rest of `a` runs later as a microtask and logs 2."
+    },
+    {
+      "id": "js-48",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "05-prototypes-and-inheritance",
+      "question": "What does this code print?",
+      "code": "function Plan() {}\nPlan.prototype.tier = \"basic\";\nconst p1 = new Plan();\nPlan.prototype = { tier: \"gold\" };\nconst p2 = new Plan();\nconsole.log(p1.tier + \" \" + p2.tier);",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "basic gold",
+        "\"basic gold\""
+      ],
+      "caseSensitive": false,
+      "explanation": "`new` links each instance to whatever object `Plan.prototype` refers to at that moment. Replacing `Plan.prototype` affects only objects created afterwards, so `p1` still points to the old prototype (\"basic\") and `p2` to the new one (\"gold\")."
+    },
+    {
+      "id": "js-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "14-iterators-generators-and-symbols",
+      "question": "What does this code print?",
+      "code": "function* steps() {\n  yield \"a\";\n  yield \"b\";\n  return \"c\";\n}\nconsole.log([...steps()].join(\"+\"));",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "a+b",
+        "\"a+b\""
+      ],
+      "caseSensitive": false,
+      "explanation": "Spread stops as soon as the iterator reports `done: true`, and the `return` value comes with that final result, so spread never collects it. Only \"a\" and \"b\" are collected."
+    },
+    {
+      "id": "js-50",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "21-proxy-reflect-and-metaprogramming",
+      "question": "What does this code print?",
+      "code": "const p = new Proxy({}, {\n  get: (t, k) => (k in t ? t[k] : `no_${String(k)}`),\n});\np.a = 1;\nconsole.log(p.a, p.b);",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "1 no_b",
+        "1, no_b"
+      ],
+      "caseSensitive": false,
+      "explanation": "There is no `set` trap, so `p.a = 1` is forwarded to the target. The `get` trap returns real values for existing keys and a fallback string for missing ones: `1` and `no_b`."
+    }
+  ]
+}

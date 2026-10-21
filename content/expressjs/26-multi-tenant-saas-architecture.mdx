@@ -1,0 +1,211 @@
+---
+title: "Multi-Tenant SaaS Architecture"
+description: "Serve many customer organisations from one Express deployment: choose an isolation model, resolve the tenant safely, carry it with AsyncLocalStorage, enforce scoping in the data layer, contain noisy neighbours and test for cross-tenant leaks."
+module: "Pro Level"
+level: "pro"
+order: 27
+---
+
+Turn the expense tracker into a product that 500 companies use, each with
+its own employees, categories and approval rules, and you have a
+**multi-tenant** system: one codebase and one deployment serving many
+isolated customers (tenants). The hard part is not adding a `tenantId`
+column. It is guaranteeing that no code path, cache key or background job
+can ever show Company A's data to Company B, because one such leak can end a
+B2B product. Senior interviews probe exactly these guarantees.
+
+## Three isolation models
+
+| Model | How it works | Strengths | Costs |
+| --- | --- | --- | --- |
+| Shared schema | Every table has a `tenantId` column | Cheapest, one migration, easy cross-tenant analytics | Isolation depends entirely on your code; noisy neighbours |
+| Schema per tenant | Same tables, one schema (namespace) per tenant | Stronger separation, per-tenant backup and restore | Migrations run N times; connection and schema sprawl |
+| Database per tenant | Separate database or cluster per tenant | Strongest isolation, per-tenant performance and data residency | Highest cost and operational effort; routing per request |
+
+Most SaaS products start with a shared schema and move their largest or most
+regulated customers to dedicated databases later (a "hybrid" or "silo for
+enterprise" model). Note that in MySQL a schema and a database are the same
+thing, so the middle two rows collapse there. The rest of this lesson uses
+the shared-schema model, because it is where code discipline matters most.
+
+## Resolving the tenant safely
+
+A request can identify its tenant by subdomain (`acme.expenses.example`), by
+a header, or by a claim in the access token. The rule is: **derive the
+tenant from something the server has verified**, never from a value the
+client can simply edit.
+
+```js
+// after the JWT auth middleware has set req.user from a verified token
+export function resolveTenant(req, res, next) {
+  const { tenantId, tenantSlug } = req.user;               // signed claims
+  const sub = req.hostname.split(".")[0];                  // "acme"
+  if (sub !== tenantSlug) {                                // token for another tenant
+    return res.status(403).json({ error: { code: "WRONG_TENANT" } });
+  }
+  req.tenantId = tenantId;
+  next();
+}
+// acme.expenses.example + token for acme   -> continues, req.tenantId = 7
+// globex.expenses.example + token for acme -> 403 WRONG_TENANT
+```
+
+If you route by subdomain, `req.hostname` depends on `trust proxy` behind a
+load balancer, and a header such as `X-Tenant-Id` must always be checked
+against the user's memberships. A user who belongs to several tenants should
+switch tenant by getting a new token, not by changing a header.
+
+## Carrying the tenant with AsyncLocalStorage
+
+Passing `tenantId` through every controller, service and repository function
+works, but one forgotten argument is a leak. `AsyncLocalStorage` from
+`node:async_hooks` stores a value that follows the request through every
+`await`, timer and callback started inside it:
+
+```js
+// src/tenant-context.js
+import { AsyncLocalStorage } from "node:async_hooks";
+
+const als = new AsyncLocalStorage();
+
+export const tenantContext = (req, res, next) =>
+  als.run({ tenantId: req.tenantId, requestId: req.id }, next);
+
+export function currentTenant() {
+  const store = als.getStore();
+  if (!store?.tenantId) throw new Error("No tenant in context"); // fail closed
+  return store.tenantId;
+}
+```
+
+```js
+app.use(authenticate, resolveTenant, tenantContext);
+
+async function slowLookup() {
+  await new Promise((r) => setTimeout(r, 50));
+  return currentTenant();                       // still correct after awaits
+}
+// Two concurrent requests for tenants 7 and 9:
+// tenant 9 -> slowLookup() returns 9
+// tenant 7 -> slowLookup() returns 7   (no cross-talk between requests)
+```
+
+Calling `currentTenant()` outside a request (a cron job, a queue worker)
+throws instead of silently returning everything. Background jobs must start
+their own context with `als.run({ tenantId }, job)` using the tenant stored
+in the job payload.
+
+## Enforcing scoping in the data layer
+
+Do not rely on every developer remembering `where: { tenantId }`. Put the
+rule in one place with a Prisma client extension that rewrites queries for
+tenant-owned models:
+
+```js
+// src/db.js
+import { prisma } from "./prisma.js";
+import { currentTenant } from "./tenant-context.js";
+
+const TENANT_MODELS = new Set(["Expense", "Category", "Approval"]);
+const SCOPED = new Set(["findMany", "findFirst", "findFirstOrThrow", "count",
+  "aggregate", "groupBy", "updateMany", "deleteMany"]);
+
+export const db = prisma.$extends({
+  query: {
+    $allModels: {
+      async $allOperations({ model, operation, args, query }) {
+        if (!TENANT_MODELS.has(model)) return query(args);
+        const tenantId = currentTenant();
+        if (SCOPED.has(operation)) {
+          args.where = { ...args.where, tenantId };
+        } else if (operation === "create") {
+          args.data = { ...args.data, tenantId };
+        } else {
+          throw new Error(`${model}.${operation} is not tenant-safe; use a scoped variant`);
+        }
+        return query(args);
+      },
+    },
+  },
+});
+```
+
+```js
+// a service: no tenantId anywhere, yet always scoped
+const expense = await db.expense.findFirst({ where: { id: 42 } });
+// SQL: ... WHERE id = 42 AND tenantId = 7
+await db.expense.update({ where: { id: 42 }, data: { amountPaise: 245000 } });
+// Error: Expense.update is not tenant-safe; use a scoped variant
+```
+
+Throwing on operations the extension does not understand (single-row
+`update`, `delete`, `upsert`, raw SQL) is deliberate: the safe default is to
+fail loudly, then add explicit handling once someone has thought about it.
+
+## Defence in depth in the schema
+
+Code can still have bugs, so let the database help:
+
+- Put `tenantId` first in composite indexes, such as
+  `@@index([tenantId, createdAt])`, so every scoped query is fast.
+- Make uniqueness per tenant: `@@unique([tenantId, name])` lets two companies
+  both have a "Travel" category.
+- Use composite foreign keys that include `tenantId` where your database
+  supports them, so an expense cannot point at another tenant's category.
+- On PostgreSQL, row-level security policies can enforce the tenant filter
+  inside the database itself. MySQL has no equivalent, which makes the
+  application-layer guard above essential there.
+
+## Noisy neighbours and per-tenant limits
+
+In a shared deployment one tenant's bulk import can slow everyone. Limit per
+tenant, not only per IP, and scope every cache key:
+
+```js
+import { rateLimit } from "express-rate-limit";
+
+const PLAN_LIMITS = { free: 60, business: 600, enterprise: 3000 }; // per minute
+
+app.use("/api", rateLimit({
+  windowMs: 60_000,
+  limit: (req) => PLAN_LIMITS[req.user.plan] ?? 60,
+  keyGenerator: (req) => `tenant:${req.tenantId}`,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+}));
+
+const cacheKey = (name) => `tenant:${currentTenant()}:${name}`;
+// tenant:7:summary:2026-10   <- a key without the tenant is a data leak
+```
+
+Heavy work (exports, monthly reports) should go through per-tenant queues
+with concurrency caps, so one tenant's backlog cannot starve the rest.
+
+## Testing for cross-tenant leaks
+
+Treat isolation as a feature with its own tests. For every resource, create
+data as tenant A and try to read, update and delete it as tenant B:
+
+```js
+test("tenant B cannot see tenant A's expense", async () => {
+  const created = await request(app).post("/api/expenses")
+    .set("Authorization", `Bearer ${tokenA}`)
+    .send({ title: "Client dinner", amountPaise: 480000 })
+    .expect(201);
+
+  await request(app).get(`/api/expenses/${created.body.id}`)
+    .set("Authorization", `Bearer ${tokenB}`)
+    .expect(404);   // 404, not 403: do not reveal that the ID exists
+});
+```
+
+Run these for list endpoints, exports and search too, because leaks usually
+hide in the less-travelled routes.
+
+### Try it yourself
+
+Add a `Tenant` model and a `tenantId` column to `Expense` and `Category` in
+the expense tracker. Wire up `resolveTenant`, `tenantContext` and the Prisma
+extension, then write leak tests for list, get, update and delete. Finally,
+start a background job without calling `als.run` and confirm that it fails
+with "No tenant in context" instead of reading every tenant's expenses.

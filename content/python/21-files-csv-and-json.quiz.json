@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why should you open CSV files with `newline=\"\"`?",
+      "options": [
+        "It makes reading faster",
+        "It is required for DictReader to detect headers",
+        "Otherwise line endings are translated twice, producing blank rows on Windows and breaking quoted fields with newlines",
+        "It strips trailing whitespace from every field"
+      ],
+      "correctIndex": 2,
+      "explanation": "The csv module handles line endings itself. Letting the text layer translate them too causes extra blank rows and mishandles newlines inside quoted fields."
+    },
+    {
+      "question": "Which open mode raises FileExistsError if the file already exists?",
+      "options": [
+        "w",
+        "a",
+        "r+",
+        "x"
+      ],
+      "correctIndex": 3,
+      "explanation": "x is exclusive creation. w truncates an existing file and a appends to it."
+    },
+    {
+      "question": "How do you make json.dumps serialise a Decimal amount?",
+      "options": [
+        "Pass a default= function (or a JSONEncoder subclass) that converts Decimal to str or float",
+        "json supports Decimal natively",
+        "Set ensure_ascii=False",
+        "Use json.dump instead of json.dumps"
+      ],
+      "correctIndex": 0,
+      "explanation": "default= is called for any object json cannot serialise. ensure_ascii only controls whether non-ASCII characters like ₹ are escaped."
+    },
+    {
+      "question": "In the atomic write pattern, why is the temporary file created in the same directory as the target?",
+      "options": [
+        "Temporary files cannot be created elsewhere",
+        "os.replace is only atomic within the same filesystem, so readers see either the old or the new file, never a partial one",
+        "It makes the file smaller",
+        "So that the json module can find it"
+      ],
+      "correctIndex": 1,
+      "explanation": "os.replace is an atomic rename on the same filesystem (and overwrites on Windows, unlike os.rename). Writing, flushing and fsyncing a temp file first means a crash never leaves a truncated target."
+    }
+  ]
+}

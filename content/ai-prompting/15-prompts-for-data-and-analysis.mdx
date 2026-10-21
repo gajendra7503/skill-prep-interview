@@ -1,0 +1,146 @@
+---
+title: "Prompts for Data and Analysis"
+description: "Describe datasets clearly, get formulas and code instead of mental maths, anonymise before sharing, and verify every result against known totals."
+module: "Prompting at Work"
+level: "intermediate"
+order: 14
+---
+
+MIS reports, sales trackers and reconciliation sheets are perfect candidates
+for AI help — and also the place where careless prompting does the most
+damage. One rule shapes this whole lesson: **language models are unreliable
+at exact arithmetic over many numbers.** They can produce a total that looks
+right and is off by a few thousand rupees. Use the model to *write the
+calculation*, then let Excel, SQL, Python or a code-execution tool do the
+maths.
+
+## Protect the data first
+
+Before anything leaves your machine, check two things:
+
+1. **Is the tool approved** by your company for this kind of data?
+2. **Have you removed what is not needed?** Never paste PAN, Aadhaar, bank
+   account numbers, phone numbers or customer names into an unapproved tool.
+
+Often the model does not need real rows at all — the column names, data
+types and three made-up sample rows are enough to write a correct formula.
+
+```text
+Customer ID   -> replace with C001, C002 ...
+Name, PAN     -> delete the columns
+Mobile        -> delete or mask as 98XXXXXX12
+Amounts       -> keep, or scale if the absolute values are sensitive
+```
+
+## Describe the dataset's columns
+
+A weak prompt forces the model to guess the structure:
+
+```text
+I have a sales sheet. How do I find the top region?
+```
+
+An improved prompt describes the schema precisely:
+
+```text
+I have an Excel table named Sales (about 12,000 rows) with these columns:
+- InvoiceDate (date, dd-mm-yyyy)
+- Region (text: North, South, East, West)
+- Branch (text)
+- ProductLine (text)
+- NetAmount (number, rupees, can be negative for credit notes)
+
+Here are three fictional sample rows:
+05-04-2026, South, Chennai-2, Home Loans, 245000
+06-04-2026, North, Lucknow-1, Insurance, -18500
+06-04-2026, West, Pune-3, Insurance, 72000
+
+Write an Excel formula (Microsoft 365) that returns total NetAmount for
+each Region for April 2026 only, including credit notes. Explain each part
+of the formula briefly.
+```
+
+Mention the tool and version (Excel 365 vs Google Sheets, PostgreSQL vs
+MySQL), units, how dates are stored, and quirks such as negative values or
+blank cells.
+
+## Ask for formulas, SQL or pandas — not answers
+
+Instead of "what is the total?", ask for something you can run and inspect:
+
+```sql
+-- Monthly net sales by region, FY 2026-27 (April to March)
+SELECT region,
+       DATE_TRUNC('month', invoice_date) AS month,
+       SUM(net_amount)                   AS net_sales
+FROM sales
+WHERE invoice_date >= DATE '2026-04-01'
+  AND invoice_date <  DATE '2027-04-01'
+GROUP BY region, month
+ORDER BY region, month;
+```
+
+```python
+import pandas as pd
+
+df = pd.read_csv("sales_fy27.csv", parse_dates=["InvoiceDate"], dayfirst=True)
+summary = (df.groupby("Region")["NetAmount"]
+             .sum()
+             .sort_values(ascending=False))
+print(summary.map(lambda x: f"₹{x:,.0f}"))   # note: Western grouping
+print("Grand total:", df["NetAmount"].sum())
+```
+
+The comment in the pandas example is worth noticing: Python's default
+formatting uses Western grouping (12,345,678). If your report must show
+Indian grouping such as ₹1,23,45,678, ask the model for a small formatting
+helper and test it on a few known values.
+
+If your assistant has a **code-execution tool**, you can upload an approved,
+anonymised file and ask it to run the analysis — the arithmetic is then done
+by real code, and you can ask to see that code.
+
+## Check outputs against known totals
+
+Never trust a new query or formula until it reconciles with something you
+already know:
+
+- Does the grand total match the figure in the finance system or last
+  month's signed-off MIS (for example, ₹4.2 crore for Q1)?
+- Does the row count match the source file?
+- Do a few hand-picked rows give the expected result?
+
+```text
+The query returns a Q1 total of ₹4,18,76,300 but the finance report says
+₹4,21,02,800. List likely reasons for the gap given the schema above
+(for example, credit notes, date boundaries, duplicate invoices) and give a
+query to test each one.
+```
+
+## Interpreting results with caveats
+
+Models are good at turning a summary table into readable commentary, but
+they will also happily invent causes. Ask them to separate observation from
+speculation:
+
+```text
+Below is the regional summary table. Write three observations for the
+monthly review. For each, state only what the numbers show. If you suggest
+a possible reason, label it clearly as a hypothesis to verify.
+Do not recompute any totals — use the figures exactly as given.
+```
+
+## Chart suggestions
+
+Describe the message you want the chart to carry, and the model can suggest
+a suitable type: a line chart for monthly trend, a bar chart sorted by value
+for comparing branches, a stacked bar for product mix. Ask for the matplotlib
+or Excel steps rather than a description alone.
+
+### Try it yourself
+
+Take a report you prepare regularly. Write a schema description with column
+names, types and three fictional sample rows — no real customer data. Ask
+for the SQL or Excel formula that produces one key figure, run it yourself,
+and reconcile the result with last period's signed-off total. If it does not
+match, use the model to list and test the possible causes.

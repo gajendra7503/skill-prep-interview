@@ -1,0 +1,196 @@
+---
+title: "Bash Scripting Fundamentals"
+description: "Write and run your first Bash scripts: shebangs, variables, quoting, arguments, command substitution, arithmetic, exit codes and debugging."
+module: "Shell Scripting"
+level: "intermediate"
+order: 14
+---
+
+A shell script is a text file of commands you would otherwise type by hand.
+This lesson covers the building blocks; decisions and loops follow in "Bash
+Conditions, Loops & Functions".
+
+## Your first script
+
+```bash
+#!/usr/bin/env bash
+# greet.sh - a first script
+name="${1:-world}"
+today=$(date +%Y-%m-%d)
+echo "Hello, $name! Today is $today."
+echo "Script: $0, args: $#, all: $*"
+```
+
+```bash
+chmod +x greet.sh      # make it executable (once)
+./greet.sh Priya extra
+# Hello, Priya! Today is 2026-10-15.
+# Script: ./greet.sh, args: 2, all: Priya extra
+```
+
+The `./` is needed because the current directory is not in `PATH` (see
+"Environment Variables, PATH & Shell Configuration").
+
+The first line, the **shebang** (`#!`), tells the kernel which interpreter
+runs the file. `#!/usr/bin/env bash` finds Bash via `PATH` and is the common
+portable choice. Beware `#!/bin/sh`: on Ubuntu and Debian `/bin/sh` is
+**dash**, not Bash, so Bash-only features such as `[[ ]]` and arrays fail.
+On Fedora/RHEL `/bin/sh` is Bash, which hides the bug until production.
+
+`bash greet.sh` runs a script without execute permission or shebang;
+`source greet.sh` runs it in your **current** shell, so its variables and
+`cd` persist.
+
+## Variables and quoting
+
+Assign with no spaces around `=` (`city="New Delhi"`); `readonly` makes a
+constant. Values are strings, treated as numbers only in arithmetic. Use
+lowercase names for your own variables and UPPERCASE for exported ones.
+How you quote an expansion is the most important rule in Bash:
+
+| Quotes | Behaviour |
+|---|---|
+| `"double"` | expands `$var` and `$(cmd)`; keeps spaces intact |
+| `'single'` | completely literal: nothing is expanded |
+| none | expands, then **splits on spaces** and expands globs like `*` |
+
+```bash
+city="New Delhi"
+touch "$city.txt"      # creates one file: New Delhi.txt
+ls $city.txt           # unquoted: becomes two arguments
+# ls: cannot access 'New': No such file or directory
+# ls: cannot access 'Delhi.txt': No such file or directory
+echo '$city is' "$city"
+# $city is New Delhi
+```
+
+**Always double-quote variable expansions** (`"$var"`, `"$1"`, `"$@"`)
+unless you specifically want splitting. Many real-world script bugs, some of
+them destructive (deleting the wrong path), come from a missing pair of
+quotes.
+
+## Arguments
+
+| Variable | Meaning |
+|---|---|
+| `$0` | the script's name as it was called |
+| `$1` … `$9`, `${10}` | positional arguments |
+| `$#` | number of arguments |
+| `"$@"` | all arguments, each kept as a separate word |
+| `"$*"` | all arguments joined into one string |
+
+The difference between `"$@"` and `$*` is a favourite interview question.
+`args.sh` loops over each form and prints every word in brackets (output
+condensed to one line per form):
+
+```bash
+./args.sh "New Delhi" Pune
+# with "$@":  [New Delhi] [Pune]
+# with $*:    [New] [Delhi] [Pune]
+# with "$*":  [New Delhi Pune]
+```
+
+Use `"$@"` whenever you pass arguments on to another command.
+
+## Command substitution and arithmetic
+
+`$(command)` is replaced by the command's output, minus trailing newlines.
+The older backtick form does the same but nests badly.
+
+```bash
+count=$(ls proj | wc -l)
+x=5
+echo "sum: $((x + 3))"                          # sum: 8
+echo $(( 7 / 2 )) $(( 7 % 2 )) $(( 2 ** 10 ))   # 3 1 1024
+```
+
+Bash arithmetic is **integer only** (`7 / 2` is 3). For decimals, such as
+rupee amounts with paise, use `awk` or `bc`.
+
+## Parameter expansion
+
+Bash can transform a variable without calling another program:
+
+| Expression | Result for `f="report.final.csv"` |
+|---|---|
+| `${f%.*}` | `report.final` (remove shortest matching suffix) |
+| `${f%%.*}` | `report` (remove longest matching suffix) |
+| `${f##*.}` | `csv` (remove longest matching prefix: the extension) |
+| `${#f}` | `16` (length) |
+| `${f/csv/tsv}` | `report.final.tsv` (replace first match) |
+| `${u:-fallback}` | `fallback` if `u` is unset or empty; `u` unchanged |
+| `${u:=fallback}` | same, but also assigns it to `u` |
+
+To read user input, use `read -r -p "Your name: " who` (`-r` keeps
+backslashes literal).
+
+## Exit codes
+
+Every command returns a status from 0 to 255: **0 means success**, anything
+else is failure. `$?` holds the last one, and `exit N` sets your script's.
+
+```bash
+false; echo $?                       # 1
+ls nosuchfile 2>/dev/null; echo $?   # 2
+mkdir -p /tmp/demo && cd /tmp/demo   # && runs the next only on success
+cd /nope || echo "cd failed"         # || runs the next only on failure
+```
+
+Write error messages to **stderr** with `>&2` so they do not mix with real
+output that might be piped elsewhere.
+
+## A small real script
+
+```bash
+#!/usr/bin/env bash
+# backup-logs.sh - copy a log directory into a dated backup folder
+# Usage: ./backup-logs.sh SOURCE_DIR [DEST_ROOT]
+src="$1"
+dest_root="${2:-./backups}"
+
+if [ -z "$src" ]; then
+  echo "Usage: $0 SOURCE_DIR [DEST_ROOT]" >&2
+  exit 2
+fi
+if [ ! -d "$src" ]; then
+  echo "Error: '$src' is not a directory" >&2
+  exit 1
+fi
+
+dest="$dest_root/logs-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$dest" || exit 1
+cp -r "$src"/. "$dest"/ || exit 1
+echo "Copied $(find "$dest" -type f | wc -l) file(s) to $dest"
+```
+
+```bash
+./backup-logs.sh proj/logs /tmp/bk
+# Copied 2 file(s) to /tmp/bk/logs-20261015-133020
+```
+
+Run without arguments, it prints the usage line to stderr and exits with 2.
+The `if [ ... ]` tests are explained in "Bash Conditions, Loops & Functions",
+and stopping safely on errors (`set -euo pipefail`) in "Robust Shell
+Scripts: set -euo pipefail, traps & getopts".
+
+## Debugging
+
+```bash
+bash -n greet.sh        # syntax check only, runs nothing
+bash -x greet.sh Asha   # trace each command after expansion (first lines)
+# + name=Asha
+# ++ date +%Y-%m-%d
+# + today=2026-10-15
+```
+
+Run **ShellCheck** (`sudo apt install shellcheck`) on every script: it
+catches missing quotes, `sh`-versus-Bash problems and much more.
+
+### Try it yourself
+
+1. Write `info.sh` that prints your user name, the current directory, the
+   number of files in it and today's date, using command substitution.
+2. Write `ext.sh FILE` that prints the file's name without its extension and
+   the extension alone, using only parameter expansion. Test it with a file
+   name containing spaces.
+3. Run your scripts through `bash -x` and `shellcheck`, and fix every warning.

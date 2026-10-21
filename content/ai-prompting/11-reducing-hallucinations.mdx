@@ -1,0 +1,121 @@
+---
+title: "Reducing Hallucinations"
+description: "Understand why models fabricate, and use permission to abstain, source grounding, citations, and verification to keep output trustworthy."
+module: "Reliability"
+level: "advanced"
+order: 17
+---
+
+A **hallucination** is output that sounds confident and fluent but is not
+true: an invented circular number, a policy clause that does not exist, a
+case citation with a plausible name and no reality behind it. You cannot
+eliminate hallucinations completely, but you can make them much rarer and
+much easier to catch.
+
+## Why models fabricate
+
+A language model generates the most plausible continuation of the text so
+far. Plausible and true usually overlap, but not always. Fabrication is most
+likely when:
+
+- **The answer is not in the prompt** and the model's training knowledge is
+  thin, outdated, or never existed (internal policies, recent regulations).
+- **The prompt implies an answer must exist.** "What does Section 14.3 say
+  about bonus payouts?" pressures the model to produce *something*, even if
+  there is no Section 14.3.
+- **Specifics are requested:** exact numbers, dates, names, statute
+  sections, and citations are where invented details hide.
+
+## Give explicit permission to say "I don't know"
+
+Models are trained to be helpful, so make it clear that admitting
+uncertainty *is* the helpful answer.
+
+Weak:
+
+```text
+What is the maximum reimbursement for mobile bills under our policy?
+```
+
+Improved:
+
+```text
+<policy>
+...
+</policy>
+
+Using only the policy above, what is the maximum monthly reimbursement for
+mobile bills? If the policy does not state this, reply "The policy does not
+specify this" and do not estimate a figure. A missing answer is far less
+costly to us than a wrong one.
+```
+
+The final sentence explains the stakes, which helps the model weigh
+abstaining against guessing.
+
+## Ground answers in provided sources
+
+Wherever accuracy matters, give the model the source text rather than
+relying on its memory, and restrict it to that text. For internal
+documents this is the only option, since the model never saw them in
+training. For external rules — tax slabs, regulator circulars — paste the
+current official text, because the model's knowledge has a cutoff date and
+may be out of date.
+
+## Ask for citations to the supplied text
+
+Require every factual claim to point back to the source, and make
+unsupported claims something the model must remove.
+
+```text
+Answer the question using the documents provided. After each claim, cite
+the document index and quote the exact sentence it is based on, in the
+form [doc 2: "..."]. After drafting, check each claim: if you cannot find
+a supporting quote, delete the claim and note that it was removed.
+```
+
+Citations to *supplied* text are checkable. Citations the model produces
+from memory — URLs, report titles, case names — are not, and must be
+treated as unverified.
+
+## Build in verification steps
+
+Ask the model to review its own work as a separate step, or run a second
+prompt that checks the first:
+
+```text
+Below is a draft answer and the source documents. For each factual
+statement in the draft, label it SUPPORTED (with the quote), NOT FOUND,
+or CONTRADICTED (with the conflicting quote). Output a table.
+```
+
+Self-checking catches many errors but not all, so for high-stakes content
+pair it with human review.
+
+## Never trust generated specifics without checking
+
+Treat these as unverified until a person checks them against the original
+source:
+
+| Type | Example risk |
+| --- | --- |
+| Numbers and calculations | A total of ₹4.2 crore that should be ₹42 lakh |
+| Statutes and sections | A section number that has been renumbered or never existed |
+| Case citations | A real-sounding judgment that was never delivered |
+| Regulator circulars | A circular number and date that do not match any issued circular |
+| Quotes | Wording "quoted" from a document that is actually paraphrased |
+
+For arithmetic, ask the model to show its working or, better, compute the
+figures in a spreadsheet or code. For legal and regulatory references,
+always confirm against the official source before anything is sent to a
+customer, regulator, or court.
+
+### Try it yourself
+
+1. Ask a question about a pasted document that the document does *not*
+   answer, first without and then with explicit permission to say "I don't
+   know". Compare the replies.
+2. Add a citation requirement with exact quotes to one of your document
+   prompts, then verify three of the quotes by hand.
+3. Write a checker prompt that labels each claim in a draft as SUPPORTED,
+   NOT FOUND, or CONTRADICTED.

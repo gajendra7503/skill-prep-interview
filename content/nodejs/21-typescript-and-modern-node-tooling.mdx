@@ -1,0 +1,155 @@
+---
+title: "TypeScript and Modern Node Tooling"
+description: "Run TypeScript in Node with tsc, tsx or built-in type stripping, lint with ESLint, and replace old npm packages with modern Node built-ins."
+module: "Modern Node"
+level: "advanced"
+order: 22
+---
+
+Most new Node.js projects are written in TypeScript, and the way TypeScript
+runs on the server has changed a lot recently. Interviewers want to know
+that you understand the options — compile, use a loader, or let Node strip
+types itself — and the trade-offs of each.
+
+## Option 1: compile with tsc
+
+The classic approach: the TypeScript compiler type-checks your code and
+emits JavaScript, which Node then runs.
+
+```bash
+npm install --save-dev typescript @types/node
+npx tsc --init
+npx tsc            # type-check and emit JavaScript into outDir (e.g. dist/)
+node dist/server.js
+```
+
+This is still the most predictable setup for production builds and for
+publishing libraries, because the output is plain JavaScript plus `.d.ts`
+type declarations.
+
+## Option 2: tsx for development
+
+`tsx` runs `.ts` files directly by transpiling them on the fly with
+esbuild. It supports all TypeScript syntax (including `enum`) and has a
+watch mode, which makes it popular for development and scripts.
+
+```bash
+npm install --save-dev tsx
+npx tsx src/server.ts
+npx tsx watch src/server.ts   # restart on file changes
+```
+
+## Option 3: Node's built-in type stripping
+
+Recent Node versions can run `.ts` files natively by **erasing** type
+annotations and executing what remains. It arrived behind
+`--experimental-strip-types` in Node 22 and is enabled by default in
+Node 24 (and in later Node 22 releases). Check the docs for the exact
+status in your version.
+
+```ts
+// money.ts
+interface Account {
+  owner: string;
+  balance: number;
+}
+
+export function format(acc: Account): string {
+  return `${acc.owner}: ₹${acc.balance.toLocaleString("en-IN")}`;
+}
+
+console.log(format({ owner: "Asha", balance: 125000 }));
+```
+
+```bash
+node money.ts
+# Asha: ₹1,25,000
+```
+
+The important rules — these are exactly what interviewers probe:
+
+- **No type checking.** Node never reports type errors; run `tsc --noEmit`
+  in CI or your editor for that.
+- **Erasable syntax only.** Syntax that generates runtime code, such as
+  `enum`, `namespace` with values, and constructor parameter properties,
+  fails with `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`. The
+  `--experimental-transform-types` flag enables some of it.
+- **Real file extensions.** Imports must say `./money.ts`, not `./money`.
+- **Type-only imports need `type`.** `import { User } from "./types.ts"`
+  fails at runtime if `User` is an interface; write
+  `import type { User }` or `import { type User }`.
+- **tsconfig.json is ignored** for running code, and `.ts` files inside
+  `node_modules` are not stripped.
+
+A tsconfig that keeps the editor and Node in agreement:
+
+```json
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "target": "esnext",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "strict": true
+  }
+}
+```
+
+`erasableSyntaxOnly` (TypeScript 5.8+) makes the compiler flag any syntax
+Node cannot strip, and `verbatimModuleSyntax` forces explicit `import type`.
+
+## Linting with ESLint
+
+TypeScript catches type errors; ESLint catches suspicious patterns, such as
+unused variables or a promise that is never awaited. ESLint 9 uses a flat
+config file:
+
+```js
+// eslint.config.js
+import { defineConfig } from "eslint/config";
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+
+export default defineConfig(
+  js.configs.recommended,
+  tseslint.configs.recommended,
+  { ignores: ["dist/"] },
+);
+```
+
+```bash
+npx eslint .
+```
+
+## Built-ins that replace old packages
+
+Every dependency is a supply-chain risk, and Node now covers many
+once-essential packages:
+
+| Old package | Modern Node built-in |
+| --- | --- |
+| node-fetch, axios (basic use) | global `fetch` |
+| nodemon | `node --watch` |
+| dotenv | `node --env-file=.env`, `process.loadEnvFile()` |
+| rimraf, mkdirp | `fs.rm(p, { recursive: true })`, `fs.mkdir(p, { recursive: true })` |
+| uuid (v4) | `crypto.randomUUID()` |
+| minimist, yargs (simple CLIs) | `util.parseArgs()` |
+| chalk (basic colours) | `util.styleText()` |
+| glob | `fs.glob()` |
+| lodash.clonedeep | `structuredClone()` |
+| jest, mocha | `node:test` |
+| npm-run-all, cross-env (some uses) | `node --run` for scripts |
+
+Third-party libraries are still worth it when they add real value (zod,
+pino, Prisma); the point is not to install one for a few lines Node
+already provides.
+
+### Try it yourself
+
+Create `stats.ts` with an `interface` and a function, plus a `types.ts`
+that exports only a type. Import the type without the `type` keyword and
+run `node stats.ts` to see the error, then fix it. Add an `enum`, observe
+`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, and replace it with an `as const`
+object. Finally, add `tsc --noEmit` and `eslint .` as npm scripts.

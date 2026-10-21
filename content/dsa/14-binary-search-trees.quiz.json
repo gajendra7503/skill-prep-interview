@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which traversal of a binary search tree returns its values in sorted ascending order?",
+      "options": [
+        "Preorder",
+        "Inorder",
+        "Postorder",
+        "Level-order"
+      ],
+      "correctIndex": 1,
+      "explanation": "Inorder visits the left subtree (smaller values), then the node, then the right subtree (larger values), which produces sorted order."
+    },
+    {
+      "question": "You insert the values 1, 2, 3, ..., 1000 in that order into a plain (non-balancing) BST. What is the cost of searching it?",
+      "options": [
+        "O(1)",
+        "O(log n), because BSTs are always logarithmic",
+        "O(n), because the tree degenerates into a chain of right children",
+        "O(n log n)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Sorted inserts make every node the right child of the previous one, so the height is n and operations are O(n). Self-balancing trees such as AVL or red-black trees prevent this."
+    },
+    {
+      "question": "When deleting a BST node that has two children, what value typically replaces it?",
+      "options": [
+        "Its inorder successor: the smallest value in its right subtree",
+        "Its parent's value",
+        "The root's value",
+        "The largest value in its right subtree"
+      ],
+      "correctIndex": 0,
+      "explanation": "The inorder successor is larger than everything on the left and smaller than the rest of the right subtree, so the BST property is preserved. The inorder predecessor also works."
+    },
+    {
+      "question": "Why is checking only that each node is greater than its left child and smaller than its right child not enough to validate a BST?",
+      "options": [
+        "Because BSTs may contain duplicate values",
+        "Because the check must be done iteratively",
+        "Because leaves must also be compared with null",
+        "Because every node must also respect bounds set by all its ancestors, e.g. a 6 in the right subtree of 10 is invalid"
+      ],
+      "correctIndex": 3,
+      "explanation": "The BST property applies to whole subtrees. Passing a (low, high) range down the recursion catches violations against distant ancestors."
+    }
+  ]
+}

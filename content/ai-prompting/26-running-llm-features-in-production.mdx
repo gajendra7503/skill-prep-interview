@@ -1,0 +1,172 @@
+---
+title: "Running LLM Features in Production"
+description: "Operate AI features like any critical service: release prompt, model and settings as one versioned unit, log and monitor the right signals, handle retries and refusals, roll out safely, migrate models with evals, and run incidents."
+module: "Pro Level"
+level: "pro"
+order: 27
+---
+
+Shipping an AI feature is the start of the work, not the end. Traffic
+shifts, providers release new models, and a one-word prompt edit can change
+thousands of replies overnight. Run AI features with the discipline of
+payments or login: versioned releases, dashboards, rollbacks and runbooks.
+
+## The release unit: prompt + model + settings
+
+A reply is produced by the **combination** of system prompt, few-shot
+examples, tool definitions, model ID and request settings. Changing any one
+of them is a release. Store them together as configuration, under version
+control, and log the version on every request.
+
+```yaml
+# prompts/support-reply/v3.2.yaml
+id: support-reply
+version: 3.2
+model: claude-sonnet-5-5
+max_tokens: 4000
+effort: medium
+system_file: system_v3.2.txt
+tools: [get_order_status, get_refund_policy]
+eval_baseline: { golden: 0.94, regression: 1.0 }
+```
+
+Pin exact model IDs such as `claude-sonnet-5-5` so behaviour changes only
+when you decide, and route every change through review and the eval gate.
+
+## Log what you need to debug and to bill
+
+Wrap every model call in one function that records a structured log line.
+Redact personal data **before** logging; logs often outlive the request and
+reach more people.
+
+```python
+import time, logging
+import anthropic
+
+client = anthropic.Anthropic(max_retries=3)  # SDK retries 429, 5xx and network errors with backoff
+log = logging.getLogger("llm")
+
+def call_model(cfg: dict, messages: list, request_id: str):
+    start = time.monotonic()
+    resp = client.messages.create(
+        model=cfg["model"],
+        max_tokens=cfg["max_tokens"],
+        output_config={"effort": cfg["effort"]},
+        system=cfg["system"],
+        messages=messages,
+    )
+    u = resp.usage
+    log.info("llm_call", extra={
+        "request_id": request_id, "prompt_version": cfg["version"],
+        "model": resp.model, "stop_reason": resp.stop_reason,
+        "input": u.input_tokens, "cache_read": u.cache_read_input_tokens or 0,
+        "output": u.output_tokens, "ms": int((time.monotonic() - start) * 1000),
+    })
+    return resp
+```
+
+Note that `input_tokens` counts only uncached input; cached reads are
+reported separately in `cache_read_input_tokens`.
+
+## The signals to monitor
+
+| Signal | What it tells you | Typical alert |
+| --- | --- | --- |
+| `stop_reason` mix | `max_tokens` means truncated output; `refusal` means declined requests | Truncation or refusal rate rises above baseline |
+| Task success rate | Downstream outcome: valid JSON, ticket resolved, human accepted the draft | Drops on any segment |
+| Cache share of input | Whether caching still works after the last change | Falls sharply after a deploy |
+| Latency p50 / p95 | User experience; long tails often come from long outputs | p95 breaches SLA |
+| Cost per completed task | Real unit economics, including retries | Rises without a matching quality gain |
+| Online eval sample | Judge scores on a small daily slice of live traffic | Score trend declines |
+
+Aggregate the logs into these numbers:
+
+```python
+import math
+from collections import Counter
+
+logs = [
+    {"stop": "end_turn",   "input": 500,  "cache_read": 2600, "output": 380,  "ms": 4200, "ok": True},
+    {"stop": "end_turn",   "input": 300,  "cache_read": 2600, "output": 410,  "ms": 3900, "ok": True},
+    {"stop": "max_tokens", "input": 3300, "cache_read": 0,    "output": 1024, "ms": 9100, "ok": False},
+    {"stop": "refusal",    "input": 400,  "cache_read": 2600, "output": 40,   "ms": 1500, "ok": False},
+    {"stop": "end_turn",   "input": 450,  "cache_read": 2600, "output": 395,  "ms": 4400, "ok": True},
+]
+
+n = len(logs)
+stops = Counter(r["stop"] for r in logs)
+read = sum(r["cache_read"] for r in logs)
+cache_share = read / (read + sum(r["input"] for r in logs))
+p95_ms = sorted(r["ms"] for r in logs)[math.ceil(0.95 * n) - 1]
+print(f"truncation rate: {stops['max_tokens'] / n:.0%}, refusal rate: {stops['refusal'] / n:.0%}")
+print(f"input tokens served from cache: {cache_share:.0%}")
+print(f"p95 latency: {p95_ms} ms")
+print(f"task success: {sum(r['ok'] for r in logs) / n:.0%}")
+# truncation rate: 20%, refusal rate: 20%
+# input tokens served from cache: 68%
+# p95 latency: 9100 ms
+# task success: 60%
+```
+
+Judge cost **per completed task**: a cheaper setup that needs retries or a
+human rewrite is not cheaper.
+
+## Handle the non-happy paths in code
+
+- **Rate limits and server errors**: rely on the SDK's built-in retries with
+  backoff, add a request timeout, and degrade gracefully (queue the job,
+  show "we'll email you") instead of failing the user.
+- **Truncation**: never save or act on a response with
+  `stop_reason == "max_tokens"`; retry with a higher limit or a request for
+  shorter output.
+- **Refusals**: a `refusal` stop reason means the model declined. Route it
+  to a fallback path — a safe template reply or a human queue — and sample
+  them for review, since some will be false positives on legitimate
+  business requests. Recent API versions also offer a server-side fallback
+  option; check the current documentation before relying on it.
+
+## Roll out changes safely
+
+1. **Offline eval gate** on golden, regression and adversarial sets.
+2. **Shadow mode**: run the new version on copied live traffic, unseen.
+3. **Canary**: send a small slice, say 5%, of real traffic; watch the dashboard.
+4. **Ramp up** in steps, keeping the old version deployable.
+5. **Kill switch**: a config flag that reverts in seconds, without a deploy.
+
+## Migrating to a new model
+
+New models are usually better overall but differ in detail, so treat a
+migration as a project, not a find-and-replace:
+
+- Read the provider's migration notes. For example, on `claude-opus-5-5`
+  thinking cannot be switched off and the default effort is `medium`, so set
+  effort explicitly; forced tool choice returns an error; and assistant
+  prefill is not supported on current models.
+- Remove workarounds written for older models, such as shouted warnings,
+  and re-test; they can make newer models over-cautious.
+- Re-baseline token counts with the API's token counter, since tokenizers
+  can change between model generations.
+- Run the full eval suite at two or three effort levels and pick the
+  cheapest setting that meets your quality bar.
+
+## When something goes wrong
+
+Keep a short runbook for AI incidents — for example, the support assistant at
+a fictional retailer "Vindhya Mart" suddenly promising refund dates:
+
+1. **Contain**: flip the kill switch or tighten the fallback path.
+2. **Scope**: query logs by prompt version and time window to count
+   affected conversations.
+3. **Fix**: reproduce with logged inputs, add them to the regression set,
+   change one thing, and pass the gate.
+4. **Review**: contact affected customers, then write a blameless review
+   of what monitoring missed.
+
+### Try it yourself
+
+Pick an AI feature you use or are building. Write its release-unit config
+file, list the five signals you would put on its dashboard with an alert
+threshold for each, and draft a five-step rollout plan with a named kill
+switch. Then run the aggregation script above on at least 20 log records of
+your own (real or simulated) and decide whether the configuration is ready
+to ramp beyond a canary.

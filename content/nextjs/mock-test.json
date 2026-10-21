@@ -1,0 +1,784 @@
+{
+  "title": "Next.js Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "next-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "07-authentication-patterns",
+      "question": "A page lives at `app/(marketing)/about/page.tsx`. Which URL renders it?",
+      "options": [
+        "/marketing/about",
+        "/about",
+        "/(marketing)/about",
+        "None, because route groups are not routable"
+      ],
+      "correctIndex": 1,
+      "explanation": "Folders wrapped in parentheses are route groups: they organise files (and can share a layout) but are left out of the URL, so the page is served at /about. /marketing/about is the tempting wrong answer, but the group name never appears in the path."
+    },
+    {
+      "id": "next-02",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-app-router-fundamentals",
+      "question": "In Next.js 16, what is the `params` prop that a `page.tsx` receives for a dynamic route?",
+      "options": [
+        "undefined unless generateStaticParams is exported",
+        "A plain object you can destructure synchronously",
+        "A URLSearchParams instance",
+        "A Promise that resolves to the dynamic segment values, so it must be awaited"
+      ],
+      "correctIndex": 3,
+      "explanation": "Next.js 15 made params asynchronous with a temporary synchronous fallback; Next.js 16 removed the fallback, so you must `await props.params`. Destructuring it synchronously, as older tutorials show, no longer works."
+    },
+    {
+      "id": "next-03",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "08-testing-and-deployment",
+      "question": "Which bundler do `next dev` and `next build` use by default in Next.js 16?",
+      "options": [
+        "Turbopack",
+        "Webpack",
+        "Vite",
+        "Rspack"
+      ],
+      "correctIndex": 0,
+      "explanation": "Turbopack is stable and the default for both dev and build in Next.js 16, so the `--turbopack` flag is no longer needed. Webpack is still available, but only if you opt in with the `--webpack` flag."
+    },
+    {
+      "id": "next-04",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-app-router-fundamentals",
+      "question": "In an App Router Client Component, which hook gives you the current URL pathname?",
+      "options": [
+        "usePathname from next/router",
+        "useRouter().pathname from next/router",
+        "usePathname from next/navigation",
+        "useLocation from next/navigation"
+      ],
+      "correctIndex": 2,
+      "explanation": "App Router hooks come from `next/navigation`, and `usePathname()` returns the current path. `next/router` is the Pages Router API and does not work in `app/`."
+    },
+    {
+      "id": "next-05",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-app-router-fundamentals",
+      "question": "Which component should you use for client-side navigation between routes in the App Router?",
+      "options": [
+        "<Route> from next/router",
+        "<NavLink> from next/navigation",
+        "<Link> from next/link",
+        "A plain <a> tag with a reload handler"
+      ],
+      "correctIndex": 2,
+      "explanation": "`<Link>` from `next/link` does client-side navigation with prefetching. A plain `<a>` causes a full page reload, and the other two components are not Next.js APIs."
+    },
+    {
+      "id": "next-06",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "05-image-font-and-metadata-optimization",
+      "question": "You want `logo.png` to be served at `https://yoursite.com/logo.png` with no import. Where should the file go?",
+      "options": [
+        "public/logo.png",
+        "static/logo.png",
+        "app/assets/logo.png",
+        "src/logo.png"
+      ],
+      "correctIndex": 0,
+      "explanation": "Files in the `public` folder are served as-is from the site root, so `public/logo.png` becomes `/logo.png`. A `static/` folder has no special meaning in modern Next.js."
+    },
+    {
+      "id": "next-07",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "18-config-redirects-and-headers",
+      "question": "Where do you configure framework options such as `images.remotePatterns` or `redirects()`?",
+      "options": [
+        "app/config.ts",
+        "tsconfig.json",
+        "A \"next\" field in package.json",
+        "next.config.ts (or next.config.js)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Framework options live in the Next config file at the project root. tsconfig.json only configures TypeScript, and Next.js does not read a \"next\" field from package.json."
+    },
+    {
+      "id": "next-08",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "08-testing-and-deployment",
+      "question": "What is the minimum Node.js version that Next.js 16 supports?",
+      "options": [
+        "18.17",
+        "20.9",
+        "16.14",
+        "22.0"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Next.js 16 upgrade guide raises the minimum to Node.js 20.9.0 (LTS) and drops Node.js 18. Version 18.17 was the minimum for older releases."
+    },
+    {
+      "id": "next-09",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "09-server-and-client-components-deep-dive",
+      "question": "Which of these can a Server Component do directly in its body?",
+      "options": [
+        "Await a database query",
+        "Call useEffect to load data after mount",
+        "Attach an onClick handler that updates state",
+        "Read window.localStorage"
+      ],
+      "correctIndex": 0,
+      "explanation": "Server Components can be async and run only on the server, so they can await data sources directly. Effects, event handlers with state, and browser globals such as `window` all need a Client Component."
+    },
+    {
+      "id": "next-10",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "05-image-font-and-metadata-optimization",
+      "question": "You render a remote image with `next/image` and do not use the `fill` prop. Which props must you provide?",
+      "options": [
+        "loader",
+        "priority",
+        "width and height",
+        "placeholder=\"blur\""
+      ],
+      "correctIndex": 2,
+      "explanation": "Next.js cannot read remote files at build time, so you must give `width` and `height` to set the aspect ratio and prevent layout shift. `priority`, `loader` and `placeholder` are optional."
+    },
+    {
+      "id": "next-11",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "01-app-router-fundamentals",
+      "question": "Which file wraps a segment like a layout but gets a unique key, so child Client Components reset their state when that segment changes?",
+      "options": [
+        "layout.tsx",
+        "template.tsx",
+        "default.tsx",
+        "page.tsx"
+      ],
+      "correctIndex": 1,
+      "explanation": "A template remounts when its segment (including dynamic params) changes, which resets state and re-runs effects. A layout is the tempting wrong answer, but layouts persist and keep their state across navigations."
+    },
+    {
+      "id": "next-12",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-testing-and-deployment",
+      "question": "Which of these does `next build` no longer do in Next.js 16?",
+      "options": [
+        "Write build output to the .next directory",
+        "Type-check TypeScript",
+        "Prerender static routes",
+        "Run ESLint, because the next lint command was removed"
+      ],
+      "correctIndex": 3,
+      "explanation": "Next.js 16 removed `next lint`, and `next build` no longer runs linting, so you run ESLint or Biome directly. Prerendering and writing to `.next` are still core build steps."
+    },
+    {
+      "id": "next-13",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-caching-deep-dive",
+      "question": "A Server Action edits a blog post. Readers can see slightly stale content while fresh data loads in the background. Which call does Next.js 16 recommend?",
+      "options": [
+        "revalidatePath('posts')",
+        "revalidateTag('posts')",
+        "updateTag('posts', 'max')",
+        "revalidateTag('posts', 'max')"
+      ],
+      "correctIndex": 3,
+      "explanation": "In Next.js 16, `revalidateTag` takes a cacheLife profile as its second argument, and `'max'` gives stale-while-revalidate. The one-argument form is deprecated and is a TypeScript error. `updateTag` takes only a tag, and `revalidatePath` expects a route path such as '/blog', not a tag."
+    },
+    {
+      "id": "next-14",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "14-forms-and-mutations",
+      "question": "Where can `updateTag` be called?",
+      "options": [
+        "In Server Actions and Route Handlers",
+        "Only inside Server Actions",
+        "Anywhere on the server, including proxy.ts",
+        "In Client Components inside startTransition"
+      ],
+      "correctIndex": 1,
+      "explanation": "`updateTag` gives read-your-own-writes semantics and works only in Server Actions. Calling it in a Route Handler throws an error. `revalidateTag` is the function that works in both Server Actions and Route Handlers."
+    },
+    {
+      "id": "next-15",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-caching-deep-dive",
+      "question": "In Next.js 16, without Cache Components, is the result of a plain `fetch(url)` (no options) stored in the Data Cache?",
+      "options": [
+        "No. The default is 'auto no cache'; opt in with cache: 'force-cache', next.revalidate, or 'use cache'",
+        "Yes, it is cached indefinitely until the next deployment",
+        "Yes, it is cached for 60 seconds by default",
+        "Only in development; production never caches fetch"
+      ],
+      "correctIndex": 0,
+      "explanation": "The fetch API reference lists 'auto no cache' as the default. The request runs on every request, although a route that is statically prerendered fetches once during `next build`. Caching fetch indefinitely by default was the old Next.js 13/14 behaviour, which Next.js 15 changed."
+    },
+    {
+      "id": "next-16",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-authentication-patterns",
+      "question": "A Server Component calls `redirect('/login')` during a normal (non-streaming) request. Which HTTP status does Next.js send?",
+      "options": [
+        "301 Moved Permanently",
+        "302 Found",
+        "307 Temporary Redirect",
+        "308 Permanent Redirect"
+      ],
+      "correctIndex": 2,
+      "explanation": "`redirect()` uses 307 by default, which keeps the request method, unlike 302. `permanentRedirect()` is the function that sends 308."
+    },
+    {
+      "id": "next-17",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "01-app-router-fundamentals",
+      "question": "For `app/shop/[...slug]/page.tsx`, what does `await params` return for the URL `/shop/a/b`?",
+      "options": [
+        "{ slug: ['a', 'b'] }",
+        "{ slug: 'a/b' }",
+        "{ slug: 'b' }",
+        "{ slug: ['shop', 'a', 'b'] }"
+      ],
+      "correctIndex": 0,
+      "explanation": "A catch-all segment collects every remaining path part into an array of strings, so the result is ['a', 'b']. It is not joined into one string, and the static `shop` segment is not included."
+    },
+    {
+      "id": "next-18",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "01-app-router-fundamentals",
+      "question": "Which folder name makes one page match `/docs`, `/docs/a` and `/docs/a/b`?",
+      "options": [
+        "app/docs/[slug]",
+        "app/docs/[...slug]",
+        "app/docs/[[...slug]]",
+        "app/docs/(...slug)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Double brackets make the catch-all optional, so it also matches the bare `/docs`, with slug undefined. A required catch-all `[...slug]` needs at least one segment, and `(...)` is intercepting-route syntax."
+    },
+    {
+      "id": "next-19",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "03-api-routes-server-actions",
+      "question": "Where can you call `(await cookies()).set('theme', 'dark')`?",
+      "options": [
+        "While a Server Component is rendering",
+        "In a Server Function (Server Action) or a Route Handler",
+        "In a Client Component that imports from next/headers",
+        "Inside generateStaticParams"
+      ],
+      "correctIndex": 1,
+      "explanation": "Setting a cookie means sending a Set-Cookie response header, and HTTP does not allow that once streaming has started. Next.js therefore allows `.set` and `.delete` only in Server Functions and Route Handlers. Server Components can only read cookies."
+    },
+    {
+      "id": "next-20",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "03-api-routes-server-actions",
+      "question": "A developer adds both `app/api/users/page.tsx` and `app/api/users/route.ts`. What happens?",
+      "options": [
+        "route.ts handles only non-GET methods",
+        "GET requests go to route.ts and browser navigations go to page.tsx",
+        "page.tsx silently wins and route.ts is ignored",
+        "It is a conflict: route.ts cannot share a route segment with page.tsx"
+      ],
+      "correctIndex": 3,
+      "explanation": "The docs state that there cannot be a `route.js` file at the same route segment as `page.js`. One segment is either a UI page or an API endpoint. Next.js does not split traffic between them."
+    },
+    {
+      "id": "next-21",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "10-streaming-and-suspense",
+      "question": "A Client Component on a prerendered route calls `useSearchParams()` with no Suspense boundary above it. What is the consequence?",
+      "options": [
+        "useSearchParams always returns an empty object",
+        "The build fails with a TypeScript error",
+        "The Client Component tree up to the nearest Suspense boundary renders on the client, so you should wrap it in <Suspense>",
+        "Every route in the app switches to dynamic rendering"
+      ],
+      "correctIndex": 2,
+      "explanation": "Search params are not known at prerender time, so the tree up to the closest Suspense boundary falls back to client-side rendering. Wrapping the component in `<Suspense>` lets everything above it stay in the prerendered HTML."
+    },
+    {
+      "id": "next-22",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-caching-deep-dive",
+      "question": "What must you set in the Next config before you can use the `'use cache'` directive?",
+      "options": [
+        "cacheComponents: true",
+        "experimental.ppr: true",
+        "experimental.dynamicIO: true",
+        "useCache: true"
+      ],
+      "correctIndex": 0,
+      "explanation": "`'use cache'` is a Cache Components feature, enabled with the top-level `cacheComponents: true`. `experimental.dynamicIO` was the earlier canary name, and Next.js 16 removed the `experimental.ppr` flag."
+    },
+    {
+      "id": "next-23",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-caching-deep-dive",
+      "question": "A `'use cache'` function never calls `cacheLife()`. What lifetime applies?",
+      "options": [
+        "None: the result is not cached at all",
+        "The 'default' profile (revalidate after 15 minutes, never expires)",
+        "Forever until the next deployment, with no revalidation",
+        "The 'seconds' profile"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without `cacheLife`, the `default` profile applies: stale 5 minutes, revalidate 15 minutes, expire never. The docs still recommend calling `cacheLife` in every cached scope so the lifetime is visible where the function is defined."
+    },
+    {
+      "id": "next-24",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "22-observability-and-instrumentation",
+      "question": "What does `after()` from `next/server` do?",
+      "options": [
+        "Registers a cleanup function that runs when a Client Component unmounts",
+        "Runs code after proxy.ts but before routing",
+        "Holds back rendering until a promise resolves",
+        "Schedules a callback to run after the response (or prerender) has finished"
+      ],
+      "correctIndex": 3,
+      "explanation": "`after` is for work that should not delay the response, such as logging or analytics. On serverless platforms it relies on `waitUntil` to keep the function running. It has nothing to do with proxy order or component lifecycles."
+    },
+    {
+      "id": "next-25",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-error-handling",
+      "question": "What must `global-error.tsx` contain that a normal `error.tsx` does not?",
+      "options": [
+        "A notFound() call",
+        "A 'use server' directive",
+        "A generateMetadata export",
+        "Its own <html> and <body> tags"
+      ],
+      "correctIndex": 3,
+      "explanation": "global-error replaces the root layout when it is shown, so it must render its own `<html>` and `<body>`. Like error.tsx, it is a Client Component, so 'use server' is wrong."
+    },
+    {
+      "id": "next-26",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-authentication-patterns",
+      "question": "What must you enable before calling `forbidden()` or `unauthorized()` from `next/navigation`?",
+      "options": [
+        "experimental.authInterrupts: true in the Next config",
+        "cacheComponents: true",
+        "Nothing; they are always available",
+        "serverActions.allowedOrigins"
+      ],
+      "correctIndex": 0,
+      "explanation": "`forbidden` and `unauthorized` are still experimental and need the `experimental.authInterrupts` flag. `notFound()` is the similar function that works without any flag."
+    },
+    {
+      "id": "next-27",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "04-middleware-and-proxy",
+      "question": "A team upgrading to Next.js 16 must keep running request interception on the Edge runtime. What do the docs advise?",
+      "options": [
+        "Rename to proxy.ts; it runs on Edge by default",
+        "Rename to proxy.ts and add export const runtime = 'edge'",
+        "Keep using the deprecated middleware.ts, because proxy.ts always runs on Node.js",
+        "Move the logic into a Route Handler with runtime = 'edge'"
+      ],
+      "correctIndex": 2,
+      "explanation": "proxy.ts runs only on Node.js, and setting the `runtime` option in a proxy file throws an error. The upgrade guide says that if you need Edge you should keep using `middleware` for now. Adding runtime = 'edge' to proxy.ts is the tempting wrong answer."
+    },
+    {
+      "id": "next-28",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "06-caching-deep-dive",
+      "question": "Legacy code still calls the deprecated one-argument `revalidateTag('posts')`. How does it behave in Next.js 16?",
+      "options": [
+        "Like the 'max' profile: stale-while-revalidate",
+        "Like { expire: 0 }: stale content is not served, so the next request waits for fresh data",
+        "It does nothing",
+        "It revalidates only the current route path"
+      ],
+      "correctIndex": 1,
+      "explanation": "The revalidateTag reference says that with no second argument it behaves like `{ expire: 0 }`, the legacy immediate-expiry behaviour, which is effectively what updateTag does. It is deprecated and a TypeScript error, and the docs recommend `updateTag` in Server Actions or `'max'` elsewhere."
+    },
+    {
+      "id": "next-29",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "14-forms-and-mutations",
+      "question": "A CMS webhook calls a Route Handler. After it runs, the very next request for the `products` tag must not get stale data. Which call fits?",
+      "options": [
+        "updateTag('products')",
+        "revalidateTag('products', { expire: 0 })",
+        "revalidateTag('products', 'max')",
+        "refresh()"
+      ],
+      "correctIndex": 1,
+      "explanation": "`updateTag` only works in Server Actions, so a Route Handler cannot use it. `'max'` would serve stale content while revalidating. The docs recommend `{ expire: 0 }` for webhooks that need immediate expiry. `refresh()` refreshes the client router from a Server Action and does not invalidate tags."
+    },
+    {
+      "id": "next-30",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "06-caching-deep-dive",
+      "question": "With Cache Components enabled, what makes up the cache key for `getData` in this code?",
+      "code": "async function Report({ userId }: { userId: string }) {\n  const getData = async (filter: string) => {\n    'use cache'\n    const res = await fetch(`https://api.example.com/users/${userId}/data?filter=${filter}`)\n    return res.json()\n  }\n  return <Table rows={await getData('active')} />\n}",
+      "codeLanguage": "tsx",
+      "options": [
+        "Only the fetch URL",
+        "Only filter, because only explicit arguments are part of the key",
+        "The build ID, the function ID, and both userId (captured from the closure) and filter",
+        "Nothing: a 'use cache' function cannot be defined inside a component"
+      ],
+      "correctIndex": 2,
+      "explanation": "The cache key combines the build ID, a hash of the function's identity, and its serialised inputs. Variables captured from outer scopes, such as userId, are bound as arguments automatically. Each user/filter combination therefore gets its own entry, so data does not leak between users."
+    },
+    {
+      "id": "next-31",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "06-caching-deep-dive",
+      "question": "A function marked `'use cache'` calls `await cookies()` inside its body. What does the documentation recommend?",
+      "options": [
+        "Read cookies outside the cached scope and pass the needed value in as an argument",
+        "Add cacheLife('seconds') so the cookie value stays fresh",
+        "Wrap the cookies() call in try/catch",
+        "Change the directive to 'use client'"
+      ],
+      "correctIndex": 0,
+      "explanation": "A shared cache entry cannot depend on request-time data that is not part of its key. The preferred pattern is to read cookies or headers outside the cached scope and pass the values as arguments, so they become part of the cache key. `'use cache: private'` exists for cases where you cannot refactor this way."
+    },
+    {
+      "id": "next-32",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "06-caching-deep-dive",
+      "question": "Which `cacheLife` call is invalid?",
+      "options": [
+        "cacheLife({ revalidate: 900, expire: 86400 })",
+        "cacheLife('days')",
+        "cacheLife({ stale: 300 })",
+        "cacheLife({ revalidate: 3600, expire: 600 })"
+      ],
+      "correctIndex": 3,
+      "explanation": "When both are set, `expire` must be longer than `revalidate`. Next.js validates this and raises an error, so expiring after 10 minutes but revalidating after 1 hour is invalid. Named profiles and partial objects are fine, because omitted properties inherit from the default profile."
+    },
+    {
+      "id": "next-33",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "14-forms-and-mutations",
+      "question": "A `<form action={createPost}>` is submitted before JavaScript has loaded, and the Server Action calls `redirect('/posts')`. Which response does the browser receive?",
+      "options": [
+        "303 See Other",
+        "307 Temporary Redirect",
+        "308 Permanent Redirect",
+        "200 with a client-side meta refresh"
+      ],
+      "correctIndex": 0,
+      "explanation": "For progressively enhanced Server Action form posts, `redirect` sends a 303 so the browser follows it with a GET. 307 is the default elsewhere. When JavaScript is available, the action does a client-side navigation instead of an HTTP redirect."
+    },
+    {
+      "id": "next-34",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-streaming-and-suspense",
+      "question": "With `cacheComponents: true`, a page component reads `await cookies()` and is not inside any `<Suspense>` boundary. What happens, and what is the fix?",
+      "options": [
+        "cookies() switches to synchronous access",
+        "The page is fully static and cookies() returns an empty store",
+        "Next.js flags it as blocking the route; wrap it in <Suspense> so the static shell prerenders and this part streams at request time",
+        "The cookie value is cached and shared between all users"
+      ],
+      "correctIndex": 2,
+      "explanation": "Under Cache Components, request-time APIs must sit inside a Suspense boundary. Without one, the dev overlay shows the blocking-route insight and suggests wrapping the component in Suspense. Reading cookies does not make the whole route dynamic as in the previous model. Only the suspended part streams."
+    },
+    {
+      "id": "next-35",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "06-caching-deep-dive",
+      "question": "You enable `cacheComponents: true` on an app whose page exports `export const revalidate = 60`. What do the docs say about this segment config?",
+      "options": [
+        "It keeps working and overrides any cacheLife call",
+        "dynamic, revalidate, fetchCache and dynamicParams are removed under Cache Components; set lifetimes with 'use cache' and cacheLife instead",
+        "It is converted automatically into cacheLife('minutes')",
+        "It only affects Route Handlers once Cache Components is on"
+      ],
+      "correctIndex": 1,
+      "explanation": "The route segment config history for v16.0.0 says that dynamic, dynamicParams, revalidate and fetchCache are removed when Cache Components is enabled. Cache lifetimes are then set with 'use cache' and cacheLife."
+    },
+    {
+      "id": "next-36",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "10-streaming-and-suspense",
+      "question": "Which file name in a route segment defines the instant loading UI that Next.js wraps around that segment's page in a Suspense boundary?",
+      "answerHint": "Type the file name, e.g. something.tsx",
+      "acceptedAnswers": [
+        "loading.tsx",
+        "loading.js",
+        "loading.jsx",
+        "loading.ts",
+        "loading"
+      ],
+      "caseSensitive": false,
+      "explanation": "`loading.tsx` is shown immediately while the segment's content streams in. Next.js wraps the page in `<Suspense>` with this file as the fallback."
+    },
+    {
+      "id": "next-37",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "01-app-router-fundamentals",
+      "question": "This component lives in the `app/` directory. What must be added as its first line for it to work?",
+      "code": "import { useState } from 'react'\n\nexport default function Counter() {\n  const [count, setCount] = useState(0)\n  return <button onClick={() => setCount(count + 1)}>{count}</button>\n}",
+      "codeLanguage": "tsx",
+      "answerHint": "Type the directive",
+      "acceptedAnswers": [
+        "use client",
+        "'use client'",
+        "\"use client\"",
+        "'use client';",
+        "\"use client\";",
+        "use client;"
+      ],
+      "caseSensitive": false,
+      "explanation": "Components in `app/` are Server Components by default. State and event handlers need a Client Component, which you mark with the `'use client'` directive at the top of the file."
+    },
+    {
+      "id": "next-38",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "12-error-handling",
+      "question": "Which file name defines the UI shown when `notFound()` is called in a segment, or when no route matches the URL?",
+      "answerHint": "Type the file name",
+      "acceptedAnswers": [
+        "not-found.tsx",
+        "not-found.js",
+        "not-found.jsx",
+        "not-found"
+      ],
+      "caseSensitive": false,
+      "explanation": "`not-found.tsx` renders for `notFound()` calls and, at the root, for unmatched URLs. The hyphenated name is required."
+    },
+    {
+      "id": "next-39",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "03-api-routes-server-actions",
+      "question": "In `app/api/orders/route.ts`, what is the name of the exported function that handles an HTTP POST request?",
+      "answerHint": "Type the export name",
+      "acceptedAnswers": [
+        "POST",
+        "POST()",
+        "export function POST",
+        "export async function POST"
+      ],
+      "caseSensitive": false,
+      "explanation": "Route Handlers export one function per HTTP method, named in uppercase: GET, POST, PUT, PATCH, DELETE, HEAD and OPTIONS."
+    },
+    {
+      "id": "next-40",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "01-app-router-fundamentals",
+      "question": "Given `app/blog/[slug]/page.tsx`, which URL path renders the page with `slug` equal to `hello-world`?",
+      "answerHint": "Type the URL path, starting with /",
+      "acceptedAnswers": [
+        "/blog/hello-world",
+        "blog/hello-world",
+        "/blog/hello-world/"
+      ],
+      "caseSensitive": false,
+      "explanation": "The dynamic segment `[slug]` is replaced by the value from the URL, so `/blog/hello-world` gives `{ slug: 'hello-world' }`."
+    },
+    {
+      "id": "next-41",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "03-api-routes-server-actions",
+      "question": "This file exports functions that a Client Component imports and calls as Server Actions. Which directive goes on its first line?",
+      "code": "// app/actions.ts\n\nexport async function createTodo(formData: FormData) {\n  await db.todo.create({ data: { title: String(formData.get('title')) } })\n}",
+      "codeLanguage": "ts",
+      "answerHint": "Type the directive",
+      "acceptedAnswers": [
+        "use server",
+        "'use server'",
+        "\"use server\"",
+        "'use server';",
+        "\"use server\";",
+        "use server;"
+      ],
+      "caseSensitive": false,
+      "explanation": "A file-level `'use server'` marks every export as a Server Function that clients can call. Client Components can import Server Actions only from such a file."
+    },
+    {
+      "id": "next-42",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "04-middleware-and-proxy",
+      "question": "In Next.js 16, which file at the project root (or in `src/`) runs code before a request is routed, replacing the deprecated `middleware.ts`?",
+      "answerHint": "Type the file name",
+      "acceptedAnswers": [
+        "proxy.ts",
+        "proxy.js",
+        "proxy"
+      ],
+      "caseSensitive": false,
+      "explanation": "Next.js 16 renamed the `middleware` convention to `proxy`: the file is `proxy.ts` and the exported function is `proxy`. It runs on the Node.js runtime."
+    },
+    {
+      "id": "next-43",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "12-error-handling",
+      "question": "Fill in the blank so this page renders the nearest not-found UI when the post does not exist.",
+      "code": "import { ______ } from 'next/navigation'\n\nexport default async function Page({ params }: PageProps<'/posts/[id]'>) {\n  const { id } = await params\n  const post = await getPost(id)\n  if (!post) ______()\n  return <h1>{post.title}</h1>\n}",
+      "codeLanguage": "tsx",
+      "answerHint": "Type the function name",
+      "acceptedAnswers": [
+        "notFound",
+        "notFound()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`notFound()` from `next/navigation` throws a special error that renders the closest `not-found.tsx` and returns a 404 status."
+    },
+    {
+      "id": "next-44",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "07-authentication-patterns",
+      "question": "Fill in the blank to read the `session` cookie in a Server Component.",
+      "code": "import { ______ } from 'next/headers'\n\nexport default async function Page() {\n  const store = await ______()\n  const session = store.get('session')?.value\n  return <p>{session ? 'Signed in' : 'Guest'}</p>\n}",
+      "codeLanguage": "tsx",
+      "answerHint": "Type the function name",
+      "acceptedAnswers": [
+        "cookies",
+        "cookies()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`cookies()` from `next/headers` is asynchronous in Next.js 16 (synchronous access was removed), so it must be awaited before calling `.get()`."
+    },
+    {
+      "id": "next-45",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "14-forms-and-mutations",
+      "question": "Fill in the blank so the Server Action invalidates the cached `/dashboard` route after saving.",
+      "code": "'use server'\nimport { ______ } from 'next/cache'\n\nexport async function saveSettings(formData: FormData) {\n  await db.settings.update(formData)\n  ______('/dashboard')\n}",
+      "codeLanguage": "ts",
+      "answerHint": "Type the function name",
+      "acceptedAnswers": [
+        "revalidatePath",
+        "revalidatePath()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`revalidatePath(path)` invalidates cached data for a specific route path. `revalidateTag` works by cache tag instead, and Next.js 16 requires a second profile argument for it."
+    },
+    {
+      "id": "next-46",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "11-parallel-and-intercepting-routes",
+      "question": "In Next.js 16 every parallel route slot (such as `app/@modal`) needs an explicit fallback file, or the build fails. What is that file called?",
+      "answerHint": "Type the file name",
+      "acceptedAnswers": [
+        "default.tsx",
+        "default.js",
+        "default.jsx",
+        "default"
+      ],
+      "caseSensitive": false,
+      "explanation": "Next.js 16 makes `default.tsx` mandatory for every slot. A common choice is one that returns `null` or calls `notFound()`."
+    },
+    {
+      "id": "next-47",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "06-caching-deep-dive",
+      "question": "With Cache Components enabled, which directive goes on the first line of this function body to cache its return value across requests?",
+      "code": "import { cacheLife, cacheTag } from 'next/cache'\n\nexport async function getProducts() {\n  ______\n  cacheLife('hours')\n  cacheTag('products')\n  return db.product.findMany()\n}",
+      "codeLanguage": "ts",
+      "answerHint": "Type the directive",
+      "acceptedAnswers": [
+        "use cache",
+        "'use cache'",
+        "\"use cache\"",
+        "'use cache';",
+        "\"use cache\";",
+        "use cache;"
+      ],
+      "caseSensitive": false,
+      "explanation": "`'use cache'` marks an async function, component or file as cacheable. `cacheLife` and `cacheTag` can only be called inside a cache directive scope."
+    },
+    {
+      "id": "next-48",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "14-forms-and-mutations",
+      "question": "In this Server Action the user must see their own change on the very next request, never stale data. Which `next/cache` function fills the blank?",
+      "code": "'use server'\nimport { ______ } from 'next/cache'\n\nexport async function updateProfile(userId: string, data: Profile) {\n  await db.users.update(userId, data)\n  ______(`user-${userId}`)\n}",
+      "codeLanguage": "ts",
+      "answerHint": "Type the function name",
+      "acceptedAnswers": [
+        "updateTag",
+        "updateTag()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`updateTag(tag)` is the Server Action-only API for read-your-own-writes: it expires the tag immediately, so the next request waits for fresh data. `revalidateTag(tag, 'max')` would serve stale data while revalidating."
+    },
+    {
+      "id": "next-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "06-caching-deep-dive",
+      "question": "Fill in the config key that turns on Cache Components (`'use cache'`, `cacheLife`, `cacheTag`) in Next.js 16.",
+      "code": "import type { NextConfig } from 'next'\n\nconst nextConfig: NextConfig = {\n  ______: true,\n}\n\nexport default nextConfig",
+      "codeLanguage": "ts",
+      "answerHint": "Type the config key name",
+      "acceptedAnswers": [
+        "cacheComponents",
+        "cacheComponents: true"
+      ],
+      "caseSensitive": false,
+      "explanation": "`cacheComponents` is a top-level option in Next.js 16. It replaces the earlier experimental `dynamicIO` and `ppr` flags."
+    },
+    {
+      "id": "next-50",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "02-data-fetching-rendering",
+      "question": "With Cache Components enabled, this component must produce a fresh random number on every request instead of one value baked in at prerender time. Which function from `next/server` fills the blank?",
+      "code": "import { ______ } from 'next/server'\n\nexport default async function Lucky() {\n  await ______()\n  return <span>{Math.random()}</span>\n}",
+      "codeLanguage": "tsx",
+      "answerHint": "Type the function name",
+      "acceptedAnswers": [
+        "connection",
+        "connection()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`await connection()` tells Next.js to wait for a real incoming request before continuing, so prerendering stops there. Use it for per-request values such as `Math.random()` or `new Date()` when no cookies or headers are read, and wrap the component in `<Suspense>`."
+    }
+  ]
+}

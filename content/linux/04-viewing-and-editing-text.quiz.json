@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "You want to watch new lines appear in /var/log/nginx/access.log while you reproduce a bug. Which command fits best?",
+      "options": [
+        "cat /var/log/nginx/access.log",
+        "tail -f /var/log/nginx/access.log",
+        "head -n 100 /var/log/nginx/access.log",
+        "wc -l /var/log/nginx/access.log"
+      ],
+      "correctIndex": 1,
+      "explanation": "tail -f keeps the file open and prints new lines as they are written. Use tail -F if the log may be rotated."
+    },
+    {
+      "question": "Inside less, how do you search backwards for the word ERROR?",
+      "options": [
+        "Press Ctrl+F and type ERROR",
+        "Type :find ERROR",
+        "Type /ERROR and press n twice",
+        "Type ?ERROR and press Enter"
+      ],
+      "correctIndex": 3,
+      "explanation": "In less, / searches forward and ? searches backward; n and N jump between matches."
+    },
+    {
+      "question": "You are in vim, have made changes you do not want, and need to get out. What do you type?",
+      "options": [
+        "Esc, then :q!",
+        "Ctrl+X, then N",
+        "Esc, then :wq",
+        "Ctrl+C twice"
+      ],
+      "correctIndex": 0,
+      "explanation": "Esc returns to normal mode, and :q! quits while discarding changes. :wq would save them; Ctrl+X is nano's exit shortcut."
+    },
+    {
+      "question": "What does `tail -n +7 app.log` print?",
+      "options": [
+        "The last 7 lines",
+        "Only line 7",
+        "Everything from line 7 to the end of the file",
+        "The first 7 lines"
+      ],
+      "correctIndex": 2,
+      "explanation": "With a leading plus sign, tail -n starts output at that line number and prints to the end, instead of counting lines from the end."
+    }
+  ]
+}

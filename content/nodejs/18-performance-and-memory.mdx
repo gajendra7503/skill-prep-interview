@@ -1,0 +1,150 @@
+---
+title: "Performance & Memory"
+description: "Profiling CPU with --cpu-prof, finding memory leaks with heap snapshots, the common leak patterns in Node, and tuning the libuv thread pool."
+module: "Production Node"
+level: "pro"
+order: 23
+---
+
+"Our API got slow" and "memory keeps growing until the pod is OOM-killed"
+are the two performance stories every Node interview circles back to. The
+winning answer always starts the same way: **measure first** — profile,
+take snapshots, then fix the one thing the data points to.
+
+## Is the event loop blocked?
+
+Slow responses in Node are often caused by synchronous CPU work stalling
+the single JavaScript thread. Measure event-loop delay directly:
+
+```js
+import { monitorEventLoopDelay } from "node:perf_hooks";
+
+const h = monitorEventLoopDelay({ resolution: 20 });
+h.enable();
+
+setTimeout(() => { const t = Date.now(); while (Date.now() - t < 200); }, 50); // 200 ms of blocking
+
+setTimeout(() => {
+  console.log("p99 delay ms:", (h.percentile(99) / 1e6).toFixed(1)); // p99 delay ms: 200.3
+}, 500);
+```
+
+Values are in nanoseconds. A healthy server sits in the low milliseconds;
+spikes of hundreds of ms mean something synchronous is hogging the loop —
+`JSON.parse` of a huge payload, a sync `fs` call, a catastrophic regex, or
+heavy maths that belongs in a worker thread. `--trace-sync-io` prints a
+warning with a stack trace whenever sync I/O runs after the first tick.
+
+## CPU profiling with --cpu-prof
+
+```bash
+node --cpu-prof server.js            # run a load test, then stop the process
+# writes CPU.20261014.114817.50408.0.001.cpuprofile in the current directory
+node --cpu-prof --cpu-prof-dir=./profiles server.js
+```
+
+Load the `.cpuprofile` file in Chrome DevTools (Performance panel) or VS
+Code to see a **flame graph**: wide bars are functions where most time is
+spent. You can also attach with `node --inspect` and record from the
+Profiler tab live. Pair profiling with a load tool such as `autocannon` so
+the profile reflects realistic traffic.
+
+## Heap snapshots and finding leaks
+
+A memory leak in a garbage-collected language means objects stay
+**reachable** after you are done with them. Watch the trend first:
+
+```js
+setInterval(() => {
+  const { rss, heapUsed } = process.memoryUsage();
+  console.log(`rss ${(rss / 1e6).toFixed(0)} MB, heap ${(heapUsed / 1e6).toFixed(0)} MB`);
+}, 10_000);
+// rss 58 MB, heap 6 MB ... rss 310 MB, heap 240 MB  ← steady growth = suspect a leak
+```
+
+Then capture snapshots:
+
+```js
+import v8 from "node:v8";
+console.log(v8.writeHeapSnapshot()); // Heap.20261014.114817.47324.0.001.heapsnapshot
+```
+
+```bash
+node --heapsnapshot-signal=SIGUSR2 server.js  # kill -USR2 <pid> writes a snapshot
+node --heapsnapshot-near-heap-limit=2 server.js  # auto-snapshot before running out of heap
+```
+
+The classic technique: take snapshot A, send a few thousand requests, take
+snapshot B, and use DevTools' **Comparison** view to see which object types
+grew. The **Retainers** panel shows the chain keeping them alive. Note that
+writing a snapshot pauses the process and needs extra memory, so be careful
+in production.
+
+## The usual leak suspects
+
+```js
+// 1. Unbounded cache — grows forever
+const cache = new Map();
+app.get("/price/:id", async (req, res) => {
+  if (!cache.has(req.params.id)) cache.set(req.params.id, await loadPrice(req.params.id));
+  res.json(cache.get(req.params.id));
+});
+// fix: an LRU with a max size and TTL (e.g. lru-cache), or Redis
+
+// 2. Listeners added per request and never removed
+app.get("/stream", (req, res) => {
+  bus.on("tick", (t) => res.write(`${t}\n`));       // closure retains res forever
+});
+// fix: const onTick = ...; bus.on(...); req.on("close", () => bus.off("tick", onTick));
+// symptom: MaxListenersExceededWarning: Possible EventEmitter memory leak detected
+
+// 3. Closures and timers holding large objects
+const report = await buildHugeReport();
+setInterval(() => console.log(report.summary), 60_000); // whole report stays alive
+```
+
+Also watch for module-level arrays used as "temporary" storage, and
+forgotten `setInterval` handles. A `WeakMap` keyed by objects lets entries
+disappear when the key is no longer referenced elsewhere.
+
+## Heap limits
+
+V8 sets a default old-space heap limit based on available memory. In
+containers, set it explicitly so the process gets a clean
+`heap out of memory` error rather than an OOM kill:
+
+```bash
+node --max-old-space-size=1536 server.js     # MB, leave headroom below the container limit
+```
+
+## The libuv thread pool
+
+Some operations have no async OS API, so libuv runs them on a **thread
+pool** of 4 threads by default: most `fs` calls, `dns.lookup`, async
+`crypto` like `pbkdf2`/`scrypt`, and `zlib`. Network sockets do not use it.
+
+```js
+import { pbkdf2 } from "node:crypto";
+const start = performance.now();
+for (let i = 1; i <= 6; i++)
+  pbkdf2("secret", "salt", 200_000, 64, "sha512", () =>
+    console.log(`hash ${i}: ${Math.round(performance.now() - start)} ms`));
+// default pool (4): four hashes finish ~220 ms, the last two ~350 ms
+// UV_THREADPOOL_SIZE=6 node app.js → all six finish ~220 ms
+```
+
+```bash
+UV_THREADPOOL_SIZE=16 node server.js   # set at startup, before the pool is first used
+```
+
+Raise it when a profile shows many concurrent `fs`, `dns.lookup` or
+password-hashing calls queueing — not as a blanket fix, since more threads
+than cores just adds contention for CPU-bound tasks.
+
+### Try it yourself
+
+Write a server whose `/quote` route caches every ₹ price lookup in a plain
+`Map` keyed by a random query string. Hit it 50,000 times with `autocannon`,
+log `process.memoryUsage()` every few seconds, take two heap snapshots and
+use the Comparison view to find the growing `Map`. Fix it with a size-capped
+LRU and confirm memory levels off.

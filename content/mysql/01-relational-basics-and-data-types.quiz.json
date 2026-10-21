@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which column type is the right choice for storing order amounts in INR?",
+      "options": [
+        "FLOAT, because it is compact and fast",
+        "DOUBLE, because it has more precision than FLOAT",
+        "DECIMAL(12,2), because it stores exact fixed-point values",
+        "VARCHAR(20), so the value is never rounded"
+      ],
+      "correctIndex": 2,
+      "explanation": "FLOAT and DOUBLE are binary floating point and cannot represent most decimal fractions exactly; DECIMAL stores exact values, which money requires."
+    },
+    {
+      "question": "What is the key behavioural difference between DATETIME and TIMESTAMP in MySQL?",
+      "options": [
+        "TIMESTAMP is converted to UTC on write and back to the session time_zone on read, and is limited to 2038; DATETIME is stored as given",
+        "DATETIME is converted to UTC; TIMESTAMP is stored exactly as given",
+        "There is no difference other than storage size",
+        "TIMESTAMP supports dates up to 9999-12-31, DATETIME only to 2038"
+      ],
+      "correctIndex": 0,
+      "explanation": "TIMESTAMP is a 32-bit epoch value with time-zone conversion and a 2038-01-19 upper bound; DATETIME has no conversion and a range up to 9999-12-31."
+    },
+    {
+      "question": "A column declared with the character set `utf8` rejects an emoji. Why?",
+      "options": [
+        "Emoji require a BLOB column",
+        "In MySQL `utf8` is an alias for utf8mb3, which allows at most 3 bytes per character, and emoji need 4",
+        "The collation is case-insensitive",
+        "VARCHAR cannot store multi-byte characters"
+      ],
+      "correctIndex": 1,
+      "explanation": "MySQL's legacy utf8 is utf8mb3; only utf8mb4 (the 8.0 default) can store 4-byte characters such as emoji."
+    },
+    {
+      "question": "What does the 11 in `INT(11)` control in MySQL 8.0?",
+      "options": [
+        "The maximum number of digits that can be stored",
+        "The number of bytes used for storage",
+        "Whether the column is signed",
+        "Only a deprecated display width; it does not change range or storage"
+      ],
+      "correctIndex": 3,
+      "explanation": "Integer display width is deprecated since 8.0.17 and has no effect on the value range; INT is always 4 bytes."
+    }
+  ]
+}

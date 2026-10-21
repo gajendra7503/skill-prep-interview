@@ -1,0 +1,187 @@
+---
+title: "Normalising State with createEntityAdapter"
+description: "Store collections as normalised ids and entities lookup tables, and use createEntityAdapter for ready-made CRUD reducers, sorting and selectors."
+module: "Redux Toolkit"
+level: "intermediate"
+order: 11
+---
+
+Most apps hold collections: employees, orders, products. Storing them as a
+plain array works for a demo, but as the app grows you keep writing
+`items.find((x) => x.id === id)` and nested updates. The Redux style guide
+recommends **normalised** state instead, and Redux Toolkit gives you
+`createEntityAdapter` to do it with almost no code.
+
+## Arrays and nesting cause pain
+
+```js
+// Nested, denormalised: the same department object repeated per employee
+const employees = [
+  { empCode: "E101", name: "Anita Desai", dept: { id: "D1", name: "Engineering" } },
+  { empCode: "E103", name: "Meera Iyer",  dept: { id: "D1", name: "Engineering" } },
+];
+```
+
+Problems: lookups are O(n); renaming "Engineering" means updating every
+copy (miss one and the UI is inconsistent); and updating a nested item
+creates new references for every parent, so more components re-render.
+
+## The normalised shape
+
+One table per entity type, each item stored **once** by id, relationships
+as ids:
+
+```js
+{
+  employees: {
+    ids: ["E101", "E103"],          // order of the collection
+    entities: {                      // lookup table by id
+      E101: { empCode: "E101", name: "Anita Desai", deptId: "D1" },
+      E103: { empCode: "E103", name: "Meera Iyer",  deptId: "D1" },
+    },
+  },
+  departments: {
+    ids: ["D1"],
+    entities: { D1: { id: "D1", name: "Engineering" } },
+  },
+}
+```
+
+Lookup by id is now `state.employees.entities[id]`, and renaming a
+department is one write.
+
+## createEntityAdapter
+
+The adapter knows this `{ ids, entities }` shape and generates reducers and
+selectors for it.
+
+```js
+import { createEntityAdapter, createSlice } from "@reduxjs/toolkit";
+
+const employeesAdapter = createEntityAdapter({
+  selectId: (e) => e.empCode,                         // default: e.id
+  sortComparer: (a, b) => a.name.localeCompare(b.name), // keeps ids sorted
+});
+
+console.log(employeesAdapter.getInitialState({ status: "idle" }));
+// { ids: [], entities: {}, status: 'idle' }
+```
+
+`getInitialState` accepts extra fields such as a loading `status`.
+
+## Using the CRUD functions in a slice
+
+Every adapter method has the signature `(state, argument)`, so it can be used
+**directly** as a case reducer, or called inside your own reducer:
+
+```js
+const employeesSlice = createSlice({
+  name: "employees",
+  initialState: employeesAdapter.getInitialState({ status: "idle" }),
+  reducers: {
+    employeeAdded: employeesAdapter.addOne,
+    employeeUpdated: employeesAdapter.updateOne,  // payload: { id, changes }
+    employeeRemoved: employeesAdapter.removeOne,  // payload: id
+    employeesUpserted: employeesAdapter.upsertMany,
+    promoted(state, action) {
+      const emp = state.entities[action.payload]; // direct O(1) lookup
+      if (emp) emp.ctcLakh = Math.round(emp.ctcLakh * 1.15);
+    },
+  },
+  extraReducers: (builder) => {
+    builder.addCase(fetchEmployees.fulfilled, (state, action) => {
+      state.status = "succeeded";
+      employeesAdapter.setAll(state, action.payload); // replace everything
+    });
+  },
+});
+```
+
+After `fetchEmployees` returns Ravi (E102) then Anita (E101), the real
+output shows `ids: ["E101", "E102"]` (sorted by name thanks to
+`sortComparer`), each employee under `entities[empCode]`, and
+`status: "succeeded"`.
+
+## Which method do I need?
+
+| Method | If the id already exists | If it does not |
+|---|---|---|
+| `addOne` / `addMany` | ignored | inserted |
+| `setOne` / `setMany` | **replaced** entirely | inserted |
+| `upsertOne` / `upsertMany` | **shallow-merged** | inserted |
+| `updateOne` / `updateMany` | shallow-merged (`{ id, changes }`) | ignored |
+| `setAll` | whole collection replaced | |
+| `removeOne` / `removeMany` / `removeAll` | removed | no-op |
+
+The add-versus-upsert difference shows up in practice. Continuing the
+example:
+
+```js
+store.dispatch(employeeUpdated({ id: "E102", changes: { dept: "Risk" } }));
+store.dispatch(employeesUpserted([
+  { empCode: "E102", name: "Ravi Kumar", ctcLakh: 16 }, // no dept field
+]));
+console.log(sel.selectById(store.getState(), "E102"));
+// { empCode: 'E102', name: 'Ravi Kumar', dept: 'Risk', ctcLakh: 16 }
+// upsert merged: dept was kept
+
+store.dispatch(employeeAdded({ empCode: "E101", name: "Dup", ctcLakh: 1 }));
+console.log(sel.selectById(store.getState(), "E101").name);
+// Anita Desai   <- addOne ignored the existing id
+```
+
+## Generated selectors
+
+`getSelectors` takes a function that finds the adapter's state inside the
+root state:
+
+```js
+const sel = employeesAdapter.getSelectors((state) => state.employees);
+
+sel.selectIds(state);            // [ 'E101', 'E102', 'E104' ]
+sel.selectTotal(state);          // 3
+sel.selectById(state, "NOPE");   // undefined
+sel.selectAll(state).map((e) => `${e.name} ₹${e.ctcLakh}L`);
+// [ 'Anita Desai ₹25L', 'Ravi Kumar ₹16L', 'Zoya Khan ₹9L' ]
+```
+
+`selectAll` returns the entities in `ids` order and is memoized, so it is
+safe to use with `useSelector`. Combine these with `createSelector` (see
+"Selectors & Memoization with createSelector") for things like "employees in
+department X".
+
+## A list-and-detail pattern
+
+Normalised state pairs nicely with a parent that renders ids and children
+that select their own entity:
+
+```jsx
+function EmployeeList() {
+  const ids = useAppSelector(sel.selectIds);
+  return <ul>{ids.map((id) => <EmployeeRow key={id} id={id} />)}</ul>;
+}
+
+function EmployeeRow({ id }) {
+  const emp = useAppSelector((state) => sel.selectById(state, id));
+  return <li>{emp.name} ({emp.dept})</li>;
+}
+```
+
+Promoting one employee re-renders only that row. The `ids` array keeps its
+reference because no item was added, removed or reordered.
+
+Interviewers often ask: "What does normalising state mean and why do it?"
+Mention one copy of each item keyed by id, O(1) lookups, simpler updates,
+fewer re-renders, and relationships stored as ids. Also note that if the data
+comes from a server, RTK Query keeps its own per-query cache (see "RTK Query
+Basics: createApi & Query Hooks"), so you normalise mainly for client-owned
+or heavily cross-referenced data.
+
+### Try it yourself
+
+1. Build a `productsAdapter` keyed by `sku` and sorted by `priceInr`
+   ascending. Add three products and log `selectAll`.
+2. Dispatch `upsertOne` and `setOne` with the same partial object and compare
+   the results to see merge versus replace.
+3. Normalise `orders` that reference customers by `customerId`, then write a
+   memoized selector returning each order with its customer's name.

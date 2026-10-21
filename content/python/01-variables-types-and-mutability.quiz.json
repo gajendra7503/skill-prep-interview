@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "After `a = [1, 2]; b = a; b.append(3)`, what is the value of `a`?",
+      "options": [
+        "[1, 2]",
+        "[3]",
+        "[1, 2, 3]",
+        "It raises a NameError"
+      ],
+      "correctIndex": 2,
+      "explanation": "Assignment binds a second name to the same list object; mutating it through b is visible through a."
+    },
+    {
+      "question": "When should you use `is` instead of `==`?",
+      "options": [
+        "When comparing singletons such as None, True, False or sentinel objects",
+        "When comparing any two integers, because it is faster",
+        "When comparing strings of equal length",
+        "Never; `is` and `==` are interchangeable"
+      ],
+      "correctIndex": 0,
+      "explanation": "`is` checks identity and is only reliable for singletons; value comparison should use `==`."
+    },
+    {
+      "question": "Why is `hash(([1], 2))` an error?",
+      "options": [
+        "Tuples are mutable and therefore unhashable",
+        "Integers cannot be hashed",
+        "Tuples can only be hashed if they have exactly one element",
+        "The tuple contains a list, which is unhashable, so the tuple is unhashable too"
+      ],
+      "correctIndex": 3,
+      "explanation": "A tuple is hashable only if all of its elements are hashable; a contained list makes it unhashable even though the tuple itself is immutable."
+    },
+    {
+      "question": "Why might `a is b` be True for `256` but False for two separately created `1000` values in CPython?",
+      "options": [
+        "Python guarantees that all integers below 1000 are singletons",
+        "CPython caches small integers from -5 to 256 as an implementation detail",
+        "Large integers are stored as floats",
+        "`is` compares values only for small numbers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Small-int caching is a CPython implementation detail, not a language guarantee, which is why `is` must never be used to compare numbers."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does the checkout lock products with `WHERE product_id IN (2, 4) ORDER BY product_id FOR UPDATE` before decrementing stock?",
+      "options": [
+        "To make the SELECT faster by using the primary key",
+        "So concurrent checkouts serialise on the same rows in a consistent order, preventing overselling and deadlocks",
+        "Because UPDATE cannot change rows that were not selected first",
+        "To avoid an implicit commit"
+      ],
+      "correctIndex": 1,
+      "explanation": "FOR UPDATE makes a competing buyer wait and then read the current stock; locking in ascending product_id order prevents lock-order deadlocks."
+    },
+    {
+      "question": "Why is `unit_price` stored in order_items instead of always joining to products.price?",
+      "options": [
+        "Foreign keys cannot reference DECIMAL columns",
+        "It saves disk space",
+        "So later price changes do not alter the value of historical orders",
+        "Window functions cannot read joined columns"
+      ],
+      "correctIndex": 2,
+      "explanation": "The order must record the price actually charged; product prices change over time."
+    },
+    {
+      "question": "Which predicate lets the monthly revenue report use an index on orders.created_at?",
+      "options": [
+        "created_at >= '2026-01-01' AND created_at < '2027-01-01'",
+        "YEAR(created_at) = 2026",
+        "DATE_FORMAT(created_at, '%Y') = '2026'",
+        "created_at LIKE '2026%'"
+      ],
+      "correctIndex": 0,
+      "explanation": "Wrapping the column in a function prevents a range scan on the index; a range on the raw column is sargable."
+    },
+    {
+      "question": "The 'my orders' query `WHERE customer_id = ? ORDER BY created_at DESC LIMIT 10` shows `Using filesort` with only the FK index on customer_id. What fixes it?",
+      "options": [
+        "An index on created_at alone",
+        "Raising sort_buffer_size",
+        "Removing the LIMIT",
+        "A composite index on (customer_id, created_at)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The composite index filters by customer_id and returns rows already ordered by created_at (read backwards for DESC), eliminating the filesort."
+    }
+  ]
+}

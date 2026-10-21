@@ -1,0 +1,156 @@
+---
+title: "Web Workers & Concurrency"
+description: "Running JavaScript in parallel with workers, structured clone, transferables, SharedArrayBuffer with Atomics, and Node worker_threads."
+module: "Text & Metaprogramming"
+level: "pro"
+order: 23
+---
+
+The event loop gives JavaScript concurrency, not parallelism: one long
+synchronous task still freezes the page. Workers are the escape hatch — real
+OS threads, each with its own event loop and heap. Interviewers probe
+how data crosses that boundary and what it costs.
+
+## Creating a worker
+
+```js
+// main.js
+const worker = new Worker(new URL("./hash-worker.js", import.meta.url), {
+  type: "module",
+});
+worker.postMessage({ text: "large input..." });
+worker.onmessage = (e) => console.log("digest:", e.data);
+worker.onerror = (e) => console.error("worker failed:", e.message);
+
+// hash-worker.js
+self.onmessage = async (e) => {
+  const bytes = new TextEncoder().encode(e.data.text);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  self.postMessage(new Uint8Array(digest));
+};
+```
+
+A dedicated worker has **no DOM access** — no `document` or `window` — but
+does get `fetch`, timers, `IndexedDB`, `WebSocket` and
+`OffscreenCanvas`. Call `worker.terminate()` to kill it from outside.
+Related types: **shared workers** (one instance shared by same-origin
+tabs) and **service workers** (a network proxy for offline/caching, not a
+compute tool).
+
+## postMessage and the structured clone algorithm
+
+Messages are **copied**, not shared, using structured clone — also
+exposed directly as the global `structuredClone()`:
+
+```js
+const original = { when: new Date(), tags: new Set(["a"]), map: new Map() };
+const copy = structuredClone(original);   // deep copy; Date/Set/Map preserved
+
+structuredClone({ fn() {} });             // DataCloneError: functions can't be cloned
+```
+
+Structured clone handles objects, arrays, `Date`, `RegExp`, `Map`,
+`Set`, `ArrayBuffer`, typed arrays, `Blob`, `File` and `Error` types,
+and it preserves cycles. It cannot clone functions or DOM nodes, and class
+instances arrive as plain objects — their prototype and methods are
+lost. Copying a 200 MB payload costs real time on both sides, which is
+where transferables come in.
+
+## Transferables: move instead of copy
+
+```js
+const buffer = new ArrayBuffer(200 * 1024 * 1024);
+worker.postMessage(buffer, [buffer]); // second arg: transfer list
+console.log(buffer.byteLength);       // 0 — the buffer is now detached here
+```
+
+Ownership moves to the worker in effectively constant time, and the
+sender's buffer becomes unusable. `ArrayBuffer`, `MessagePort`,
+`ImageBitmap`, `OffscreenCanvas` and streams are transferable.
+`structuredClone(value, { transfer: [buf] })` does the same in-thread.
+
+## SharedArrayBuffer and Atomics
+
+When copying or moving is not enough, a `SharedArrayBuffer` gives
+multiple threads the **same** memory. Because shared memory enables
+high-resolution timers (the Spectre class of attacks), browsers only
+expose it on **cross-origin isolated** pages, served with:
+
+```text
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+Check `self.crossOriginIsolated` at runtime. Plain reads and writes on
+shared memory can race, so use `Atomics`:
+
+```js
+const shared = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 2);
+const counters = new Int32Array(shared);
+worker.postMessage(shared);           // shared, not copied or detached
+
+// in any thread:
+Atomics.add(counters, 0, 1);          // atomic read-modify-write
+Atomics.load(counters, 0);            // safe read
+Atomics.wait(counters, 1, 0);         // block until value at index 1 changes
+Atomics.notify(counters, 1, 1);       // wake one waiter
+```
+
+`Atomics.wait` throws on the browser main thread, since blocking the UI
+thread is not allowed; use `Atomics.waitAsync` there instead.
+
+## A simple worker pool
+
+Spawning a worker costs tens of milliseconds and memory, so reuse a fixed
+set, sized to `navigator.hardwareConcurrency`:
+
+```js
+class WorkerPool {
+  constructor(url, size = navigator.hardwareConcurrency || 4) {
+    this.idle = Array.from({ length: size }, () => new Worker(url, { type: "module" }));
+    this.queue = [];
+  }
+  run(data) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ data, resolve, reject });
+      this.#next();
+    });
+  }
+  #next() {
+    if (!this.idle.length || !this.queue.length) return;
+    const worker = this.idle.pop();
+    const { data, resolve, reject } = this.queue.shift();
+    worker.onmessage = (e) => { resolve(e.data); this.idle.push(worker); this.#next(); };
+    worker.onerror = (e) => { reject(e); this.idle.push(worker); this.#next(); };
+    worker.postMessage(data);
+  }
+}
+```
+
+## Node: worker_threads
+
+Node offers the same model for CPU-bound work such as image resizing or
+hashing. Shared memory needs no special headers there:
+
+```js
+import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
+
+if (isMainThread) {
+  const w = new Worker(new URL(import.meta.url), { workerData: { n: 40 } });
+  w.on("message", (result) => console.log("fib =", result));
+} else {
+  const fib = (n) => (n < 2 ? n : fib(n - 1) + fib(n - 2));
+  parentPort.postMessage(fib(workerData.n));
+}
+```
+
+Use workers for CPU work, not I/O — Node's async I/O already runs off
+the main thread via libuv. For isolating whole processes, use
+`child_process` or `cluster` instead.
+
+### Try it yourself
+
+Move a slow function (for example, computing GST-inclusive totals in ₹ for
+one million invoice rows held in a `Float64Array`) into a worker. Compare
+sending the array by copy versus transferring its buffer, timing both,
+and confirm the sender's `byteLength` after the transfer.

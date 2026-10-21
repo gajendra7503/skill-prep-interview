@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A writable stream's `write()` call returns `false`. What should well-behaved code do?",
+      "options": [
+        "Retry the same write immediately in a loop",
+        "Call end() and open a new stream",
+        "Ignore it; the return value is informational only",
+        "Stop writing and wait for the 'drain' event before continuing"
+      ],
+      "correctIndex": 3,
+      "explanation": "false means the internal buffer has passed highWaterMark. Waiting for 'drain' is how you respect backpressure; ignoring it makes Node buffer everything in memory."
+    },
+    {
+      "question": "Why is `stream.pipeline()` preferred over chaining `.pipe()` calls?",
+      "options": [
+        "pipeline forwards errors and destroys all streams in the chain on failure, while pipe does not",
+        "pipe is not available in recent Node versions",
+        "pipeline makes streams synchronous",
+        "pipe ignores backpressure but pipeline handles it"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both handle backpressure, but pipe does not propagate errors or clean up the other streams, which leaks file descriptors. pipeline handles errors and cleanup and has a promise version."
+    },
+    {
+      "question": "Which is the best way to count lines containing \"ERROR\" in a 10 GB log file?",
+      "options": [
+        "readFile the file and split on newlines",
+        "readFileSync the file inside a worker thread",
+        "Stream it with createReadStream and readline.createInterface, iterating lines with for await",
+        "Use fs.watch to receive each line"
+      ],
+      "correctIndex": 2,
+      "explanation": "readline over a read stream processes one line at a time with constant memory. Reading the whole file would need more memory than most machines have."
+    },
+    {
+      "question": "Which stream type is `zlib.createGzip()`?",
+      "options": [
+        "Readable",
+        "Transform",
+        "Writable",
+        "Object-mode Readable"
+      ],
+      "correctIndex": 1,
+      "explanation": "A Transform is a duplex stream whose output is computed from its input: bytes go in, compressed bytes come out."
+    }
+  ]
+}

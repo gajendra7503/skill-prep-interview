@@ -1,0 +1,173 @@
+---
+title: "Installing Node and Your First Script"
+description: "Install Node.js, check it works from the terminal, set up a project folder and editor, and write and run your first small programs."
+module: "Getting Started"
+level: "beginner"
+order: 1
+---
+
+This lesson assumes you have never run Node.js before. By the end you will
+have Node installed, a project folder open in an editor, and three small
+programs running from the terminal. Everything later in the course builds
+on these few habits.
+
+## What you are installing
+
+Node.js is a program that **runs JavaScript files on your computer** —
+outside a web browser. When you install it you get two commands:
+
+- `node` — runs a JavaScript file, or opens an interactive prompt.
+- `npm` — the Node Package Manager, which downloads libraries other people
+  have published (covered properly in a later lesson).
+
+You type both commands into a **terminal** (also called a shell or command
+line): Terminal on macOS, Windows Terminal or PowerShell on Windows, and
+any terminal app on Linux.
+
+## Installing Node
+
+Always pick an **LTS** (Long-Term Support) version — the stable line meant
+for real projects. Any of these routes works:
+
+```bash
+# Windows (built-in package manager)
+winget install OpenJS.NodeJS.LTS
+
+# macOS with Homebrew
+brew install node
+
+# Or download the LTS installer from https://nodejs.org and click through it
+```
+
+Developers who juggle several projects usually install a **version
+manager** such as `nvm` or `fnm` instead; the next lesson shows how. For
+now, one installed version is enough.
+
+Close and reopen the terminal, then check that both commands are found:
+
+```bash
+node -v
+# v24.x.x  (your exact numbers will differ)
+npm -v
+# 11.x.x
+```
+
+If you see "command not found" or "not recognized", the installer did not
+add Node to your PATH, or the terminal was opened before installation —
+open a fresh terminal and try again.
+
+## Setting up a project folder and editor
+
+Each project lives in its own folder. Create one and open it in an editor
+such as **VS Code**, which has a built-in terminal (View, then Terminal):
+
+```bash
+mkdir hello-node
+cd hello-node
+code .        # opens the folder in VS Code, if the "code" command is installed
+```
+
+Keep the terminal's current folder and the file you are editing in sync —
+most beginner errors are simply running `node` from the wrong folder.
+
+## Your first script
+
+Create a file named `hello.js` in the folder:
+
+```js
+// hello.js
+const name = "Priya";
+console.log(`Hello, ${name}! Welcome to Node.js.`);
+console.log("2 + 3 =", 2 + 3);
+```
+
+Run it by passing the file name to `node`:
+
+```bash
+node hello.js
+# Hello, Priya! Welcome to Node.js.
+# 2 + 3 = 5
+```
+
+`console.log` prints to the terminal. The backtick string with `${name}`
+inside is a **template literal**: the value of `name` is inserted.
+
+If you mistype the file name, Node tells you exactly what went wrong:
+
+```bash
+node helo.js
+# Error: Cannot find module '/home/priya/hello-node/helo.js'
+```
+
+## Trying things in the REPL
+
+Typing `node` on its own opens the **REPL** (Read-Eval-Print Loop), a
+scratchpad where each line runs immediately:
+
+```bash
+node
+> 1500 * 12
+18000
+> "node".toUpperCase()
+'NODE'
+> .exit
+```
+
+Use the REPL to test a single expression; use files for anything you want
+to keep.
+
+## A program that takes input
+
+Real tools read input. `process.argv` is an array of the words you typed
+after `node`: the first two entries are the Node binary and the script path,
+so your own arguments start at index 2.
+
+```js
+// tip.js — split a restaurant bill
+const bill = Number(process.argv[2]);
+const people = Number(process.argv[3] ?? 1);
+
+if (Number.isNaN(bill)) {
+  console.error("Usage: node tip.js <bill> [people]");
+  process.exit(1);
+}
+
+const total = bill * 1.1;               // add a 10% tip
+const share = (total / people).toFixed(2);
+console.log(`Total with tip: ₹${total.toFixed(2)}`);
+console.log(`Each of ${people} pays: ₹${share}`);
+```
+
+```bash
+node tip.js 2400 4
+# Total with tip: ₹2640.00
+# Each of 4 pays: ₹660.00
+node tip.js
+# Usage: node tip.js <bill> [people]
+```
+
+`console.error` writes to the error output, and `process.exit(1)` ends the
+program with a non-zero **exit code**, which tells the terminal (and
+scripts) that something went wrong.
+
+## Restarting automatically with --watch
+
+While you edit, let Node rerun the file every time you save:
+
+```bash
+node --watch hello.js
+# Hello, Priya! Welcome to Node.js.
+# (edit and save the file — Node restarts and prints the new output)
+```
+
+Press Ctrl+C to stop it.
+
+### Try it yourself
+
+1. Install an LTS version of Node and confirm `node -v` and `npm -v` both
+   print a version.
+2. Write `hello.js` and change it to print your own name and today's date
+   using `new Date().toDateString()`.
+3. Extend `tip.js` so the tip percentage is an optional third argument,
+   then run `node tip.js 1800 3 15` and check the shares add up to the
+   total.

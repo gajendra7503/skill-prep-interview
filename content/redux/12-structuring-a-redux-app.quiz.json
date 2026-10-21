@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "How does the Redux style guide recommend organising files in a Redux Toolkit app?",
+      "options": [
+        "Separate top-level folders for actions, reducers and constants",
+        "Feature folders, with each feature's slice logic in a single file",
+        "One file containing every reducer in the app",
+        "A separate store per feature"
+      ],
+      "correctIndex": 1,
+      "explanation": "Feature folders keep everything for a feature together, and createSlice puts the reducer, actions and simple selectors in one slice file."
+    },
+    {
+      "question": "Which piece of state is the best candidate for local component state rather than Redux?",
+      "options": [
+        "The logged-in user's profile shown in the header and settings page",
+        "Feature flags read across the whole app",
+        "Whether a single dropdown menu is currently open",
+        "Saved steps of a multi-page application wizard"
+      ],
+      "correctIndex": 2,
+      "explanation": "A dropdown's open state is used by one component and does not need to outlive it, so useState fits. The others are shared or must survive unmounting."
+    },
+    {
+      "question": "Why is `orderPlaced` a better action name than dispatching `setCartItems([])` plus `addOrderToHistory(order)`?",
+      "options": [
+        "It describes an event, so several slices can respond to one action and the component does not need to know about each slice",
+        "Redux Toolkit rejects action names that start with set",
+        "It makes the reducers asynchronous",
+        "It avoids the need for extraReducers"
+      ],
+      "correctIndex": 0,
+      "explanation": "Event-style actions let cart and orders slices each react via extraReducers. One user event becomes one action in DevTools, and the state cannot be half-updated."
+    },
+    {
+      "question": "cartSlice imports an action from ordersSlice, and ordersSlice imports one from cartSlice. What is the preferred fix?",
+      "options": [
+        "Merge both slices into one giant slice",
+        "Create a second store for orders",
+        "Wrap the imports in try/catch",
+        "Move the shared action into its own file with createAction and import it from both slices"
+      ],
+      "correctIndex": 3,
+      "explanation": "A shared events file breaks the import cycle so neither slice depends on the other being evaluated first."
+    }
+  ]
+}

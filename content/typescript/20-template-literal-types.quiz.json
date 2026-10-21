@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Given `type Size = \"sm\" | \"lg\"` and `type Tone = \"primary\" | \"danger\" | \"ghost\"`, how many members does the template literal type built from `btn-`, Tone, a hyphen and Size have?",
+      "options": [
+        "5",
+        "2",
+        "3",
+        "6"
+      ],
+      "correctIndex": 3,
+      "explanation": "Union placeholders produce the cross product of every combination: 3 tones times 2 sizes gives 6 string literal types."
+    },
+    {
+      "question": "`ExtractId<T>` checks whether T matches a template literal made of the text user_ followed by `${infer Id}`, returning Id or never. What is `ExtractId<\"user_9f2c\">`?",
+      "options": [
+        "\"9f2c\"",
+        "\"user_9f2c\"",
+        "string",
+        "never"
+      ],
+      "correctIndex": 0,
+      "explanation": "The literal prefix user_ matches, and infer Id captures the remaining text, so the result is the literal type \"9f2c\"."
+    },
+    {
+      "question": "Which statement about the intrinsic helpers Uppercase, Lowercase, Capitalize and Uncapitalize is correct?",
+      "options": [
+        "They change string values at runtime",
+        "They are built into the compiler, work on string literal types and distribute over unions",
+        "They are defined in lib.d.ts using conditional types and can be copied",
+        "They only work on the string type, not on literals"
+      ],
+      "correctIndex": 1,
+      "explanation": "They are intrinsic: implemented inside the compiler rather than in TypeScript code. They transform string literal types, map over unions, and have no runtime effect."
+    },
+    {
+      "question": "A teammate builds a type from five placeholders, each a union of the ten digits 0-9, and gets 'Expression produces a union type that is too complex to represent'. What is the best fix?",
+      "options": [
+        "Turn off strict mode",
+        "Split it across two files",
+        "Use a pattern such as a number placeholder instead of enumerating every combination",
+        "Wrap the type in Readonly"
+      ],
+      "correctIndex": 2,
+      "explanation": "Five ten-member placeholders produce 100,000 members, which exceeds the compiler's union size limit. A pattern like a number placeholder describes the same idea without generating every literal."
+    }
+  ]
+}

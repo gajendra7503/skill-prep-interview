@@ -1,0 +1,162 @@
+---
+title: "Typography & Web Fonts"
+description: "Loading fonts without invisible text or layout shift, variable fonts, fluid type with clamp(), readable measure, and serving Devanagari efficiently."
+module: "Modern Layout & Media"
+level: advanced
+order: 22
+---
+
+Fonts are often the second-heaviest asset on a page after images, and they
+directly affect two Core Web Vitals: **LCP** (text that is invisible until
+the font arrives) and **CLS** (text reflowing when the font swaps in).
+Interview questions here are about the loading trade-offs, not about
+picking pretty typefaces.
+
+## `@font-face` and `font-display`
+
+```css
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-var.woff2") format("woff2");
+  font-weight: 100 900;          /* a variable font covers the whole range */
+  font-style: normal;
+  font-display: swap;
+}
+```
+
+While a web font downloads the browser chooses between two failure modes:
+
+- **FOIT** (flash of invisible text): text is hidden until the font loads.
+- **FOUT** (flash of unstyled text): text renders in a fallback font, then
+  swaps.
+
+`font-display` picks the behaviour:
+
+| Value | Block period | Swap period | Typical use |
+| --- | --- | --- | --- |
+| `block` | ~3s | infinite | icon fonts (wrong glyphs would be worse) |
+| `swap` | ~0 | infinite | brand/body text that must eventually show |
+| `fallback` | ~100ms | ~3s | body text; gives up if the font is slow |
+| `optional` | ~100ms | none | best for CLS; font used only if it is (nearly) instant, e.g. cached |
+| `auto` | browser decides | | usually behaves like `block` |
+
+`swap` avoids invisible text but can cause layout shift when the
+fallback and web font have different metrics.
+
+## Reducing font-swap CLS
+
+```css
+/* A fallback tuned to match the web font's metrics */
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial");
+  size-adjust: 107%;
+  ascent-override: 90%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+body { font-family: "Inter", "Inter Fallback", sans-serif; }
+```
+
+`size-adjust` and the metric overrides make the fallback occupy almost
+exactly the same space, so the swap barely moves anything. Next.js's
+`next/font` generates this fallback automatically, and also self-hosts
+the files.
+
+## Preloading the critical font
+
+```html
+<link rel="preload" href="/fonts/inter-var.woff2"
+      as="font" type="font/woff2" crossorigin />
+```
+
+Fonts are discovered late — only after the CSS is parsed *and* an element
+using the font is found. A preload starts the download immediately. Two
+traps: the `crossorigin` attribute is **required** even for same-origin
+fonts (fonts are always fetched in CORS mode, so without it the preload
+is wasted and the font downloads twice), and preloading more than one or
+two files competes with the LCP image. Self-hosting also avoids an extra
+connection to a third-party font CDN; if you must use one, add
+`rel="preconnect"`.
+
+## Variable fonts
+
+A variable font packs many weights (and sometimes width, slant or optical
+size) into one file along continuous **axes**:
+
+```css
+h1   { font-weight: 720; }                  /* any value in the range */
+.ui  { font-variation-settings: "wdth" 85; }  /* custom/registered axis */
+```
+
+One ~100 KB variable WOFF2 usually beats loading four or five static
+weights. Prefer standard properties (`font-weight`, `font-stretch`,
+`font-style`) over `font-variation-settings` for registered axes, because
+the latter does not cascade per axis — setting one axis resets the others.
+
+## Fluid type with `clamp()`
+
+```css
+h1 {
+  /* min 1.75rem, grows with the viewport, max 3rem */
+  font-size: clamp(1.75rem, 1.2rem + 2.5vw, 3rem);
+}
+```
+
+Always include a `rem` term in the preferred value. Pure `vw` sizing does
+not respond to browser zoom or the user's default font size, which fails
+WCAG 1.4.4 (resize text to 200%).
+
+## Line-height, measure and system stacks
+
+- **Line-height**: use a unitless value (`line-height: 1.5`) so it scales
+  with each element's own font size; a `px` or `em` value is computed once
+  and inherited as a fixed length. Headings usually want ~1.1–1.25.
+- **Measure**: 45–75 characters per line is comfortable. `max-width: 65ch`
+  on text containers enforces it.
+- **System font stack**: zero download, native look, no CLS:
+
+```css
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+               "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+}
+```
+
+## Supporting Devanagari with `unicode-range`
+
+A Hindi or Marathi page needs Devanagari glyphs, but an English-only page
+should not pay for them. Split the family by script and let the browser
+download only the subsets whose characters actually appear:
+
+```css
+@font-face {
+  font-family: "Noto Sans";
+  src: url("/fonts/noto-sans-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+20B9;          /* Basic Latin + ₹ sign */
+  font-display: swap;
+}
+@font-face {
+  font-family: "Noto Sans";
+  src: url("/fonts/noto-sans-devanagari.woff2") format("woff2");
+  unicode-range: U+0900-097F, U+A8E0-A8FF;     /* Devanagari + Extended */
+  font-display: swap;
+}
+```
+
+Devanagari relies on OpenType shaping (conjuncts such as क्ष, matras,
+reph), so never subset by stripping glyph tables manually — use a tool
+like `pyftsubset` or Google Fonts' pre-split files. Set
+`lang="hi"` on the content so the browser picks correct shaping and
+hyphenation, and give Devanagari slightly more `line-height` (around 1.6+)
+because of tall matras above and below the line.
+
+### Try it yourself
+
+Self-host a variable font with a metric-matched fallback and a preload,
+then record a Lighthouse run with `font-display: swap` versus `optional`
+and compare CLS. Add a Devanagari subset via `unicode-range`, load a page
+with only English text, and confirm in the Network panel that the
+Devanagari file is never requested — then add a line like "कुल राशि: ₹1,499"
+and watch it download.

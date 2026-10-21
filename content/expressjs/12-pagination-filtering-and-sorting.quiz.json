@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is cursor (keyset) pagination usually faster than offset pagination for deep pages?",
+      "options": [
+        "It caches every page in memory",
+        "It seeks directly to the cursor row via an index, while OFFSET makes the database walk past all skipped rows",
+        "It skips the ORDER BY clause",
+        "It returns fewer columns per row"
+      ],
+      "correctIndex": 1,
+      "explanation": "OFFSET 100000 still reads and discards 100,000 rows. A cursor condition on an indexed, unique ordering lets the database jump straight to the next rows, so every page costs about the same."
+    },
+    {
+      "question": "Why should the sort query parameter be checked against an allow-list before building orderBy?",
+      "options": [
+        "Prisma cannot sort by more than one column",
+        "Express 5 rejects unknown query parameters",
+        "Allow-lists make sorting case-insensitive",
+        "It prevents injection, sorting on private columns and slow sorts on unindexed columns"
+      ],
+      "correctIndex": 3,
+      "explanation": "Client input must never choose arbitrary columns. Mapping it to a fixed set of sortable fields keeps queries safe and predictable, and an unknown field returns 400."
+    },
+    {
+      "question": "When implementing cursor pagination, why fetch take + 1 rows?",
+      "options": [
+        "The extra row reveals whether another page exists, so nextCursor can be null on the last page",
+        "Prisma always drops the first row",
+        "It compensates for deleted rows",
+        "It is required for the COUNT query to work"
+      ],
+      "correctIndex": 0,
+      "explanation": "If more than take rows come back there is a next page; the extra row is discarded and the last returned row's id becomes the cursor."
+    },
+    {
+      "question": "Why add id as a secondary orderBy when sorting expenses by spentOn?",
+      "options": [
+        "MySQL requires a primary key in every ORDER BY",
+        "It makes the query use less memory",
+        "Without a unique tie-breaker, rows with the same date can come back in any order, causing duplicates or gaps across pages",
+        "It sorts newest expenses first automatically"
+      ],
+      "correctIndex": 2,
+      "explanation": "Pagination needs a deterministic, total ordering. Adding a unique column like id breaks ties so each row appears on exactly one page."
+    }
+  ]
+}

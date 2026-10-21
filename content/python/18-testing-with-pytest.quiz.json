@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "How does a pytest test function receive a fixture's value?",
+      "options": [
+        "By calling the fixture function directly inside the test",
+        "By importing it from the pytest module",
+        "By declaring a parameter with the same name as the fixture",
+        "By decorating the test with @pytest.fixture"
+      ],
+      "correctIndex": 2,
+      "explanation": "pytest injects fixtures by matching test parameter names to fixture names; code after a yield in the fixture runs as teardown."
+    },
+    {
+      "question": "Why do pytest failures show detailed values like `assert 300 == 400` instead of a bare AssertionError?",
+      "options": [
+        "pytest rewrites assert statements in test modules at import time",
+        "You must use self.assertEqual for that output",
+        "Python always prints operand values for failed asserts",
+        "It only works when running with the -v flag"
+      ],
+      "correctIndex": 0,
+      "explanation": "pytest's assertion rewriting instruments plain assert statements so failures report the intermediate values."
+    },
+    {
+      "question": "weather.py does `import requests` and calls `requests.get(...)`. Which patch target correctly mocks it in a test of weather?",
+      "options": [
+        "patch(\"requests\")",
+        "patch(\"weather.requests.get\")",
+        "patch(\"test_weather.requests.get\")",
+        "patch(\"unittest.mock.requests\")"
+      ],
+      "correctIndex": 1,
+      "explanation": "Patch the name where it is looked up. The code under test looks up requests.get through the weather module."
+    },
+    {
+      "question": "What does 100% line coverage from pytest-cov guarantee?",
+      "options": [
+        "The code has no bugs",
+        "Every branch condition was tested with both outcomes",
+        "Every function has a parametrised test",
+        "Every line was executed at least once during the tests"
+      ],
+      "correctIndex": 3,
+      "explanation": "Coverage shows which lines ran, not whether their behaviour was verified; a test without meaningful asserts still counts."
+    }
+  ]
+}

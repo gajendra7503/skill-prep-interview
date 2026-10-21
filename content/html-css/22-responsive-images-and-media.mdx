@@ -1,0 +1,145 @@
+---
+title: "Responsive Images & Media"
+description: "srcset and sizes in depth, art direction with picture, AVIF/WebP, lazy loading, fetchpriority, layout-shift-free media and the video and audio elements."
+module: "Modern Layout & Media"
+level: advanced
+order: 23
+---
+
+Images are the largest bytes on most pages and are the LCP element on a
+majority of them. The "Useful HTML5 Elements & APIs" lesson introduced `srcset` and `<picture>`; this
+lesson covers what interviewers probe next: how the browser actually
+chooses a candidate, how to avoid layout shift, and how to prioritise the
+one image that matters.
+
+## Resolution switching: `srcset` + `sizes`
+
+```html
+<img
+  src="/img/shoe-800.jpg"
+  srcset="/img/shoe-400.jpg 400w,
+          /img/shoe-800.jpg 800w,
+          /img/shoe-1600.jpg 1600w"
+  sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+  width="800" height="800"
+  alt="Running shoe, ₹4,999" />
+```
+
+- `w` descriptors tell the browser each file's **intrinsic width**.
+- `sizes` tells it how wide the image will be **rendered**, before CSS has
+  loaded. The first matching media condition wins; the last entry is the
+  default.
+- The browser multiplies the slot width by the device pixel ratio and
+  picks the closest candidate: a 375px phone at DPR 3 with `100vw` wants
+  ~1125px, so it takes the 1600w file.
+
+If you omit `sizes`, it defaults to `100vw`, so a thumbnail in a 300px
+column downloads a full-width image. `sizes="auto"` (Chromium) works only
+with `loading="lazy"`, because the layout is known by then. For fixed-size
+images, `x` descriptors are simpler:
+`srcset="logo.png 1x, logo@2x.png 2x"`.
+
+## Art direction and format negotiation with `<picture>`
+
+```html
+<picture>
+  <!-- Art direction: a different crop for narrow screens -->
+  <source media="(max-width: 600px)"
+          srcset="/img/hero-square.avif" type="image/avif" />
+  <source media="(max-width: 600px)"
+          srcset="/img/hero-square.jpg" />
+  <!-- Format negotiation for wider screens -->
+  <source srcset="/img/hero-wide.avif" type="image/avif" />
+  <source srcset="/img/hero-wide.webp" type="image/webp" />
+  <img src="/img/hero-wide.jpg" width="1600" height="900" alt="Diwali sale" />
+</picture>
+```
+
+The browser takes the **first** `<source>` whose `media` and `type` both
+match, so order sources from most to least preferred. The `<img>` is
+mandatory: it is what actually renders, it carries `alt`, `width`,
+`height`, `loading` and the CSS, and it is the fallback.
+
+## Modern formats
+
+| Format | Strengths | Notes |
+| --- | --- | --- |
+| AVIF | smallest files (often ~50% of JPEG), HDR, alpha | slower to encode; Baseline since 2024 |
+| WebP | ~25–35% smaller than JPEG, alpha, animation | universally supported |
+| JPEG / PNG | fallback | PNG only for lossless graphics |
+| SVG | icons, logos, illustrations | vector, scales infinitely |
+
+Image CDNs often negotiate format from the `Accept` header instead of
+`<picture>`, which keeps markup short.
+
+## Loading priority: `loading` and `fetchpriority`
+
+```html
+<!-- The LCP hero: eager, high priority -->
+<img src="hero.avif" fetchpriority="high" width="1600" height="900" alt="" />
+
+<!-- Below-the-fold images: deferred until near the viewport -->
+<img src="review-1.webp" loading="lazy" decoding="async"
+     width="400" height="300" alt="Customer photo" />
+```
+
+- **Never lazy-load the LCP image.** Lazy images wait for layout to
+  confirm they are near the viewport, which delays LCP noticeably.
+- `fetchpriority="high"` raises the image above other images (which start
+  at low priority). Use it on one or two images at most; it is a hint.
+- For a CSS background hero, the image is invisible to the preload
+  scanner, so add `<link rel="preload" as="image" fetchpriority="high">`
+  (with `imagesrcset`/`imagesizes` for responsive variants).
+
+## Preventing layout shift
+
+```css
+img, video { max-width: 100%; height: auto; }
+
+.thumb {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  object-fit: cover;        /* fill the box, crop the overflow */
+  object-position: center top;
+}
+```
+
+Setting the `width` and `height` attributes lets the browser compute an
+aspect ratio **before** the image downloads (modern browsers map them to
+an internal `aspect-ratio`), so space is reserved and nothing jumps. With
+`height: auto` in CSS the image still scales responsively. `aspect-ratio`
+does the same for elements without intrinsic dimensions, such as embeds.
+`object-fit: cover` crops to fill; `contain` letterboxes inside the box.
+
+## `<video>` and `<audio>`
+
+```html
+<video controls playsinline muted autoplay loop
+       preload="metadata" poster="/img/demo-poster.jpg"
+       width="1280" height="720">
+  <source src="/media/demo.webm" type="video/webm" />
+  <source src="/media/demo.mp4"  type="video/mp4" />
+  <track kind="captions" src="/media/demo.hi.vtt" srclang="hi" label="हिन्दी" />
+</video>
+
+<audio controls preload="none" src="/media/podcast-ep12.mp3"></audio>
+```
+
+- Browsers block autoplay with sound: `autoplay` generally works only with
+  `muted`, and iOS needs `playsinline` to avoid going fullscreen.
+- `preload="none"` or `"metadata"` avoids downloading megabytes of media
+  nobody plays; `poster` gives a lightweight placeholder (and may be the
+  LCP element).
+- `<track>` with WebVTT captions is an accessibility requirement for
+  prerecorded speech (WCAG 1.2.2).
+- Replace decorative GIFs with a muted, looping MP4/WebM — typically 5–10x
+  smaller.
+
+### Try it yourself
+
+Build a product listing with a hero banner and twelve product cards. Serve
+the hero via `<picture>` with a square mobile crop and AVIF/WebP/JPEG
+fallbacks, marked `fetchpriority="high"`. Give each card a `srcset`/`sizes`
+matched to your grid, `loading="lazy"`, explicit dimensions and
+`object-fit: cover`. Throttle to "Fast 4G" in DevTools, run Lighthouse, and
+confirm CLS is 0 and the hero is the LCP element.

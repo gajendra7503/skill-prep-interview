@@ -1,0 +1,156 @@
+---
+title: "Window Functions"
+description: "OVER, PARTITION BY and frames; ranking functions, top-N per group, LAG/LEAD, running totals and the second-highest-salary question."
+module: "Advanced Queries"
+level: intermediate
+order: 10
+---
+
+Window functions (MySQL 8.0+) compute a value for each row from a "window"
+of related rows **without collapsing them** the way `GROUP BY` does. They are
+the cleanest answer to a whole family of interview questions: rank within a
+group, top-N per group, compare with the previous row, running totals.
+Examples use `employees(emp_id, name, dept_id, salary)` and
+`orders(order_id, customer_id, amount, created_at)` with amounts in INR.
+
+## Anatomy of OVER()
+
+```sql
+SELECT name, dept_id, salary,
+       AVG(salary) OVER (PARTITION BY dept_id) AS dept_avg,
+       salary - AVG(salary) OVER (PARTITION BY dept_id) AS diff
+FROM employees;
+```
+
+- `PARTITION BY` splits rows into groups; the function restarts per group.
+  Omit it and the whole result set is one partition.
+- `ORDER BY` inside `OVER` orders rows *within* the partition; ranking and
+  offset functions need it, and for aggregates it turns on a running frame.
+- A frame clause (covered below) picks which rows of the partition count.
+
+Window functions are evaluated after `WHERE`, `GROUP BY` and `HAVING`, just
+before the final `ORDER BY` and `LIMIT`. So you **cannot** filter on them in
+`WHERE`; wrap the query in a CTE or derived table instead. A named window
+(`WINDOW w AS (PARTITION BY dept_id ORDER BY salary DESC)`) avoids repeating
+the same specification.
+
+## ROW_NUMBER vs RANK vs DENSE_RANK
+
+They differ only in how ties are numbered:
+
+```sql
+SELECT name, salary,
+       ROW_NUMBER() OVER w AS rn,
+       RANK()       OVER w AS rnk,
+       DENSE_RANK() OVER w AS drnk
+FROM employees
+WINDOW w AS (ORDER BY salary DESC);
+```
+
+| name | salary | rn | rnk | drnk |
+| --- | --- | --- | --- | --- |
+| Anita | 300000 | 1 | 1 | 1 |
+| Rahul | 250000 | 2 | 2 | 2 |
+| Priya | 250000 | 3 | 2 | 2 |
+| Vikram | 200000 | 4 | 4 | 3 |
+
+`ROW_NUMBER` is always unique (ties broken arbitrarily unless you add a
+tie-breaker column), `RANK` leaves gaps after ties, and `DENSE_RANK` does not.
+`NTILE(n)` buckets rows into n groups, e.g. salary quartiles.
+
+## Top-N per group
+
+"Top 2 earners in each department" is the canonical question:
+
+```sql
+WITH ranked AS (
+  SELECT name, dept_id, salary,
+         DENSE_RANK() OVER (PARTITION BY dept_id
+                            ORDER BY salary DESC) AS r
+  FROM employees
+)
+SELECT dept_id, name, salary FROM ranked WHERE r <= 2;
+```
+
+Choose the function deliberately: `ROW_NUMBER` gives exactly 2 rows per
+department, `DENSE_RANK` gives everyone in the top 2 distinct salaries.
+
+## LAG and LEAD
+
+`LAG(expr, n, default)` reads a previous row in the partition, `LEAD` a
+following one. Day-over-day revenue change:
+
+```sql
+WITH daily AS (
+  SELECT DATE(created_at) AS d, SUM(amount) AS revenue
+  FROM orders GROUP BY DATE(created_at)
+)
+SELECT d, revenue,
+       revenue - LAG(revenue, 1, 0) OVER (ORDER BY d) AS change_inr
+FROM daily;
+```
+
+`FIRST_VALUE`, `LAST_VALUE` and `NTH_VALUE` are related, but they respect the
+frame, which is a common source of surprises (see below).
+
+## Running totals and frames
+
+Adding `ORDER BY` to an aggregate's window gives a running total, because
+the default frame becomes `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT
+ROW`. Without `ORDER BY`, the default frame is the whole partition.
+
+```sql
+SELECT order_id, customer_id, amount,
+       SUM(amount) OVER (PARTITION BY customer_id ORDER BY created_at
+                         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+         AS running_total,
+       AVG(amount) OVER (ORDER BY created_at
+                         ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+         AS moving_avg_3
+FROM orders;
+```
+
+**ROWS vs RANGE** is a favourite follow-up. `ROWS` counts physical rows.
+`RANGE` works on the `ORDER BY` value, so all **peers** (rows with an equal
+sort value) are included together. With the default `RANGE` frame, two
+orders with the same `created_at` both show the total including each other,
+so the running total "jumps". Specify `ROWS` (and a unique tie-breaker) when
+you want strictly row-by-row accumulation. `RANGE` also allows value offsets
+such as `RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW`.
+
+The same default explains why `LAST_VALUE(salary) OVER (ORDER BY salary)`
+returns the current row's value: the frame ends at the current row. Use
+`ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` to see the true
+last value.
+
+## The "second highest salary" question
+
+Know at least three answers and their tie behaviour:
+
+```sql
+-- 1. Subquery: works on any version
+SELECT MAX(salary) FROM employees
+WHERE salary < (SELECT MAX(salary) FROM employees);
+
+-- 2. LIMIT/OFFSET on distinct values
+SELECT DISTINCT salary FROM employees
+ORDER BY salary DESC LIMIT 1 OFFSET 1;
+
+-- 3. DENSE_RANK: generalises to the Nth highest, and per department
+SELECT DISTINCT salary FROM (
+  SELECT salary, DENSE_RANK() OVER (ORDER BY salary DESC) AS r
+  FROM employees
+) t WHERE r = 2;
+```
+
+With the sample data all three return 250000. Using `ROW_NUMBER` or `RANK`
+instead of `DENSE_RANK` would be wrong when the top salary is tied. Note
+that version 1 returns `NULL` when there is no second salary, while versions
+2 and 3 return an empty result.
+
+### Try it yourself
+
+For each customer, list every order with its rank by amount, the previous
+order's amount (`LAG`), and a running total by date. Then return only each
+customer's single largest order using `ROW_NUMBER`, and explain how the
+result would change with `RANK` if a customer had two orders of ₹50,000.

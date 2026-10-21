@@ -1,0 +1,147 @@
+---
+title: "React Compiler & Production Profiling"
+description: "What the React Compiler automates, the rules it depends on, and how to find real performance problems with the Profiler, the Profiler API and field metrics."
+module: "Pro Level"
+level: pro
+order: 26
+---
+
+The Performance lesson taught `memo`, `useMemo` and `useCallback` by hand.
+At senior level the questions change: "Do we still need those with the
+compiler?", "How do you prove a component is slow?", and "How do you know
+users are affected, not just your laptop?" This lesson answers all three.
+
+## What the React Compiler does
+
+The React Compiler is a build-time tool (a Babel plugin, with integrations
+for common bundlers and frameworks) that analyses components and hooks and
+inserts memoisation automatically. It is stable and used in production at
+scale.
+
+```tsx
+// You write this:
+function FundTable({ funds, query }) {
+  const visible = funds.filter((f) => f.name.includes(query));
+  const onSelect = (id) => track("select", id);
+  return <Rows items={visible} onSelect={onSelect} />;
+}
+
+// The compiler emits roughly the equivalent of:
+//   visible  cached until funds or query change
+//   onSelect cached forever (it captures nothing reactive)
+//   the Rows element itself reused when its inputs are unchanged
+```
+
+It can memoise things manual hooks can't, such as values computed after an
+early return, and individual JSX elements. Your source stays plain.
+
+## Enabling it
+
+```js
+// Babel: the compiler must run first in the plugin list
+module.exports = {
+  plugins: ["babel-plugin-react-compiler"],
+};
+
+// next.config.ts in recent Next.js versions
+const nextConfig = { reactCompiler: true };
+export default nextConfig;
+```
+
+For Vite and other bundlers, follow the official installation guide for your
+plugin version, since the setup differs between major versions. Roll out
+gradually on a large codebase: the compiler supports an annotation-only mode
+so you can opt specific files in first.
+
+## The rules it relies on
+
+The compiler assumes your code follows the **Rules of React**: components
+and hooks are pure during render, props and state are never mutated, and
+hooks follow the rules of hooks. When it detects a violation in a component
+it **skips** that component (it doesn't break it). The compiler-powered
+lint rules now ship in recent versions of `eslint-plugin-react-hooks`, so
+violations show up in your editor.
+
+```tsx
+function Bad({ items }) {
+  items.sort(byNav);          // mutates a prop: compiler bails out
+  return <List items={items} />;
+}
+
+function Good({ items }) {
+  const sorted = items.toSorted(byNav); // new array, pure
+  return <List items={sorted} />;
+}
+```
+
+Escape hatch while debugging: put the `"use no memo"` directive at the top of
+a component to opt it out temporarily.
+
+**Do you still write `useMemo`?** Rarely for performance. Keep existing
+calls (removing them can change compiler output), and still use them where
+you need a stable identity for correctness, such as an effect dependency.
+
+## Measure before you fix: the DevTools Profiler
+
+Record an interaction in the React DevTools **Profiler** tab and read:
+
+- **Flamegraph**: each commit's component tree; width is render time.
+  Grey means it didn't render.
+- **Ranked**: the slowest components in that commit.
+- **"Record why each component rendered"** (settings): tells you whether
+  props, state, hooks or a parent caused the render.
+
+Profile a **production build**: development builds include extra checks and
+are much slower, so timings mislead. Frameworks and React DOM provide a
+profiling build (`react-dom/profiling`) that keeps the Profiler working in
+production mode. Recent React versions also add React-specific tracks to
+the Chrome DevTools Performance panel.
+
+## Measuring in code: the `Profiler` component
+
+```tsx
+import { Profiler } from "react";
+
+function onRender(id, phase, actualDuration, baseDuration) {
+  if (actualDuration > 16) {
+    sendMetric({ id, phase, actualDuration, baseDuration });
+  }
+}
+
+<Profiler id="PortfolioGrid" onRender={onRender}>
+  <PortfolioGrid />
+</Profiler>
+// onRender("PortfolioGrid", "update", 42.3, 120.8)
+//   actualDuration: time spent rendering this commit (memoisation lowers it)
+//   baseDuration:   estimated cost of re-rendering the whole subtree from scratch
+```
+
+A large gap between the two shows memoisation is paying off. `Profiler`
+adds overhead, so it is disabled in normal production builds; use it in
+profiling builds or targeted experiments.
+
+## Field data beats lab data
+
+Your laptop is not your user's ₹10,000 phone on a 4G connection. Collect
+real-user Core Web Vitals with the `web-vitals` library:
+
+```ts
+import { onINP, onLCP, onCLS } from "web-vitals";
+
+onINP((m) => send("INP", m.value, m.attribution)); // responsiveness
+onLCP((m) => send("LCP", m.value));                // loading
+onCLS((m) => send("CLS", m.value));                // layout stability
+```
+
+**INP** (Interaction to Next Paint) is the metric React rendering affects
+most. Common fixes once you've found the culprit: mark expensive updates as
+transitions, virtualise long lists, split large client bundles, and move
+non-interactive UI to the server.
+
+### Try it yourself
+
+Take a list of 5,000 funds with a search box. Record typing in the Profiler
+and note the commit duration. Enable the React Compiler and record again,
+then wrap the list in a `Profiler` component and log `actualDuration`
+before and after. Finally, add a deliberate prop mutation and check that
+the lint rule reports it.

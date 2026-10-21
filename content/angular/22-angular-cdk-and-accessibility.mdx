@@ -1,0 +1,151 @@
+---
+title: "Angular CDK & Accessibility"
+description: "Using the Component Dev Kit's overlay, a11y, virtual scrolling and drag-drop primitives to build fast, accessible custom UI."
+module: "Modern Angular"
+level: "advanced"
+order: 23
+---
+
+The **Component Dev Kit** (`@angular/cdk`) is the unstyled foundation that
+Angular Material is built on. When a design system needs a custom dropdown,
+dialog or sortable list, the CDK gives you the hard parts — positioning,
+focus management, keyboard handling — without imposing any visual style.
+
+```bash
+ng add @angular/cdk
+```
+
+## Overlay: floating UI outside the component tree
+
+Dropdowns, tooltips and dialogs must escape `overflow: hidden` parents and
+z-index stacking. The `Overlay` service renders content into a container
+attached to `document.body`:
+
+```ts
+import { Overlay } from "@angular/cdk/overlay";
+import { ComponentPortal } from "@angular/cdk/portal";
+
+export class TransferButtonComponent {
+  private overlay = inject(Overlay);
+
+  open() {
+    const ref = this.overlay.create({
+      hasBackdrop: true,
+      positionStrategy: this.overlay.position().global().centerHorizontally().centerVertically(),
+      scrollStrategy: this.overlay.scrollStrategies.block(),
+    });
+    ref.attach(new ComponentPortal(TransferFormComponent));
+    ref.backdropClick().subscribe(() => ref.dispose());
+  }
+}
+```
+
+For anchored popups (menus, autocompletes), use
+`flexibleConnectedTo(element)` instead of `global()` — it repositions the
+panel when it would overflow the viewport. Remember to include the CDK
+overlay styles (`@angular/cdk/overlay-prebuilt.css`).
+
+## The a11y module
+
+Three services cover most accessibility interview questions:
+
+```ts
+import { FocusTrapFactory, LiveAnnouncer, FocusMonitor } from "@angular/cdk/a11y";
+
+export class PaymentComponent {
+  private announcer = inject(LiveAnnouncer);
+
+  async pay() {
+    await this.paymentService.pay();
+    this.announcer.announce("Payment of ₹2,500 successful", "polite");
+  }
+}
+```
+
+- **FocusTrap** — keeps Tab and Shift+Tab cycling inside a region. Use the
+  `cdkTrapFocus` directive (with `cdkTrapFocusAutoCapture` to move focus in
+  on open and restore it on close) or create one with `FocusTrapFactory`.
+- **LiveAnnouncer** — writes a message to a visually hidden `aria-live`
+  region so screen readers announce changes that have no focus change
+  ("3 results found", "Saved"). Use `"assertive"` only for urgent messages.
+- **FocusMonitor** — `monitor(element)` returns an Observable of the focus
+  origin (`"keyboard"`, `"mouse"`, `"touch"`, `"program"` or `null`), so you
+  can show focus rings only for keyboard users. Call `stopMonitoring` on
+  destroy.
+
+The module also includes key managers (`ListKeyManager`,
+`ActiveDescendantKeyManager`) for arrow-key navigation in listboxes and
+menus.
+
+## Virtual scrolling
+
+Rendering 10,000 transaction rows creates 10,000 DOM nodes. Virtual
+scrolling renders only the rows in (and just around) the viewport:
+
+```html
+<cdk-virtual-scroll-viewport itemSize="56" class="txn-viewport">
+  <div *cdkVirtualFor="let txn of transactions(); trackBy: trackById" class="txn-row">
+    {{ txn.date | date }} — {{ txn.amount | currency: "INR" }}
+  </div>
+</cdk-virtual-scroll-viewport>
+```
+
+The viewport needs a fixed height in CSS, and `itemSize` is the row height
+in pixels. Note that it uses the `*cdkVirtualFor` structural directive —
+the built-in `@for` block cannot be virtualised. For variable-height rows,
+the experimental `autosize` strategy lives in `@angular/cdk-experimental`.
+
+## Drag and drop
+
+```html
+<ul cdkDropList (cdkDropListDropped)="reorder($event)">
+  @for (goal of goals(); track goal.id) {
+    <li cdkDrag>{{ goal.name }}</li>
+  }
+</ul>
+```
+
+```ts
+reorder(event: CdkDragDrop<Goal[]>) {
+  this.goals.update((list) => {
+    const copy = [...list];
+    moveItemInArray(copy, event.previousIndex, event.currentIndex);
+    return copy;
+  });
+}
+```
+
+Copying before `moveItemInArray` (which mutates) keeps the signal update
+immutable. `transferArrayItem` moves items between connected lists. CDK
+drag-drop is pointer-based, so offer a keyboard alternative such as
+"Move up / Move down" buttons.
+
+## Building an accessible dialog
+
+`@angular/cdk/dialog` (the `Dialog` service) does all of this for you, but
+interviewers often ask what an accessible modal needs:
+
+1. `role="dialog"` and `aria-modal="true"` on the container.
+2. `aria-labelledby` pointing at the dialog's heading.
+3. Focus moves **into** the dialog on open and is **trapped** there.
+4. Escape closes it; backdrop click usually does too.
+5. Focus **returns** to the element that opened it on close.
+6. Background content is hidden from assistive tech (`aria-hidden` or
+   `inert` on siblings).
+
+```html
+<div cdkTrapFocus cdkTrapFocusAutoCapture role="dialog" aria-modal="true"
+     aria-labelledby="confirm-title" (keydown.escape)="close()">
+  <h2 id="confirm-title">Confirm SIP of ₹5,000?</h2>
+  <button (click)="confirm()">Confirm</button>
+  <button (click)="close()">Cancel</button>
+</div>
+```
+
+### Try it yourself
+
+Build a transaction history screen that renders 5,000 rows with
+`cdk-virtual-scroll-viewport`. Add a "Filter" button that opens an overlay
+panel with `flexibleConnectedTo`, trap focus inside it, close it on Escape,
+and use `LiveAnnouncer` to announce how many transactions match after the
+filter is applied. Test it with only the keyboard.

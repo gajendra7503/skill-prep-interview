@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which of these flags is NOT enabled by `\"strict\": true`?",
+      "options": [
+        "strictNullChecks",
+        "noImplicitAny",
+        "noUncheckedIndexedAccess",
+        "useUnknownInCatchVariables"
+      ],
+      "correctIndex": 2,
+      "explanation": "noUncheckedIndexedAccess must be enabled separately (recent tsc --init output does so). The others are all members of the strict family."
+    },
+    {
+      "question": "What is the difference between `target` and `lib`?",
+      "options": [
+        "target controls the emitted JavaScript syntax; lib controls which built-in APIs are typed",
+        "target controls which APIs are polyfilled; lib controls output syntax",
+        "They are aliases for each other",
+        "target applies only to Node; lib applies only to browsers"
+      ],
+      "correctIndex": 0,
+      "explanation": "target decides what syntax the compiler emits and down-levels. lib decides which type declarations, such as DOM or ES2022 APIs, are available. Neither adds polyfills."
+    },
+    {
+      "question": "Why is `// @ts-expect-error` generally preferred over `// @ts-ignore`?",
+      "options": [
+        "It suppresses errors in the whole file",
+        "It also fixes the underlying error automatically",
+        "@ts-ignore no longer works in recent versions",
+        "It becomes an error itself once the line no longer has an error, so stale suppressions are caught"
+      ],
+      "correctIndex": 3,
+      "explanation": "An unused @ts-expect-error is reported (TS2578), so when the underlying problem is fixed you are told to remove the comment. @ts-ignore stays silently."
+    },
+    {
+      "question": "In TypeScript 7, what happens when you compile a file containing `function f(x) { return x; }` with no tsconfig and no flags?",
+      "options": [
+        "It compiles cleanly because strict is off by default",
+        "It reports that parameter x implicitly has an any type, because strict defaults to true",
+        "It reports a deprecation warning for missing tsconfig",
+        "It infers x as unknown"
+      ],
+      "correctIndex": 1,
+      "explanation": "Since TypeScript 6.0 (and in 7) strict defaults to true, so noImplicitAny is active even without a config. In 5.x and earlier the same file compiled without errors."
+    }
+  ]
+}

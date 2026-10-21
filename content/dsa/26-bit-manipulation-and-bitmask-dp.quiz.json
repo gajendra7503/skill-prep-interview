@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does (1 << 31) evaluate to in JavaScript?",
+      "options": [
+        "-2147483648",
+        "2147483648",
+        "0",
+        "Infinity"
+      ],
+      "correctIndex": 0,
+      "explanation": "Bitwise operators work on 32-bit signed integers; bit 31 is the sign bit. Use >>> 0 to read the result as unsigned."
+    },
+    {
+      "question": "What does x & (x - 1) do?",
+      "options": [
+        "Isolates the lowest set bit of x",
+        "Sets every bit of x",
+        "Clears the lowest set bit of x",
+        "Reverses the bits of x"
+      ],
+      "correctIndex": 2,
+      "explanation": "Subtracting 1 flips the lowest set bit and the zeros below it, so ANDing clears that bit. It powers Kernighan's popcount and the power-of-two check."
+    },
+    {
+      "question": "Every element appears twice except one. Which approach finds it in O(n) time and O(1) extra space?",
+      "options": [
+        "Sort the array and scan neighbours",
+        "XOR all the elements together",
+        "Count occurrences in a hash map",
+        "Sum the elements and divide by 2"
+      ],
+      "correctIndex": 1,
+      "explanation": "a ^ a = 0 and XOR is commutative, so all pairs cancel and only the single element remains. Sorting is O(n log n) and a hash map uses O(n) space."
+    },
+    {
+      "question": "What is the time complexity of the bitmask DP for travelling salesman over n cities?",
+      "options": [
+        "O(n!)",
+        "O(n^3)",
+        "O(4^n * n)",
+        "O(2^n * n^2)"
+      ],
+      "correctIndex": 3,
+      "explanation": "There are 2^n * n states (mask, last city) and each tries up to n next cities — far smaller than n! for n near 20."
+    }
+  ]
+}

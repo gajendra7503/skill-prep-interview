@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `if (typeof input === \"object\")` not remove `null` from `input: object | null`?",
+      "options": [
+        "Because typeof does not narrow at all",
+        "Because typeof null is \"object\" in JavaScript",
+        "Because null is a subtype of every object",
+        "Because strict mode is off"
+      ],
+      "correctIndex": 1,
+      "explanation": "typeof null returns \"object\", so null stays in the narrowed type. Add an explicit `!== null` check."
+    },
+    {
+      "question": "In a switch over a discriminated union, what does `const unhandled: never = s;` in the default branch achieve?",
+      "options": [
+        "It throws at runtime if s is null",
+        "It converts s to never so the code compiles",
+        "It disables type checking for the default branch",
+        "It causes a compile error if any union member is not handled by a case"
+      ],
+      "correctIndex": 3,
+      "explanation": "If every member is handled, s is never in the default branch. Any unhandled member makes the assignment fail, giving an exhaustiveness check."
+    },
+    {
+      "question": "What is the main risk of a custom type predicate like `function isUpi(v: unknown): v is Upi`?",
+      "options": [
+        "The compiler trusts it, so a buggy body leads to wrong types",
+        "It only works on primitives",
+        "It cannot be used with filter",
+        "It runs only at compile time"
+      ],
+      "correctIndex": 0,
+      "explanation": "TypeScript does not verify that the body matches the predicate. Even `return true` compiles, so predicates need careful code and tests."
+    },
+    {
+      "question": "How does an assertion function such as `assertIsDefined(v): asserts v is NonNullable<T>` narrow types?",
+      "options": [
+        "It returns a boolean you must check with if",
+        "It narrows only inside the function body",
+        "If it returns without throwing, the argument is narrowed for the rest of the scope",
+        "It changes the variable's declared type everywhere in the program"
+      ],
+      "correctIndex": 2,
+      "explanation": "Assertion functions throw on failure. If execution continues past the call, TypeScript narrows the argument for the code that follows."
+    }
+  ]
+}

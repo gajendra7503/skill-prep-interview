@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Inside an `exports` condition object, where should the `types` condition go?",
+      "options": [
+        "Last, after `default`",
+        "First, because conditions are matched in order",
+        "Anywhere; order does not matter",
+        "In a separate top-level `typings` field only"
+      ],
+      "correctIndex": 1,
+      "explanation": "Resolvers pick the first matching condition. A `types` entry after `default` is never reached."
+    },
+    {
+      "question": "Your package has `\"type\": \"module\"` and also ships a CommonJS build. What should the CJS entry's declarations use?",
+      "options": [
+        "The same `.d.ts` file as the ESM build",
+        "No declarations; TypeScript infers them",
+        "A `.d.mts` file",
+        "A `.d.cts` file matching the `.cjs` output"
+      ],
+      "correctIndex": 3,
+      "explanation": "Sharing one .d.ts across formats makes TypeScript assume the wrong module format (the 'masquerading' bug). Each format needs its own declarations."
+    },
+    {
+      "question": "Your public .d.ts files reference types from `@types/express`. Where should that package be listed?",
+      "options": [
+        "In `dependencies` or `peerDependencies`",
+        "In `devDependencies` only",
+        "Nowhere; consumers get it automatically",
+        "In `optionalDependencies` only"
+      ],
+      "correctIndex": 0,
+      "explanation": "devDependencies are not installed for consumers, so your types would break or degrade to any in their projects."
+    },
+    {
+      "question": "Which change to a published library's types is a breaking change under semver?",
+      "options": [
+        "Adding a new export",
+        "Adding an optional property to an input type",
+        "Narrowing a function's parameter type",
+        "Improving a JSDoc comment"
+      ],
+      "correctIndex": 2,
+      "explanation": "Narrowing a parameter type rejects calls that compiled before. Adding exports or optional properties is usually a minor change."
+    }
+  ]
+}

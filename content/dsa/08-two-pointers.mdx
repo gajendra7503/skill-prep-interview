@@ -1,0 +1,231 @@
+---
+title: "The Two-Pointer Technique"
+description: "Use two indices moving through an array or string to turn many O(n²) brute-force searches into clean O(n) passes."
+module: "Core Patterns"
+level: "intermediate"
+order: 8
+---
+
+Many array and string problems have an obvious brute-force answer: try every
+pair with two nested loops. That is O(n²) — fine for 100 items, hopeless for
+10 lakh. The **two-pointer technique** keeps two indices into the same data
+and moves them according to a rule, so each element is visited only a few
+times and the whole thing runs in O(n). Interviewers expect it whenever they
+say "sorted array", "pair", "in place" or "palindrome".
+
+## The two shapes of the pattern
+
+```text
+1. Opposite ends (converging)          2. Same direction (read / write)
+
+   left →               ← right           write
+    |                      |                |
+  [ 2, 5, 7, 11, 15, 20, 31 ]            [ 1, 1, 2, 3, 3, 4 ]
+                                               |
+                                              read →
+  Move one pointer inward each step.     read scans everything; write marks
+  Stop when they meet.                   where the next "kept" item goes.
+```
+
+| Shape | Typical problems | Needs sorted input? |
+|---|---|---|
+| Opposite ends | pair with target sum, palindrome check, container with most water, 3Sum | Often (pair sums), not always (palindrome) |
+| Same direction | remove duplicates in place, move zeroes, partition by a condition | No |
+
+A third shape, fast and slow pointers, works on linked lists and is covered
+near the end of this lesson. Windows with two forward-moving edges are
+covered in "Sliding Window".
+
+## Opposite ends: pair with a target sum
+
+A shop sells gifts at sorted prices, and you have a voucher worth exactly
+₹1,049. Which two gifts use it up?
+
+Why does it work? If `prices[left] + prices[right]` is too small, pairing
+`prices[left]` with anything left of `right` is smaller still, so `left`
+can be discarded. The mirror argument applies when the sum is too large.
+
+```js
+function pairWithSum(prices, target) {
+  let left = 0, right = prices.length - 1;
+  while (left < right) {
+    const sum = prices[left] + prices[right];
+    if (sum === target) return [left, right];
+    if (sum < target) left++;   // need a bigger sum
+    else right--;               // need a smaller sum
+  }
+  return null;
+}
+
+const giftPrices = [150, 299, 450, 599, 750, 999];
+console.log(pairWithSum(giftPrices, 1049)); // [ 1, 4 ]  -> ₹299 + ₹750
+console.log(pairWithSum(giftPrices, 100));  // null
+```
+
+**Complexity:** O(n) time, O(1) extra space. If the input is not sorted, you
+either sort first (O(n log n)) or use a hash map (O(n) time, O(n) space — see
+"Hash Maps & Sets"). Interviewers often ask you to compare these two options;
+the hash map version also returns original indices, which sorting destroys.
+
+Opposite-end pointers do not always need sorting: a palindrome check compares
+`s[i]` with `s[j]` and moves both inward until they meet — O(n) time, O(1)
+space if you skip punctuation in place rather than building a cleaned copy.
+
+## Same direction: remove duplicates in place
+
+Given a sorted list of PIN codes, keep one of each **in place** and return the
+new length. `read` looks at every element; `write` points at the slot where
+the next unique value goes.
+
+```js
+function removeDuplicates(nums) {
+  if (nums.length === 0) return 0;
+  let write = 1;
+  for (let read = 1; read < nums.length; read++) {
+    if (nums[read] !== nums[write - 1]) {
+      nums[write] = nums[read];
+      write++;
+    }
+  }
+  return write;
+}
+
+const pins = [110001, 110001, 400001, 560001, 560001, 560001, 600001];
+const k = removeDuplicates(pins);
+console.log(k, pins.slice(0, k)); // 4 [ 110001, 400001, 560001, 600001 ]
+```
+
+O(n) time, O(1) space. Change only the `if` and the same skeleton solves
+"move zeroes to the end" or "remove every occurrence of a value".
+
+## Interview problem: container with most water
+
+**Pattern:** opposite ends, greedy discard. Given heights of vertical lines,
+pick two that hold the most water: `min(h[l], h[r]) * (r - l)`.
+
+Step by step:
+
+1. Start with the widest container, `left = 0`, `right = n - 1`.
+2. The area is limited by the **shorter** line. Moving the taller line inward
+   can only shrink the width without raising the limit — never better.
+3. So always move the shorter line, and track the best area seen.
+
+```js
+function maxArea(height) {
+  let left = 0, right = height.length - 1, best = 0;
+  while (left < right) {
+    const h = Math.min(height[left], height[right]);
+    best = Math.max(best, h * (right - left));
+    if (height[left] < height[right]) left++;
+    else right--;
+  }
+  return best;
+}
+
+console.log(maxArea([1, 8, 6, 2, 5, 4, 8, 3, 7])); // 49
+```
+
+O(n) time versus O(n²) for every pair. Explaining *why* discarding the
+shorter line is safe is what the interviewer is really grading.
+
+## Interview problem: 3Sum (triplets adding to zero)
+
+**Pattern:** sort, fix one element, run pair-sum two pointers on the rest.
+
+1. Sort; for each index `i`, find two later numbers summing to `-nums[i]`.
+2. Skip duplicate anchors, and after a match skip duplicate `lo`/`hi`
+   values, so each triplet appears once.
+
+```js
+function threeSum(nums) {
+  nums.sort((a, b) => a - b);
+  const result = [];
+  for (let i = 0; i < nums.length - 2; i++) {
+    if (i > 0 && nums[i] === nums[i - 1]) continue; // skip duplicate anchor
+    let lo = i + 1, hi = nums.length - 1;
+    while (lo < hi) {
+      const sum = nums[i] + nums[lo] + nums[hi];
+      if (sum < 0) lo++;
+      else if (sum > 0) hi--;
+      else {
+        result.push([nums[i], nums[lo], nums[hi]]);
+        lo++; hi--;
+        while (lo < hi && nums[lo] === nums[lo - 1]) lo++;
+        while (lo < hi && nums[hi] === nums[hi + 1]) hi--;
+      }
+    }
+  }
+  return result;
+}
+
+console.log(threeSum([-1, 0, 1, 2, -1, -4])); // [ [ -1, -1, 2 ], [ -1, 0, 1 ] ]
+console.log(threeSum([0, 0, 0, 0]));          // [ [ 0, 0, 0 ] ]
+```
+
+Time O(n²) — n anchors times an O(n) scan — which beats the O(n³) brute force.
+Extra space is O(1) apart from the output (plus whatever the sort uses).
+Note that `sort` mutates the caller's array; copy first if that matters.
+
+## Fast and slow pointers on a linked list
+
+Both pointers start at the head; `slow` moves one node per step and `fast`
+moves two. Uses the `ListNode` shape from "Linked Lists".
+
+```js
+class ListNode { constructor(val, next = null) { this.val = val; this.next = next; } }
+const fromArray = (arr) => arr.reduceRight((next, val) => new ListNode(val, next), null);
+
+// When fast reaches the end, slow is in the middle.
+function middle(head) {
+  let slow = head, fast = head;
+  while (fast && fast.next) { slow = slow.next; fast = fast.next.next; }
+  return slow;
+}
+
+// Floyd's cycle detection: if there is a loop, fast laps slow and they meet.
+function cycleStart(head) {
+  let slow = head, fast = head;
+  while (fast && fast.next) {
+    slow = slow.next;
+    fast = fast.next.next;
+    if (slow === fast) {            // they met inside the cycle
+      let p = head;
+      while (p !== slow) { p = p.next; slow = slow.next; }
+      return p;                     // first node of the cycle
+    }
+  }
+  return null;                      // fast fell off the end: no cycle
+}
+
+console.log(middle(fromArray([1, 2, 3, 4, 5])).val);    // 3
+console.log(middle(fromArray([1, 2, 3, 4, 5, 6])).val); // 4 (second middle)
+const head = fromArray([3, 8, 1, 9, 4]);
+head.next.next.next.next.next = head.next;              // 4 -> 8 makes a cycle
+console.log(cycleStart(head).val);                      // 8
+console.log(cycleStart(fromArray([1, 2, 3])));          // null
+```
+
+Both run in O(n) time and O(1) space, versus O(n) space for a Set of
+visited nodes. Why does resetting one pointer to the head find the cycle's
+start? If the cycle starts `a` nodes from the head and they meet `b` nodes
+into the cycle, the distances work out so that walking `a` more steps from
+the meeting point lands exactly on the cycle start. Interviewers often ask
+for that argument after the code.
+
+## Common mistakes
+
+- **Using pair-sum two pointers on unsorted data.** The discard argument
+  only holds when the array is sorted.
+- **`left <= right` instead of `left < right`** for pairs — that lets an
+  element pair with itself.
+- **Missing duplicate skipping** in 3Sum, which produces repeated triplets.
+- **Moving the wrong pointer** in container-with-most-water; you must move
+  the shorter side.
+
+### Try it yourself
+
+1. Write `moveZeroes(nums)` that shifts all `0`s to the end in place while
+   keeping the order of the other values. Test with `[0, 1, 0, 3, 12]`
+   (expected `[1, 3, 12, 0, 0]`).
+2. Given a sorted array that may contain negatives, such as `[-7, -3, 2, 3, 11]`, return
+   the sorted squares in O(n) using two pointers that start at both ends.

@@ -1,0 +1,209 @@
+---
+title: "Lazy-Loading Slices with combineSlices"
+description: "Use combineSlices, inject and injectInto to add reducers at runtime, keep code-split features out of the main bundle, and select safely from slices that may not exist yet."
+module: "Advanced Redux"
+level: "advanced"
+order: 22
+---
+
+A typical `configureStore` call imports every reducer up front. That is fine
+for small apps, but it means the reducer for a rarely used admin "Reports"
+screen ships in the main bundle even though most users never open it.
+Redux Toolkit 2 added **`combineSlices`**, a `combineReducers` replacement
+that can have more slices **injected later**, after the store exists. Pair it
+with `React.lazy` or a dynamic `import()` and a feature's reducer, actions
+and selectors load only when the route does.
+
+## From combineReducers to combineSlices
+
+`combineSlices` accepts slices, RTK Query APIs (anything with `reducerPath`
+and `reducer`) or plain reducer maps, and returns a reducer you hand to
+`configureStore` as usual.
+
+```ts
+// src/app/reducer.ts
+import { combineSlices } from "@reduxjs/toolkit";
+import { authSlice } from "../features/auth/authSlice";
+
+// Features that load later will add themselves to this interface.
+export interface LazyLoadedSlices {}
+
+export const rootReducer = combineSlices(authSlice).withLazyLoadedSlices<LazyLoadedSlices>();
+```
+
+```ts
+// src/app/store.ts
+import { configureStore } from "@reduxjs/toolkit";
+import { rootReducer } from "./reducer";
+
+export const store = configureStore({ reducer: rootReducer });
+export type RootState = ReturnType<typeof rootReducer>;
+```
+
+`withLazyLoadedSlices` does nothing at runtime (it returns the same reducer);
+it only tells TypeScript that the keys in `LazyLoadedSlices` may appear in
+state, typed as **optional**, because they might not be loaded yet.
+
+## Injecting a slice from its own module
+
+The lazy feature injects itself as a side effect of being imported, and uses
+TypeScript declaration merging to add its key to `LazyLoadedSlices`.
+
+```ts
+// src/features/reports/reportsSlice.ts
+import { createSlice } from "@reduxjs/toolkit";
+import type { PayloadAction, WithSlice } from "@reduxjs/toolkit";
+import { rootReducer } from "../../app/reducer";
+
+const reportsSlice = createSlice({
+  name: "reports",
+  initialState: { range: "30d", pinned: [] as string[] },
+  reducers: {
+    rangeChanged: (state, action: PayloadAction<string>) => { state.range = action.payload; },
+  },
+  selectors: { selectRange: (state) => state.range },
+});
+
+declare module "../../app/reducer" {
+  export interface LazyLoadedSlices extends WithSlice<typeof reportsSlice> {}
+}
+
+// Runs once, when this module is first imported.
+export const injectedReports = reportsSlice.injectInto(rootReducer);
+export const { rangeChanged } = injectedReports.actions;
+export const { selectRange } = injectedReports.selectors;
+export { reportsSlice }; // exported only so the demo below can compare selectors
+```
+
+`slice.injectInto(rootReducer)` and `rootReducer.inject(slice)` both add the
+reducer. The difference is the return value: `injectInto` returns an
+**injected slice** whose selectors know the slice may be missing, while
+`inject` returns the root reducer (useful for `.selector()`, shown below).
+
+## What actually happens at runtime
+
+Here is a driver script, run with Node 24 (the store also uses a dynamic
+middleware, explained in a later section):
+
+```ts
+// main.ts
+console.log("1:", Object.keys(store.getState()));
+const { selectRange, rangeChanged, reportsSlice } = await import("./reportsSlice");
+console.log("2:", Object.keys(store.getState()));
+console.log("3:", selectRange(store.getState()));
+try { reportsSlice.selectors.selectRange(store.getState()); }
+catch (e) { console.log("4:", (e as Error).message); }
+store.dispatch(rangeChanged("7d"));
+console.log("5:", store.getState());
+
+// 1: [ 'auth' ]
+// 2: [ 'auth' ]
+// 3: 30d
+// 4: selectSlice returned undefined for an uninjected slice reducer
+// 5: { auth: { user: null }, reports: { range: '7d', pinned: [] } }
+```
+
+Three facts worth remembering (and good interview material):
+
+1. **Injection does not dispatch.** The `reports` key appears in state only
+   after the next action passes through the root reducer (line 2 vs line 5).
+2. **Injected selectors fall back to initial state.** `selectRange` from the
+   injected slice returned `"30d"` even though `state.reports` was still
+   `undefined`.
+3. **The original slice's selectors throw** in development if the slice
+   state is missing. Export the injected slice's selectors, not the
+   original's.
+
+## Cross-slice selectors with rootReducer.selector
+
+When a selector reads several slices, some of which may be lazy, wrap it in
+`rootReducer.selector`. It passes a proxy in which any missing injected
+slice is filled with that slice's initial state.
+
+```ts
+const selectSummary = rootReducer.inject(reportsSlice).selector((state) =>
+  `${state.auth.user ?? "guest"} viewing ${state.reports.range}`);
+
+selectSummary({ auth: { user: "Asha" } }); // "Asha viewing 30d"
+```
+
+Inside the callback, `state.reports` is typed as present, so no optional
+chaining is needed.
+
+## Re-injection and hot reloading
+
+| Call | Result |
+|---|---|
+| `inject(slice)` twice with the same reducer | No-op, safe |
+| `inject` with a **different** reducer for an existing key | Ignored; logs an error when `NODE_ENV` is `"development"` |
+| `inject(slice, { overrideExisting: true })` | Replaces the reducer (useful for hot module replacement) |
+
+Because injection is a module side effect, a feature module imported by two
+routes still injects only once: ES modules are evaluated a single time.
+
+## Lazy middleware with createDynamicMiddleware
+
+Reducers are not the only thing a feature might bring. `createDynamicMiddleware`
+lets you add middleware after the store is created.
+
+```ts
+import { configureStore, createDynamicMiddleware } from "@reduxjs/toolkit";
+
+export const dynamicMiddleware = createDynamicMiddleware();
+export const store = configureStore({
+  reducer: rootReducer,
+  middleware: (gDM) => gDM().prepend(dynamicMiddleware.middleware),
+});
+
+// later, inside the reports chunk
+dynamicMiddleware.addMiddleware(reportsAuditMiddleware);
+```
+
+React apps can use the `createDynamicMiddleware` exported from
+`@reduxjs/toolkit/react`, which also offers a
+`createDispatchWithMiddlewareHook` helper for injecting middleware from a
+component. For lazy RTK Query endpoints, use `injectEndpoints` (see
+"Advanced RTK Query: Optimistic Updates, Polling & Code Splitting").
+
+## Wiring it to a lazy route
+
+```tsx
+// App.tsx
+const ReportsPage = React.lazy(() => import("./features/reports/ReportsPage"));
+// ReportsPage imports reportsSlice.ts, so the reducer arrives with the chunk.
+
+<Suspense fallback={<Spinner />}>
+  <ReportsPage />
+</Suspense>
+```
+
+Keep the import chain one-directional: the feature imports `rootReducer`,
+never the other way round, or the bundler will pull the feature back into
+the main chunk.
+
+## Common pitfalls
+
+- **Importing the slice from the app shell** "just for a type" without
+  `import type`: the bundler may include the whole module.
+- **Persisting state** for a lazy slice before it is injected: on rehydrate
+  the key has no reducer yet. Inject first, or see "Persisting & Hydrating
+  State".
+- **Assuming initial state is in the store** right after injection. It is
+  not until the next dispatch; always read through injected selectors.
+
+Interviewers often ask: "How would you stop a large admin feature from
+bloating the main bundle in a Redux app?" A strong answer covers code
+splitting the route, `combineSlices` with `injectInto`, injected selectors
+that tolerate missing state, and `injectEndpoints` for its API calls.
+
+### Try it yourself
+
+1. Create a lazy `notificationsSlice` with an `unreadCount` selector. Log
+   the selector's value before and after the module is imported, and before
+   and after the first dispatch.
+2. Write a `rootReducer.selector` that returns `true` when the user is logged
+   in **and** `reports.pinned` is non-empty. Call it with a state object that
+   has no `reports` key.
+3. Inject a second, different reducer under `"reports"` without
+   `overrideExisting`, run with `NODE_ENV=development`, and observe the
+   logged error. Then repeat with `overrideExisting: true`.

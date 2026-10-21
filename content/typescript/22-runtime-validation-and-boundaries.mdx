@@ -1,0 +1,187 @@
+---
+title: "Runtime Validation & Type-Safe Boundaries (Zod)"
+description: "Why TypeScript types vanish at runtime, how to validate untrusted data at system boundaries, and how Zod schemas give you validation and types from one source."
+module: "Advanced Patterns"
+level: "advanced"
+order: 22
+---
+
+TypeScript's types are erased when your code runs. That is fine inside your
+program, where the compiler has checked every line. It is a problem at the
+**boundaries**: HTTP request bodies, API responses, `JSON.parse`, environment
+variables, `localStorage`, form inputs, message queues. Data arriving there was
+never checked by the compiler, so annotating it with a type is just a promise
+you hope is true.
+
+```ts
+type Order = { id: string; amount: number };
+
+const res = await fetch("/api/orders/42");
+const order = (await res.json()) as Order; // a cast, not a check
+console.log(order.amount.toFixed(2));      // crashes if the API sends "amount": "499"
+```
+
+`res.json()` and `JSON.parse` return `any`, and `as Order` makes the compiler
+stop asking questions. Interviewers often ask, "Does TypeScript protect you
+from a bad API response?" The honest answer is no, unless you validate at runtime.
+
+## Treat boundary data as `unknown`
+
+The first step is to type incoming data as `unknown`, which forces you to prove
+its shape before you use it. You can do that by hand with a type guard:
+
+```ts
+function isOrder(x: unknown): x is Order {
+  return typeof x === "object" && x !== null &&
+    "id" in x && typeof x.id === "string" &&
+    "amount" in x && typeof x.amount === "number";
+}
+
+const raw: unknown = JSON.parse(body);
+if (isOrder(raw)) console.log(raw.amount.toFixed(2)); // narrowed to Order
+```
+
+This works, but it does not scale. Every field needs checking, nested objects
+need more guards, and nothing stops the guard and the `Order` type from drifting
+apart. If someone adds `currency: string` to the type and forgets the guard, the
+compiler stays silent.
+
+## Zod: one schema, two outputs
+
+A schema library flips this around. You describe the shape **once** as a runtime
+value, and derive the static type from it. Zod is the most widely used option
+(the examples here use Zod 4; install with `npm install zod`).
+
+```ts
+import { z } from "zod";
+
+const UserSchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+  email: z.email(),
+  age: z.number().int().positive().optional(),
+  role: z.enum(["admin", "member"]),
+});
+
+type User = z.infer<typeof UserSchema>;
+// { id: string; name: string; email: string; age?: number | undefined; role: "admin" | "member" }
+```
+
+`parse` returns typed data or throws a `ZodError`. `safeParse` never throws, and
+returns a discriminated union you narrow on `success`:
+
+```ts
+const result = UserSchema.safeParse({ id: "x", name: "", email: "nope", role: "owner" });
+
+if (!result.success) {
+  console.log(result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`));
+  // [ 'id: Invalid UUID',
+  //   'name: Too small: expected string to have >=1 characters',
+  //   'email: Invalid email address',
+  //   'role: Invalid option: expected one of "admin"|"member"' ]
+  console.log(z.flattenError(result.error).fieldErrors);
+  // { id: [ 'Invalid UUID' ], name: [ ... ], email: [ ... ], role: [ ... ] }
+} else {
+  result.data.role; // "admin" | "member"
+}
+```
+
+Use `safeParse` for user input, where failure is expected and you want to show
+errors. Use `parse` where bad data is a bug and crashing early is correct.
+
+| Need | Zod |
+|---|---|
+| Static type of the parsed value | `z.infer<typeof S>` (same as `z.output`) |
+| Static type of what goes in | `z.input<typeof S>` |
+| Reject unknown keys | `z.strictObject({...})` |
+| Keep unknown keys | `z.looseObject({...})` (plain `z.object` strips them) |
+| Cross-field rule | `.refine(fn, { message, path })` |
+| Change the value | `.transform(fn)` |
+| Convert strings to numbers | `z.coerce.number()` |
+
+## Parse, don't validate
+
+A validator answers yes or no. A **parser** turns loose input into a value with a
+stronger type, so the rest of the code never re-checks it. Zod transforms make
+this concrete:
+
+```ts
+// "1499.50" (string from a form) -> 149950 (integer paise)
+const Rupees = z.string()
+  .regex(/^\d+(\.\d{1,2})?$/, "Enter an amount like 1499.50")
+  .transform((s) => Math.round(Number(s) * 100));
+
+type RupeesIn = z.input<typeof Rupees>;   // string
+type RupeesOut = z.output<typeof Rupees>; // number
+console.log(Rupees.parse("1499.50"));     // 149950
+```
+
+Combine this with **branded types** so a validated value cannot be confused with
+a raw one:
+
+```ts
+const UserId = z.uuid().brand<"UserId">();
+type UserId = z.infer<typeof UserId>; // string & z.$brand<"UserId">
+
+function loadUser(id: UserId) { /* ... */ }
+loadUser("abc");                // compile error: string is not UserId
+loadUser(UserId.parse(param));  // OK: the only way in is through the schema
+```
+
+Schemas also handle discriminated unions (`z.discriminatedUnion("type", [...])`;
+for the modelling side, see "Modelling State with Discriminated Unions") and
+cross-field rules:
+
+```ts
+const Signup = z.object({ password: z.string().min(8), confirm: z.string() })
+  .refine((d) => d.password === d.confirm, { message: "Passwords do not match", path: ["confirm"] });
+```
+
+## Where the boundaries are
+
+Validate once, at the edge, and pass typed values inward.
+
+```ts
+// config.ts: fail at startup, not at 2 a.m. on the first request that needs it
+const Env = z.object({
+  PORT: z.coerce.number().int().default(3000),
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  DATABASE_URL: z.url(),
+});
+export const env = Env.parse(process.env);
+// with PORT=8080 and DATABASE_URL set:
+// { PORT: 8080, NODE_ENV: 'development', DATABASE_URL: 'postgres://localhost/db' }
+```
+
+The same idea applies to request bodies in a server handler (see "TypeScript on
+the Server: Node & Express"), to responses in a fetch wrapper, and to anything
+read back from storage. Inside the boundary, do not re-validate; trust the types.
+
+## Trade-offs and alternatives
+
+- **Cost:** parsing walks the whole object; negligible for typical API bodies,
+  but measure on hot paths with large payloads.
+- **Bundle size:** in the browser, smaller libraries such as Valibot are an
+  option. Many schema libraries (Zod included) implement the shared Standard
+  Schema interface, so form and router libraries can accept any of them.
+- **Zod 3 vs 4:** older code writes `z.string().email()`; Zod 4 prefers top-level
+  formats like `z.email()`. Check `package.json` before copying examples.
+- **Existing contracts:** with an OpenAPI or GraphQL schema, generating types and
+  validators from it can beat hand-written schemas.
+
+Interviewers often ask, "Why not just use `as`?" A cast tells the compiler to
+trust you; a schema makes the data prove itself. Another common one: "Where
+should validation live?" At every trust boundary, once, with typed values
+flowing inward.
+
+### Try it yourself
+
+1. Write a `ProductSchema` with `sku` (string, uppercase letters and digits only),
+   `priceInRupees` (a string like `"2,499.00"` transformed into integer paise) and
+   `tags` (array of strings, default `[]`). Check that `z.input` and `z.output` differ.
+2. Write `fetchJson(url, schema)` that calls `fetch`, parses the body with
+   `schema.safeParse`, and returns `{ ok: true, data }` or `{ ok: false, error }`.
+   Make the return type generic so the caller gets `z.infer` of the schema.
+3. Validate `process.env` at startup for an app that needs `PORT`, `JWT_SECRET`
+   (at least 32 characters) and an optional `LOG_LEVEL` enum, and print every
+   problem at once with `z.prettifyError`.

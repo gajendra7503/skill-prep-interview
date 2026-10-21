@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which operation is typically INSTANT in MySQL 8.0/8.4?",
+      "options": [
+        "Changing a column from INT to BIGINT",
+        "Adding a column",
+        "Changing DECIMAL(12,2) to DECIMAL(14,2)",
+        "Rebuilding the table"
+      ],
+      "correctIndex": 1,
+      "explanation": "Adding a column only changes the data dictionary. Changing a column data type requires COPY."
+    },
+    {
+      "question": "Why specify ALGORITHM and LOCK explicitly in a migration?",
+      "options": [
+        "It makes the ALTER run faster",
+        "It disables binary logging",
+        "MySQL refuses instead of silently falling back to a slower, blocking method",
+        "It skips the metadata lock"
+      ],
+      "correctIndex": 2,
+      "explanation": "If the requested algorithm is not supported, MySQL returns an error rather than quietly choosing a slower approach."
+    },
+    {
+      "question": "Why can a millisecond-long instant ALTER freeze an application?",
+      "options": [
+        "It copies the whole table",
+        "It waits for a metadata lock held by a long transaction, and new queries queue behind it",
+        "It always blocks writes for an hour",
+        "It disables the primary key"
+      ],
+      "correctIndex": 1,
+      "explanation": "The ALTER needs a brief exclusive metadata lock; while it waits, all new queries on the table queue behind it. A short lock_wait_timeout makes it fail fast."
+    },
+    {
+      "question": "How does gh-ost capture ongoing writes to the original table?",
+      "options": [
+        "By reading the binary log",
+        "By using triggers",
+        "By locking the table",
+        "By running the ALTER on replicas only"
+      ],
+      "correctIndex": 0,
+      "explanation": "gh-ost reads row-format binary logs, avoiding triggers; pt-online-schema-change uses triggers."
+    }
+  ]
+}

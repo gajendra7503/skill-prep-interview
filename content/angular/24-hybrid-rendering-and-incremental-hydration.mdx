@@ -1,0 +1,147 @@
+---
+title: "Hybrid Rendering & Incremental Hydration"
+description: "Choosing server, prerender or client rendering per route, hydrating only what the user touches, and the production pitfalls of server-rendered Angular."
+module: "Pro Level"
+level: "pro"
+order: 25
+---
+
+The SSR lesson treated rendering as one switch: on or off. Real products
+are not that uniform. A marketing page should be prerendered at build time,
+a product page rendered per request, and a logged-in dashboard rendered
+only in the browser. Recent Angular versions let you choose **per route**,
+and then hydrate a page **piece by piece** instead of all at once.
+
+## Render modes per route
+
+Server routes live in their own file, next to the normal client routes:
+
+```ts
+// app.routes.server.ts
+import { inject } from "@angular/core";
+import { RenderMode, ServerRoute } from "@angular/ssr";
+import { FundService } from "./funds/fund.service";
+
+export const serverRoutes: ServerRoute[] = [
+  { path: "", renderMode: RenderMode.Prerender },          // static HTML at build
+  { path: "dashboard/**", renderMode: RenderMode.Client }, // browser only
+  {
+    path: "funds/:code",
+    renderMode: RenderMode.Prerender,
+    async getPrerenderParams() {
+      const codes = await inject(FundService).topFundCodes();
+      return codes.map((code) => ({ code })); // one HTML file per fund
+    },
+  },
+  { path: "**", renderMode: RenderMode.Server },           // per request
+];
+```
+
+```ts
+// app.config.server.ts
+import { mergeApplicationConfig, ApplicationConfig } from "@angular/core";
+import { provideServerRendering, withRoutes } from "@angular/ssr";
+import { appConfig } from "./app.config";
+import { serverRoutes } from "./app.routes.server";
+
+const serverConfig: ApplicationConfig = {
+  providers: [provideServerRendering(withRoutes(serverRoutes))],
+};
+
+export const config = mergeApplicationConfig(appConfig, serverConfig);
+```
+
+The exact provider names moved between major versions (an earlier API used
+a separate `provideServerRouting` function), so follow `ng update`
+migrations rather than copying configuration from old blog posts.
+
+## Picking the right mode
+
+| Mode | HTML produced | Good for | Watch out for |
+| --- | --- | --- | --- |
+| Prerender | Once, at build | Marketing, docs, fund fact sheets | Stale until the next deploy |
+| Server | Per request | Personalised or fast-changing public pages | Server cost, cold starts, latency |
+| Client | Never (empty shell) | Authenticated dashboards | No SEO, slower first paint |
+
+A senior-level answer always connects the choice to **data freshness,
+cacheability and cost**: a prerendered page served from a CDN costs almost
+nothing per visit; a server-rendered page costs CPU on every request.
+
+## Incremental hydration
+
+Full hydration makes every component on the page interactive at startup,
+downloading all of their JavaScript even if the user never scrolls to the
+footer. Incremental hydration combines SSR with `@defer`: the server still
+renders the full HTML, but the client leaves deferred blocks
+**dehydrated** until a trigger fires.
+
+```ts
+// app.config.ts
+import { provideClientHydration, withIncrementalHydration } from "@angular/platform-browser";
+
+export const appConfig = {
+  providers: [provideClientHydration(withIncrementalHydration())],
+};
+```
+
+```html
+<app-fund-header [fund]="fund()" />
+
+@defer (hydrate on viewport) {
+  <app-nav-history-chart [code]="fund().code" />
+}
+
+@defer (hydrate on interaction) {
+  <app-sip-calculator />
+}
+
+@defer (hydrate never) {
+  <app-regulatory-disclaimer />
+}
+```
+
+The user sees the chart and calculator immediately as server-rendered HTML.
+Their JavaScript is only fetched and hydrated when the chart scrolls into
+view or the user interacts with the calculator. `hydrate never` keeps
+purely static content as plain HTML forever. Other triggers include
+`hydrate on idle`, `hydrate on hover`, `hydrate on timer(...)` and
+`hydrate when` with a condition.
+
+## Event replay
+
+If a user clicks a button before its component has hydrated, that click
+would normally be lost. **Event replay** records early events and replays
+them once the relevant code is ready. It is enabled automatically with
+incremental hydration and can be turned on for full hydration with
+`withEventReplay()`.
+
+## Avoiding double data fetches
+
+When a server-rendered page calls an API, the browser would repeat the same
+call during hydration. `provideClientHydration()` enables the **HTTP
+transfer cache** by default: GET and HEAD responses made on the server are
+serialised into the page and reused by the client. Do not cache
+user-specific responses on a page that a CDN might share between users.
+
+## Production pitfalls
+
+- **Browser-only APIs.** `window`, `localStorage` and `document.cookie` do
+  not exist on the server. Move such code into `afterNextRender()`, which
+  only runs in the browser.
+- **Request data.** Read the incoming request through the `REQUEST`
+  injection token, and treat it as optional, because it is `null` during
+  prerendering.
+- **Hydration mismatches.** Locale-dependent dates, random IDs and
+  `Math.random()` in templates produce different HTML on server and
+  client. As a last resort, `ngSkipHydration` opts a component out.
+- **Memory leaks on the server.** A module-level cache or an uncleared
+  interval leaks across requests in a long-running Node process, which a
+  browser never punishes.
+
+### Try it yourself
+
+For an investment platform with a public home page, 500 mutual fund detail
+pages updated nightly, a search results page and a logged-in portfolio
+page, write the `serverRoutes` array with a render mode for each route and
+justify each choice in one sentence. Then decide which sections of a fund
+detail page should use `hydrate on viewport` versus `hydrate never`.

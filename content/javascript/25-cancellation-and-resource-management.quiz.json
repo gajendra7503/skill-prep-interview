@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is `AbortSignal.any([userSignal, AbortSignal.timeout(5000)])` better than racing the work against a timer with Promise.race?",
+      "options": [
+        "Promise.race cannot be used with fetch",
+        "AbortSignal.any runs the work faster",
+        "The combined signal actually cancels the underlying work, while Promise.race only stops waiting for it",
+        "Promise.race always rejects with a TypeError"
+      ],
+      "correctIndex": 2,
+      "explanation": "Promise.race just stops awaiting the slow promise while the request keeps running; passing a signal lets fetch and other APIs abort the work itself."
+    },
+    {
+      "question": "When writing your own cancellable function that receives a signal, what should happen when the signal aborts?",
+      "options": [
+        "Release whatever was started (e.g. clear the timer) and reject with signal.reason",
+        "Resolve the promise with undefined",
+        "Ignore it and let the work finish",
+        "Create a new AbortController and retry"
+      ],
+      "correctIndex": 0,
+      "explanation": "The abort listener should tear down resources and reject with signal.reason so callers can distinguish AbortError from TimeoutError."
+    },
+    {
+      "question": "Two resources are declared with `using a = ...; using b = ...;` and the block throws. In what order are they disposed?",
+      "options": [
+        "They are not disposed because the block threw",
+        "a first, then b",
+        "In an unspecified order",
+        "b first, then a"
+      ],
+      "correctIndex": 3,
+      "explanation": "using disposes resources when the block exits for any reason, in reverse order of declaration — like nested finally blocks."
+    },
+    {
+      "question": "What does passing `{ signal: controller.signal }` to addEventListener let you do?",
+      "options": [
+        "Make the listener run only once",
+        "Remove the listener (and any others sharing that signal) by calling controller.abort()",
+        "Stop the event from bubbling",
+        "Run the listener in a worker thread"
+      ],
+      "correctIndex": 1,
+      "explanation": "Aborting the controller removes every listener registered with its signal, which is a clean way to tear down a component's listeners together."
+    }
+  ]
+}

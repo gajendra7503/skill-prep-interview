@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does the leaf entry of an InnoDB secondary index contain besides the indexed columns?",
+      "options": [
+        "A physical file offset to the row",
+        "The full row data",
+        "The primary key value of the row",
+        "Nothing else"
+      ],
+      "correctIndex": 2,
+      "explanation": "Secondary index leaves store the primary key, which is then used to look up the full row in the clustered index."
+    },
+    {
+      "question": "Given an index on `(customer_id, status, created_at)`, which WHERE clause can NOT seek using this index?",
+      "options": [
+        "customer_id = 1",
+        "customer_id = 1 AND status = 'PAID'",
+        "customer_id = 1 AND status = 'PAID' AND created_at > '2025-01-01'",
+        "status = 'PAID' AND created_at > '2025-01-01'"
+      ],
+      "correctIndex": 3,
+      "explanation": "The leftmost prefix rule requires the first column, customer_id, to be constrained for a seek."
+    },
+    {
+      "question": "`phone` is a VARCHAR column with an index. Why does `WHERE phone = 9876543210` typically do a full scan?",
+      "options": [
+        "Comparing a string column to a number converts each row's value to a number, so the index order cannot be used",
+        "Numbers longer than 9 digits cannot be indexed",
+        "VARCHAR indexes only support LIKE",
+        "The optimizer ignores indexes on columns named phone"
+      ],
+      "correctIndex": 0,
+      "explanation": "Implicit type conversion applies to the column side, which defeats the index; quote the literal to compare strings."
+    },
+    {
+      "question": "What is the main purpose of making an index INVISIBLE before dropping it?",
+      "options": [
+        "It stops the index being maintained on writes, saving cost immediately",
+        "It lets you test the impact of removing it from the optimizer's choices while keeping it maintained, so it can be restored instantly",
+        "It compresses the index",
+        "It converts the index into a covering index"
+      ],
+      "correctIndex": 1,
+      "explanation": "Invisible indexes are still updated but ignored by the optimizer, so ALTER ... VISIBLE restores them without a rebuild."
+    }
+  ]
+}

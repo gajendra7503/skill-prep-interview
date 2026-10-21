@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "By default, how does useSelector decide whether a component should re-render after an action?",
+      "options": [
+        "It deep-compares the entire root state",
+        "It compares the new selector result with the previous one using ===",
+        "It re-renders every subscribed component on every dispatch",
+        "It checks whether the action type mentions the component's slice"
+      ],
+      "correctIndex": 1,
+      "explanation": "When state changes, the selector re-runs and its result is compared by reference (===). Only a different result triggers a re-render."
+    },
+    {
+      "question": "`useSelector((s) => s.cart.items.map((i) => i.name))` re-renders the component when an unrelated slice changes. Why?",
+      "options": [
+        "map() returns a new array each time, so the === check fails",
+        "useSelector cannot read nested arrays",
+        "The cart slice is mutated by the other reducer",
+        "Provider re-renders all children on every state change"
+      ],
+      "correctIndex": 0,
+      "explanation": "Any change to root state re-runs the selector. Returning a new array reference makes === fail even when contents are equal. Select existing references, use shallowEqual, or memoise."
+    },
+    {
+      "question": "Which statement about the function returned by useDispatch is correct?",
+      "options": [
+        "It changes on every render, so it must be wrapped in useCallback",
+        "It can only dispatch actions created by createSlice",
+        "It must be called during render to be batched",
+        "It is the store's dispatch, so its reference is stable and safe in effect dependencies"
+      ],
+      "correctIndex": 3,
+      "explanation": "useDispatch returns store.dispatch, which never changes for a given store. Dispatch in event handlers and effects, not during render."
+    },
+    {
+      "question": "A component reads `useStore().getState().user.name` during render. What is the problem?",
+      "options": [
+        "useStore throws outside of class components",
+        "getState() returns a frozen copy that cannot be read",
+        "Reading the store this way does not subscribe the component, so it can show stale data",
+        "It causes the component to re-render on every action"
+      ],
+      "correctIndex": 2,
+      "explanation": "Only useSelector subscribes to store updates. Reading getState() in render gives a one-off snapshot that will not update when the user changes."
+    }
+  ]
+}

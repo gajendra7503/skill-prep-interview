@@ -1,0 +1,137 @@
+---
+title: "Installing Python & Your First Program"
+description: "Install Python on Windows, macOS or Linux, use the interactive REPL, write and run your first script, and pick an editor."
+module: "Getting Started"
+level: "beginner"
+order: 1
+---
+
+Before you can learn Python you need a working interpreter and a way to run
+code. This lesson takes you from nothing installed to running your own
+script, and shows the two ways every Python developer works: typing into the
+interactive prompt, and running files.
+
+## Which Python to install
+
+Always install **Python 3**, and prefer a recent release. Python 2 reached
+end of life in 2020, and old tutorials written for it (`print "hello"`
+without brackets) will not run on Python 3.
+
+- **Windows:** download the installer from python.org (or the Python
+  Install Manager that recent releases offer). If you use the classic
+  installer, tick **"Add python.exe to PATH"** on the first screen.
+- **macOS:** download the installer from python.org, or use Homebrew
+  (`brew install python`). The system may already have a `python3`, but a
+  separate install keeps you in control of the version.
+- **Linux:** most distributions ship Python 3 already. Install extras such as
+  `python3-venv` and `python3-pip` with your package manager if they are
+  missing.
+
+## Check that it works
+
+Open a terminal (PowerShell or Terminal on Windows, Terminal on macOS) and
+ask Python for its version:
+
+```bash
+python --version      # Windows usually uses "python" (or the "py" launcher)
+python3 --version     # macOS and Linux usually use "python3"
+# Python 3.x.y
+```
+
+If you see "command not found" or the Microsoft Store opens, Python is not on
+your `PATH`. Re-run the installer and enable the PATH option, or on Windows
+use `py --version`, which uses the bundled launcher.
+
+## The REPL: Python's interactive prompt
+
+Type `python` (or `python3`) on its own and you enter the **REPL** —
+Read, Evaluate, Print, Loop. It reads a line, runs it, and prints the result
+straight away. The `>>>` prompt means it is waiting for you.
+
+```python
+>>> 2 + 3
+5
+>>> "Hello, " + "India"
+'Hello, India'
+>>> price = 499
+>>> price * 3
+1497
+>>> exit()
+```
+
+The REPL is perfect for quick experiments: checking what a function returns
+or how an operator behaves. Notice that it echoes the value of an expression
+automatically — a script will not do that; there you must call `print()`.
+
+## Your first script
+
+A script is just a text file ending in `.py`. Create a folder, and inside it
+a file called `hello.py`:
+
+```python
+# hello.py - lines starting with # are comments and are ignored
+
+name = input("What is your name? ")
+course_fee = 4999
+print(f"Welcome, {name}!")
+print(f"The course costs ₹{course_fee:,}")
+```
+
+Run it from the same folder:
+
+```bash
+python hello.py
+# What is your name? Asha
+# Welcome, Asha!
+# The course costs ₹4,999
+```
+
+`input()` pauses and returns whatever the user types as a string. `print()`
+writes to the screen. The `f` before the quotes makes an **f-string**, which
+fills in the values inside the braces — you will meet them properly in the
+strings lesson.
+
+## Choosing an editor
+
+Any plain-text editor works, but a code editor makes life much easier:
+
+| Editor | Why people pick it |
+| --- | --- |
+| VS Code + the Python extension | Free, popular, good debugging and linting |
+| PyCharm (Community or Pro) | Full IDE with strong refactoring tools |
+| IDLE | Ships with Python; fine for your first week |
+
+Whichever you choose, configure it to use the interpreter you just installed
+and to indent with **four spaces** — the standard Python style.
+
+## Reading your first error
+
+Mistakes are normal. Python reports them with a **traceback**: read it from
+the bottom up.
+
+```python
+print("Total:", 100 + "50")
+# Traceback (most recent call last):
+#   File "hello.py", line 1, in <module>
+#     print("Total:", 100 + "50")
+# TypeError: unsupported operand type(s) for +: 'int' and 'str'
+```
+
+The last line names the error type and the reason; the lines above it show
+the file and line number. Here Python refuses to add a number to a string —
+convert one side first, for example `100 + int("50")`.
+
+## A note on virtual environments
+
+Once you start installing third-party packages, you will create a separate
+**virtual environment** per project so their dependencies do not clash. You
+do not need one for this lesson; the "Modules, Packages & Environments"
+lesson covers `venv`, `pip` and `uv` in detail.
+
+### Try it yourself
+
+Install Python, confirm the version in a terminal, and use the REPL to work
+out how much 12 monthly SIP instalments of ₹2,500 add up to. Then write a
+script `bill.py` that asks for an item name and its price, and prints the
+price including 18% GST. What error do you get if you forget to convert the
+typed price with `float()`?

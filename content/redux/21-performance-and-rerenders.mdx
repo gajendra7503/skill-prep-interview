@@ -1,0 +1,159 @@
+---
+title: "Performance: Avoiding Unnecessary Re-renders"
+description: "Learn exactly when useSelector re-renders a component, measure it, and fix the common causes with primitive selectors, shallowEqual, memoized selectors and memoized rows."
+module: "Advanced Redux"
+level: "advanced"
+order: 21
+---
+
+Redux itself is fast: a dispatch runs reducers and notifies subscribers in
+microseconds. Slow Redux apps are almost always slow **React** apps —
+components re-rendering when nothing they show has changed. To fix that you
+need one precise mental model of `useSelector`.
+
+## How useSelector decides to re-render
+
+1. After **every** dispatch, React-Redux runs every mounted component's
+   selector against the new state.
+2. It compares the new result with the previous one using **reference
+   equality** (`===`) by default.
+3. Only if they differ does that component re-render.
+
+So the cost has two parts: selectors run constantly (keep them cheap), and
+any selector that returns a **new reference** for the same data forces a
+re-render on every dispatch — even unrelated ones.
+
+## An experiment: counting renders
+
+Five components share one store. We dispatch two unrelated `ticked` actions,
+then change the amount of order `o2` (render counters omitted):
+
+```tsx
+// 1. returns a new array every time
+function Bad() {
+  useSelector((s: S) => s.orders.items.filter(o => o.status === 'open'))
+}
+// 2. new array, but compared item by item
+function Shallow() {
+  useSelector((s: S) => s.orders.items.map(o => o.id), shallowEqual)
+}
+// 3. memoized with createSelector
+const selectOpen = createSelector([(s: S) => s.orders.items], items => items.filter(o => o.status === 'open'))
+function Memo() {
+  useSelector(selectOpen)
+}
+// 4. each row selects only its own primitive value
+const Row = memo(function Row({ id }: { id: string }) {
+  const amount = useSelector((s: S) => s.orders.items.find(o => o.id === id)!.amount)
+  return <span>{amount}</span>
+})
+```
+
+Render counts (including the first render), measured with Vitest and React
+Testing Library:
+
+```text
+{"bad":4,"shallow":1,"memo":2,"row1":1,"row2":2}
+```
+
+| Component | Renders | Why |
+|---|---|---|
+| `Bad` | 4 | `filter` makes a new array on every dispatch, so `===` always fails |
+| `Shallow` | 1 | the ids never changed, and `shallowEqual` compares elements |
+| `Memo` | 2 | unchanged for `ticked`; re-ran when `items` got a new reference |
+| `Row o1` | 1 | its `amount` (a number) never changed |
+| `Row o2` | 2 | only the row whose data changed re-rendered |
+
+Note the `Memo` result: Immer gives `items` a new reference whenever **any**
+order changes, so `createSelector` recomputes and returns a new array. That
+is correct, but it means memoization protects you from unrelated actions,
+not from changes inside the same input.
+
+## Development warnings help
+
+In development, React-Redux runs each selector twice on first use and warns
+if the results differ. The `Bad` component triggered it:
+
+```text
+Selector unknown returned a different result when called with the same parameters. This can lead to unnecessary rerenders.
+```
+
+("unknown" appears because the inline arrow has no name; named selector
+functions show their name.) A second
+check warns if a selector returns the entire state, such as `s => s`. Both
+are configurable with `devModeChecks` on `useSelector` or `stabilityCheck` /
+`identityFunctionCheck` on `Provider`. Treat the warnings as bugs.
+
+## The fixes, in order of preference
+
+**1. Select the smallest thing you need, ideally a primitive.** Strings,
+numbers and booleans compare by value, so they never cause false re-renders.
+Several small `useSelector` calls are better than one that builds an object.
+
+**2. Lists: parent selects ids, child selects the item.** With normalised
+state (see "Normalising State with createEntityAdapter") the parent renders
+`ids.map(id => <Row key={id} id={id} />)`, and each `memo`-wrapped row
+selects `selectById(state, id)`. Updating one entity re-renders one row.
+
+**3. Need an array or object? Memoize it** with `createSelector` (see
+"Selectors & Memoization with createSelector"), or pass `shallowEqual` for
+small arrays/objects whose items are stable references.
+
+**4. Do not subscribe if you do not render it.** To read state in an event
+handler only, use `useStore()` and call `store.getState()` inside the handler:
+
+```tsx
+const store = useAppStore()
+const onExport = () => downloadCsv(selectAllOrders(store.getState())) // no subscription
+```
+
+**5. RTK Query: pick fields with `selectFromResult`.** A query hook
+re-renders on every status change of that query. If you only need one item:
+
+```tsx
+const { fund } = useGetFundsQuery(undefined, {
+  selectFromResult: ({ data }) => ({ fund: data?.find(f => f.id === fundId) }),
+})
+```
+
+The hook shallow-compares the returned object, so this component re-renders
+only when that fund changes.
+
+## Batching
+
+Since React 18, state updates are batched automatically, even inside
+promises and timeouts, so several dispatches in one thunk produce one render.
+React-Redux's `batch()` export is deprecated and does nothing useful now.
+`configureStore` also adds RTK's `autoBatchEnhancer` by default, which delays
+subscriber notifications for actions marked as low priority (RTK Query marks
+many of its internal actions this way).
+
+## Measure before you optimise
+
+- React DevTools Profiler: record an interaction and look for components that
+  rendered without their props or selected data changing. Enable "Highlight
+  updates when components render" for a quick visual check.
+- Count renders in a test, as above, to lock in a fix.
+- Redux DevTools shows how many actions fire per user interaction; a storm of
+  actions is its own problem.
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Component re-renders on every dispatch | selector returns new object/array | primitive, `shallowEqual` or `createSelector` |
+| Whole list re-renders on one item change | parent maps over full objects | ids in parent, memoized row selects by id |
+| Typing in a field lags | every keystroke dispatches; many subscribers | keep input in local state, dispatch on blur or debounce |
+| Query component flickers | reads `isFetching` it does not need | `selectFromResult` |
+
+Interviewers often ask: "Why does `useSelector(s => ({ a: s.a, b: s.b }))`
+cause re-renders?" Because the object literal is a new reference every time
+and the default comparison is `===`. Split it into two selectors or pass
+`shallowEqual`.
+
+### Try it yourself
+
+1. Wrap `Bad`'s selector in `createSelector` and re-run the count; then dispatch
+   an action that changes an order's `status` and explain the new count.
+2. Turn a 500-row table that selects full objects into ids-plus-rows and
+   compare the Profiler flame graphs.
+3. Replace an RTK Query consumer's full `data` read with `selectFromResult`
+   and confirm it no longer re-renders while a background refetch runs.

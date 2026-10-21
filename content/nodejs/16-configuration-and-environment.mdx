@@ -1,0 +1,141 @@
+---
+title: "Configuration & Environment"
+description: "Reading config from process.env, loading .env files with node --env-file or dotenv, validating config at startup and keeping secrets out of your code."
+module: "Production Node"
+level: "intermediate"
+order: 15
+---
+
+The same build should run on your laptop, in CI and in production — only
+the **configuration** changes. Interviewers check that you know where
+config comes from, why everything in `process.env` is a string, and how to
+fail fast when a required value is missing.
+
+## process.env basics
+
+`process.env` is an object holding the environment variables the process
+was started with.
+
+```bash
+PORT=8080 NODE_ENV=production node server.js
+```
+
+```js
+console.log(process.env.PORT);            // "8080" — always a string
+console.log(process.env.MISSING);         // undefined
+
+process.env.RETRIES = 3;
+console.log(typeof process.env.RETRIES);  // "string" — values are coerced
+
+// classic bug: any non-empty string is truthy
+process.env.DEBUG = "false";
+if (process.env.DEBUG) console.log("debug on!"); // runs!
+```
+
+Convert explicitly (`Number(...)`, `value === "true"`) and do it in **one
+place**, not scattered across the codebase. `NODE_ENV=production` also
+matters to libraries: Express and many others enable caching and quieter
+errors when they see it.
+
+## Loading .env files with Node itself
+
+Node can load a `.env` file without any package using `--env-file`:
+
+```bash
+# .env
+PORT=3000
+DATABASE_URL="mysql://app:secret@localhost:3306/shop"
+# comments are allowed
+```
+
+```bash
+node --env-file=.env server.js
+node --env-file=.env --env-file=.env.local server.js   # later files override earlier ones
+node --env-file-if-exists=.env server.js               # no error if the file is missing
+PORT=8080 node --env-file=.env server.js               # real env wins: PORT is "8080"
+```
+
+With plain `--env-file`, a missing file is an error and Node will not start.
+Variables already set in the real environment take precedence over the
+file. From code, `process.loadEnvFile(".env")` does the same, and
+`util.parseEnv(text)` parses a string into an object. These built-ins
+arrived in recent Node versions; `--env-file-if-exists` is newer than
+`--env-file`, so check the docs for your exact version.
+
+## dotenv
+
+Before the built-in support, `dotenv` was the standard — and many projects
+still use it:
+
+```js
+import "dotenv/config";                 // loads .env into process.env on import
+console.log(process.env.DATABASE_URL);
+```
+
+Like the built-in loader, it does not overwrite variables that are already
+set. For new projects on current Node, `--env-file` removes a dependency.
+
+## The 12-factor rules for config
+
+The [Twelve-Factor App](https://12factor.net/config) methodology says:
+
+- Store config that varies between deploys (URLs, credentials, feature
+  flags) in **environment variables**, not in code.
+- Do not group config into "dev/staging/prod" files baked into the build;
+  each deploy gets its own set of variables.
+- Commit a `.env.example` with **keys and dummy values**; add `.env` to
+  `.gitignore`.
+
+## Validate once, at startup
+
+Reading `process.env.X` deep inside a request handler means a typo is only
+discovered when that route is hit in production. Instead, parse and
+validate everything at boot and export a typed object. With zod 4:
+
+```js
+// config.js
+import { z } from "zod";
+
+const schema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  PORT: z.coerce.number().int().positive().default(3000),
+  DATABASE_URL: z.url(),
+  JWT_SECRET: z.string().min(32),
+  ENABLE_UPI: z.stringbool().default(false),       // "true"/"false" → boolean
+});
+
+const result = schema.safeParse(process.env);
+if (!result.success) {
+  console.error("Invalid configuration:\n" + z.prettifyError(result.error));
+  process.exit(1);                                  // fail fast, before listening
+}
+export const config = Object.freeze(result.data);
+// Invalid configuration:
+// ✖ Invalid input: expected string, received undefined
+//   → at DATABASE_URL
+// ✖ Too small: expected string to have >=32 characters
+//   → at JWT_SECRET
+```
+
+Now the rest of the app imports `config.PORT` (a number) and never touches
+`process.env` directly. Crashing at startup is a feature: the deploy fails
+loudly instead of serving broken requests.
+
+## Handling secrets
+
+- Never commit secrets; if one leaks into git history, **rotate** it —
+  deleting the commit is not enough.
+- In production, inject secrets from a secret manager (AWS Secrets Manager,
+  GCP Secret Manager, Vault, Kubernetes Secrets) as env vars or mounted files.
+- Never log the whole `process.env` or config object; redact keys such as
+  `JWT_SECRET` and `DATABASE_URL`.
+- Env vars are visible to child processes you spawn, so pass a filtered
+  `env` to `spawn` when running untrusted tools.
+
+### Try it yourself
+
+Create `.env` and `.env.example` for a payments service with `PORT`,
+`DATABASE_URL`, `RAZORPAY_KEY_SECRET` and `MAX_REFUND_INR` (for example
+`50000` for ₹50,000). Load them with `node --env-file=.env`, validate with a
+zod schema that coerces `MAX_REFUND_INR` to a number, and confirm the app
+exits with a clear message when `DATABASE_URL` is removed.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why should you import `node:assert/strict` instead of plain `node:assert` in tests?",
+      "options": [
+        "Only the strict variant supports async assertions",
+        "In legacy mode equal uses == so assert.equal(1, \"1\") passes; strict mode compares with Object.is",
+        "The plain module is not available inside node:test",
+        "Strict mode automatically generates coverage reports"
+      ],
+      "correctIndex": 1,
+      "explanation": "Legacy assert.equal and deepEqual use loose equality. The strict variant makes equal behave like strictEqual and deepEqual like deepStrictEqual."
+    },
+    {
+      "question": "A test calls `assert.rejects(promise, /timeout/)` without `await`. What is the likely result?",
+      "options": [
+        "The test may pass before the assertion has actually been checked",
+        "Node throws a SyntaxError at load time",
+        "The assertion runs synchronously, so nothing changes",
+        "The test runner automatically awaits it and reports correctly"
+      ],
+      "correctIndex": 0,
+      "explanation": "assert.rejects returns a promise. Without await (or returning it), the test function finishes first and a failed assertion can be missed."
+    },
+    {
+      "question": "What is the advantage of using `t.mock.method(...)` from the test context instead of replacing the method by hand?",
+      "options": [
+        "It makes the method run in a worker thread",
+        "It type-checks the replacement function",
+        "It records calls and automatically restores the original method when the test ends",
+        "It is the only way to mock async functions"
+      ],
+      "correctIndex": 2,
+      "explanation": "Mocks created through the test context track calls in .mock.calls and are restored after the test, so they never leak into other tests."
+    },
+    {
+      "question": "How do you test a 300 ms debounce with node:test without waiting in real time?",
+      "options": [
+        "Run the test with --watch",
+        "Wrap the test in setImmediate",
+        "Pass a timeout option of 300 to it()",
+        "Enable mock.timers for setTimeout and call tick(300)"
+      ],
+      "correctIndex": 3,
+      "explanation": "mock.timers.enable({ apis: [\"setTimeout\"] }) replaces timers with fake ones, and tick(ms) advances fake time instantly and deterministically."
+    }
+  ]
+}

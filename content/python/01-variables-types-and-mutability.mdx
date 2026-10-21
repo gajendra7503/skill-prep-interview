@@ -1,0 +1,135 @@
+---
+title: "Variables, Types & Mutability"
+description: "Names vs objects, identity vs equality, mutable vs immutable types, and the aliasing bugs they cause."
+module: "Fundamentals"
+level: "beginner"
+order: 3
+---
+
+Python looks simple until an interviewer asks why changing one list changed
+another, or why `a is b` is `True` for one number and `False` for another.
+Both questions have the same answer: in Python, variables are **names bound
+to objects**, not boxes that hold values. Get this model right and most of
+Python's "surprising" behaviour stops being surprising.
+
+## Names point at objects
+
+Assignment never copies data. It binds a name to an existing object:
+
+```python
+a = [1, 2, 3]
+b = a            # b is a second name for the SAME list
+b.append(4)
+print(a)         # [1, 2, 3, 4]
+```
+
+Every object has three things: an **identity** (where it lives, exposed by
+`id()`), a **type** (fixed for the object's lifetime), and a **value**. Names
+have no type at all — the same name can be rebound to an `int`, then a `str`.
+That is what "dynamically typed" means: types belong to objects, not names.
+
+```python
+x = 10
+print(type(x))   # <class 'int'>
+x = "ten"
+print(type(x))   # <class 'str'>
+```
+
+## `is` vs `==`: identity vs equality
+
+`==` asks "do these objects have equal values?" and calls `__eq__`. `is` asks
+"are these the very same object?" and compares identities — it cannot be
+overridden.
+
+```python
+a = [1, 2]
+b = [1, 2]
+print(a == b)    # True  — equal contents
+print(a is b)    # False — two separate list objects
+print(id(a) == id(b))  # False — same check as `is`
+```
+
+The rule interviewers want to hear: use `is` only for singletons such as
+`None`, `True`, `False` and sentinel objects (`if x is None:`). Use `==` for
+everything else.
+
+## Mutable vs immutable
+
+An **immutable** object's value can never change after creation: `int`,
+`float`, `bool`, `str`, `bytes`, `tuple`, `frozenset`. A **mutable** object
+can be changed in place: `list`, `dict`, `set`, `bytearray`, and most
+user-defined class instances.
+
+"Changing" an immutable value really creates a new object and rebinds the
+name:
+
+```python
+s = "hi"
+print(id(s))
+s += "!"         # builds a new str, rebinds s
+print(id(s))     # different id
+
+nums = [1]
+before = id(nums)
+nums += [2]      # list.__iadd__ mutates in place
+print(id(nums) == before)  # True
+```
+
+Note that a tuple is immutable but can *contain* mutable objects. The tuple's
+references are fixed, yet the list inside it can still change — and such a
+tuple is not hashable, so it cannot be a dict key.
+
+```python
+t = ([1], 2)
+t[0].append(99)
+print(t)         # ([1, 99], 2)
+hash(t)          # TypeError: unhashable type: 'list'
+```
+
+## The small-integer caching caveat
+
+CPython pre-allocates integers from -5 to 256 and reuses them, and it may
+also reuse constants inside the same compiled code block. This leads to
+results that look inconsistent:
+
+```python
+a = 256
+b = 256
+print(a is b)    # True  — cached small int
+
+x = int("1000")
+y = int("1000")
+print(x is y)    # False — two separate int objects
+```
+
+This is an **implementation detail**, not a language guarantee. Python 3.8+
+even emits `SyntaxWarning: "is" with a literal` for code like `x is 1000`.
+The interview takeaway: never use `is` to compare numbers or strings.
+
+## Aliasing in practice
+
+Aliasing bites hardest when a mutable object is passed to a function or
+shared inside a container. Python passes arguments by **object reference**
+("call by sharing"): the function receives a new name for the same object.
+
+```python
+def add_item(items):
+    items.append("x")    # mutates the caller's list
+    items = ["new"]      # rebinds the local name only
+
+data = []
+add_item(data)
+print(data)      # ['x']
+
+grid = [[0] * 3] * 3     # three references to ONE inner list
+grid[0][0] = 1
+print(grid)      # [[1, 0, 0], [1, 0, 0], [1, 0, 0]]
+grid = [[0] * 3 for _ in range(3)]  # correct: three distinct lists
+```
+
+### Try it yourself
+
+Write a function `append_twice(seq, value)` that appends `value` to `seq`
+twice. Call it with a list, then with a tuple, and explain why one works and
+the other raises. Then build a 2x2 grid with the `*` trick and with a
+comprehension, print `id()` of each row, and explain the difference.

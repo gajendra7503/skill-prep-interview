@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "On Linux, what does `path.resolve(\"/srv/app\", \"/etc\", \"passwd\")` return?",
+      "options": [
+        "/srv/app/etc/passwd",
+        "/etc/passwd",
+        "srv/app/etc/passwd",
+        "It throws because two segments are absolute"
+      ],
+      "correctIndex": 1,
+      "explanation": "resolve processes segments right to left until it has an absolute path; the absolute segment /etc discards everything before it. join would instead give /srv/app/etc/passwd."
+    },
+    {
+      "question": "A script reads `./config.json` and works locally but fails when cron runs it from another directory. What is the robust fix?",
+      "options": [
+        "Build the path from import.meta.dirname (the module's folder) instead of relying on process.cwd()",
+        "Use require instead of fs",
+        "Call process.chdir('/') first",
+        "Use a URL instead of a path"
+      ],
+      "correctIndex": 0,
+      "explanation": "Relative paths resolve against process.cwd(), the directory the process was started from. import.meta.dirname (or fileURLToPath(import.meta.url)) gives the file's own location."
+    },
+    {
+      "question": "You set `process.env.RETRIES = 3`. What is `typeof process.env.RETRIES`?",
+      "options": [
+        "\"number\"",
+        "\"undefined\"",
+        "\"object\"",
+        "\"string\""
+      ],
+      "correctIndex": 3,
+      "explanation": "Environment variables are always strings; Node converts assigned values to strings. Parse with Number() or validate config at startup."
+    },
+    {
+      "question": "Why is setting `process.exitCode = 1` often preferred over calling `process.exit(1)`?",
+      "options": [
+        "process.exit only works on Windows",
+        "exitCode makes the process restart automatically",
+        "exitCode lets the process finish pending work, like flushing output, before exiting with failure; process.exit stops immediately",
+        "process.exit(1) always reports success to the shell"
+      ],
+      "correctIndex": 2,
+      "explanation": "process.exit terminates right away and can cut off asynchronous writes. Setting exitCode marks the run as failed and lets Node exit naturally once the event loop is empty."
+    }
+  ]
+}

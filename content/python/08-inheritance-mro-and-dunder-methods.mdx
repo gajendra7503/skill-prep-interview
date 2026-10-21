@@ -1,0 +1,121 @@
+---
+title: "Inheritance, MRO & Dunder Methods"
+description: "super(), the C3 method resolution order, multiple inheritance, and the special methods that make objects behave like built-ins."
+module: "Object-Oriented Python"
+level: "intermediate"
+order: 10
+---
+
+Python supports full multiple inheritance, which means "which method gets
+called?" has a precise, algorithmic answer. Combined with dunder (double
+underscore) methods, this is how you make your classes print nicely, compare
+correctly, work in sets and dicts, and support operators like `+`.
+
+## Single inheritance and `super()`
+
+```python
+class Animal:
+    def __init__(self, name):
+        self.name = name
+
+    def speak(self):
+        return "..."
+
+class Dog(Animal):
+    def __init__(self, name, breed):
+        super().__init__(name)       # let the parent initialise its part
+        self.breed = breed
+
+    def speak(self):                 # override
+        return f"{self.name} says woof"
+
+print(Dog("Rex", "Lab").speak())     # Rex says woof
+```
+
+A common misconception is that `super()` means "my parent class". It
+actually means "the *next* class in the MRO of the instance's type", which
+matters as soon as multiple inheritance is involved.
+
+## The MRO and C3 linearisation
+
+Every class has a method resolution order, visible as `__mro__`. Python
+computes it with the C3 algorithm, which guarantees that a subclass comes
+before its bases and that the order of bases you list is preserved.
+
+```python
+class A:
+    def hello(self): return "A"
+
+class B(A):
+    def hello(self): return "B -> " + super().hello()
+
+class C(A):
+    def hello(self): return "C -> " + super().hello()
+
+class D(B, C):
+    def hello(self): return "D -> " + super().hello()
+
+print([k.__name__ for k in D.__mro__])  # ['D', 'B', 'C', 'A', 'object']
+print(D().hello())                      # D -> B -> C -> A
+```
+
+Notice `super()` inside `B` called `C`, not `A` — because for a `D`
+instance, `C` is next after `B` in the MRO. This is the "diamond problem",
+and C3 ensures `A.hello` runs exactly once. Cooperative classes must all call
+`super()` and accept `**kwargs` they pass along. If no consistent order
+exists, Python raises `TypeError` when the class is defined.
+
+## `__repr__` vs `__str__`
+
+`__repr__` is for developers: unambiguous, ideally valid Python that recreates
+the object. `__str__` is for end users. `print()` and `str()` use `__str__`,
+falling back to `__repr__`; the REPL and containers use `__repr__`.
+
+```python
+class Money:
+    def __init__(self, amount, currency="INR"):
+        self.amount, self.currency = amount, currency
+
+    def __repr__(self):
+        return f"Money({self.amount!r}, {self.currency!r})"
+
+    def __str__(self):
+        return f"{self.currency} {self.amount:,}"
+
+    def __eq__(self, other):
+        if not isinstance(other, Money):
+            return NotImplemented
+        return (self.amount, self.currency) == (other.amount, other.currency)
+
+    def __hash__(self):
+        return hash((self.amount, self.currency))
+
+    def __add__(self, other):
+        if not isinstance(other, Money) or other.currency != self.currency:
+            return NotImplemented
+        return Money(self.amount + other.amount, self.currency)
+
+m = Money(150000)
+print(m)                     # INR 150,000
+print([m])                   # [Money(150000, 'INR')]
+print(m + Money(500))        # INR 150,500
+print(m == Money(150000))    # True
+print(len({m, Money(150000)}))  # 1
+```
+
+## `__eq__` and `__hash__` go together
+
+Objects that compare equal **must** have equal hashes, or sets and dicts
+break. Defining `__eq__` without `__hash__` makes Python set `__hash__` to
+`None`, so instances become unhashable. Only hash immutable state — if a
+hashed field changes, the object gets lost inside a set.
+
+Returning `NotImplemented` (not raising) from `__eq__` or `__add__` tells
+Python to try the reflected operation on the other operand, such as
+`__radd__`, before falling back or raising `TypeError`.
+
+### Try it yourself
+
+Build a `Vector` class with `__repr__`, `__eq__`, `__hash__`, `__add__`,
+`__mul__` for scalar multiplication, and `__rmul__` so that `3 * v` works.
+Then add a diamond hierarchy of mixins and print its `__mro__`.

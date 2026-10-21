@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the main advantage of writing an addon with Node-API instead of raw V8 APIs?",
+      "options": [
+        "It is ABI-stable, so a compiled addon keeps loading on later Node versions without recompiling",
+        "It lets addons run in the browser",
+        "It removes the need for a C compiler",
+        "It automatically runs all code on worker threads"
+      ],
+      "correctIndex": 0,
+      "explanation": "Node-API is an ABI-stable C interface; raw V8 or NAN addons must be rebuilt for every major Node version."
+    },
+    {
+      "question": "A Node-API function takes 300 ms of CPU time and is called directly from JavaScript. What happens?",
+      "options": [
+        "It runs on the libuv thread pool automatically",
+        "It blocks the event loop for 300 ms, because native code called from JavaScript runs on the main thread",
+        "Node kills the call after 100 ms",
+        "It runs in a separate process"
+      ],
+      "correctIndex": 1,
+      "explanation": "Native calls run on the main thread; long work should use napi_create_async_work so the execute step runs on the thread pool."
+    },
+    {
+      "question": "Inside the execute callback of napi_create_async_work, what must you avoid?",
+      "options": [
+        "Doing CPU-heavy computation",
+        "Using plain C memory",
+        "Calling Node-API functions or touching JavaScript values",
+        "Returning from the function"
+      ],
+      "correctIndex": 2,
+      "explanation": "execute runs on a thread-pool thread, where JavaScript values and Node-API calls are not allowed; copy inputs into C memory first and finish in the complete callback."
+    },
+    {
+      "question": "Why might a team choose WebAssembly over a native addon?",
+      "options": [
+        "Wasm calls have zero boundary cost, even for millions of tiny calls",
+        "Wasm can call any operating-system API directly",
+        "Wasm is always faster than native code",
+        "One .wasm file runs on every OS and CPU, and its sandbox means a bug cannot corrupt the Node process"
+      ],
+      "correctIndex": 3,
+      "explanation": "Wasm is portable and sandboxed to its own memory and imports; it does have a boundary cost, and native addons remain the most capable option."
+    }
+  ]
+}

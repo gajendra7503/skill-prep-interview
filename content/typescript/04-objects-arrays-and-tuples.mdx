@@ -1,0 +1,191 @@
+---
+title: "Objects, Arrays & Tuples"
+description: "Typing object shapes with optional and readonly properties, excess property checks, index signatures, arrays, readonly arrays and tuples."
+module: "Fundamentals"
+level: "beginner"
+order: 4
+---
+
+Most real data is structured: a customer has a name and an email, an
+order has a list of items. This lesson shows how to describe those shapes
+precisely — objects, arrays, and fixed-length tuples.
+
+## Object types
+
+An object type lists property names and their types:
+
+```ts
+let customer: { name: string; email: string; age: number } = {
+  name: "Priya",
+  email: "priya@example.com",
+  age: 29,
+};
+
+customer.phone;
+// Error: Property 'phone' does not exist on type '{ name: string; email: string; age: number; }'.
+```
+
+Writing the shape inline gets repetitive, so you normally give it a name
+with a `type` alias (or an `interface` — the difference is the subject of
+"Interfaces vs Type Aliases"):
+
+```ts
+type Customer = {
+  name: string;
+  email: string;
+  age: number;
+};
+
+function welcome(c: Customer): string {
+  return `Welcome, ${c.name}`;
+}
+```
+
+TypeScript checks objects **structurally**: any object with the required
+properties of the right types is accepted, whatever it was called or
+where it came from.
+
+## Optional and readonly properties
+
+```ts
+type Order = {
+  readonly id: string;     // cannot be reassigned after creation
+  amount: number;
+  couponCode?: string;     // may be missing; type is string | undefined
+};
+
+const order: Order = { id: "ORD-1001", amount: 2499 };
+
+order.amount = 1999;       // fine
+order.id = "ORD-2000";
+// Error: Cannot assign to 'id' because it is a read-only property.
+
+const code = order.couponCode?.toUpperCase(); // string | undefined
+```
+
+Two things to remember: `readonly` is a **compile-time** check only — it
+does not freeze the object at runtime. And `readonly` is shallow: a
+readonly property holding an object still lets you change that object's
+own properties.
+
+## Excess property checks
+
+When you pass an object **literal** directly, TypeScript also rejects
+properties that the type does not mention — they are usually typos:
+
+```ts
+const o1: Order = { id: "ORD-1", amount: 500, coupon: "DIWALI" };
+// Error: Object literal may only specify known properties,
+// and 'coupon' does not exist in type 'Order'.
+```
+
+But the same extra property is allowed when the object comes from a
+variable, because structural typing only requires the listed properties:
+
+```ts
+const draft = { id: "ORD-2", amount: 500, coupon: "DIWALI" };
+const o2: Order = draft; // no error — draft has id and amount
+```
+
+Interviewers often ask why the second line compiles. Answer: excess
+property checking is an extra rule applied only to fresh object literals;
+ordinary assignability is structural and allows extra properties.
+
+## Index signatures
+
+When the keys are not known in advance, use an **index signature**:
+
+```ts
+type StockByCity = {
+  [city: string]: number;
+};
+
+const stock: StockByCity = { Mumbai: 120, Delhi: 85 };
+stock["Chennai"] = 40;
+```
+
+The built-in `Record<string, number>` means the same thing and is often
+more readable; it is covered in "Built-in Utility Types".
+
+Be careful: by default `stock["Kolkata"]` is typed as `number` even
+though the key does not exist and the runtime value is `undefined`. The
+`noUncheckedIndexedAccess` compiler option makes such reads
+`number | undefined` (see "tsconfig & Strict Mode Explained").
+
+## Arrays
+
+There are two equivalent syntaxes:
+
+```ts
+const amounts: number[] = [1200, 450, 980];
+const cities: Array<string> = ["Pune", "Indore"];
+
+amounts.push("100");
+// Error: Argument of type 'string' is not assignable to parameter of type 'number'.
+
+const orders: Order[] = [];   // an empty array needs an annotation
+```
+
+`number[]` is more common; `Array<number>` is the generic form you will
+understand fully after "Generics Fundamentals". Methods like `map`,
+`filter` and `find` keep their types: `amounts.find(...)` returns
+`number | undefined`, because nothing may match.
+
+## Readonly arrays
+
+```ts
+function total(values: readonly number[]): number {
+  // values.push(1);
+  // Error: Property 'push' does not exist on type 'readonly number[]'.
+  return values.reduce((sum, v) => sum + v, 0);
+}
+```
+
+Taking `readonly` arrays as parameters tells callers you will not mutate
+their data. A normal `number[]` can be passed where `readonly number[]` is
+expected, but not the other way round.
+
+## Tuples
+
+A **tuple** is an array with a fixed length where each position has its
+own type:
+
+```ts
+let point: [number, number] = [18.52, 73.85];   // latitude, longitude
+let entry: [string, number] = ["Rent", 25000];
+
+entry = [25000, "Rent"];
+// Error: Type 'number' is not assignable to type 'string'.
+
+const [label, amount] = entry; // label: string, amount: number
+```
+
+You can name the positions for readability, and mark some optional:
+
+```ts
+type Transfer = [from: string, to: string, amount: number, note?: string];
+
+const t1: Transfer = ["ACC-1", "ACC-2", 5000];
+const t2: Transfer = ["ACC-1", "ACC-2", 5000, "Rent for October"];
+```
+
+Tuples are how React's `useState` returns `[value, setValue]`. Without an
+annotation, an array literal is inferred as an array, not a tuple:
+
+```ts
+const pair = ["Rent", 25000];   // (string | number)[] — not a tuple!
+```
+
+Note that `push` still works on a mutable tuple (a known soundness gap);
+use `readonly [number, number]` when the tuple must not change.
+
+### Try it yourself
+
+1. Define a `Product` type with `readonly sku`, `name`, `price` and an
+   optional `discountPercent`. Write `finalPrice(p: Product): number`.
+2. Create a variable of type `Record<string, number>` or an index
+   signature mapping UPI IDs to balances, then read a missing key and
+   check what type your editor shows. Turn on `noUncheckedIndexedAccess`
+   and compare.
+3. Write `function minMax(values: readonly number[]): [min: number, max: number]`
+   and destructure the result.

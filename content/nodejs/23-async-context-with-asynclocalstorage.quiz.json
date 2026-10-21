@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does asyncLocalStorage.run(store, fn) do?",
+      "options": [
+        "Copies store into a global variable shared by all requests",
+        "Runs fn on a worker thread",
+        "Makes store the current value for fn and every async operation started inside it",
+        "Saves store to disk for later requests"
+      ],
+      "correctIndex": 2,
+      "explanation": "run scopes the store to the callback and everything it schedules, such as promises, timers and I/O callbacks, so getStore() returns it there."
+    },
+    {
+      "question": "A listener registered inside request A's context is triggered by emit() called inside request B's context. Which context does the listener see by default?",
+      "options": [
+        "Request B's context, because listeners run in the context of whoever calls emit",
+        "Request A's context, because it was registered there",
+        "No context at all",
+        "Both contexts merged"
+      ],
+      "correctIndex": 0,
+      "explanation": "Plain event listeners run in the context of the code that calls emit, unless they are wrapped with AsyncLocalStorage.bind."
+    },
+    {
+      "question": "Why does the lesson recommend run() over enterWith()?",
+      "options": [
+        "enterWith() is only available in TypeScript",
+        "run() scopes the store to a callback, while enterWith() has no clear end and can leak one request's data into the next",
+        "enterWith() is slower to call",
+        "run() works across processes"
+      ],
+      "correctIndex": 1,
+      "explanation": "enterWith sets the context for the rest of the current execution and anything it schedules, which makes leaks easy; run gives a clear scope."
+    },
+    {
+      "question": "Which value is the best fit for AsyncLocalStorage, according to the lesson?",
+      "options": [
+        "The order amount used to calculate tax",
+        "A whole request body for later use",
+        "The list of products in the cart",
+        "A request ID used for log correlation"
+      ],
+      "correctIndex": 3,
+      "explanation": "Async context suits cross-cutting concerns like request IDs, trace spans and tenant IDs; business data should be passed explicitly, and large objects can cause leaks."
+    }
+  ]
+}

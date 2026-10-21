@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the main advantage of OKLCH over HSL for building a colour palette?",
+      "options": [
+        "OKLCH colours are always inside the sRGB gamut",
+        "OKLCH uses hexadecimal values, which are shorter",
+        "OKLCH lightness is perceptual, so colours with the same L look about equally light, making contrast predictable",
+        "OKLCH supports transparency and HSL does not"
+      ],
+      "correctIndex": 2,
+      "explanation": "HSL lightness ignores how the eye perceives different hues. OKLCH's L channel is perceptual and it can also describe wide-gamut colours beyond sRGB."
+    },
+    {
+      "question": "What does `oklch(from var(--brand) calc(l - 0.08) c h)` produce?",
+      "options": [
+        "A colour with the same chroma and hue as --brand but slightly darker",
+        "A 50/50 mix of --brand and black",
+        "An error, because calc() cannot be used inside colour functions",
+        "--brand converted to grey"
+      ],
+      "correctIndex": 0,
+      "explanation": "Relative colour syntax destructures the origin colour into l, c and h, and here reduces the lightness channel while keeping the others."
+    },
+    {
+      "question": "With `color-scheme: light dark` on `:root` and `--surface: light-dark(white, black)`, how do you build a manual dark-mode toggle?",
+      "options": [
+        "Duplicate every token inside a [data-theme=\"dark\"] block",
+        "Use JavaScript to rewrite every light-dark() call",
+        "light-dark() only follows the operating system and cannot be overridden",
+        "Set color-scheme: dark on the root when the user picks dark; light-dark() then resolves to its second value"
+      ],
+      "correctIndex": 3,
+      "explanation": "light-dark() responds to the element's used colour scheme, so changing color-scheme is enough to flip every token."
+    },
+    {
+      "question": "Why would you register a custom property with `@property` and `syntax: \"<angle>\"`?",
+      "options": [
+        "So it can be used outside of :root",
+        "So the browser knows its type and can interpolate it in transitions and animations",
+        "So it becomes available to Sass at build time",
+        "So it overrides !important declarations"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unregistered custom properties are untyped and jump between values. A typed registration lets the browser animate them smoothly and gives an initial-value fallback."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "For a customer whose `city` is NULL, what do `CONCAT(name, ', ', city)` and `CONCAT_WS(', ', name, city)` return?",
+      "options": [
+        "Both return the name followed by ', '",
+        "CONCAT returns NULL; CONCAT_WS returns just the name",
+        "Both return NULL",
+        "CONCAT returns the name; CONCAT_WS returns NULL"
+      ],
+      "correctIndex": 1,
+      "explanation": "CONCAT returns NULL if any argument is NULL. CONCAT_WS skips NULL values after the separator, so it returns the name alone."
+    },
+    {
+      "question": "Which filter for orders placed on 1 April 2025 can use an index on `created_at` for a range scan?",
+      "options": [
+        "WHERE DATE(created_at) = '2025-04-01'",
+        "WHERE DATE_FORMAT(created_at, '%Y-%m-%d') = '2025-04-01'",
+        "WHERE YEAR(created_at) = 2025 AND DAYOFYEAR(created_at) = 91",
+        "WHERE created_at >= '2025-04-01' AND created_at < '2025-04-02'"
+      ],
+      "correctIndex": 3,
+      "explanation": "Wrapping the column in a function makes the predicate non-sargable. A half-open range on the bare column lets the optimizer seek into the index."
+    },
+    {
+      "question": "`created_at` is stored in UTC. Why might `CONVERT_TZ(created_at, 'UTC', 'Asia/Kolkata')` return NULL?",
+      "options": [
+        "The MySQL time zone tables have not been loaded, so named zones are unknown",
+        "Asia/Kolkata observes daylight saving time",
+        "CONVERT_TZ only works on TIMESTAMP columns",
+        "CONVERT_TZ requires the session time_zone to be SYSTEM"
+      ],
+      "correctIndex": 0,
+      "explanation": "Named time zones require the tz tables populated via mysql_tzinfo_to_sql. Numeric offsets like '+05:30' work without them, and IST has no DST."
+    },
+    {
+      "question": "What do `ROUND(1499.555, 2)` and `TRUNCATE(1499.555, 2)` return for this exact-value literal?",
+      "options": [
+        "1499.55 and 1499.56",
+        "1499.56 and 1499.56",
+        "1499.56 and 1499.55",
+        "1500 and 1499"
+      ],
+      "correctIndex": 2,
+      "explanation": "For exact values ROUND rounds half away from zero, giving 1499.56. TRUNCATE simply drops the extra digits, giving 1499.55."
+    }
+  ]
+}

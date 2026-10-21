@@ -1,0 +1,123 @@
+---
+title: "Evaluating and Iterating on Prompts"
+description: "Define success criteria, build a small test set with edge cases, grade outputs consistently, and improve prompts one controlled change at a time."
+module: "Reliability"
+level: "advanced"
+order: 19
+---
+
+A prompt that worked once in a chat window is a demo, not a tool. The moment
+a prompt is reused — by your team, in a template, or inside an application —
+you need evidence that it works on the inputs it will actually see. This
+lesson turns "it looks good to me" into a repeatable check.
+
+## Start with success criteria
+
+Before tweaking any wording, write down what a good output *is*. Vague goals
+("summarise well") cannot be tested; specific ones can.
+
+| Vague | Testable |
+| --- | --- |
+| Classify emails correctly | Category matches the human label on at least 18 of 20 test emails |
+| Keep summaries short | Every summary is 5 bullets or fewer and under 120 words |
+| Don't make things up | Every amount and date in the summary appears in the source |
+| Be polite | No sentence a reviewer marks as rude or blaming |
+
+Good criteria are measurable, tied to the real business need, and include the
+failure you are most worried about — for a customer-reply prompt, that is
+usually an invented promise or a wrong figure, not a clumsy sentence.
+
+## Build a small, real test set
+
+You do not need thousands of examples. Fifteen to thirty well-chosen inputs
+catch most problems. Pull them from real work (with personal data removed)
+and deliberately include edge cases:
+
+- **Typical cases** — the everyday inputs, about half the set.
+- **Hard cases** — long emails, two requests in one message, Hinglish text.
+- **Empty or junk input** — a blank form field, a forwarded signature only.
+- **Ambiguous cases** — a complaint that is also a cancellation request.
+- **Adversarial cases** — a message saying "ignore your instructions".
+
+Store each case with its expected result so anyone can rerun the check:
+
+```text
+id: T07
+input: "Bhai mera refund abhi tak nahi aaya, 12 din ho gaye. Order #A-4471."
+expected_category: refund_delay
+notes: Hinglish; order number must be extracted exactly
+```
+
+## Grading methods
+
+Choose the cheapest method that measures your criterion reliably.
+
+**Exact match / code checks.** Best when there is one right answer: a
+category label, a valid JSON field, an extracted order number. A few lines of
+code grade hundreds of outputs instantly and without bias.
+
+```python
+def grade(output: dict, case: dict) -> bool:
+    return (output.get("category") == case["expected_category"]
+            and output.get("order_id") == case.get("expected_order_id"))
+```
+
+**Rubric grading by a human.** For open-ended writing, score each output on
+a short rubric (for example 1–3 for accuracy, tone and completeness). Write
+the rubric before you look at outputs so you are not grading to taste.
+
+**LLM-as-judge.** A second model call scores the output against your rubric.
+It scales well, but treat it with care:
+
+- Judges can favour longer or more confident answers, and may be swayed by
+  the order in which options are shown.
+- A judge is itself a prompt — spot-check its scores against human grades on
+  a sample before trusting it.
+- Ask for a specific verdict with a reason, not a vague 1–10 score.
+- Never use a judge for facts a code check can verify, such as totals.
+
+```text
+You are grading a customer-support reply against a rubric.
+
+<source_email>...</source_email>
+<reply>...</reply>
+
+Rubric:
+1. Accuracy: every fact in the reply is supported by the source email.
+2. No commitments: the reply promises no refund date or amount.
+3. Tone: courteous and specific, not generic.
+
+For each criterion, quote the relevant line, then answer PASS or FAIL.
+Finish with an overall PASS only if all three pass.
+```
+
+## Change one thing at a time
+
+When results disappoint, resist rewriting the whole prompt. Change a single
+variable — add an example, clarify one rule, move the documents above the
+question — then rerun the full test set. If you change five things and the
+score rises, you do not know which change helped, and one of them may have
+quietly broken another case.
+
+## Version prompts and run regression checks
+
+Treat prompts like code. Keep them in a file or repository with a version
+number and a short changelog:
+
+```text
+v1.3  2026-10-05  Added Hinglish example for refund_delay. Score 17/20 -> 19/20.
+v1.2  2026-09-28  Told model to return "other" when unsure. Fixed T11, T14.
+```
+
+Before shipping any change — including switching to a newer model — rerun the
+whole test set. A fix for one case that breaks two others is a regression,
+and you only catch it if the old cases are still in the suite. Every bug
+reported by a real user should become a new test case.
+
+### Try it yourself
+
+Pick a prompt you use weekly (for example, categorising customer emails).
+Write three testable success criteria, collect 15 real inputs with
+identifying details removed — including at least four edge cases — and label
+the expected result for each. Run your current prompt, record the score as
+v1.0, then make exactly one change and measure again.

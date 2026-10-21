@@ -1,0 +1,155 @@
+---
+title: "Descriptors, __init_subclass__ & Metaclasses"
+description: "The attribute lookup machinery behind property, methods and ORMs: the descriptor protocol, __set_name__, __init_subclass__, class decorators and when a metaclass is genuinely the right tool."
+module: "Pro Level"
+level: "pro"
+order: 24
+---
+
+`@property`, bound methods, `classmethod`, `__slots__`, Django model fields
+and SQLAlchemy columns all run on the same mechanism: **descriptors**. A
+senior interview often goes one step further — "how would you build a
+validated field?" or "when would you write a metaclass?" This lesson answers
+both, and shows the lighter tools that replace most metaclasses today.
+
+## How `obj.attr` is actually resolved
+
+`object.__getattribute__` follows a fixed order when you read `obj.attr`:
+
+1. Look up `attr` on the **type** (walking the MRO). If it is a **data
+   descriptor** (defines `__set__` or `__delete__`), call its `__get__`.
+2. Otherwise check the **instance** `__dict__`.
+3. Otherwise, if the type attribute is a **non-data descriptor** (only
+   `__get__`), call its `__get__`; if it is a plain value, return it.
+4. Otherwise call `__getattr__` if defined, else raise `AttributeError`.
+
+That ordering explains real behaviour: a `property` (data descriptor) wins
+over an instance attribute of the same name, while a function (non-data
+descriptor) can be shadowed by assigning to the instance.
+
+## Functions are descriptors
+
+```python
+class Account:
+    def balance(self):
+        return 100
+
+acc = Account()
+print(Account.__dict__["balance"])           # <function Account.balance ...>
+print(Account.__dict__["balance"].__get__(acc, Account))
+# <bound method Account.balance of <__main__.Account object ...>>
+print(hasattr(Account.balance, "__get__"))   # True
+```
+
+A "bound method" is just what a function's `__get__` returns when accessed
+through an instance: a small object pairing the function with `self`.
+
+## Writing a reusable validated field
+
+A data descriptor with `__set_name__` (called once, when the owning class is
+created) knows its own attribute name, so one class can validate many
+fields:
+
+```python
+class Positive:
+    def __set_name__(self, owner, name):
+        self.private = "_" + name
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:              # accessed on the class itself
+            return self
+        return getattr(obj, self.private)
+
+    def __set__(self, obj, value):
+        if value <= 0:
+            raise ValueError(f"{self.private[1:]} must be positive, got {value}")
+        setattr(obj, self.private, value)
+
+class Loan:
+    principal = Positive()
+    tenure_months = Positive()
+
+    def __init__(self, principal, tenure_months):
+        self.principal = principal          # goes through Positive.__set__
+        self.tenure_months = tenure_months
+
+loan = Loan(500_000, 60)
+print(loan.principal)                       # 500000
+loan.tenure_months = 0
+# ValueError: tenure_months must be positive, got 0
+```
+
+This is precisely how ORM column objects and Pydantic-style fields work:
+the descriptor lives on the class, the data lives on each instance.
+
+## `__init_subclass__`: hooks without a metaclass
+
+Since Python 3.6, a base class can react to every subclass being defined
+with `__init_subclass__`. Plugin registries are the classic use:
+
+```python
+class PaymentHandler:
+    registry: dict[str, type] = {}
+
+    def __init_subclass__(cls, *, method: str, **kwargs):
+        super().__init_subclass__(**kwargs)
+        PaymentHandler.registry[method] = cls
+
+class UpiHandler(PaymentHandler, method="upi"): ...
+class CardHandler(PaymentHandler, method="card"): ...
+
+print(PaymentHandler.registry)
+# {'upi': <class '__main__.UpiHandler'>, 'card': <class '__main__.CardHandler'>}
+```
+
+Keyword arguments in the class statement are passed straight to the hook.
+Combined with `__set_name__` and class decorators (like `@dataclass`), this
+covers the large majority of cases people used to solve with metaclasses.
+
+## Metaclasses: the class of a class
+
+Classes are objects too, and their type is normally `type`. A **metaclass**
+is a subclass of `type` that controls how classes are *created*:
+
+```python
+class Final(type):
+    def __new__(mcls, name, bases, namespace, **kwargs):
+        for base in bases:
+            if isinstance(base, Final):
+                raise TypeError(f"cannot subclass final class {base.__name__}")
+        return super().__new__(mcls, name, bases, namespace, **kwargs)
+
+class Settings(metaclass=Final): ...
+
+print(type(Settings))      # <class '__main__.Final'>
+class Custom(Settings): ...
+# TypeError: cannot subclass final class Settings
+```
+
+A metaclass can also customise `__prepare__` (the namespace the class body
+fills) and `__call__` (what happens when the class is instantiated — the
+hook behind some singleton implementations).
+
+## Choosing the right tool
+
+| Need | Reach for |
+| --- | --- |
+| Validate or compute one attribute | `property` |
+| Same logic on many attributes / classes | a descriptor with `__set_name__` |
+| React when a subclass is defined | `__init_subclass__` |
+| Transform a finished class | a class decorator |
+| Change class creation itself, or behaviour of the class object | a metaclass |
+
+Metaclasses have real costs: a class can only have one metaclass lineage,
+so combining two libraries that each define one raises a "metaclass
+conflict" `TypeError`. Prefer the lighter tools, and treat a metaclass as a
+framework-author decision you can justify in a design review.
+
+### Try it yourself
+
+Write a `MaxLength` descriptor that rejects strings longer than a limit
+passed to its constructor, and use it on `pan` and `name` fields of a
+`Customer` class. Then add an `__init_subclass__` hook to a `Report` base
+class that refuses any subclass missing a `title` class attribute. Finally,
+explain why assigning `customer.__dict__["pan"] = "x" * 50` does not bypass
+reads through the descriptor.

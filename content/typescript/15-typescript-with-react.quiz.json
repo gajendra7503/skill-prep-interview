@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which type is the best fit for a component's `children` prop when it may receive text, elements, null or arrays?",
+      "options": [
+        "JSX.Element",
+        "ReactElement",
+        "ReactNode",
+        "string"
+      ],
+      "correctIndex": 2,
+      "explanation": "ReactNode is the widest renderable type: elements, strings, numbers, null, undefined, booleans and arrays of these. JSX.Element and ReactElement accept only a single element."
+    },
+    {
+      "question": "Why does `const [user, setUser] = useState<Investor | null>(null)` need an explicit type argument?",
+      "options": [
+        "Because the initial value null does not describe the Investor objects the state will hold later",
+        "Because useState cannot infer types at all",
+        "Because React requires every hook call to have a type argument",
+        "Because null is not allowed as an initial value without a generic"
+      ],
+      "correctIndex": 0,
+      "explanation": "useState infers from the initial value. With null alone it would infer type null, so later setting an Investor would fail. The type argument widens the state to Investor | null."
+    },
+    {
+      "question": "A custom hook ends with `return [on, toggle];` where `on` is boolean and `toggle` is a function. What does adding `as const` change?",
+      "options": [
+        "Nothing; arrays are always inferred as tuples",
+        "It makes the values immutable at runtime",
+        "It converts the array into an object",
+        "The return type becomes a readonly tuple, so each destructured value keeps its own type"
+      ],
+      "correctIndex": 3,
+      "explanation": "Without as const the return type is (boolean | (() => void))[], so calling the second element is an error. as const infers readonly [boolean, () => void]. It has no runtime effect."
+    },
+    {
+      "question": "You want a `Button` component to accept every prop a native button accepts plus a `variant` prop. Which props type does that most directly?",
+      "options": [
+        "{ variant: string; [key: string]: any }",
+        "ComponentProps<\"button\"> & { variant: \"primary\" | \"ghost\" }",
+        "React.FC<{ variant: string }>",
+        "HTMLButtonElement & { variant: string }"
+      ],
+      "correctIndex": 1,
+      "explanation": "ComponentProps<\"button\"> gives all the props a native button accepts (onClick, disabled, type and so on). Intersecting it adds your own props. HTMLButtonElement is the DOM node type, not a props type."
+    }
+  ]
+}

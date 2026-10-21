@@ -1,0 +1,146 @@
+---
+title: "Online Schema Changes at Scale"
+description: "ALTER TABLE algorithms (INSTANT, INPLACE, COPY) and LOCK clauses, the metadata-lock trap, gh-ost and pt-online-schema-change, and expand-contract migrations with zero downtime."
+module: "Pro Level"
+level: pro
+order: 25
+---
+
+Adding a column to a 10-row table is instant. Adding it to a 400 GB
+`orders` table on a primary serving 5,000 queries per second, without an
+outage, is a senior-level skill. "How would you add an index to our
+biggest table during business hours?" is a common staff-engineer interview
+question, and the answer has three parts: know what the `ALTER` will do,
+guard against metadata locks, and pick the right tool.
+
+## The three ALTER algorithms
+
+| Algorithm | What happens | Concurrent DML | Typical cost |
+| --- | --- | --- | --- |
+| `INSTANT` | Only the data dictionary changes | Yes | Milliseconds, any table size |
+| `INPLACE` | InnoDB works on the table without a full copy through the SQL layer (may still rebuild internally) | Usually yes | Minutes to hours; I/O heavy |
+| `COPY` | A new table is created and every row copied | No (writes blocked) | Longest; needs double disk space |
+
+What is instant in MySQL 8.0/8.4:
+
+- Adding a column (at any position since 8.0.29) and dropping a column
+  (8.0.29+).
+- Renaming a column; setting or dropping a column `DEFAULT`.
+- Changing `ENUM`/`SET` by appending values at the end.
+- Adding or dropping a virtual generated column; renaming a table.
+
+Typical `INPLACE` without blocking writes: adding or dropping a secondary
+index, adding a foreign key with `foreign_key_checks = 0`, widening a
+`VARCHAR` within the same length-byte range (for example up to 255 bytes).
+`COPY` is required for changing a column's data type, such as `INT` to
+`BIGINT` or `DECIMAL(12,2)` to `DECIMAL(14,2)`.
+
+## Always state the algorithm and lock
+
+If you specify the algorithm and lock level, MySQL **refuses** instead of
+silently falling back to something slower:
+
+```sql
+ALTER TABLE orders ADD COLUMN coupon_code VARCHAR(20) NULL, ALGORITHM=INSTANT;
+-- Query OK, 0 rows affected (0.02 sec)
+
+ALTER TABLE orders ADD INDEX idx_created (created_at),
+  ALGORITHM=INPLACE, LOCK=NONE;
+-- Query OK (runs a while, reads and writes continue)
+
+ALTER TABLE orders MODIFY total_inr DECIMAL(14,2) NOT NULL, ALGORITHM=INPLACE;
+-- ERROR 1846 (0A000): ALGORITHM=INPLACE is not supported.
+-- Reason: Cannot change column type INPLACE. Try ALGORITHM=COPY.
+```
+
+That refusal is exactly what you want in a migration script. A table can
+take only a limited number of instant column changes (64 row versions in
+current releases); check `TOTAL_ROW_VERSIONS` in
+`information_schema.innodb_tables`, and after that MySQL requires a
+rebuild.
+
+## Online is not free
+
+Even an `INPLACE, LOCK=NONE` index build:
+
+- Logs concurrent changes to a temporary online log
+  (`innodb_online_alter_log_max_size`); if it overflows, the ALTER fails
+  at the end, after hours of work.
+- Reads the whole table, competing with production I/O.
+- Runs as **one** statement on replicas after it finishes on the source.
+  A 2-hour ALTER becomes 2 hours of **replication lag**, because the
+  replica's applier is busy with it.
+
+## The metadata-lock pile-up
+
+Every `ALTER`, even an instant one, needs an exclusive **metadata lock**
+briefly at the start and end. If a long transaction has touched the table,
+the ALTER waits; and every new query on that table queues behind the
+waiting ALTER. A millisecond change can freeze the app.
+
+```sql
+-- Fail fast instead of freezing traffic; retry later
+SET SESSION lock_wait_timeout = 5;        -- seconds; default is 1 year
+ALTER TABLE orders ADD COLUMN gift_note VARCHAR(200) NULL, ALGORITHM=INSTANT;
+-- ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction
+
+-- Find what holds the lock
+SELECT object_name, lock_type, lock_status, owner_thread_id
+FROM performance_schema.metadata_locks
+WHERE object_schema = 'shop' AND object_name = 'orders';
+```
+
+Production rule: every migration sets a short `lock_wait_timeout` and
+retries, and runs only after checking for long-running transactions in
+`information_schema.innodb_trx`.
+
+## Shadow-table tools: gh-ost and pt-online-schema-change
+
+For changes that need `COPY`, or when replication lag is unacceptable,
+teams use tools that build a **shadow table** and swap it in:
+
+1. Create `_orders_new` with the new schema.
+2. Copy rows in small chunks, pausing when load or replica lag is high.
+3. Keep the shadow table in sync with ongoing writes.
+4. Atomically swap names: `RENAME TABLE orders TO _orders_old, _orders_new TO orders`.
+
+| | pt-online-schema-change (Percona Toolkit) | gh-ost (GitHub) |
+| --- | --- | --- |
+| Captures ongoing writes via | Triggers on the original table | Reading the binary log (row format) |
+| Extra load on the primary | Trigger work on every write | Lower; no triggers |
+| Pause / throttle | Yes | Yes, and it can be paused interactively |
+| Foreign keys | Supported, with caveats | Not supported |
+
+Both copy in chunks, so replicas stay close to real time. Cloud teams also
+use managed equivalents, such as Vitess online DDL or PlanetScale's
+deploy requests.
+
+## Expand and contract: changing schema with code
+
+Renaming or retyping a column used by running code cannot be one step,
+because old and new application versions run side by side during a
+deploy. Split it:
+
+```sql
+-- 1. Expand: add the new column (instant), nullable
+ALTER TABLE customers ADD COLUMN mobile_e164 VARCHAR(16) NULL, ALGORITHM=INSTANT;
+-- 2. Deploy code that writes BOTH phone and mobile_e164
+-- 3. Backfill old rows in small batches
+UPDATE customers SET mobile_e164 = CONCAT('+91', phone)
+WHERE mobile_e164 IS NULL AND id BETWEEN 1 AND 10000;
+-- 4. Deploy code that reads mobile_e164
+-- 5. Contract: once nothing reads phone, drop it
+ALTER TABLE customers DROP COLUMN phone, ALGORITHM=INSTANT;
+```
+
+Each step is backward compatible and can be rolled back on its own.
+
+### Try it yourself
+
+On a scratch table of 5,00,000 rows, time `ADD COLUMN ... ALGORITHM=INSTANT`
+against `ADD INDEX ... ALGORITHM=INPLACE, LOCK=NONE`. Then open a second
+session, run `START TRANSACTION; SELECT * FROM orders LIMIT 1;` and leave
+it open; in the first session set `lock_wait_timeout = 3` and try an
+instant ALTER, and a third session's plain SELECT while the ALTER waits.
+Explain what you saw, and write the expand-contract plan to change
+`orders.total_inr` from `DECIMAL(12,2)` to paise in a `BIGINT` column.

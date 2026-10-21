@@ -1,0 +1,197 @@
+---
+title: "Databases with Prisma"
+description: "Connect an Express app to MySQL with Prisma 7, a driver adapter and prisma.config.ts, share one client, run migrations and use transactions."
+module: "Data"
+level: "intermediate"
+order: 12
+---
+
+Most Express APIs sit in front of a relational database, and Prisma is the
+most common ORM in the Node ecosystem. Prisma 7 changed the setup
+noticeably: configuration moved to `prisma.config.ts`, the client is
+generated into your own source folder, and the database connection goes
+through a **driver adapter**. Interviewers expect you to know the schema,
+migrations, the client lifecycle and transactions.
+
+## Install
+
+```bash
+npm install @prisma/client @prisma/adapter-mariadb dotenv
+npm install -D prisma tsx typescript
+```
+
+The `@prisma/adapter-mariadb` adapter uses the `mariadb` driver, which
+speaks the MySQL protocol, so it works for both MySQL and MariaDB. The
+generated client is TypeScript, so this lesson runs the app with `tsx`
+(for example `tsx watch src/server.ts` in development).
+
+## prisma.config.ts and the schema
+
+```ts
+// prisma.config.ts (project root)
+import "dotenv/config";
+import { defineConfig } from "prisma/config";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: { path: "prisma/migrations" },
+  datasource: { url: process.env.DATABASE_URL }, // mysql://user:pass@localhost:3306/expenses
+});
+```
+
+Prisma 7 does not load `.env` files for you, which is why the config
+imports `dotenv/config`. The connection URL lives here, not in the schema:
+
+```prisma
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique @db.VarChar(255)
+  name      String    @db.VarChar(80)
+  createdAt DateTime  @default(now()) @map("created_at")
+  expenses  Expense[]
+
+  @@map("users")
+}
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  title       String   @db.VarChar(100)
+  amountPaise Int      @map("amount_paise")   // ₹450.00 is stored as 45000
+  category    String   @db.VarChar(16)
+  spentOn     DateTime @map("spent_on") @db.Date
+  invoiceNo   String?  @unique @map("invoice_no") @db.VarChar(32)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, spentOn])
+  @@map("expenses")
+}
+```
+
+The `prisma-client` generator writes the client into `src/generated/prisma`
+(add that folder to `.gitignore` and regenerate on install). `@map` and
+`@@map` keep snake_case column and table names in MySQL while the code uses
+camelCase. The composite index supports the most common query: one user's
+expenses by date.
+
+## Migrations
+
+```bash
+npx prisma migrate dev --name init   # diff schema vs DB, write SQL, apply it (development)
+npx prisma generate                  # regenerate the typed client after schema changes
+npx prisma migrate deploy            # apply pending migrations only (CI / production)
+npx prisma studio                    # browse data in a GUI
+```
+
+`migrate dev` creates a timestamped folder of plain SQL under
+`prisma/migrations` that you commit to Git. `migrate deploy` never generates
+anything; it just applies committed migrations in order, which is what you
+want in production. Never edit a migration that has already been applied;
+create a new one. `migrate reset` drops the database, so keep it for local
+development.
+
+## One client per process
+
+```ts
+// src/db.ts
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaClient } from "./generated/prisma/client.js";
+
+const url = process.env.DATABASE_URL;
+if (!url) throw new Error("DATABASE_URL is not set");
+
+export const prisma = new PrismaClient({ adapter: new PrismaMariaDb(url) });
+```
+
+Each `PrismaClient` owns a connection pool. Creating one per request would
+exhaust MySQL's connection limit quickly, so create it once and import it
+everywhere; ES module caching makes this module a singleton. (Next.js apps
+also stash it on `globalThis` because hot reload re-evaluates modules; a
+plain Express server restarted by `tsx watch` starts a fresh process, so it
+does not need that trick.) Close the pool on shutdown:
+
+```ts
+process.on("SIGTERM", async () => {
+  server.close(async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+  });
+});
+```
+
+## Queries in a route
+
+```ts
+router.get("/", async (req, res) => {
+  const expenses = await prisma.expense.findMany({
+    where: { userId: req.user.id, category: "food" },
+    orderBy: { spentOn: "desc" },
+    select: { id: true, title: true, amountPaise: true, spentOn: true },
+    take: 20,
+  });
+  res.json(expenses); // [{ id: 7, title: "Lunch", amountPaise: 45000, spentOn: "2026-04-01T00:00:00.000Z" }]
+});
+```
+
+`select` returns only the columns you need; `include: { user: true }`
+loads a relation in the same call. Thanks to Express 5, a failed query
+rejects and goes straight to your error middleware.
+
+## Mapping Prisma errors
+
+```ts
+import { Prisma } from "../generated/prisma/client.js";
+
+if (err instanceof Prisma.PrismaClientKnownRequestError) {
+  if (err.code === "P2002") return res.status(409).json({ error: { code: "DUPLICATE", message: "Invoice number already used" } });
+  if (err.code === "P2025") return res.status(404).json({ error: { code: "NOT_FOUND", message: "Record not found" } });
+}
+```
+
+P2002 is a unique-constraint violation and P2025 means a record required by
+`update` or `delete` was not found. Put this in the central error handler so
+raw database messages never reach the client.
+
+## Transactions
+
+```ts
+// Array form: independent writes that must all succeed or all fail
+const [expense] = await prisma.$transaction([
+  prisma.expense.create({ data: { userId: 1, title: "Flight", amountPaise: 650000, category: "travel", spentOn: new Date("2026-04-02") } }),
+  prisma.user.update({ where: { id: 1 }, data: { name: "Asha Rao" } }),
+]);
+
+// Interactive form: read, decide, then write, all on one connection
+const created = await prisma.$transaction(async (tx) => {
+  const { _sum } = await tx.expense.aggregate({
+    where: { userId: 1, spentOn: { gte: new Date("2026-04-01") } },
+    _sum: { amountPaise: true },
+  });
+  if ((_sum.amountPaise ?? 0) + 650000 > 5_000_000) throw new Error("Monthly limit of ₹50,000 exceeded");
+  return tx.expense.create({ data: { userId: 1, title: "Flight", amountPaise: 650000, category: "travel", spentOn: new Date("2026-04-02") } });
+});
+```
+
+If the callback throws, everything is rolled back. Use `tx`, not `prisma`,
+inside the callback, and keep it short: it holds a connection and has a
+default timeout of a few seconds, so never call slow external APIs inside it.
+
+### Try it yourself
+
+Add a `Budget` model (userId, month as a string like `2026-04`, limitPaise)
+with a unique constraint on userId plus month. Run `migrate dev`, then write
+`POST /api/v1/budgets` that returns 409 when Prisma raises P2002, and an
+expense-creation route that uses an interactive transaction to reject
+expenses that would push the month over its budget.

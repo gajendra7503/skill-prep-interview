@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Given `enum Status { Active, Inactive }`, what does `Status[1]` evaluate to at runtime?",
+      "options": [
+        "1",
+        "undefined",
+        "\"Inactive\"",
+        "A compile error, because enums cannot be indexed"
+      ],
+      "correctIndex": 2,
+      "explanation": "Numeric enums compile to an object with a reverse mapping from number to name, so Status[1] is \"Inactive\". String enums do not get a reverse mapping."
+    },
+    {
+      "question": "What is the type of `pincodes.Pune` in `const pincodes = { Mumbai: 400001, Pune: \"411001\" } satisfies Record<string, number | string>;`?",
+      "options": [
+        "string",
+        "number | string",
+        "unknown",
+        "\"411001\" | number"
+      ],
+      "correctIndex": 0,
+      "explanation": "satisfies checks compatibility with the target type but keeps the value's own inferred type, so Pune stays string. An annotation would have widened it to number | string."
+    },
+    {
+      "question": "Why does running a file containing `enum Role { Admin = \"ADMIN\" }` directly with Node's built-in type stripping fail?",
+      "options": [
+        "Node only supports numeric enums",
+        "Enums generate runtime JavaScript, so they are not erasable syntax and strip-only mode rejects them",
+        "Node requires a tsconfig.json to run any .ts file",
+        "String values are not allowed in .ts files run by Node"
+      ],
+      "correctIndex": 1,
+      "explanation": "Type stripping can only delete type annotations. Enums, namespaces and parameter properties need code generation, so Node throws ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX in strip-only mode."
+    },
+    {
+      "question": "`const METHODS = [\"UPI\", \"CARD\"] as const;` — what is `(typeof METHODS)[number]`?",
+      "options": [
+        "string",
+        "string[]",
+        "readonly [\"UPI\", \"CARD\"]",
+        "\"UPI\" | \"CARD\""
+      ],
+      "correctIndex": 3,
+      "explanation": "as const infers a readonly tuple of literal types. Indexing that tuple type with number gives the union of its element types: \"UPI\" | \"CARD\"."
+    }
+  ]
+}

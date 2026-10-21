@@ -1,0 +1,200 @@
+---
+title: "Segment Trees & Fenwick Trees"
+description: "Answer range queries with point and range updates in logarithmic time using segment trees, lazy propagation and Fenwick (binary indexed) trees."
+module: "Pro Level"
+level: "pro"
+order: 24
+---
+
+Prefix sums (see "Prefix Sums & Difference Arrays") answer a range-sum
+query in `O(1)`, but a single update forces an `O(n)` rebuild. When queries
+and updates are **interleaved** — a live dashboard of branch sales, stock
+prices changing tick by tick — you need a structure where both are
+`O(log n)`. That is what segment trees and Fenwick trees give you.
+
+| Structure | Build | Point update | Range query | Range update | Supports |
+|---|---|---|---|---|---|
+| Plain array | `O(n)` | `O(1)` | `O(n)` | `O(n)` | anything |
+| Prefix sums | `O(n)` | `O(n)` | `O(1)` | `O(n)` | invertible ops (sum, XOR) |
+| Fenwick tree | `O(n log n)` | `O(log n)` | `O(log n)` | with tricks | invertible ops |
+| Segment tree | `O(n)` | `O(log n)` | `O(log n)` | `O(log n)` lazy | any associative op (min, max, gcd, sum) |
+
+## Segment tree: intuition
+
+Each node stores the answer (here, the minimum) for a segment of the array.
+The root covers `[0, n-1]`; each node splits its segment in half between
+two children. Any query range decomposes into at most about `2 log n`
+fully-covered nodes.
+
+```text
+prices: [2450, 2390, 2510, 2280, 2600, 2475, 2330]
+
+                    [0..6] 2280
+              /                    \
+        [0..3] 2280             [4..6] 2330
+        /        \               /        \
+   [0..1] 2390 [2..3] 2280  [4..5] 2475  [6] 2330
+    /    \       /    \       /    \
+ 2450   2390  2510   2280  2600   2475
+```
+
+Using a heap-style array (children of node `k` are `2k` and `2k+1`), an
+array of size `4n` is always enough.
+
+```js
+class SegmentTree {
+  constructor(arr) {
+    this.n = arr.length;
+    this.tree = new Array(4 * this.n).fill(0);
+    this.#build(arr, 1, 0, this.n - 1);
+  }
+  #build(arr, node, l, r) {
+    if (l === r) { this.tree[node] = arr[l]; return; }
+    const mid = (l + r) >> 1;
+    this.#build(arr, 2 * node, l, mid);
+    this.#build(arr, 2 * node + 1, mid + 1, r);
+    this.tree[node] = Math.min(this.tree[2 * node], this.tree[2 * node + 1]);
+  }
+  update(i, value, node = 1, l = 0, r = this.n - 1) {
+    if (l === r) { this.tree[node] = value; return; }
+    const mid = (l + r) >> 1;
+    if (i <= mid) this.update(i, value, 2 * node, l, mid);
+    else this.update(i, value, 2 * node + 1, mid + 1, r);
+    this.tree[node] = Math.min(this.tree[2 * node], this.tree[2 * node + 1]);
+  }
+  query(ql, qr, node = 1, l = 0, r = this.n - 1) {
+    if (qr < l || r < ql) return Infinity;           // no overlap: identity for min
+    if (ql <= l && r <= qr) return this.tree[node];  // full overlap
+    const mid = (l + r) >> 1;                         // partial: recurse both sides
+    return Math.min(this.query(ql, qr, 2 * node, l, mid), this.query(ql, qr, 2 * node + 1, mid + 1, r));
+  }
+}
+
+const st = new SegmentTree([2450, 2390, 2510, 2280, 2600, 2475, 2330]);
+console.log(st.query(0, 6), st.query(1, 2), st.query(4, 6)); // 2280 2390 2330
+st.update(3, 2700);
+console.log(st.query(0, 6), st.query(2, 4)); // 2330 2510
+```
+
+**Complexity:** build `O(n)`, update and query `O(log n)`, space `O(n)`.
+To switch to sum or max, change the combine function and the "no overlap"
+identity (`0` for sum, `-Infinity` for max).
+
+## Lazy propagation: range updates
+
+"Add ₹10 to every price in `[l, r]`" would touch `O(n)` leaves. Instead,
+when a node is fully covered, update its stored sum and leave a **lazy tag**
+saying "my children still owe this addition". Push the tag down only when a
+later operation needs to go below that node.
+
+```js
+class LazySeg {
+  constructor(n) { this.n = n; this.sum = new Array(4 * n).fill(0); this.lazy = new Array(4 * n).fill(0); }
+  #push(node, l, r) {
+    if (this.lazy[node] !== 0) {
+      const mid = (l + r) >> 1;
+      for (const [c, cl, cr] of [[2 * node, l, mid], [2 * node + 1, mid + 1, r]]) {
+        this.sum[c] += this.lazy[node] * (cr - cl + 1);
+        this.lazy[c] += this.lazy[node];
+      }
+      this.lazy[node] = 0;
+    }
+  }
+  addRange(ql, qr, v, node = 1, l = 0, r = this.n - 1) {
+    if (qr < l || r < ql) return;
+    if (ql <= l && r <= qr) { this.sum[node] += v * (r - l + 1); this.lazy[node] += v; return; }
+    this.#push(node, l, r);
+    const mid = (l + r) >> 1;
+    this.addRange(ql, qr, v, 2 * node, l, mid);
+    this.addRange(ql, qr, v, 2 * node + 1, mid + 1, r);
+    this.sum[node] = this.sum[2 * node] + this.sum[2 * node + 1];
+  }
+  query(ql, qr, node = 1, l = 0, r = this.n - 1) {
+    if (qr < l || r < ql) return 0;
+    if (ql <= l && r <= qr) return this.sum[node];
+    this.#push(node, l, r);
+    const mid = (l + r) >> 1;
+    return this.query(ql, qr, 2 * node, l, mid) + this.query(ql, qr, 2 * node + 1, mid + 1, r);
+  }
+}
+const ls = new LazySeg(8);
+ls.addRange(0, 7, 10);
+ls.addRange(2, 5, 5);
+console.log(ls.query(0, 7), ls.query(3, 4), ls.query(6, 7)); // 100 30 20
+```
+
+Both operations stay `O(log n)`.
+
+## Fenwick tree (binary indexed tree)
+
+A Fenwick tree is a compact array where index `i` (1-based) stores the sum
+of a block whose length is the **lowest set bit** of `i`, computed as
+`i & -i`. Moving up (`i += i & -i`) visits every block containing `i`;
+moving down (`i -= i & -i`) assembles a prefix sum.
+
+```js
+console.log(12 & -12, (12).toString(2), (12 & -12).toString(2)); // 4 1100 100
+
+class Fenwick {
+  constructor(n) { this.bit = new Array(n + 1).fill(0); }
+  add(i, delta) { for (i++; i < this.bit.length; i += i & -i) this.bit[i] += delta; }
+  prefix(i) { let s = 0; for (i++; i > 0; i -= i & -i) s += this.bit[i]; return s; }
+  range(l, r) { return this.prefix(r) - (l > 0 ? this.prefix(l - 1) : 0); }
+}
+
+const sales = [120, 80, 150, 60, 200, 90, 110]; // daily sales, ₹ thousand
+const fw = new Fenwick(sales.length);
+sales.forEach((v, i) => fw.add(i, v));
+console.log(fw.prefix(6), fw.range(2, 4)); // 810 410
+fw.add(3, 40);
+console.log(fw.range(2, 4)); // 450
+```
+
+Fenwick trees use `n + 1` slots, about ten lines of code, and have small
+constants — the go-to choice for sums. They cannot directly do range
+minimum, because min has no inverse to "subtract" a prefix.
+
+## Interview problem: count inversions
+
+Count pairs `i` less than `j` with `nums[i]` greater than `nums[j]`.
+**Pattern: coordinate compression + Fenwick.** Scan from the right; for
+each value, ask "how many smaller values have I already seen?"
+
+```js
+function countInversions(nums) {
+  const sorted = [...new Set(nums)].sort((a, b) => a - b);
+  const rank = new Map(sorted.map((v, i) => [v, i])); // compress to 0..k-1
+  const fw = new Fenwick(sorted.length);
+  let inv = 0;
+  for (let i = nums.length - 1; i >= 0; i--) {
+    const r = rank.get(nums[i]);
+    if (r > 0) inv += fw.prefix(r - 1);
+    fw.add(r, 1);
+  }
+  return inv;
+}
+console.log(countInversions([8, 4, 2, 1]), countInversions([3, 1, 2]), countInversions([5, 2, 6, 1])); // 6 2 4
+```
+
+`O(n log n)` time, `O(n)` space. The same pattern solves "count of smaller
+numbers after self" and many ranking problems. Merge sort can count
+inversions too; mention both.
+
+## Common mistakes
+
+- Mixing 0-based and 1-based indexing in a Fenwick tree (index 0 makes
+  `i & -i` equal 0 and loops forever).
+- Wrong identity for out-of-range nodes (`0` for min queries is a bug).
+- Allocating `2n` instead of `4n` for a recursive segment tree on
+  non-power-of-two sizes.
+- Forgetting to push lazy tags before recursing into children.
+
+### Try it yourself
+
+1. Modify `SegmentTree` to return both the minimum price and the index of
+   the day it occurred.
+2. Support "range add, point query" with a Fenwick tree by storing a
+   difference array in it.
+3. Given 1 lakh booking requests `[from, to]` for seats on a route, answer
+   after each request: "what is the maximum occupancy of any segment?"
+   (lazy segment tree with range add and range max).

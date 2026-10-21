@@ -1,0 +1,155 @@
+---
+title: "The Python Mental Model & Core Vocabulary"
+description: "How the interpreter runs your code top to bottom, plus the words every later lesson uses: values, types, expressions, statements, names, functions, indentation and modules."
+module: "Getting Started"
+level: "beginner"
+order: 2
+---
+
+Every later lesson assumes you know a handful of words — *expression*,
+*statement*, *object*, *type*, *call*. This lesson builds the mental model
+behind them, so that when you read "a function returns `None`" or "the name
+is rebound", you know exactly what is happening.
+
+## The interpreter runs your file top to bottom
+
+Python is an **interpreted** language: you do not run a separate compile
+step. When you run `python app.py`, the interpreter reads the file and
+executes it **one statement at a time, from top to bottom**. A line cannot
+use something that has not been defined yet when that line runs.
+
+```python
+print(greeting)          # NameError: name 'greeting' is not defined
+greeting = "Namaste"
+```
+
+Swap the two lines and it works. (Behind the scenes CPython, the standard
+interpreter, first compiles your code to *bytecode* and then runs that — a
+detail the Pro lessons explore — but "top to bottom" is the right model.)
+
+## Values, objects and types
+
+Everything Python works with is an **object**, and every object has a
+**type** that decides what you can do with it.
+
+```python
+print(type(42))          # <class 'int'>     whole number
+print(type(3.5))         # <class 'float'>   decimal number
+print(type("SIP"))       # <class 'str'>     text
+print(type(True))        # <class 'bool'>    True or False
+print(type(None))        # <class 'NoneType'> "no value"
+print(type([1, 2, 3]))   # <class 'list'>    ordered collection
+```
+
+The type decides behaviour: `"5" + "5"` is `"55"` (joining text), while
+`5 + 5` is `10`. Python never silently converts between them — mixing them
+raises a `TypeError`.
+
+## Names (variables) point at objects
+
+A **variable** in Python is a *name* attached to an object with `=`:
+
+```python
+amount = 1500            # the name "amount" now refers to the int 1500
+amount = amount + 500    # rebinding: "amount" now refers to a new int, 2000
+print(amount)            # 2000
+```
+
+Read `=` as "make this name refer to", not "equals". A name has no fixed
+type; the object it points at does. The first lesson of the Fundamentals
+module explores what this means for lists and other changeable objects.
+
+## Expressions vs statements
+
+An **expression** is anything that produces a value. A **statement** is an
+instruction that does something.
+
+```python
+# Expressions - each evaluates to a value
+3 * 4                    # 12
+len("Python")            # 6
+amount > 1000            # True
+
+# Statements - each performs an action
+total = 3 * 4            # assignment statement (contains an expression)
+if total > 10:           # if statement
+    print("big")         # expression statement: a call used for its effect
+```
+
+This distinction matters later: f-strings, comprehensions and lambdas only
+accept expressions, never statements.
+
+## Calling functions
+
+A **function** is a reusable piece of code. You **call** it with brackets,
+passing **arguments**, and it **returns** a value.
+
+```python
+result = round(3.14159, 2)   # call round with two arguments
+print(result)                # 3.14
+
+def gst(price):              # define your own function
+    return price * 0.18
+
+print(gst(1000))             # 180.0
+print(print("hi"))           # hi, then None - print returns nothing useful
+```
+
+A function with no `return` gives back `None`. A **method** is a function
+attached to an object, called with a dot: `"upi".upper()` returns `'UPI'`.
+
+## Indentation is syntax
+
+Python uses **indentation**, not braces, to group code into blocks. A colon
+ends the line that opens a block, and every line inside is indented by the
+same amount (four spaces by convention).
+
+```python
+balance = 800
+if balance >= 1000:
+    print("Eligible")
+    print("Processing...")
+else:
+    print("Minimum balance is ₹1,000")
+# Minimum balance is ₹1,000
+```
+
+Mixing indentation levels by accident raises an `IndentationError`. This is
+also why Python code from different people looks so similar.
+
+## Modules and `import`
+
+A **module** is a `.py` file of reusable code. The **standard library**
+ships hundreds of them, and you load one with `import`:
+
+```python
+import math
+from datetime import date
+
+print(math.sqrt(144))    # 12.0
+print(date.today().year) # the current year, for example 2026
+```
+
+Third-party packages (installed with `pip`) are imported the same way.
+
+## Vocabulary cheat sheet
+
+| Word | Meaning |
+| --- | --- |
+| object | any value Python works with |
+| type | the kind of object, which decides its behaviour |
+| name / variable | a label bound to an object with `=` |
+| expression | code that produces a value |
+| statement | code that performs an action |
+| call | running a function with `name(arguments)` |
+| method | a function reached through an object with a dot |
+| block | indented lines that belong together |
+| module | a `.py` file you can `import` |
+
+### Try it yourself
+
+Predict the output of each line before running it: `type(7 / 2)`,
+`type(7 // 2)`, `"7" * 3`, `print(len("₹500"))`, and `print(abs(-5) + 1)`.
+Then write a function `emi_label(amount)` that returns `"high"` when the
+amount is above ₹25,000 and `"normal"` otherwise, and label each statement in
+your function as an expression or a statement.

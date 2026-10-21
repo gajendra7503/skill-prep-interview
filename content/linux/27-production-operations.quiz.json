@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "After logrotate renames app.log to app.log.1, the application keeps writing to app.log.1. Why?",
+      "options": [
+        "logrotate copied the wrong file",
+        "The process still holds the original file descriptor; it must be told to reopen its logs (or copytruncate used)",
+        "The compress directive is missing",
+        "The disk is full"
+      ],
+      "correctIndex": 1,
+      "explanation": "A rename does not affect an open descriptor. A postrotate signal such as HUP or USR1 makes the app reopen the path, or copytruncate truncates the file in place."
+    },
+    {
+      "question": "What is the main drawback of logrotate's copytruncate option?",
+      "options": [
+        "Lines written between the copy and the truncate can be lost",
+        "It requires restarting the application",
+        "It cannot be combined with compress",
+        "It only works for journald"
+      ],
+      "correctIndex": 0,
+      "explanation": "copytruncate needs no application support, but there is a small window in which new log lines are lost."
+    },
+    {
+      "question": "Which statement best describes RTO?",
+      "options": [
+        "How much data, measured in time, you can afford to lose",
+        "The number of backup copies you keep",
+        "How long the service can be down while you restore it",
+        "The encryption standard for off-site backups"
+      ],
+      "correctIndex": 2,
+      "explanation": "RTO is the Recovery Time Objective. RPO (Recovery Point Objective) is the acceptable data loss."
+    },
+    {
+      "question": "Errors start right after the 14:05 deploy. According to the lesson, what should the team do first?",
+      "options": [
+        "Find the exact line of code that caused the bug",
+        "Write the postmortem",
+        "Restart every server in the fleet",
+        "Mitigate first, for example by rolling back the deploy, then investigate"
+      ],
+      "correctIndex": 3,
+      "explanation": "Restoring service for users comes before root-cause analysis. Rolling back a suspect deploy is the classic fast mitigation."
+    }
+  ]
+}

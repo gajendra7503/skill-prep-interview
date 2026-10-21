@@ -1,0 +1,146 @@
+---
+title: "CSS Containment & Rendering at Scale"
+description: "contain and content-visibility for skipping work, layout thrashing, will-change and layer costs, style-recalc budgets, and reading Core Web Vitals as a CSS engineer."
+module: "Pro Level"
+level: pro
+order: 27
+---
+
+The rendering-performance lesson explained reflow, repaint and composite
+for a single page. At scale — a 5,000-row transaction history, an
+infinite feed, a dashboard with dozens of widgets — the question becomes
+how to stop the browser doing work it does not need to do. This lesson is
+about limiting the **scope** of that work.
+
+## Why scope matters
+
+By default, a change anywhere can affect layout everywhere: a child getting
+taller pushes siblings down, which may resize the parent, which may change
+the page width. So the browser often has to re-check far more of the tree
+than the part you changed. **Containment** is a promise you make that a
+subtree is independent, which lets the engine skip the rest.
+
+## The `contain` property
+
+```css
+.widget {
+  contain: layout paint;   /* combine individual types */
+}
+```
+
+| Value | Promise | Effect |
+| --- | --- | --- |
+| `layout` | Nothing inside affects layout outside | Becomes a containing block for positioned descendants and a new formatting context |
+| `paint` | Descendants never paint outside the box | Clips overflow like `overflow: clip`; offscreen boxes can skip painting |
+| `size` | The box's size does not depend on its children | Needs an explicit size or it collapses to zero |
+| `inline-size` | Same, inline axis only | What `container-type: inline-size` applies |
+| `style` | Counters and quotes do not leak out | Rarely the bottleneck |
+| `content` | Shorthand for `layout paint style` | Safe default for independent widgets |
+| `strict` | Shorthand for `size layout paint style` | Only when size is set explicitly |
+
+Side effects to remember in reviews: `layout` and `paint` create a new
+stacking context and a containing block for `position: fixed` descendants,
+so a "fixed" toast inside a contained widget is positioned relative to the
+widget, not the viewport.
+
+## `content-visibility`: skip rendering offscreen content
+
+```css
+.statement-month {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;   /* placeholder height until rendered */
+}
+```
+
+With `auto`, sections that are far offscreen skip style, layout and paint
+entirely; the browser renders them as they approach the viewport. On long
+pages this can cut initial rendering time dramatically.
+
+- `contain-intrinsic-size` gives skipped sections an estimated size so the
+  scrollbar does not jump. The `auto` keyword makes the browser remember the
+  **last rendered size** once a section has been seen, so the estimate only
+  matters the first time.
+- Unlike `display: none`, skipped content stays in the DOM and the
+  accessibility tree and remains findable with Ctrl+F, which reveals it.
+- `content-visibility: hidden` skips rendering but **keeps the rendering
+  state cached**, making it a fast way to hide and re-show heavy views such
+  as inactive tabs.
+- It is Baseline since 2024. Unsupported browsers simply render everything,
+  so it is a safe enhancement.
+
+Measure the effect: a bad estimate causes scroll jank and layout shift as
+sections render with a different height.
+
+## Layout thrashing
+
+CSS is only half the story. JavaScript that alternates reads of layout
+values with style writes forces the browser to recalculate layout
+synchronously, again and again:
+
+```js
+// BAD: each offsetWidth read forces layout because the previous write invalidated it
+for (const row of rows) {
+  row.style.width = container.offsetWidth / 2 + "px";
+}
+
+// GOOD: read once, then write
+const half = container.offsetWidth / 2;
+for (const row of rows) {
+  row.style.width = half + "px";
+}
+```
+
+In the DevTools Performance panel the bad version shows many purple
+"Layout" blocks marked as forced reflow. Properties that force layout
+include `offsetWidth`/`offsetHeight`, `getBoundingClientRect()`,
+`scrollTop` and `getComputedStyle()` on layout-dependent values. Batch reads
+first, then writes, and defer writes with `requestAnimationFrame` when they
+come from scattered code.
+
+## `will-change` and compositor layers
+
+```css
+.drawer { will-change: transform; }   /* promote ahead of an animation */
+```
+
+Promoting an element to its own compositor layer makes `transform` and
+`opacity` animations cheap, but every layer costs GPU memory, and promoting
+hundreds of elements (a classic `* { will-change: transform }` mistake) can
+make low-end Android phones slower, not faster. Apply it just before an
+animation and remove it afterwards, or limit it to a few known elements.
+The Layers panel in Chromium DevTools shows how many layers exist and why.
+
+## Style recalculation budgets
+
+Large DOMs make every style change expensive. Practical limits seniors
+enforce:
+
+- Keep DOM size in check (Lighthouse warns at roughly 800 body nodes and
+  flags pages far beyond that) — virtualise long lists.
+- Avoid toggling a class on `body` or `:root` that many descendant selectors
+  depend on during interactions; scope the change to the component.
+- Use Chromium DevTools' selector statistics (in the Performance panel) to
+  find selectors with expensive matching.
+- Prefer `inherits: false` for registered custom properties that change
+  often.
+
+## Mapping to Core Web Vitals
+
+| Metric | "Good" threshold | CSS levers |
+| --- | --- | --- |
+| LCP (Largest Contentful Paint) | 2.5 s or less | Small critical CSS, no render-blocking imports, prioritised hero image |
+| CLS (Cumulative Layout Shift) | 0.1 or less | Reserved space for media and ads, `aspect-ratio`, good `contain-intrinsic-size` estimates, font metric overrides |
+| INP (Interaction to Next Paint) | 200 ms or less | Containment, small style-recalc scope, no layout thrashing in handlers |
+
+Thresholds are measured at the 75th percentile of real user visits, so
+test on a mid-range phone with CPU throttling, not on a developer laptop.
+
+### Try it yourself
+
+Generate a page with 24 monthly statement sections of 200 transactions
+each (amounts like ₹1,250.00). Record a Performance trace of the initial
+load. Add `content-visibility: auto` with `contain-intrinsic-size: auto
+900px` and record again; compare rendering time and check that Ctrl+F still
+finds a transaction in December. Then write a deliberate layout-thrashing
+loop, find the forced reflows in the trace, and fix it by batching reads
+before writes.

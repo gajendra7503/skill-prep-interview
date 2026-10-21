@@ -1,0 +1,181 @@
+---
+title: "grep & Regular Expressions"
+description: "Search files and command output with grep, write basic and extended regular expressions, and use grep's exit status in scripts."
+module: "Text Processing"
+level: "intermediate"
+order: 8
+---
+
+`grep` prints the lines that match a pattern: logs, codebases, config files.
+The examples use `app.conf` (a config file with comments and a blank line)
+and `access.log`, the web log of a fictional company, Kirana Cloud:
+
+```text
+10.0.0.5 - - [14/Oct/2026:09:12:01 +0530] "GET /api/orders HTTP/1.1" 200 512
+10.0.0.7 - - [14/Oct/2026:09:12:03 +0530] "POST /api/login HTTP/1.1" 401 87
+10.0.0.5 - - [14/Oct/2026:09:12:09 +0530] "GET /api/orders/42 HTTP/1.1" 404 64
+10.0.0.9 - - [14/Oct/2026:09:13:15 +0530] "GET /health HTTP/1.1" 200 2
+10.0.0.7 - - [14/Oct/2026:09:13:44 +0530] "POST /api/login HTTP/1.1" 200 340
+10.0.0.5 - - [14/Oct/2026:09:14:02 +0530] "GET /api/payments HTTP/1.1" 500 120
+10.0.0.11 - - [14/Oct/2026:09:14:30 +0530] "GET /api/orders HTTP/1.1" 200 498
+10.0.0.9 - - [14/Oct/2026:09:15:15 +0530] "GET /health HTTP/1.1" 200 2
+```
+
+## The basics
+
+```bash
+grep "login" access.log
+# 10.0.0.7 - - [14/Oct/2026:09:12:03 +0530] "POST /api/login HTTP/1.1" 401 87
+# 10.0.0.7 - - [14/Oct/2026:09:13:44 +0530] "POST /api/login HTTP/1.1" 200 340
+grep -c " 200 " access.log       # count matching lines
+# 5
+```
+
+grep also reads standard input, so it sits at the end of many pipelines
+(see "Pipes & Redirection"): `ps aux | grep nginx`, `history | grep ssh`.
+
+## The flags worth memorising
+
+| Flag | Meaning |
+|---|---|
+| `-i` | ignore case |
+| `-v` | invert: print lines that do **not** match |
+| `-n` | prefix each line with its line number |
+| `-c` | print only the count of matching lines |
+| `-w` | match whole words only |
+| `-x` | the whole line must match |
+| `-o` | print only the matching part, one match per line |
+| `-l` / `-L` | list files that do / do not contain a match |
+| `-r` / `-R` | search directories recursively (`-R` also follows symlinks) |
+| `-A n` / `-B n` / `-C n` | show n lines after / before / around each match |
+| `-E` | extended regular expressions |
+| `-F` | fixed string: no regex at all |
+| `-q` | quiet: print nothing, just set the exit status |
+
+A common task is stripping comments and blank lines from a config file:
+
+```bash
+grep -v "^#" app.conf | grep -v "^$"
+# port=8080
+# host=0.0.0.0
+# log_level=info
+# db_url=postgres://localhost/payroll
+```
+
+Context flags are invaluable for errors: `grep -B2 -A10 "Exception" app.log`
+shows what led up to a stack trace and the trace itself.
+
+## Searching a codebase
+
+```bash
+grep -rn "TODO" src
+# src/a.js:1:const x = 1; // TODO: fix
+# src/c.js:1:TODO again
+
+grep -rl --include="*.js" "TODO" src     # only .js files, names only
+# src/a.js
+# src/c.js
+
+grep -rn --exclude-dir=node_modules "API_KEY" .
+```
+
+## Regular expression building blocks
+
+A regular expression (regex) describes a set of strings. Always put the
+pattern in **single quotes** so the shell does not expand `*`, `$` or `\`
+before grep sees them.
+
+| Pattern | Matches |
+|---|---|
+| `.` | any single character |
+| `*` | zero or more of the previous item |
+| `+` | one or more of the previous item (ERE) |
+| `?` | zero or one of the previous item (ERE) |
+| `{n,m}` | between n and m of the previous item (ERE) |
+| `^` / `$` | start / end of line |
+| `[abc]` / `[^abc]` | one character from the set / not in the set |
+| `[0-9]`, `[[:digit:]]` | a digit (POSIX classes also: `[:alpha:]`, `[:space:]`, `[:upper:]`) |
+| `(ab)` | a group, so a quantifier applies to all of it (ERE) |
+| `\b` | word boundary (GNU extension) |
+
+Alternation ("this or that") uses a pipe inside the pattern in ERE:
+`grep -E 'GET|POST'` matches lines containing either word.
+
+## Basic vs extended vs Perl regex
+
+grep understands three dialects:
+
+- **BRE** (basic, the default): `+`, `?`, `|`, `()` and `{}` are literal
+  characters unless you backslash them, e.g. `'a\{2\}'`.
+- **ERE** (`grep -E`, formerly `egrep`): those characters are operators.
+  This is what you usually want.
+- **PCRE** (`grep -P`, GNU grep only): Perl syntax such as `\d`, lookahead
+  and non-greedy quantifiers. BSD/macOS grep does not support `-P`.
+
+```bash
+grep -E '" (4|5)[0-9]{2} ' access.log    # all 4xx and 5xx responses
+# 10.0.0.7 - - [14/Oct/2026:09:12:03 +0530] "POST /api/login HTTP/1.1" 401 87
+# 10.0.0.5 - - [14/Oct/2026:09:12:09 +0530] "GET /api/orders/42 HTTP/1.1" 404 64
+# 10.0.0.5 - - [14/Oct/2026:09:14:02 +0530] "GET /api/payments HTTP/1.1" 500 120
+```
+
+`-o` turns grep into an extractor. Combined with tools from "sed, awk, sort,
+uniq, cut & Friends", this counts requests per IP address:
+
+```bash
+grep -oE '^[0-9]+(\.[0-9]+){3}' access.log | sort | uniq -c | sort -rn
+#       3 10.0.0.5
+#       2 10.0.0.9
+#       2 10.0.0.7
+#       1 10.0.0.11
+```
+
+### When the dot bites: -F
+
+In a regex `.` means "any character", so searching for a literal string with
+dots can match more than you expect. `-F` disables regex entirely, which is
+also faster for plain strings:
+
+```bash
+grep "orders/4." access.log      # matches "orders/42" because . is any char
+# 10.0.0.5 - - [14/Oct/2026:09:12:09 +0530] "GET /api/orders/42 HTTP/1.1" 404 64
+grep -F "orders/4." access.log   # literal dot: no match
+echo $?
+# 1
+```
+
+## Exit status: grep in scripts
+
+grep exits with **0** if at least one line matched, **1** if none matched,
+and **2** on an error such as a missing file.
+
+```bash
+grep -q "debug" app.conf && echo "debug mentioned"
+# debug mentioned
+grep -q "nosuch" app.conf; echo $?
+# 1
+grep x nofile; echo $?
+# grep: nofile: No such file or directory
+# 2
+```
+
+Use `-q` in conditions. "No match" is a non-zero exit, which matters in
+scripts that stop on errors (see "Robust Shell Scripts: set -euo pipefail,
+traps & getopts").
+
+## Interview angles
+
+- **"Find which files mention a function?"** `grep -rln "funcName" --include="*.ts" .`
+- **"Why does `ps aux | grep nginx` show the grep itself?"** Because the grep
+  process's own command line contains "nginx". Use `pgrep nginx`, or the
+  trick `grep "[n]ginx"`: the regex matches "nginx" but the literal text
+  `[n]ginx` in grep's command line does not.
+
+### Try it yourself
+
+1. Using `access.log`, print only the lines for POST requests that did
+   **not** return 200 (two greps joined by a pipe), then count them with `-c`.
+2. Write a single `grep -E` that matches lines in `app.conf` that are either
+   comments or blank (`^#` or `^$`), then invert it with `-v`.
+3. Extract every HTTP status code from the log with `grep -oE` and a pattern
+   that matches exactly three digits surrounded by spaces.

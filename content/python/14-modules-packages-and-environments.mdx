@@ -1,0 +1,121 @@
+---
+title: "Modules, Packages & Environments"
+description: "How imports resolve, the __main__ guard, packages, virtual environments, pip, pyproject.toml, and uv."
+module: "Modern Python"
+level: "intermediate"
+order: 14
+---
+
+"Works on my machine" problems in Python almost always come down to imports
+or environments. Interviewers ask about `__name__ == "__main__"` constantly,
+and senior roles expect you to explain how a project's dependencies are
+isolated and declared.
+
+## What `import` does
+
+```python
+import json                      # bind the module object to "json"
+from pathlib import Path         # bind one attribute from the module
+from collections import abc as cabc  # rename on import
+```
+
+On the first import of a module, Python finds it, executes its top-level
+code **once**, and caches the module object in `sys.modules`. Every later
+import, from anywhere, returns the cached object — which is why module
+level code runs only once and why modules work as natural singletons.
+
+Python searches `sys.path` in order: the script's directory (or the
+current directory in the REPL), `PYTHONPATH` entries, then the standard
+library and `site-packages`. A local file named `random.py` therefore
+**shadows** the standard library module — a surprisingly common bug.
+
+## The `__main__` guard
+
+Every module has a `__name__`. It is the module's import name normally,
+but `"__main__"` when the file is run directly:
+
+```python
+# greet.py
+def greet(name):
+    return f"Hello, {name}"
+
+if __name__ == "__main__":
+    print(greet("world"))
+```
+
+```bash
+python greet.py          # Hello, world
+python -c "import greet" # prints nothing — guard is False on import
+```
+
+The guard lets a file be both an importable module and a runnable script,
+and prevents side effects (like starting a server) when imported. It is
+also required with `multiprocessing` on Windows and macOS, where child
+processes re-import the main module.
+
+## Packages
+
+A package is a directory of modules. An `__init__.py` file marks a
+**regular package** and runs when the package is first imported, so it is
+often used to re-export a public API:
+
+```text
+shop/
+├── __init__.py        # from .cart import Cart
+├── cart.py
+└── payments/
+    ├── __init__.py
+    └── upi.py
+```
+
+Inside the package, relative imports like `from .cart import Cart` or
+`from ..cart import Cart` refer to siblings and parents. Directories
+without `__init__.py` are **namespace packages** (PEP 420), which can be
+split across locations — useful, but rarely what you want for app code.
+Run package modules with `python -m shop.cart` so imports resolve
+relative to the package, not the file.
+
+## Virtual environments and pip
+
+Installing everything globally causes version conflicts between projects.
+A virtual environment is an isolated directory with its own interpreter
+link and `site-packages`:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python -m pip install requests
+python -m pip freeze > requirements.txt
+```
+
+Prefer `python -m pip` over bare `pip`: it guarantees you install into
+the interpreter you are actually running.
+
+## `pyproject.toml` and uv
+
+Modern projects declare metadata and dependencies in `pyproject.toml`
+(PEP 621), replacing `setup.py`:
+
+```toml
+[project]
+name = "shop"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["requests>=2.32", "pydantic>=2.7"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+```
+
+`uv`, from Astral, is a fast Rust-based tool that has become popular as a
+replacement for pip, venv and pip-tools in one binary. `uv init` scaffolds
+a project, `uv add requests` updates `pyproject.toml` and a `uv.lock`
+lockfile, and `uv run app.py` runs inside the managed environment.
+
+### Try it yourself
+
+Create a package `mathkit` with `__init__.py` re-exporting a function from
+`mathkit/stats.py`. Add a `__main__` guard to `stats.py` that prints a demo,
+run it with `python -m mathkit.stats`, then import it from a separate
+script and confirm the demo does not print.

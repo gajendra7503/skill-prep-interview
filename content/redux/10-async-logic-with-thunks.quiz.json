@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which actions can `createAsyncThunk(\"orders/fetch\", ...)` dispatch?",
+      "options": [
+        "orders/fetch/start, orders/fetch/success, orders/fetch/error",
+        "orders/fetch/pending, orders/fetch/fulfilled, orders/fetch/rejected",
+        "orders/fetch only, with a status field in the payload",
+        "orders/loading and orders/loaded"
+      ],
+      "correctIndex": 1,
+      "explanation": "createAsyncThunk generates pending, fulfilled and rejected action types under the given prefix, and you handle them in extraReducers."
+    },
+    {
+      "question": "What does `await dispatch(fetchOrders(id))` give you when the API call fails?",
+      "options": [
+        "It throws the original Error object",
+        "It returns undefined",
+        "It returns the rejected action, and does not throw",
+        "It retries automatically and returns the fulfilled action"
+      ],
+      "correctIndex": 2,
+      "explanation": "The promise returned by dispatching an async thunk always resolves with the final action. Use .unwrap() if you want it to throw on rejection."
+    },
+    {
+      "question": "Why would you use rejectWithValue instead of throwing an error in the payload creator?",
+      "options": [
+        "To return a meaningful custom payload (for example an HTTP status or validation messages) on the rejected action",
+        "Throwing is not allowed inside createAsyncThunk",
+        "rejectWithValue makes the request retry",
+        "rejectWithValue dispatches the fulfilled action instead"
+      ],
+      "correctIndex": 0,
+      "explanation": "A thrown error is serialized into a generic { name, message, stack } object on action.error. rejectWithValue puts your own value in action.payload."
+    },
+    {
+      "question": "A createAsyncThunk's `condition` option returns false. What happens?",
+      "options": [
+        "The pending action is dispatched, then the rejected action",
+        "The thunk throws a ConditionError",
+        "The payload creator runs but its result is ignored",
+        "No actions are dispatched; the returned promise resolves with a rejected action marked meta.condition: true"
+      ],
+      "correctIndex": 3,
+      "explanation": "By default a cancelled-by-condition thunk dispatches nothing. The promise still resolves with a rejected action whose meta.condition is true."
+    }
+  ]
+}

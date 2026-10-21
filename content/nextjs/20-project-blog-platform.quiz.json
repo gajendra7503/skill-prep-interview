@@ -12,7 +12,7 @@
       "explanation": "It returns the full list of slugs ahead of time so Next.js can statically generate a page per post at build time."
     },
     {
-      "question": "After `postComment` runs, why does it call `revalidateTag(\"posts\")` instead of just returning success?",
+      "question": "After `postComment` runs, why does it call `revalidateTag(\"posts\", \"max\")` instead of just returning success?",
       "options": [
         "revalidateTag is required syntax for every Server Action",
         "It invalidates every cached fetch tagged 'posts', so the post page and listing page both show the new comment/updated data",

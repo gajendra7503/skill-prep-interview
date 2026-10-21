@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the difference between `find . -name \"*.js\" -exec wc -l {} \\;` and the same command ending in `{} +`?",
+      "options": [
+        "\\; searches recursively while + searches only the current directory",
+        "\\; runs wc once per file, while + passes many file names to each wc run",
+        "+ deletes the files after running wc",
+        "There is no difference; + is just shorter syntax"
+      ],
+      "correctIndex": 1,
+      "explanation": "With \\; find starts a new process for every match. With + it batches as many names as fit into each invocation, which is much faster for many files."
+    },
+    {
+      "question": "`find logs -name \"*.log\" | xargs ls` fails on a file named \"app 2026-10-01.log\". What is the robust fix?",
+      "options": [
+        "find logs -name \"*.log\" | xargs -n 1 ls",
+        "find logs -name \"*.log\" | xargs -P 4 ls",
+        "find logs -name \"*.log\" -print0 | xargs -0 ls",
+        "find logs -iname \"*.log\" | xargs ls"
+      ],
+      "correctIndex": 2,
+      "explanation": "xargs splits on whitespace by default. -print0 separates names with NUL bytes, which cannot appear in a path, and xargs -0 splits on them instead."
+    },
+    {
+      "question": "Why is `find . -delete -name \"*.log\"` dangerous?",
+      "options": [
+        "find evaluates left to right, so -delete runs on every file before -name is checked",
+        "-delete ignores the -name test entirely in all positions",
+        "-name must always come before the starting directory",
+        "It deletes only directories, not files"
+      ],
+      "correctIndex": 0,
+      "explanation": "find processes its expression left to right. Putting -delete first deletes everything under the starting point. Always put -delete last and dry-run with -print first."
+    },
+    {
+      "question": "What does `find . -name node_modules -prune -o -name \"*.js\" -print` do?",
+      "options": [
+        "Prints only files inside node_modules",
+        "Deletes node_modules and prints the remaining .js files",
+        "Prints .js files and the node_modules directory name",
+        "Prints .js files while never descending into node_modules directories"
+      ],
+      "correctIndex": 3,
+      "explanation": "-prune stops find from entering matching directories; -o means otherwise. The explicit -print ensures only the .js matches are printed, not the pruned directory."
+    }
+  ]
+}

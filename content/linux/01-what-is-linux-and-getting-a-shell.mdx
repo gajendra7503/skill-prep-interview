@@ -1,0 +1,180 @@
+---
+title: "What Linux Is & Getting a Shell"
+description: "What Linux, distributions and the shell actually are, and four practical ways to get a working Bash prompt from Windows, macOS, a VM or the cloud."
+module: "Getting Started"
+level: "beginner"
+order: 1
+---
+
+Almost every server your code will run on — the API behind a payments app,
+the build agent in your CI pipeline, the container in Kubernetes — runs
+Linux. Developers who are comfortable at a Linux command line debug
+production faster, write better deployment scripts and do well in
+"how would you investigate this on the server?" interview rounds. This
+lesson explains the vocabulary and gets you a working shell. No prior
+experience is assumed.
+
+## Kernel, distribution, shell, terminal
+
+These four words are often mixed up. Get them straight first:
+
+| Term | What it is | Example |
+| --- | --- | --- |
+| **Kernel** | The core program that talks to hardware, runs processes and manages memory and files | The Linux kernel |
+| **Distribution (distro)** | The kernel plus tools, a package manager, defaults and support | Ubuntu, Debian, Fedora, RHEL |
+| **Shell** | A program that reads the commands you type and runs them | Bash, zsh |
+| **Terminal** | The window that shows the shell's text and sends it your keystrokes | Windows Terminal, macOS Terminal, GNOME Terminal |
+
+Strictly speaking, "Linux" is only the kernel. The everyday commands you
+will learn (`ls`, `cp`, `grep`) mostly come from the **GNU** project, which
+is why you sometimes see the name "GNU/Linux".
+
+## Distributions you will meet
+
+Distros group into **families** that share a package format and tooling:
+
+| Family | Distros | Package tool | Where you see it |
+| --- | --- | --- | --- |
+| Debian | Debian, Ubuntu | `apt` | Cloud VMs, WSL, developer laptops |
+| Red Hat | RHEL, Fedora, Rocky Linux, AlmaLinux | `dnf` | Enterprise data centres, banks |
+| Alpine | Alpine Linux | `apk` | Small Docker images |
+
+This course uses **Ubuntu with Bash** for examples and points out where
+Fedora/RHEL differ. Nearly everything you learn works on any distro;
+installing software is the main difference (see "Package Management (apt,
+dnf, snap)").
+
+Interviewers often ask: "What is the difference between Linux and Ubuntu?"
+A crisp answer: Linux is the kernel; Ubuntu is a distribution that bundles
+that kernel with GNU tools, a package manager (`apt`) and default settings.
+
+## Option 1: Windows — WSL
+
+**WSL (Windows Subsystem for Linux)** runs a real Linux kernel inside a
+lightweight VM managed by Windows. It is the easiest option on a Windows
+laptop. Open **PowerShell as Administrator** and run:
+
+```bash
+wsl --install
+```
+
+On Windows 11 and recent Windows 10 builds, this enables WSL 2 and installs
+Ubuntu by default. Restart when asked, then open "Ubuntu" from the Start
+menu. The first launch asks you to create a **Linux username and password**
+— this is separate from your Windows login, and you will need the password
+for `sudo` later.
+
+Useful commands from PowerShell:
+
+```bash
+wsl --list --online      # distros you can install
+wsl --install -d Debian  # install a specific distro
+wsl -l -v                # installed distros and their WSL version
+wsl --shutdown           # stop all running distros
+```
+
+Your Windows `C:` drive appears inside Linux at `/mnt/c`, but keep project
+files in your Linux home directory (`~`) — file access across the boundary
+is much slower. `explorer.exe .` opens the current folder in File Explorer.
+
+## Option 2: macOS — Terminal (with a caveat)
+
+Open **Terminal** (Applications → Utilities). The default shell on recent
+macOS versions is **zsh**, and Bash is available too. macOS is Unix-like,
+so most commands in this course work, but it is **not Linux**: its tools
+come from BSD and some flags differ. For example, `sed -i` needs an extra
+argument on macOS, and there is no `apt` or `systemd`.
+
+For a genuine Linux environment on a Mac, use a VM (Option 3) or, if you
+have Docker Desktop, a throwaway container: `docker run -it --rm ubuntu bash`
+drops you into a minimal Ubuntu shell that is deleted when you `exit`.
+
+## Option 3: A local virtual machine
+
+A VM is a full Linux computer running inside your laptop, so you can break
+it without consequences. Two common routes:
+
+- **Multipass** (by Canonical, the company behind Ubuntu) creates Ubuntu VMs
+  from the command line on Windows, macOS and Linux:
+
+```bash
+multipass launch --name devbox   # create and start an Ubuntu VM
+multipass shell devbox           # open a shell inside it
+multipass list                   # see your VMs
+multipass delete devbox && multipass purge   # remove it completely
+```
+
+- **VirtualBox, VMware or Hyper-V** with an Ubuntu ISO downloaded from the
+  official Ubuntu website — slower to set up, but you get a desktop as well.
+
+## Option 4: A cloud VM
+
+Every major cloud (AWS, Azure, Google Cloud) lets you start a small Ubuntu
+VM in minutes; the smallest sizes cost a few hundred rupees a month, and
+free tiers exist for new accounts. You connect over **SSH** with the key
+file the console gives you:
+
+```bash
+ssh -i ~/Downloads/devbox-key.pem ubuntu@203.0.113.25
+```
+
+On official Ubuntu cloud images the default user is `ubuntu`. If SSH
+complains that the key's permissions are "too open", run
+`chmod 600 ~/Downloads/devbox-key.pem` first (permissions are explained in
+"Users, Groups, Permissions & sudo"). **Stop or
+delete the VM when you are done** — a forgotten instance keeps billing.
+SSH keys and configuration are covered properly in "SSH Keys, Config &
+Tunnels".
+
+| Option | Best for | Real Linux? |
+| --- | --- | --- |
+| WSL | Windows laptops, daily development | Yes |
+| macOS Terminal | Quick practice of basic commands | No (BSD tools) |
+| Docker container | Throwaway experiments | Yes (minimal) |
+| Local VM | Safe full-system practice, admin topics | Yes |
+| Cloud VM | Server practice, SSH, networking | Yes |
+
+## Your first commands
+
+Whichever option you chose, you should see a **prompt** like this:
+
+```text
+asha@devbox:~$
+```
+
+Read it as: user `asha`, on machine `devbox`, in directory `~` (your home
+directory). `$` means a normal user; a `#` prompt means you are `root`,
+the all-powerful administrator — be careful there. Now try:
+
+```bash
+whoami              # asha
+hostname            # devbox
+echo $SHELL         # /bin/bash
+uname -s            # Linux
+cat /etc/os-release # which distro is this?
+```
+
+```text
+PRETTY_NAME="Ubuntu ... LTS"
+NAME="Ubuntu"
+ID=ubuntu
+ID_LIKE=debian
+...
+```
+
+`ID_LIKE=debian` tells you this is a Debian-family system, so `apt` is the
+package tool. On Fedora you would see `ID=fedora`.
+
+Keyboard habits from day one: **Tab** completes command and file names,
+**Up arrow** recalls previous commands, **Ctrl+C** cancels a running
+command, **Ctrl+L** clears the screen, and `exit` (or Ctrl+D) closes the
+shell.
+
+### Try it yourself
+
+1. Set up a Linux shell using whichever option suits your machine (WSL on
+   Windows is the quickest). Run `whoami`, `hostname` and
+   `cat /etc/os-release` and note your distro family.
+2. Explain, in two sentences, the difference between a terminal and a shell.
+3. Type `ech` and press Tab, then press the Up arrow to recall
+   `cat /etc/os-release` without retyping it.

@@ -1,0 +1,187 @@
+---
+title: "Finding Files with find & xargs"
+description: "Locate files by name, type, size and age with find, act on them safely with -exec and xargs, and handle filenames containing spaces."
+module: "Text Processing"
+level: "intermediate"
+order: 10
+---
+
+`grep` searches **inside** files; `find` searches for the files themselves,
+by name, type, size, age, owner or permissions. Paired with `-exec` or
+`xargs`, it becomes the standard way to run a command on "every file that
+matches". The examples use this project tree:
+
+```text
+proj/README.md
+proj/build/bundle.js           (about 2 MB)
+proj/logs/app 2026-10-01.log   (name contains a space; old)
+proj/logs/app-2026-10-14.log, proj/logs/empty.log (0 bytes)
+proj/node_modules/lib/main.js
+proj/src/index.js, proj/src/utils/date.js, proj/src/utils/date.test.js
+```
+
+## Anatomy of a find command
+
+```bash
+find [where to start] [tests] [actions]
+```
+
+With no action, find prints every match. Output follows the on-disk
+directory order, not the alphabet (listings here were sorted for
+readability). Always quote the pattern, or the shell may expand `*.js`
+against the current directory before find sees it.
+
+```bash
+find . -name "*.js"
+# ./build/bundle.js
+# ./node_modules/lib/main.js
+# ./src/index.js
+# ./src/utils/date.js
+# ./src/utils/date.test.js
+```
+
+## The tests you will use most
+
+| Test | Matches |
+|---|---|
+| `-name "*.log"` / `-iname` | file name glob (case-sensitive / insensitive) |
+| `-type f` / `-type d` / `-type l` | regular file / directory / symlink |
+| `-size +1M` / `-size -10k` | bigger than 1 MiB / smaller than 10 KiB (sizes round up to whole units) |
+| `-mtime +30` / `-mtime -1` | modified more than 30 days ago / within the last day |
+| `-mmin -60` | modified within the last 60 minutes |
+| `-newer ref` | modified more recently than file `ref` |
+| `-empty` | empty file or directory |
+| `-maxdepth 1` | do not descend below this many levels |
+| `-path "*/test/*"` | glob against the whole path |
+| `-user deploy`, `-perm -o+w` | owner, permission bits |
+
+```bash
+find . -type f -size +1M
+# ./build/bundle.js
+find . -type f -empty
+# ./logs/empty.log
+find logs -name "*.log" -mtime +30
+# logs/app 2026-10-01.log
+```
+
+`-mtime` counts whole 24-hour periods and discards the fraction, so
+`-mtime +30` in practice means "at least 31 days old".
+
+## Combining tests
+
+Tests side by side are joined with an implicit AND. Use `-o` for OR, `!` or
+`-not` for NOT, and escaped parentheses for grouping:
+
+```bash
+find logs -type f \( -name "*.log" -o -name "*.txt" \)
+find . -type f -name "*.js" -not -path "./node_modules/*"
+```
+
+### Skipping directories with -prune
+
+`-not -path` still walks through `node_modules`; it just hides the results.
+`-prune` stops find from entering the directory at all, which is much faster
+on a big tree:
+
+```bash
+find . -name node_modules -prune -o -name "*.js" -print
+# ./build/bundle.js
+# ./src/index.js
+# ./src/utils/date.js
+# ./src/utils/date.test.js
+```
+
+Read it as "prune node_modules, **otherwise** print .js files". The explicit
+`-print` is required, or find also prints the pruned directory.
+
+## Acting on results: -exec and -delete
+
+```bash
+find src -name "*.js" -exec wc -l {} \;     # runs wc once PER file
+find src -name "*.js" -exec wc -l {} +      # runs wc ONCE with many files
+# 1 src/index.js
+# 1 src/utils/date.js
+# 1 src/utils/date.test.js
+# 3 total
+```
+
+`{}` is replaced by the file name. `\;` runs one process per file; `+` packs
+many names into each run, which is far faster for thousands of files.
+
+`-delete` removes matches. It is irreversible, so **always run the same
+command with `-print` first**, and put `-delete` last: find evaluates
+left to right, and `find . -delete -name "*.log"` would delete everything
+under `.` before even looking at the name.
+
+```bash
+find logs -type f -empty -print     # check the list first
+find logs -type f -empty -delete    # then delete
+```
+
+## xargs: turn input lines into arguments
+
+Many commands take file names as arguments, not on stdin. `xargs` reads
+items from stdin and appends them to a command:
+
+```bash
+echo "a b c d e" | xargs -n 2 echo     # at most 2 arguments per run
+# a b
+# c d
+# e
+```
+
+### The space-in-filename trap
+
+By default xargs splits on any whitespace, so a file called
+`app 2026-10-01.log` becomes two bogus arguments:
+
+```bash
+find logs -name "*.log" | xargs ls -1
+# ls: cannot access 'logs/app': No such file or directory
+# ls: cannot access '2026-10-01.log': No such file or directory
+# logs/app-2026-10-14.log
+# logs/empty.log
+```
+
+The fix is to separate names with a NUL byte, the one character that cannot
+appear in a Linux path:
+
+```bash
+find logs -name "*.log" -print0 | xargs -0 ls -1
+# logs/app 2026-10-01.log
+# logs/app-2026-10-14.log
+# logs/empty.log
+```
+
+Make `-print0 | xargs -0` a habit whenever you pipe file names.
+
+### Other useful xargs flags
+
+| Flag | Meaning |
+|---|---|
+| `-I{}` | run once per item, substituting `{}` anywhere: `xargs -I{} cp {} /backup/` |
+| `-P N` | run up to N commands in parallel |
+| `-r` | GNU: skip the command if input is empty (otherwise it runs once with no arguments) |
+
+For content, use `grep -rl`; to search content only in files that pass
+find's tests, `find . -name "*.py" -exec grep -l pattern {} +`. `locate` /
+`plocate` answer name lookups instantly from a prebuilt index that may be
+stale.
+
+## Interview angles
+
+- **"Delete log files older than 7 days."**
+  `find /var/log/myapp -name "*.log" -type f -mtime +7 -delete`, after a dry
+  run with `-print`. Mention `-mtime` rounding.
+- **"Find the 5 largest files under /var."**
+  `find /var -type f -printf '%s %p\n' 2>/dev/null | sort -rn | head -5`
+  (`-printf` is GNU find).
+
+### Try it yourself
+
+1. Find every `.js` file under `proj`, excluding `node_modules` with
+   `-prune`, and count lines in all of them with a single `wc -l` run.
+2. List files modified in the last 60 minutes, then files larger than
+   100 KiB, in your own home directory.
+3. In a scratch directory, create a file with a space in its name and show
+   that `find | xargs ls` fails on it while `-print0 | xargs -0` works.

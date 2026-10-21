@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A custom middleware neither sends a response nor calls `next()`. What happens?",
+      "options": [
+        "Express automatically calls `next()` after the function returns",
+        "Express responds with 500 Internal Server Error",
+        "The request hangs until the client or server times out",
+        "Express skips to the 404 handler"
+      ],
+      "correctIndex": 2,
+      "explanation": "Middleware must either end the request-response cycle or call `next()`. If it does neither, nothing else runs and the client waits until a timeout."
+    },
+    {
+      "question": "Where should an `app.use(requireAuth)` call go so that `/public` is open but `/portfolio` is protected?",
+      "options": [
+        "After `/public` is registered and before `/portfolio` is registered",
+        "At the very end of the file, after all routes",
+        "Anywhere; Express sorts middleware by path specificity",
+        "Inside the `/public` handler"
+      ],
+      "correctIndex": 0,
+      "explanation": "Middleware runs in registration order. Routes registered before `app.use(requireAuth)` are not affected by it; routes registered after it are."
+    },
+    {
+      "question": "What does calling `next(err)` with an Error object do?",
+      "options": [
+        "Retries the current middleware",
+        "Skips the remaining normal middleware and routes and runs error-handling middleware",
+        "Logs the error and continues to the next middleware normally",
+        "Ends the response with the error message as plain text immediately"
+      ],
+      "correctIndex": 1,
+      "explanation": "Passing any value other than \"route\" or \"router\" to `next()` signals an error, so Express jumps to middleware with the four-argument `(err, req, res, next)` signature."
+    },
+    {
+      "question": "Why does a request-timing middleware listen for `res.on(\"finish\")` instead of logging right before calling `next()`?",
+      "options": [
+        "Because `next()` is asynchronous and never returns",
+        "Because `finish` is the only event that has access to `req`",
+        "Because Express forbids logging inside middleware",
+        "Because the final status code and total duration are only known after the response has been sent"
+      ],
+      "correctIndex": 3,
+      "explanation": "The middleware runs before the handler, so at that point the status code and elapsed time are unknown. The `finish` event fires once the response is sent, giving accurate values."
+    }
+  ]
+}

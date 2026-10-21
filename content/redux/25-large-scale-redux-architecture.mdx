@@ -1,0 +1,175 @@
+---
+title: "Large-Scale Redux Architecture"
+description: "Design a Redux codebase for many teams: layered modules with enforced boundaries, feature public APIs, event-driven cross-feature communication, shared typed helpers and one API slice."
+module: "Pro Level"
+level: "pro"
+order: 25
+---
+
+With three developers, any reasonable folder layout works. With eight teams,
+400 actions and a 30-second CI budget, the architecture decides whether a
+change in "payments" can silently break "onboarding". This lesson assumes
+you know feature folders (see "Structuring a Redux App: Feature Folders &
+What Belongs in Redux") and focuses on the rules that keep a large store
+healthy.
+
+## Layers and the dependency rule
+
+Group code into layers and allow imports in **one direction only**.
+
+| Layer | Contains | May import from |
+|---|---|---|
+| `app/` | store setup, root reducer, providers, routing | everything below |
+| `features/*` | user-facing capabilities: slices, thunks, listeners, UI | `entities`, `shared` |
+| `entities/*` | domain models shared by features (user, account), their API endpoints and selectors | `shared` |
+| `shared/` | typed hooks, base API, cross-cutting events, utilities | nothing app-specific |
+
+Features **never import other features**. If two features need the same
+thing, it moves down a layer. Enforce this with tooling, not code review:
+ESLint's `no-restricted-imports`, `eslint-plugin-boundaries`, or the module
+boundary rules of a monorepo tool such as Nx.
+
+## Every feature has a public API
+
+```ts
+// features/portfolio/index.ts  (the only file other code may import)
+export { PortfolioPage } from "./ui/PortfolioPage";
+export { selectTotalValue, selectHoldingsByFund } from "./model/selectors";
+export { holdingAdded } from "./model/portfolioSlice";
+// NOT exported: the reducer's internal state shape, private thunks, helpers
+```
+
+The slice reducer is wired in by `app/` (or injected lazily, see
+"Lazy-Loading Slices with combineSlices"). Other code reads state only
+through exported selectors, so the owning team can reshape its state
+without a cross-team migration.
+
+## Cross-feature communication with events
+
+Features need to react to each other: logging out should clear the cart,
+the portfolio and cached API data. Instead of the auth feature importing
+five reducers, define a **shared event** and let each feature listen.
+
+```ts
+// shared/events.ts — the only cross-feature coupling point
+export const sessionEnded = createAction<{ reason: "logout" | "expired" }>("session/ended");
+
+// features/cart/model/cartSlice.ts
+const cartSlice = createSlice({
+  name: "cart",
+  initialState: { items: [] as string[] },
+  reducers: { itemAdded: (s, a: PayloadAction<string>) => { s.items.push(a.payload); } },
+  extraReducers: (b) => { b.addCase(sessionEnded, () => ({ items: [] })); },
+});
+
+// features/analytics/listeners.ts — observes others without them knowing
+startAppListening({
+  matcher: isAnyOf(cartSlice.actions.itemAdded, sessionEnded),
+  effect: (action, api) =>
+    console.log("analytics:", action.type, "cart size", api.getState().cart.items.length),
+});
+```
+
+Running it (portfolio also handles `sessionEnded`):
+
+```text
+analytics: cart/itemAdded cart size 1
+analytics: session/ended cart size 0
+{ portfolio: { holdings: [ [Object] ] }, cart: { items: [] } }
+```
+
+This is Redux's biggest architectural strength: actions are **events**, and
+many reducers and listeners can respond to one event. Name them as facts in
+the past tense (`session/ended`, `order/placed`), not commands
+(`clearCart`). An analytics listener that imports `cartSlice.actions` is
+still importing another feature, so in a strict layout it would match on
+action types exported from `shared/` instead.
+
+## One place for typed helpers
+
+Every `withTypes` call lives in `shared/` (or `app/`) once, so no feature
+writes `RootState` generics by hand.
+
+```ts
+// app/typed.ts
+export const useAppSelector = useSelector.withTypes<RootState>();
+export const useAppDispatch = useDispatch.withTypes<AppDispatch>();
+export const createAppSelector = createSelector.withTypes<RootState>();
+export const createAppAsyncThunk = createAsyncThunk.withTypes<{ state: RootState; dispatch: AppDispatch }>();
+export const startAppListening = listenerMiddleware.startListening.withTypes<RootState, AppDispatch>();
+
+// A slice factory that allows async thunks inside `reducers`
+export const createAppSlice = buildCreateSlice({ creators: { asyncThunk: asyncThunkCreator } });
+```
+
+With `createAppSlice`, a thunk and its pending/fulfilled/rejected handlers
+live next to the plain reducers:
+
+```ts
+reducers: (create) => ({
+  fetchProfile: create.asyncThunk(
+    async (id: number) => api.getProfile(id),
+    { pending: (s) => { s.status = "loading"; },
+      fulfilled: (s, a) => { s.status = "idle"; s.name = a.payload.name; },
+      rejected: (s) => { s.status = "failed"; } },
+  ),
+}),
+// dispatch(profile.actions.fetchProfile(7)) -> type "profile/fetchProfile/fulfilled"
+```
+
+A circular-import warning: `RootState` depends on every slice, and slices
+importing `createAppSlice` from a file that imports the store creates a
+cycle. Keep `createAppSlice` in a file that imports only from
+`@reduxjs/toolkit`, and use `import type` for `RootState`.
+
+## One API slice, endpoints injected per domain
+
+Create a single `createApi` in `shared/api` with an empty `endpoints`, then
+let each entity or feature call `baseApi.injectEndpoints`. Multiple
+`createApi` instances cannot invalidate each other's tags and each adds its
+own middleware. Register tag types centrally (or via
+`baseApi.enhanceEndpoints({ addTagTypes: [...] })`) and document which team
+owns which tags.
+
+## State shape rules everyone follows
+
+- **Normalise** shared collections by ID (`createEntityAdapter`); store
+  `selectedId`, never a copy of the selected object.
+- **No derived data** in state; derive with memoised selectors.
+- **Serialisable only**: no class instances, Dates or Promises. It keeps
+  DevTools, persistence and SSR hydration working.
+- **Version persisted slices** and write migrations; a schema change must
+  not crash users with old data in storage.
+- **Keep server data in RTK Query**, not copied into slices.
+
+## Observability and safety at scale
+
+`configureStore`'s `devTools` option accepts `actionSanitizer`,
+`stateSanitizer` and `actionsDenylist`. Use them to strip PAN numbers,
+tokens or account balances before anything reaches the DevTools extension,
+and disable DevTools in production unless there is a reviewed reason.
+Log action **types** (never payloads with personal data) to your error
+tracker so a bug report shows the event trail.
+
+## Micro-frontends
+
+If separately deployed apps share a page, prefer **one store per app**
+communicating through a small event contract (DOM `CustomEvent`s, or a
+shared event bus) over one global store. A shared store couples release
+cycles: one team's state change can break another team's deploy.
+
+Interviewers often ask: "How do you stop a Redux store becoming a dumping
+ground?" Talk about layers with enforced boundaries, feature public APIs,
+selectors as the only read path, events for cross-feature effects, server
+state in RTK Query, and ownership of every slice and tag.
+
+### Try it yourself
+
+1. Sketch the folder tree for a fictional wealth app, "Nivesh Plus", with
+   onboarding, portfolio, SIP mandates and notifications. Mark which
+   modules are features and which are entities, and write the ESLint rule
+   that stops features importing each other.
+2. Implement `sessionEnded` so it also resets RTK Query's cache. Hint:
+   a listener can dispatch `baseApi.util.resetApiState()`.
+3. Add a `stateSanitizer` that replaces every `pan` field in state with
+   `"XXXXX1234X"` and verify it in Redux DevTools.

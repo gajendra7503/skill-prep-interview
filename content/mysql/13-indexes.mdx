@@ -1,0 +1,132 @@
+---
+title: "Indexes in Depth"
+description: "B+trees, clustered vs secondary indexes, composite and covering indexes, selectivity, index-killing patterns and the write cost of indexing."
+module: "Performance"
+level: advanced
+order: 16
+---
+
+"Why is this query slow?" is almost always answered by looking at indexes.
+Interviewers expect you to explain how InnoDB lays out an index, which
+queries can use a composite index, and which innocent-looking predicates
+silently force a full scan. The examples use the `orders` table:
+`id`, `customer_id`, `status`, `total_inr`, `created_at`.
+
+## B+trees
+
+InnoDB indexes are **B+trees**. Internal nodes hold only keys and child
+pointers; all values sit in leaf pages, which are linked to their
+neighbours. With 16 KB pages and hundreds of keys per page, a tree over
+tens of millions of rows is typically 3 to 4 levels deep, so a point
+lookup touches only a handful of pages, and range scans just walk the
+linked leaves in order.
+
+## Clustered vs secondary indexes
+
+The **clustered index** is the primary key, and its leaf pages contain the
+**entire row**. The table *is* the clustered index.
+
+A **secondary index** leaf stores the indexed columns plus the **primary
+key value**, not a physical row pointer. Finding a row through a secondary
+index is therefore two B+tree searches: find the PK in the secondary index,
+then look the row up in the clustered index (often called the "lookup
+back" or bookmark lookup).
+
+```sql
+CREATE INDEX idx_customer ON orders (customer_id);
+SELECT * FROM orders WHERE customer_id = 1001;
+-- 1. idx_customer -> PK values (17, 52, 90)
+-- 2. clustered index -> full rows for 17, 52, 90
+```
+
+Consequences: a wide primary key (say a `CHAR(36)` UUID) makes **every**
+secondary index bigger, and random PK values cause page splits on insert.
+A compact, increasing `BIGINT` or a time-ordered UUID stored as
+`BINARY(16)` is preferred.
+
+## Composite indexes and the leftmost prefix
+
+An index on `(customer_id, status, created_at)` is sorted by
+`customer_id`, then `status`, then `created_at`. It can seek only on a
+**leftmost prefix** of its columns:
+
+| WHERE clause | Index use |
+| --- | --- |
+| `customer_id = 1` | Yes |
+| `customer_id = 1 AND status = 'PAID'` | Yes, both columns |
+| `status = 'PAID'` | No seek (first column missing) |
+| `customer_id = 1 AND created_at > '2025-01-01'` | Seeks on `customer_id` only |
+| `customer_id > 1 AND status = 'PAID'` | Range on first column; `status` not used to seek |
+
+Column order rule of thumb: equality columns first, then the range or
+`ORDER BY` column. A range condition stops later columns from narrowing the
+seek, although index condition pushdown can still filter on them.
+(MySQL 8.0.13+ can sometimes use a *skip scan* when the first column has
+few distinct values, but do not design around it.)
+
+## Covering indexes
+
+If every column a query needs is in the index, InnoDB never visits the
+clustered index. `EXPLAIN` shows `Using index` in Extra.
+
+```sql
+CREATE INDEX idx_cust_total ON orders (customer_id, total_inr);
+SELECT id, total_inr FROM orders WHERE customer_id = 1001;
+-- Extra: Using index   (id is the PK, which is in every secondary index)
+```
+
+## Selectivity and cardinality
+
+**Selectivity** is how well a predicate narrows rows. An index on `status`
+with four values over 10 lakh rows rarely helps; the optimizer may
+prefer a full scan over 2.5 lakh lookups. `SHOW INDEX FROM orders` shows
+**Cardinality**, an estimate of distinct values refreshed by
+`ANALYZE TABLE`. Stale statistics are a common cause of bad plans.
+
+## Patterns that kill index use
+
+The index stores raw column values, so the predicate must compare the raw
+column to something:
+
+```sql
+-- Function on the column: full scan
+WHERE YEAR(created_at) = 2025
+-- Rewrite as a range: index usable
+WHERE created_at >= '2025-01-01' AND created_at < '2026-01-01'
+
+WHERE email LIKE '%@gmail.com'   -- leading wildcard: no seek
+WHERE email LIKE 'ravi%'         -- prefix: range scan
+
+-- phone is VARCHAR: comparing to a number converts every row's value
+WHERE phone = 9876543210         -- index not used
+WHERE phone = '9876543210'       -- index used
+```
+
+Implicit conversion also bites on joins between columns of different types
+or collations. If you genuinely need `YEAR(created_at)`, a functional index
+on that expression is an option.
+
+## Invisible indexes and write cost
+
+Every secondary index must be updated on `INSERT`, on `DELETE`, and on any
+`UPDATE` touching its columns. It also uses disk and buffer pool memory. So
+drop unused indexes, but safely: since 8.0 you can hide one from the
+optimizer first while it is still maintained.
+
+```sql
+ALTER TABLE orders ALTER INDEX idx_customer INVISIBLE;
+-- watch query latency; if nothing regresses:
+DROP INDEX idx_customer ON orders;    -- or ALTER ... VISIBLE to undo
+```
+
+The primary key cannot be made invisible. `sys.schema_unused_indexes`
+helps find candidates.
+
+### Try it yourself
+
+On a copy of `orders` with a few lakh rows, run
+`SELECT id, total_inr FROM orders WHERE customer_id = ? AND status = 'PAID'
+ORDER BY created_at DESC LIMIT 10`. Design one composite index that makes it
+covering with no sort step, and justify the column order. Then rewrite
+`WHERE DATE(created_at) = '2025-03-15'` so it can use an index on
+`created_at`.

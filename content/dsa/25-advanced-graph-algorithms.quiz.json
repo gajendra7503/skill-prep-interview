@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What property guarantees that Kruskal's greedy edge choice is safe?",
+      "options": [
+        "The triangle inequality",
+        "The cut property: the cheapest edge crossing any cut belongs to some MST",
+        "The absence of negative edges",
+        "The existence of a topological order"
+      ],
+      "correctIndex": 1,
+      "explanation": "For any split of the vertices, the minimum crossing edge is in some MST, so adding the cheapest edge that does not form a cycle is always safe."
+    },
+    {
+      "question": "For a complete graph on V points, which MST approach avoids building and sorting about V^2 / 2 edges?",
+      "options": [
+        "Array-based Prim in O(V^2)",
+        "Kruskal",
+        "Bellman-Ford",
+        "Kosaraju"
+      ],
+      "correctIndex": 0,
+      "explanation": "Array-based Prim scans vertices directly and can compute edge weights on the fly, running in O(V^2) without an explicit edge list."
+    },
+    {
+      "question": "In Tarjan's bridge-finding, a tree edge u-v is a bridge when:",
+      "options": [
+        "low[v] < tin[u]",
+        "tin[v] > tin[u]",
+        "low[u] === low[v]",
+        "low[v] > tin[u]"
+      ],
+      "correctIndex": 3,
+      "explanation": "low[v] > tin[u] means v's subtree cannot reach u or any ancestor without the edge u-v, so removing it disconnects the graph."
+    },
+    {
+      "question": "In Kosaraju's algorithm, how is the second DFS pass run?",
+      "options": [
+        "On the original graph, in vertex order",
+        "On the original graph, in finish order",
+        "On the reversed graph, in reverse finish order",
+        "On the reversed graph, in random order"
+      ],
+      "correctIndex": 2,
+      "explanation": "Processing vertices by decreasing finish time on the transposed graph makes each DFS collect exactly one SCC."
+    }
+  ]
+}

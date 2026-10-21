@@ -1,0 +1,163 @@
+---
+title: "Observability & Instrumentation"
+description: "Wiring up instrumentation.ts, capturing server errors with onRequestError, tracing with OpenTelemetry, and reporting Web Vitals from the client."
+module: "Full-Stack Patterns"
+level: "advanced"
+order: 23
+---
+
+"It works on my machine" is not an incident response. In production you
+need to answer three questions fast: *what broke*, *for whom*, and *why is
+it slow*. Next.js has first-class hooks for all three — and interviewers
+increasingly expect you to know them.
+
+## `instrumentation.ts`: the server startup hook
+
+Place `instrumentation.ts` in the project root (or in `src/` if you use
+one — **not** inside `app/`). Its `register()` export runs **once** when a
+new Next.js server instance starts, and must finish before the server
+handles requests:
+
+```ts
+// src/instrumentation.ts
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./instrumentation.node");   // Node-only SDKs, e.g. NodeSDK
+  }
+  if (process.env.NEXT_RUNTIME === "edge") {
+    await import("./instrumentation.edge");
+  }
+}
+```
+
+`register()` is called in every runtime, so import runtime-specific code
+conditionally via `process.env.NEXT_RUNTIME`. Importing inside `register()`
+(rather than at the top of the file) keeps side effects in one place.
+
+## `onRequestError`: capturing server errors
+
+The same file can export `onRequestError`, called whenever the server
+captures an error — in Server Components, Route Handlers, Server Actions
+or the proxy:
+
+```ts
+// src/instrumentation.ts
+import type { Instrumentation } from "next";
+
+export const onRequestError: Instrumentation.onRequestError = async (err, request, context) => {
+  const error = err instanceof Error ? err : new Error(String(err));
+  const digest = typeof err === "object" && err && "digest" in err ? String(err.digest) : undefined;
+
+  await fetch(process.env.ERROR_INGEST_URL!, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: error.message,
+      digest,                       // matches the digest shown by error.tsx
+      path: request.path,
+      method: request.method,
+      routePath: context.routePath, // e.g. /app/funds/[id]
+      routeType: context.routeType, // "render" | "route" | "action" | "proxy"
+    }),
+  });
+};
+```
+
+- Await any async work — the hook is the last chance to send the report.
+- The error may have been processed by React during Server Component
+  rendering, so the `digest` is the reliable way to correlate the log entry
+  with the generic message the user saw in `error.tsx`.
+- Don't log full request headers blindly; they contain cookies and auth
+  tokens.
+
+## OpenTelemetry: tracing
+
+Next.js is already instrumented with OpenTelemetry spans — the request
+(`GET /funds/[id]`), route rendering, and each `fetch`. You just register
+an exporter. The quickest route is `@vercel/otel`, which works on Vercel
+and self-hosted, in both runtimes:
+
+```bash
+npm install @vercel/otel @opentelemetry/sdk-logs @opentelemetry/api-logs @opentelemetry/instrumentation
+```
+
+```ts
+// src/instrumentation.ts
+import { registerOTel } from "@vercel/otel";
+
+export function register() {
+  registerOTel({ serviceName: "fund-portal" });
+}
+```
+
+Add your own spans around expensive work with `@opentelemetry/api`:
+
+```ts
+import { trace } from "@opentelemetry/api";
+
+export async function getNavHistory(id: string) {
+  return trace.getTracer("fund-portal").startActiveSpan("getNavHistory", async (span) => {
+    try {
+      span.setAttribute("fund.id", id);
+      return await db.query.navs.findMany({ where: eq(navs.fundId, id) });
+    } finally {
+      span.end();
+    }
+  });
+}
+```
+
+Set `NEXT_OTEL_VERBOSE=1` to emit more of Next.js' internal spans. If you
+need a manual `NodeSDK` setup instead, load it only when `NEXT_RUNTIME` is
+`"nodejs"` — it is not Edge-compatible.
+
+## Logging: server vs client
+
+- `console.log` in a **Server Component**, Server Action or Route Handler
+  prints to the server's stdout (your terminal or the platform's log
+  stream) — never the browser.
+- A **Client Component** also renders on the server for the initial HTML,
+  so its render-time logs appear in *both* places; logs in event handlers
+  and effects appear only in the browser.
+- In production, prefer **structured** JSON logs (e.g. with `pino`)
+  including a request or trace ID, so log lines can be joined to traces.
+- In development, `logging.browserToTerminal` in `next.config.ts` forwards
+  browser console output to the terminal.
+
+## Web Vitals and client errors
+
+`useReportWebVitals` from `next/web-vitals` reports TTFB, FCP, LCP, CLS and
+INP (plus Next.js-specific hydration metrics). It needs `"use client"`, so
+isolate it in a tiny component rendered from the root layout:
+
+```tsx
+// app/_components/web-vitals.tsx
+"use client";
+import { useReportWebVitals } from "next/web-vitals";
+
+const report: Parameters<typeof useReportWebVitals>[0] = (metric) => {
+  const body = JSON.stringify({ name: metric.name, value: metric.value, rating: metric.rating, id: metric.id });
+  navigator.sendBeacon?.("/api/vitals", body) || fetch("/api/vitals", { body, method: "POST", keepalive: true });
+};
+
+export function WebVitals() {
+  useReportWebVitals(report);   // stable function reference avoids duplicate reports
+  return null;
+}
+```
+
+For client-side errors and early monitoring, `instrumentation-client.ts`
+(also at the root) runs after the HTML loads but **before hydration** —
+the place to initialise an error tracker or `window` error listeners. Error
+tracking SDKs such as Sentry hook into both files: `onRequestError` for the
+server, `instrumentation-client.ts` plus `error.tsx` boundaries for the
+browser, with source maps uploaded at build time so stack traces are
+readable.
+
+### Try it yourself
+
+Add `instrumentation.ts` with an `onRequestError` that logs a structured
+JSON line containing the `digest`, `routePath` and `routeType`. Throw an
+error from a Server Component and confirm the digest in your log matches
+the one shown by `error.tsx`. Then add a `WebVitals` component and a
+`/api/vitals` Route Handler that logs LCP values rated `"poor"`.

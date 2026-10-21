@@ -1,0 +1,133 @@
+---
+title: "How React Thinks"
+description: "The core mental model — declarative UI, components, props, state and re-rendering — plus the vocabulary used throughout this course."
+module: "Getting Started"
+level: beginner
+order: 2
+---
+
+Most React confusion comes from bringing an older mental model with you:
+"find the element, then change it." React asks you to think differently. Get
+this lesson's ideas straight and every later lesson becomes easier.
+
+## Imperative vs declarative
+
+With plain DOM code you write **instructions** for each change:
+
+```js
+// Imperative: you describe HOW to update the page
+const button = document.querySelector("#like");
+let likes = 0;
+button.addEventListener("click", () => {
+  likes += 1;
+  button.textContent = `Likes: ${likes}`;
+  if (likes >= 10) button.classList.add("popular");
+});
+```
+
+Every new feature means more steps, and it's easy for the page and your
+variables to drift out of sync. React is **declarative**: you describe what
+the UI should look like for the current data, and React works out the DOM
+changes:
+
+```jsx
+// Declarative: you describe WHAT the page should be
+function LikeButton() {
+  const [likes, setLikes] = useState(0);
+  return (
+    <button
+      className={likes >= 10 ? "popular" : ""}
+      onClick={() => setLikes(likes + 1)}
+    >
+      Likes: {likes}
+    </button>
+  );
+}
+```
+
+## The one-line model: UI = f(state)
+
+A component is a function. Give it the same inputs and it should return the
+same UI. When data changes, React calls the function again and gets a new
+description of the screen. You never patch the old screen by hand.
+
+```jsx
+function Price({ amount }) {
+  return <span>₹{amount.toLocaleString("en-IN")}</span>;
+}
+// Price({ amount: 2500 })   -> ₹2,500
+// Price({ amount: 150000 }) -> ₹1,50,000
+```
+
+## Components form a tree
+
+An app is a tree of components. A parent renders children and passes data
+down to them:
+
+```text
+App
+├── Navbar
+├── FundList
+│   ├── FundCard (Equity)
+│   └── FundCard (Debt)
+└── Footer
+```
+
+Data flows **one way**: down the tree through props. Children tell parents
+about events by calling functions the parent passed down.
+
+## Props vs state
+
+| | Props | State |
+|---|---|---|
+| Who owns it | The parent | The component itself |
+| Can the component change it? | No, read-only | Yes, via its setter |
+| Changing it causes | The child to re-render with new props | This component to re-render |
+| Example | `title`, `amount`, `onSelect` | `isOpen`, `searchText`, `likes` |
+
+A good rule: if a value can be computed from props or other state, it should
+not be state at all. Compute it during render instead.
+
+## Render and commit
+
+When state changes, React does its work in two steps:
+
+1. **Render**: React calls your component functions to get the new UI
+   description. This must be pure, with no network calls or DOM edits.
+2. **Commit**: React compares the new description with the previous one and
+   applies only the differences to the real DOM.
+
+```jsx
+function Counter() {
+  const [count, setCount] = useState(0);
+  console.log("rendering with", count);
+  return <button onClick={() => setCount(count + 1)}>{count}</button>;
+}
+// first load:   rendering with 0
+// after click:  rendering with 1   (only the button text changes in the DOM)
+```
+
+Side effects such as fetching data or setting timers belong in event handlers
+or in `useEffect`, which you'll meet in the Hooks lesson.
+
+## Vocabulary you'll see everywhere
+
+- **Component**: a function that returns JSX. Names start with a capital
+  letter (`FundCard`, not `fundCard`).
+- **JSX**: HTML-like syntax inside JavaScript that compiles to function calls.
+- **Element**: the object a component returns, describing what to show.
+- **Props**: inputs passed from parent to child.
+- **State**: data a component remembers between renders.
+- **Hook**: a function starting with `use` (such as `useState`) that lets a
+  component use React features.
+- **Re-render**: React calling your component again because its state, its
+  props, or a context it reads changed.
+- **Mount / unmount**: a component appearing on or being removed from the
+  screen.
+
+### Try it yourself
+
+Take the imperative like-button snippet above and add a "Reset" button and a
+message that reads "Popular!" once likes reach 10. Then build the same
+feature as a React component. Count how many lines each version needs and
+note which one would be easier to extend with a third button.

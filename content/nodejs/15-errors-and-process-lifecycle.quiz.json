@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In current Node versions, what happens by default when a promise rejects and nothing handles it?",
+      "options": [
+        "A warning is printed and the process keeps running",
+        "Nothing; the rejection is silently ignored",
+        "It is raised as an uncaught exception and the process exits with code 1",
+        "The promise is automatically retried once"
+      ],
+      "correctIndex": 2,
+      "explanation": "Since Node 15 the default --unhandled-rejections mode is throw, so an unhandled rejection crashes the process unless an unhandledRejection listener is registered."
+    },
+    {
+      "question": "What is the recommended thing to do inside an uncaughtException handler?",
+      "options": [
+        "Log the error synchronously, then exit and let a process manager restart the app",
+        "Ignore the error so the server keeps serving requests",
+        "Call the failed function again",
+        "Restart only the HTTP server object"
+      ],
+      "correctIndex": 0,
+      "explanation": "After an uncaught exception the process may be in an inconsistent state. The handler is a last chance to log; the process should exit and be restarted cleanly by PM2, systemd or Kubernetes."
+    },
+    {
+      "question": "Which of these is a programmer error rather than an operational error?",
+      "options": [
+        "The database refuses the connection",
+        "A user submits an invalid email address",
+        "A third-party API returns 503",
+        "Reading a property of undefined because an await was forgotten"
+      ],
+      "correctIndex": 3,
+      "explanation": "Operational errors are expected runtime failures in correct code and should be handled. A TypeError from a forgotten await is a bug that must be fixed in the code."
+    },
+    {
+      "question": "During a graceful shutdown on SIGTERM, what does `server.close()` do?",
+      "options": [
+        "Immediately destroys every open socket",
+        "Stops accepting new connections and calls back once existing connections have finished",
+        "Sends SIGKILL to the process",
+        "Restarts the server on a new port"
+      ],
+      "correctIndex": 1,
+      "explanation": "server.close() stops listening and waits for in-flight connections to end. Pairing it with closeIdleConnections() and a hard timeout ensures the process exits within the platform's grace period."
+    }
+  ]
+}

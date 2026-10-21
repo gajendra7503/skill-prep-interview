@@ -1,0 +1,119 @@
+---
+title: "Type Hints & Typing"
+description: "Annotations, unions, generics with PEP 695 syntax, TypedDict, and static checkers — plus why none of it is enforced at runtime."
+module: "Modern Python"
+level: "advanced"
+order: 19
+---
+
+Type hints are now standard in professional Python codebases, and
+interviewers increasingly expect you to read and write them fluently. The
+single most important fact to state up front: **Python does not enforce
+type hints at runtime.** They are metadata for tools and humans.
+
+## Annotations are not checks
+
+```python
+def add(a: int, b: int) -> int:
+    return a + b
+
+print(add("ab", "cd"))      # abcd — no error at runtime
+print(add.__annotations__)
+# {'a': <class 'int'>, 'b': <class 'int'>, 'return': <class 'int'>}
+```
+
+The interpreter stores annotations and moves on. Errors are caught by a
+**static type checker** such as `mypy` or `pyright` (which powers Pylance
+in VS Code), run before the code ships:
+
+```bash
+pip install mypy
+mypy app.py
+# app.py:4: error: Argument 1 to "add" has incompatible type "str"; expected "int"
+```
+
+Libraries like Pydantic do validate at runtime, but they read the
+annotations deliberately; it is not a language feature.
+
+## Built-in generics, unions and `None`
+
+Since Python 3.9 you write `list[int]` and `dict[str, float]` directly,
+and since 3.10 unions use `|`:
+
+```python
+def find_user(user_id: int) -> dict[str, str] | None:
+    ...
+
+def normalise(value: int | float | str) -> float:
+    return float(value)
+```
+
+`X | None` is what `Optional[X]` from `typing` means. Note that
+`Optional` does **not** mean "the parameter is optional" — it means the
+value may be `None`. A parameter with a default can still be non-optional
+in the type sense.
+
+## Generics with PEP 695 syntax (3.12+)
+
+Older code declared type variables by hand with `T = TypeVar("T")`.
+Python 3.12 adds dedicated syntax for generic functions, classes and type
+aliases:
+
+```python
+def first[T](items: list[T]) -> T:
+    return items[0]
+
+class Stack[T]:
+    def __init__(self) -> None:
+        self._items: list[T] = []
+
+    def push(self, item: T) -> None:
+        self._items.append(item)
+
+    def pop(self) -> T:
+        return self._items.pop()
+
+type Pair[K, V] = tuple[K, V]   # generic type alias
+
+s = Stack[int]()
+s.push(1)
+s.push("x")   # checker error: expected "int", got "str"
+```
+
+Bounds use a colon: `def biggest[T: (int, float)](xs: list[T]) -> T`
+constrains `T`, and `[T: Comparable]` gives an upper bound.
+
+## `TypedDict` for dict-shaped data
+
+JSON payloads are dicts with known keys. `TypedDict` describes them
+without converting to a class:
+
+```python
+from typing import TypedDict, NotRequired
+
+class Movie(TypedDict):
+    title: str
+    year: int
+    rating: NotRequired[float]
+
+m: Movie = {"title": "Dune", "year": 2021}   # ok
+bad: Movie = {"title": "Dune"}                # checker error: missing "year"
+```
+
+At runtime `m` is a plain `dict`; `TypedDict` adds zero overhead and zero
+validation.
+
+## Other tools worth naming
+
+- `Protocol` gives structural ("duck") typing: any class with the right
+  methods matches, no inheritance needed.
+- `Literal["r", "w"]` restricts values to specific constants.
+- `Any` switches checking off; `object` accepts anything but lets you do
+  almost nothing with it until you narrow it.
+- `isinstance` checks **narrow** a union inside an `if` branch.
+
+### Try it yourself
+
+Write a generic `def get_or[K, V](d: dict[K, V], key: K, default: V) -> V`
+using PEP 695 syntax. Call it with mismatched types, confirm Python runs
+it happily, then run `mypy` or `pyright` on the file and read the errors.

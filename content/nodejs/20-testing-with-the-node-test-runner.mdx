@@ -1,0 +1,170 @@
+---
+title: "Testing with the Node Test Runner"
+description: "Write and run tests with the built-in node:test module: describe/it, strict assertions, hooks, mocks, fake timers, coverage and watch mode."
+module: "Security & Testing"
+level: "advanced"
+order: 21
+---
+
+Node.js ships a full test runner, so a new project no longer needs Jest or
+Mocha to get started. Interviewers increasingly ask "how would you test
+this without extra dependencies?" — `node:test` plus `node:assert` is the
+answer, and the API will feel familiar if you have used Jest.
+
+## A first test file
+
+```js
+// pricing.js
+export function applyDiscount(price, percent) {
+  if (percent < 0 || percent > 100) {
+    throw new RangeError("percent must be between 0 and 100");
+  }
+  return Math.round(price * (100 - percent)) / 100;
+}
+```
+
+```js
+// pricing.test.js
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { applyDiscount } from "./pricing.js";
+
+describe("applyDiscount", () => {
+  it("takes 10% off ₹1,000", () => {
+    assert.equal(applyDiscount(1000, 10), 900);
+  });
+
+  it("rejects an invalid percent", () => {
+    assert.throws(() => applyDiscount(1000, 150), {
+      name: "RangeError",
+      message: /between 0 and 100/,
+    });
+  });
+});
+```
+
+```bash
+node --test
+# ▶ applyDiscount
+#   ✔ takes 10% off ₹1,000 (0.8ms)
+#   ✔ rejects an invalid percent (0.4ms)
+# ℹ tests 2
+# ℹ pass 2
+# ℹ fail 0
+```
+
+With no arguments, `node --test` finds files by naming convention, such as
+`*.test.js`, `*_test.js` and files inside a `test` directory. You can also
+pass files or globs explicitly. `describe`/`it` are aliases for
+`suite`/`test`, so `test("name", fn)` works too.
+
+## node:assert/strict
+
+Always import the strict variant. In legacy mode, `assert.equal(1, "1")`
+passes because it uses `==`; in strict mode `equal` uses `Object.is` and
+`deepEqual` compares types and prototypes as well.
+
+```js
+assert.deepEqual({ items: [1, 2] }, { items: [1, 2] }); // passes
+assert.ok(user.isActive);                                  // truthy check
+await assert.rejects(fetchRate(badClient), /timeout/);     // async errors
+assert.match(output, /saved/);
+```
+
+`assert.rejects` returns a promise — forgetting the `await` is a classic
+bug where the test passes before the assertion runs.
+
+## Async tests and hooks
+
+A test passes when its function returns (or its promise resolves) without
+throwing. Hooks set up and clean up shared state:
+
+```js
+import { before, after } from "node:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+let dir;
+before(async () => { dir = await mkdtemp(join(tmpdir(), "app-")); });
+after(() => rm(dir, { recursive: true, force: true }));
+```
+
+Use `it.skip`, `it.todo` and `it.only` (with `--test-only`) to control
+which tests run.
+
+## Mocking functions and methods
+
+`mock.fn()` creates a spy that records calls; `mock.method()` replaces a
+method on an existing object. Using the test context `t.mock` restores
+everything automatically when the test finishes.
+
+```js
+import { it } from "node:test";
+import assert from "node:assert/strict";
+
+async function fetchRate(client) {
+  const res = await client.get("/rate");
+  return res.rate;
+}
+
+it("reads the rate from the API", async (t) => {
+  const client = { get: async () => ({ rate: 1 }) };
+  t.mock.method(client, "get", async () => ({ rate: 83.5 }));
+
+  assert.equal(await fetchRate(client), 83.5);
+  assert.equal(client.get.mock.callCount(), 1);
+  assert.deepEqual(client.get.mock.calls[0].arguments, ["/rate"]);
+});
+```
+
+Each entry in `fn.mock.calls` has `arguments`, `result`, `error` and
+`this`. Mocking whole modules is possible with `mock.module()`, but it
+still requires the `--experimental-test-module-mocks` flag, so many teams
+prefer passing dependencies in as parameters, as `fetchRate` does here.
+
+## Fake timers
+
+`mock.timers` replaces `setTimeout`, `setInterval`, `Date` and friends so
+time-based code runs instantly and deterministically:
+
+```js
+it("debounces calls", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const save = t.mock.fn();
+  const debounced = debounce(save, 300);
+
+  debounced("a");
+  debounced("b");
+  t.mock.timers.tick(299);
+  assert.equal(save.mock.callCount(), 0);
+  t.mock.timers.tick(1);
+  assert.deepEqual(save.mock.calls[0].arguments, ["b"]);
+});
+```
+
+To freeze the clock, use
+`t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-01-15") })`.
+
+## Coverage and watch mode
+
+```bash
+node --test --experimental-test-coverage
+# ℹ file       | line % | branch % | funcs % | uncovered lines
+# ℹ pricing.js | 100.00 |   100.00 |  100.00 |
+
+node --test --watch          # re-run affected tests on save
+node --test --test-name-pattern="discount"
+```
+
+Coverage is still behind an experimental flag in current releases; it also
+supports thresholds such as `--test-coverage-lines=80` to fail CI below a
+target. Put the command in `package.json` as `"test": "node --test"`.
+
+### Try it yourself
+
+Write a `retry(fn, attempts, delayMs)` helper that retries a failing async
+function with `setTimeout` between attempts. Test it with `mock.fn()`
+(fail twice, then succeed), assert the call count, use `mock.timers` so the
+test takes no real time, and run it with coverage until every branch is
+covered.

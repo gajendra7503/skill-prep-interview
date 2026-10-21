@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does it mean that React is declarative?",
+      "options": [
+        "You write step-by-step DOM instructions for each change",
+        "You describe what the UI should look like for the current data, and React updates the DOM",
+        "React only works with HTML files",
+        "Components cannot contain logic"
+      ],
+      "correctIndex": 1,
+      "explanation": "In React you describe the desired UI for the current state; React computes and applies the DOM changes itself."
+    },
+    {
+      "question": "Which statement about props is correct?",
+      "options": [
+        "A component can freely reassign its props",
+        "Props flow from child to parent",
+        "Props are owned by the component that receives them",
+        "Props are read-only inputs passed down from a parent"
+      ],
+      "correctIndex": 3,
+      "explanation": "Props are owned by the parent and are read-only for the child. Data flows down; events flow up via callback props."
+    },
+    {
+      "question": "During which phase does React apply changes to the real DOM?",
+      "options": [
+        "Commit",
+        "Render",
+        "Mount only",
+        "Compile"
+      ],
+      "correctIndex": 0,
+      "explanation": "Render calls components to get the new UI description and must be pure; commit applies the differences to the DOM."
+    },
+    {
+      "question": "A component shows a filtered list computed from its `items` prop and a `search` state. What should the filtered list be?",
+      "options": [
+        "A separate piece of state kept in sync with useEffect",
+        "A global variable",
+        "A value computed during render from items and search",
+        "A prop passed back up to the parent"
+      ],
+      "correctIndex": 2,
+      "explanation": "Anything derivable from existing props or state should be computed during render rather than stored as extra state that can drift out of sync."
+    }
+  ]
+}

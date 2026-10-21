@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In the one-dimensional 0/1 knapsack, why must the capacity loop run from high to low?",
+      "options": [
+        "It is faster because of CPU caching",
+        "So that dp[c - w] still holds the value from before the current item, ensuring each item is used at most once",
+        "Because the answer is stored in dp[0]",
+        "Looping upwards causes an infinite loop"
+      ],
+      "correctIndex": 1,
+      "explanation": "Going downwards means dp[c - w] has not yet been updated for the current item. Looping upwards lets an item be added repeatedly, which solves the unbounded knapsack instead."
+    },
+    {
+      "question": "In the O(n log n) LIS algorithm, what does the `tails` array represent?",
+      "options": [
+        "The longest increasing subsequence itself",
+        "The input sorted in ascending order",
+        "tails[k] is the smallest possible tail value of an increasing subsequence of length k + 1",
+        "The indices where the sequence decreases"
+      ],
+      "correctIndex": 2,
+      "explanation": "tails stays sorted, so each element is placed by binary search. Only its length is meaningful; it is not necessarily an actual subsequence of the input."
+    },
+    {
+      "question": "In LCS, when a[i-1] !== b[j-1], what is dp[i][j]?",
+      "options": [
+        "Math.max(dp[i-1][j], dp[i][j-1])",
+        "dp[i-1][j-1] + 1",
+        "0",
+        "dp[i-1][j-1]"
+      ],
+      "correctIndex": 0,
+      "explanation": "On a mismatch, drop the last character of one string or the other and take the better result. Resetting to 0 is the rule for longest common substring, not subsequence."
+    },
+    {
+      "question": "In interval DP such as matrix-chain multiplication, in what order should the table be filled?",
+      "options": [
+        "Row by row from top to bottom",
+        "Column by column from left to right",
+        "In random order with memoisation",
+        "By increasing interval length, so all shorter ranges are ready before longer ones"
+      ],
+      "correctIndex": 3,
+      "explanation": "dp[i][j] depends on dp[i][k] and dp[k+1][j], which are shorter intervals. Filling by length guarantees those are already computed."
+    }
+  ]
+}

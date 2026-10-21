@@ -1,0 +1,116 @@
+---
+title: "Classes & Objects"
+description: "Class vs instance attributes, self and __init__, classmethod vs staticmethod, and __slots__."
+module: "Object-Oriented Python"
+level: "intermediate"
+order: 9
+---
+
+Python's object model is simpler than Java's or C#'s, but it has a few
+behaviours that trip up even experienced developers — especially around
+attributes defined on the class itself. Interviewers probe these because
+they reveal whether you understand how attribute lookup really works.
+
+## Defining a class: `__init__` and `self`
+
+```python
+class Account:
+    bank = "SkillPrep Bank"          # class attribute, shared by all
+
+    def __init__(self, owner, balance=0):
+        self.owner = owner           # instance attributes, per object
+        self.balance = balance
+
+    def deposit(self, amount):
+        self.balance += amount
+        return self.balance
+
+acc = Account("Asha", 100)
+print(acc.deposit(50))               # 150
+print(Account.deposit(acc, 50))      # 200 - what acc.deposit(50) really does
+```
+
+`self` is not a keyword — it is simply the conventional name for the first
+parameter, which Python fills in with the instance when you call a method
+through it. `__init__` is an *initialiser*, not a constructor: the object
+already exists (created by `__new__`) by the time `__init__` runs, and it
+must return `None`.
+
+## Class attributes vs instance attributes
+
+Attribute lookup checks the instance's own `__dict__` first, then the class,
+then its base classes. Assigning through the instance always creates or
+updates an instance attribute — it never modifies the class attribute.
+
+```python
+a, b = Account("A"), Account("B")
+a.bank = "Other Bank"        # creates an instance attribute on a only
+print(b.bank)                # SkillPrep Bank
+print(a.__dict__)            # {'owner': 'A', 'balance': 0, 'bank': 'Other Bank'}
+```
+
+The dangerous case is a *mutable* class attribute, which every instance
+shares:
+
+```python
+class Team:
+    members = []                 # BUG: one list for all teams
+
+    def add(self, name):
+        self.members.append(name)   # mutates the shared list
+
+t1, t2 = Team(), Team()
+t1.add("Ravi")
+print(t2.members)                # ['Ravi']
+```
+
+The fix is to create the list in `__init__` with `self.members = []`.
+
+## `@classmethod` and `@staticmethod`
+
+A classmethod receives the class (`cls`) instead of the instance, so it is
+the idiomatic way to write alternative constructors that also work for
+subclasses. A staticmethod receives nothing implicitly — it is a plain
+function namespaced inside the class.
+
+```python
+class Date:
+    def __init__(self, year, month, day):
+        self.year, self.month, self.day = year, month, day
+
+    @classmethod
+    def from_iso(cls, text):           # cls is Date, or a subclass
+        return cls(*map(int, text.split("-")))
+
+    @staticmethod
+    def is_leap(year):                 # no self, no cls
+        return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+
+d = Date.from_iso("2024-02-29")
+print(d.day, Date.is_leap(2024))       # 29 True
+```
+
+## `__slots__` in brief
+
+By default each instance stores attributes in a per-object dictionary.
+Declaring `__slots__` replaces that dictionary with fixed storage, which
+saves memory when you create millions of objects and makes typos fail loudly.
+
+```python
+class Point:
+    __slots__ = ("x", "y")
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+
+p = Point(1, 2)
+p.z = 3     # AttributeError: 'Point' object has no attribute 'z'
+```
+
+The trade-off: no arbitrary attributes, and no `__dict__` unless you list it.
+
+### Try it yourself
+
+Write a `Temperature` class with a class attribute counting how many
+instances have been created, a `from_fahrenheit` classmethod, and a
+`celsius_to_kelvin` staticmethod. Then reproduce the shared-mutable-list bug
+deliberately and fix it.

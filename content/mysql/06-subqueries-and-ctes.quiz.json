@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why can `WHERE customer_id NOT IN (SELECT customer_id FROM orders)` unexpectedly return zero rows?",
+      "options": [
+        "NOT IN subqueries are not supported on InnoDB tables",
+        "MySQL limits NOT IN subqueries to 1000 rows",
+        "If the subquery returns any NULL, the NOT IN comparison is never true",
+        "NOT IN always requires a LIMIT clause in the subquery"
+      ],
+      "correctIndex": 2,
+      "explanation": "Comparing with a list containing NULL yields UNKNOWN rather than TRUE, so no row qualifies. NOT EXISTS (an antijoin) does not have this problem."
+    },
+    {
+      "question": "What makes a subquery 'correlated'?",
+      "options": [
+        "It references a column from the outer query, so it is logically evaluated per outer row",
+        "It appears in the FROM clause and has an alias",
+        "It returns exactly one row and one column",
+        "It is defined in a WITH clause"
+      ],
+      "correctIndex": 0,
+      "explanation": "A correlated subquery depends on the current outer row (e.g. i.customer_id = o.customer_id), so assume row-by-row cost and index the correlation column."
+    },
+    {
+      "question": "In a recursive CTE that builds an org-chart path string, why is the anchor's path column wrapped in `CAST(name AS CHAR(500))`?",
+      "options": [
+        "Recursive CTEs only accept CHAR columns",
+        "Column types are determined by the anchor member, so without widening it the concatenated path would be truncated or rejected",
+        "CAST is required to stop infinite recursion",
+        "It converts the column to utf8mb4 so CONCAT works"
+      ],
+      "correctIndex": 1,
+      "explanation": "The non-recursive (anchor) member fixes each column's type; the recursive member's longer strings must fit that type."
+    },
+    {
+      "question": "Which statement about CTEs versus derived tables in MySQL 8.0 is correct?",
+      "options": [
+        "A CTE is stored permanently until DROP CTE is run",
+        "A CTE is always faster because it is cached across statements",
+        "A derived table can be referenced several times by name in the same query",
+        "A CTE can be referenced more than once in the same statement, while a derived table must be repeated"
+      ],
+      "correctIndex": 3,
+      "explanation": "CTEs exist only for one statement but can be referenced multiple times by name; they are optimized much like derived tables rather than being a caching feature."
+    }
+  ]
+}

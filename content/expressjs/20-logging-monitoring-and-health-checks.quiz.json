@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why should a liveness endpoint like /health usually NOT check the database?",
+      "options": [
+        "Database queries are not allowed in GET handlers",
+        "A database outage would make every instance fail liveness and be restarted, which does not fix the database",
+        "Liveness probes time out after 10 milliseconds",
+        "Prisma cannot run raw queries such as SELECT 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "Liveness answers 'is this process alive?'. Dependency checks belong in readiness, which takes the instance out of rotation without restarting it."
+    },
+    {
+      "question": "What is the main benefit of pino-http's JSON logs over morgan's text lines in production?",
+      "options": [
+        "Log platforms can index and filter by fields such as request ID, status or userId",
+        "JSON logs are never written to stdout",
+        "They automatically remove all personal data",
+        "They make requests faster than having no logging at all"
+      ],
+      "correctIndex": 0,
+      "explanation": "Structured logs are machine-searchable. Redaction still has to be configured, for example with pino's redact option."
+    },
+    {
+      "question": "A Prometheus histogram uses the raw URL (e.g. /api/expenses/1937) as its route label. What is the problem?",
+      "options": [
+        "Prometheus rejects labels containing slashes",
+        "Histograms cannot have labels",
+        "Raw URLs are less accurate than route patterns for timing",
+        "Every distinct ID creates a new time series, so label cardinality grows without bound"
+      ],
+      "correctIndex": 3,
+      "explanation": "Use the route pattern such as /api/expenses/:id to keep a small, fixed set of label values."
+    },
+    {
+      "question": "How should a request ID middleware behave when an incoming request already has an X-Request-Id header?",
+      "options": [
+        "Reject the request with 400",
+        "Always overwrite it with a new UUID and hide the original",
+        "Reuse it, attach it to the request's logs and echo it in the response header",
+        "Store it in a cookie for the next request"
+      ],
+      "correctIndex": 2,
+      "explanation": "Reusing an upstream ID lets one request be traced across the load balancer and every service; generate one only when it is missing."
+    }
+  ]
+}

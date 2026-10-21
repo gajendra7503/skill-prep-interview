@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A program fails with \"config not found\". Which strace invocation most directly shows which paths it tried?",
+      "options": [
+        "strace -c ./app",
+        "strace -e trace=openat ./app, looking for results of -1 ENOENT",
+        "strace -e trace=connect ./app",
+        "strace -p 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "Filtering to openat shows every file open attempt; failed attempts return -1 ENOENT, revealing the paths searched."
+    },
+    {
+      "question": "`ps` shows a process in state Z. What is the correct fix?",
+      "options": [
+        "kill -9 the zombie",
+        "Add more swap space",
+        "Fix or restart its parent, which has not called wait to reap it",
+        "Reboot is the only option"
+      ],
+      "correctIndex": 2,
+      "explanation": "A zombie has already exited; only its parent can reap it with wait. Killing the parent lets PID 1 adopt and reap it."
+    },
+    {
+      "question": "Why does the lesson warn against attaching strace to a busy production service for long?",
+      "options": [
+        "ptrace stops the process on every syscall, which can slow it dramatically",
+        "strace changes the program's source code",
+        "strace requires a reboot afterwards",
+        "strace deletes the process's open files"
+      ],
+      "correctIndex": 0,
+      "explanation": "strace is built on ptrace, which adds a stop and context switches for every syscall. Lower-overhead options include perf trace and eBPF tools."
+    },
+    {
+      "question": "Disk usage stays high after you deleted a huge log file. Which command helps find the cause?",
+      "options": [
+        "sysctl -a",
+        "cat /proc/loadavg",
+        "strace -c rm",
+        "sudo lsof +L1, to list deleted files that a process still holds open"
+      ],
+      "correctIndex": 3,
+      "explanation": "A deleted file's space is freed only when the last open descriptor is closed. lsof +L1 lists open files with a link count below 1."
+    }
+  ]
+}

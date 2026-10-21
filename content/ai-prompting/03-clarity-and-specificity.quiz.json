@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does adding a reason to an instruction usually improve results?",
+      "options": [
+        "It makes the prompt longer, which models prefer",
+        "The model can apply the spirit of the rule to cases you did not list",
+        "Reasons are required by the API",
+        "It reduces the number of tokens in the output"
+      ],
+      "correctIndex": 1,
+      "explanation": "Explaining the purpose lets the model generalise the rule sensibly instead of applying it only to the literal cases mentioned."
+    },
+    {
+      "question": "Which is the best rewrite of \"Don't make it too technical\"?",
+      "options": [
+        "DO NOT BE TECHNICAL UNDER ANY CIRCUMSTANCES",
+        "Avoid technical words, jargon, terms and acronyms",
+        "Make it non-technical and not too complex",
+        "Explain it as you would to a branch manager with no IT background"
+      ],
+      "correctIndex": 3,
+      "explanation": "Positive, specific instructions describe the desired behaviour and audience rather than only what to avoid."
+    },
+    {
+      "question": "What is the typical effect of shouty prompts such as \"CRITICAL!!! YOU MUST ALWAYS...\" on current models?",
+      "options": [
+        "Over-application: the rule is applied rigidly even where it no longer makes sense",
+        "The model ignores the instruction entirely",
+        "The model becomes more accurate at arithmetic",
+        "No effect at all, since models ignore capital letters"
+      ],
+      "correctIndex": 0,
+      "explanation": "Modern models already follow instructions closely, so aggressive emphasis tends to make them over-apply the rule; calm, explained wording works better."
+    },
+    {
+      "question": "A prompt says both \"Be concise\" and \"Cover every clause in detail\". What should you do?",
+      "options": [
+        "Leave both; the model will balance them",
+        "Put one of them in capital letters",
+        "Decide which goal wins, or explain how both apply, and state it clearly",
+        "Repeat both instructions twice"
+      ],
+      "correctIndex": 2,
+      "explanation": "Contradictions force the model to guess which instruction to obey; resolving them explicitly makes behaviour predictable."
+    }
+  ]
+}

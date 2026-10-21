@@ -1,0 +1,167 @@
+---
+title: "Async Context with AsyncLocalStorage"
+description: "Carry a request ID, user or transaction through every await without passing it by hand, using AsyncLocalStorage — plus the pitfalls with emitters, pools and performance."
+module: "Pro Level"
+level: "pro"
+order: 24
+---
+
+In a thread-per-request server (Java, classic PHP) "the current request" is
+easy: store it in a thread-local. Node interleaves thousands of requests on
+one thread, so a global variable would be overwritten by whichever request
+ran last. `AsyncLocalStorage` is Node's answer — and senior interviews
+expect you to know how it works and where it breaks.
+
+## The problem: threading context through every call
+
+The logging lesson attached a `requestId` to `req.log`. That works until a
+repository function three layers down wants to log, or the database client
+needs the tenant ID. Without async context you end up adding a `ctx`
+parameter to every function signature in the codebase.
+
+## run() and getStore()
+
+```js
+import { AsyncLocalStorage } from "node:async_hooks";
+import { setTimeout as sleep } from "node:timers/promises";
+
+const requestContext = new AsyncLocalStorage();
+
+function log(msg) {
+  const ctx = requestContext.getStore();          // undefined outside run()
+  console.log(`[${ctx?.requestId ?? "-"}] ${msg}`);
+}
+
+async function loadUser(id) {
+  await sleep(Math.random() * 50);                // other requests run meanwhile
+  log(`loaded user ${id}`);
+}
+
+function handle(requestId, userId) {
+  return requestContext.run({ requestId }, async () => {
+    log("start");
+    await loadUser(userId);
+    log("done");
+  });
+}
+
+await Promise.all([handle("req-1", 7), handle("req-2", 9)]);
+log("outside any request");
+// [req-1] start
+// [req-2] start
+// [req-2] loaded user 9
+// [req-2] done
+// [req-1] loaded user 7
+// [req-1] done
+// [-] outside any request
+```
+
+`run(store, fn)` makes `store` the current value for `fn` **and every async
+operation started inside it** — promises, timers, I/O callbacks. The two
+requests interleave, yet each `log` call sees its own ID. No parameter was
+passed to `loadUser`.
+
+## Wiring it into an HTTP server
+
+```js
+import http from "node:http";
+import { randomUUID } from "node:crypto";
+
+http.createServer((req, res) => {
+  const store = {
+    requestId: req.headers["x-request-id"] ?? randomUUID(),
+    tenantId: req.headers["x-tenant-id"],
+  };
+  requestContext.run(store, () => app(req, res));
+}).listen(3000);
+```
+
+Put the `run()` call as early as possible — the outermost middleware — so
+everything downstream inherits it. Popular frameworks and libraries build
+on the same primitive; OpenTelemetry, for example, keeps the active trace
+span in an `AsyncLocalStorage`-based context manager.
+
+Make the store an **object** and treat it as immutable per request. If you
+need to add a field mid-request (the authenticated user), mutate a property
+on that object rather than calling `run()` again, or nested code started
+before the change will not see it.
+
+## How it works under the hood
+
+Every async resource Node creates (a promise, a timer, a socket request)
+captures the context that was active **when it was created**, and restores
+it when its callback runs. Historically this was built on `async_hooks`,
+which had a measurable cost for promise-heavy code. Recent Node versions
+reimplemented `AsyncLocalStorage` on a lighter mechanism
+(`AsyncContextFrame`) that propagates context with each continuation,
+which cut most of that overhead. The low-level `async_hooks` APIs such as
+`createHook` remain experimental and discouraged; `AsyncLocalStorage` is
+the stable, supported surface. A TC39 proposal (`AsyncContext`) aims to
+bring the same idea to JavaScript itself.
+
+## Pitfall: emitters, pools and queues lose context
+
+Context follows **where an async operation was created**, not where a
+listener was registered. Event listeners run in the context of whoever
+calls `emit`:
+
+```js
+import { EventEmitter } from "node:events";
+const bus = new EventEmitter();
+
+requestContext.run({ requestId: "req-3" }, () => {
+  bus.on("ping", () => log("listener"));
+  bus.on("ping2", AsyncLocalStorage.bind(() => log("bound listener")));
+});
+
+requestContext.run({ requestId: "req-4" }, () => {
+  bus.emit("ping");    // [req-4] listener
+  bus.emit("ping2");   // [req-3] bound listener
+});
+```
+
+The same happens with hand-rolled connection pools, batching queues and
+some older callback libraries: the callback fires from inside someone
+else's context. Fixes:
+
+- `AsyncLocalStorage.bind(fn)` captures the current context into `fn`.
+- `AsyncLocalStorage.snapshot()` returns a runner that executes any
+  function in the captured context.
+- For classes that queue work, extend `AsyncResource` and call
+  `runInAsyncScope` when the work finally runs.
+
+```js
+const runInCtx = requestContext.run({ requestId: "req-5" }, () =>
+  AsyncLocalStorage.snapshot());
+runInCtx(() => log("via snapshot"));   // [req-5] via snapshot
+```
+
+## Pitfall: enterWith and leaking context
+
+`enterWith(store)` sets the context for the rest of the current
+synchronous execution and everything it schedules — with no clear end. It
+is easy to leak one request's data into the next. Prefer `run()`, which
+scopes the store to a callback. Also avoid storing large objects (whole
+request bodies, DB result sets) in the store: anything that captured the
+context keeps them reachable, which shows up as a slow memory leak.
+
+## When not to use it
+
+Async context is ideal for **cross-cutting concerns**: request IDs, trace
+spans, tenant IDs for row-level security, per-request DB transactions,
+audit actors. It is a poor replacement for normal function arguments —
+business data hidden in implicit context makes code harder to test and
+reason about. A good rule: if removing the store would change the business
+result rather than just the logs or metrics, pass the value explicitly.
+
+### Try it yourself
+
+1. Build a tiny `node:http` server that puts `{ requestId }` into an
+   `AsyncLocalStorage` and a `log()` helper that prefixes every line. Fire
+   20 concurrent requests with `autocannon` or a `Promise.all` of `fetch`
+   calls and confirm no line is mislabelled.
+2. Add a fake payment step (`await sleep(100)`) that logs
+   "charged ₹1,499" and check it carries the right ID.
+3. Write a small batching queue that flushes every 50 ms and show that log
+   lines from the flush lose their request ID; fix it with
+   `AsyncLocalStorage.bind` or `AsyncResource`.

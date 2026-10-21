@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the time complexity of startsWith(prefix) in a trie holding N words?",
+      "options": [
+        "O(N)",
+        "O(L), where L is the prefix length",
+        "O(N log N)",
+        "O(L * N)"
+      ],
+      "correctIndex": 1,
+      "explanation": "A trie walks one node per character of the prefix, independent of how many words are stored."
+    },
+    {
+      "question": "What is the KMP prefix-function (lps) array for \"ababaca\"?",
+      "options": [
+        "[0, 1, 2, 3, 4, 5, 6]",
+        "[0, 0, 1, 2, 0, 0, 1]",
+        "[1, 0, 1, 0, 1, 0, 1]",
+        "[0, 0, 1, 2, 3, 0, 1]"
+      ],
+      "correctIndex": 3,
+      "explanation": "lps[i] is the length of the longest proper prefix of p[0..i] that is also a suffix; \"ababa\" gives 3 and \"ababac\" gives 0."
+    },
+    {
+      "question": "In KMP, why is j set to lps[j - 1] rather than 0 after a full match?",
+      "options": [
+        "So that overlapping matches are still found",
+        "To save memory",
+        "To avoid a negative index",
+        "It makes no difference to the result"
+      ],
+      "correctIndex": 0,
+      "explanation": "Keeping the matched suffix that is also a prefix means a match overlapping the previous one, like \"abab\" at 0 and 2 in \"abababcabab\", is not missed."
+    },
+    {
+      "question": "Why must Rabin-Karp verify the characters when two hashes match?",
+      "options": [
+        "Hashes are only computed for the first window",
+        "JavaScript strings are immutable",
+        "Different strings can share the same hash value (a collision)",
+        "Verification is needed to compute the next window hash"
+      ],
+      "correctIndex": 2,
+      "explanation": "A modular hash maps many strings to the same value, so equal hashes only indicate a candidate; verification avoids false positives."
+    }
+  ]
+}

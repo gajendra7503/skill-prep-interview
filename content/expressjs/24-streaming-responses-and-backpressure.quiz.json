@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does it mean when `res.write(chunk)` returns `false`?",
+      "options": [
+        "The chunk was rejected and must be sent again",
+        "The client has disconnected and the response is closed",
+        "Node is buffering data the consumer has not taken yet, so the producer should wait for the `drain` event",
+        "The response has exceeded its `Content-Length`"
+      ],
+      "correctIndex": 2,
+      "explanation": "A `false` return is the backpressure signal: the internal buffer is full. A well-behaved producer pauses and waits for `drain` before writing more."
+    },
+    {
+      "question": "Why does the lesson prefer `pipeline()` from `node:stream/promises` over `.pipe()`?",
+      "options": [
+        "`pipeline()` handles backpressure, forwards errors and destroys every stream in the chain if one fails, while `.pipe()` does not forward errors or clean up",
+        "`.pipe()` was removed from recent versions of Node",
+        "`pipeline()` compresses the response automatically",
+        "`.pipe()` only works with files, not HTTP responses"
+      ],
+      "correctIndex": 0,
+      "explanation": "`pipeline()` respects backpressure and, on failure, destroys all streams so file descriptors and database cursors are not leaked. `.pipe()` neither forwards errors nor cleans up."
+    },
+    {
+      "question": "A user closes the tab halfway through a streamed CSV export. What happens with `await pipeline(...)` in Express 5?",
+      "options": [
+        "The server keeps querying the database until the export finishes",
+        "Express automatically retries the response on a new connection",
+        "The request hangs forever",
+        "The source is destroyed and `pipeline` rejects with `ERR_STREAM_PREMATURE_CLOSE`, which should be filtered out of error logs"
+      ],
+      "correctIndex": 3,
+      "explanation": "When the socket closes, `pipeline` destroys the source (stopping the generator) and rejects with `ERR_STREAM_PREMATURE_CLOSE`. It is not a server bug, so catch it and return instead of logging a 500."
+    },
+    {
+      "question": "Why does the SSE example write `: ping` every 25 seconds?",
+      "options": [
+        "To tell `EventSource` which event ID to resume from",
+        "To keep the idle connection from being cut by load balancers, using an SSE comment line the browser ignores",
+        "To flush the compression middleware's buffer",
+        "To measure round-trip latency to the client"
+      ],
+      "correctIndex": 1,
+      "explanation": "Load balancers and proxies close idle connections. A periodic comment line (starting with `:`) keeps the connection alive without delivering an event to the browser."
+    }
+  ]
+}

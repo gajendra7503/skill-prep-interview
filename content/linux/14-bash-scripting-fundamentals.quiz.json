@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "With `city=\"New Delhi\"`, what does `ls $city.txt` (unquoted) do?",
+      "options": [
+        "Lists the file New Delhi.txt",
+        "Passes two arguments, New and Delhi.txt, because unquoted expansions are split on spaces",
+        "Prints the literal text $city.txt",
+        "Fails with a syntax error"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unquoted expansions undergo word splitting. Writing \"$city.txt\" keeps the value as one argument."
+    },
+    {
+      "question": "A script is called as `./args.sh \"New Delhi\" Pune`. Which form passes exactly two arguments, New Delhi and Pune, on to another command?",
+      "options": [
+        "$*",
+        "\"$*\"",
+        "\"$@\"",
+        "$#"
+      ],
+      "correctIndex": 2,
+      "explanation": "\"$@\" expands to each argument as a separate word, preserving spaces inside them. \"$*\" joins everything into one string, $* splits on spaces and $# is the count."
+    },
+    {
+      "question": "For `f=\"report.final.csv\"`, what does `${f##*.}` produce?",
+      "options": [
+        "csv",
+        "report",
+        "report.final",
+        "final.csv"
+      ],
+      "correctIndex": 0,
+      "explanation": "## removes the longest prefix matching *. which leaves only the extension. ${f%.*} would give report.final and ${f%%.*} would give report."
+    },
+    {
+      "question": "Why can a script with `#!/bin/sh` that uses `[[ ]]` work on Fedora but fail on Ubuntu?",
+      "options": [
+        "Ubuntu does not include Bash",
+        "Fedora ignores the shebang line",
+        "[[ ]] is only valid inside functions on Ubuntu",
+        "On Ubuntu /bin/sh is dash, which lacks Bash-only features, while on Fedora /bin/sh is Bash"
+      ],
+      "correctIndex": 3,
+      "explanation": "The shebang selects the interpreter. Ubuntu and Debian link /bin/sh to dash, a minimal POSIX shell, so Bash extensions fail there. Use #!/usr/bin/env bash for Bash scripts."
+    }
+  ]
+}

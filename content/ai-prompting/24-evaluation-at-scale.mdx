@@ -1,0 +1,168 @@
+---
+title: "Evaluation at Scale"
+description: "Grow a 20-case test set into a production eval system: sampling from real traffic, calibrating LLM judges against humans, pairwise comparisons, statistical confidence, batch runs and release gates."
+module: "Pro Level"
+level: "pro"
+order: 26
+---
+
+The evaluation lesson built a small, hand-labelled test set. A feature
+serving thousands of customers a day needs more: hundreds of cases that
+reflect real traffic, graders you can trust at volume, and a way to tell a
+genuine improvement from noise.
+
+## Build the dataset from production, not imagination
+
+Hand-written cases cover what you thought of. Real traffic contains what you
+did not. Build the eval set in layers:
+
+| Layer | Source | Purpose |
+| --- | --- | --- |
+| Golden set | Hand-labelled by experts, 50-200 cases | Release gate; changes rarely |
+| Stratified sample | Drawn from anonymised production logs every month | Tracks drift in what users ask |
+| Regression set | Every bug report and escalation, converted to a case | Stops old failures returning |
+| Adversarial set | Injection attempts, abusive inputs, edge formats | Safety and robustness |
+
+**Stratify** the production sample so rare but important segments are
+present: for a fictional insurer "Shivalik General", that might mean
+claims queries, Hindi and Hinglish messages, very long emails, and messages
+from the grievance channel, each sampled separately rather than in their
+natural, lopsided proportions. Report scores **per segment** as well as
+overall; an average can hide a segment that collapsed.
+
+Strip personal data before cases enter the eval store.
+
+## Grader choice at volume
+
+Use the cheapest reliable grader for each criterion, often several per case:
+
+- **Code checks** for anything deterministic: valid schema, correct category,
+  no forbidden phrases, amounts that match the source.
+- **LLM judges** for qualities code cannot measure: tone, completeness,
+  faithfulness to a source.
+- **Human review** on a small rotating sample, to keep the judges honest.
+
+Split rubrics into **one criterion per judge call**. A judge asked to score
+accuracy, tone and policy compliance at once tends to blur them together;
+separate binary PASS/FAIL calls are easier to calibrate and debug.
+
+## Calibrate the judge against humans
+
+An uncalibrated judge is just another unverified prompt. Have two or more
+humans label a sample of 50-100 outputs, run the judge on the same sample,
+and measure agreement. Raw agreement flatters a judge when most outputs
+pass, so also compute **Cohen's kappa**, which corrects for agreement by
+chance.
+
+```python
+def cohens_kappa(a: list[str], b: list[str]) -> float:
+    n = len(a)
+    observed = sum(x == y for x, y in zip(a, b)) / n
+    labels = set(a) | set(b)
+    expected = sum((a.count(l) / n) * (b.count(l) / n) for l in labels)
+    return (observed - expected) / (1 - expected)
+
+human = ["PASS"] * 40 + ["FAIL"] * 10
+judge = ["PASS"] * 37 + ["FAIL"] * 3 + ["PASS"] * 4 + ["FAIL"] * 6
+
+agree = sum(h == j for h, j in zip(human, judge)) / len(human)
+print(f"raw agreement: {agree:.0%}")              # raw agreement: 86%
+print(f"kappa: {cohens_kappa(human, judge):.2f}")  # kappa: 0.55
+```
+
+86% sounds good, but a kappa of 0.55 is only moderate: the judge missed 4 of
+the 10 real failures. Read the disagreements, tighten the rubric (add an
+example of a borderline FAIL, say what evidence to quote), and re-measure
+until agreement on failures is acceptable for your risk level. Re-calibrate
+whenever you change the judge prompt or its model.
+
+## Pairwise comparison for subjective quality
+
+For "which reply is better?", absolute 1-10 scores drift. Pairwise
+comparison — show the judge output A and output B, ask which better meets the
+rubric — is more stable. Two precautions:
+
+- **Swap positions.** Run every pair twice with A and B reversed. Judges can
+  favour whichever answer appears first; count a win only when both orders
+  agree, and treat disagreement as a tie.
+- **Control length.** Judges often prefer longer answers. Tell the judge
+  that length is not a criterion, and track average output length alongside
+  win rate.
+
+## Is the improvement real?
+
+Prompt v2 scores 88% against v1's 84% on 200 cases. Ship it? With 200 cases,
+a four-point gap can be noise. Because both versions ran on the **same**
+cases, use a paired bootstrap to get a confidence interval on the
+difference:
+
+```python
+import random
+
+def bootstrap_diff(a: list[int], b: list[int], iters: int = 10_000, seed: int = 7):
+    """a, b: 1/0 pass results for the SAME cases under prompt A and prompt B."""
+    rng = random.Random(seed)
+    n = len(a)
+    diffs = []
+    for _ in range(iters):
+        idx = [rng.randrange(n) for _ in range(n)]
+        diffs.append(sum(b[i] - a[i] for i in idx) / n)
+    diffs.sort()
+    return diffs[int(0.025 * iters)], diffs[int(0.975 * iters)]
+
+v1 = [1] * 168 + [0] * 32
+v2 = [1] * 160 + [0] * 8 + [1] * 16 + [0] * 16
+lo, hi = bootstrap_diff(v1, v2)
+print(f"95% CI for improvement: {lo:+.1%} to {hi:+.1%}")
+# 95% CI for improvement: -0.5% to +9.0%
+```
+
+The interval includes zero, so the evidence is not yet conclusive. Also
+look inside the totals: v2 fixed 16 cases but **broke 8** that v1 passed.
+Inspect those 8 before deciding; they may be the cases that matter most.
+Because outputs vary run to run, run each version more than once on
+important decisions and treat the spread as part of the noise.
+
+## Run evals cheaply with batches
+
+Eval runs are rarely urgent. The Message Batches API processes requests
+asynchronously at a 50% discount, and results arrive in any order, so key
+everything by `custom_id`:
+
+```python
+batch = client.messages.batches.create(requests=[
+    {
+        "custom_id": case["id"],
+        "params": {
+            "model": "claude-sonnet-5-5",
+            "max_tokens": 4000,
+            "system": SYSTEM_PROMPT_V2,
+            "messages": [{"role": "user", "content": case["input"]}],
+        },
+    }
+    for case in cases
+])
+# Poll client.messages.batches.retrieve(batch.id) until processing_status
+# is "ended", then iterate client.messages.batches.results(batch.id)
+# and match each result to its case by result.custom_id.
+```
+
+## Release gates
+
+Turn the eval into a gate that runs automatically on every prompt, model or
+tool change, just like unit tests:
+
+1. Golden set must not drop below its threshold on any segment.
+2. Regression set must stay at 100%, or each new failure must be reviewed
+   and signed off.
+3. Adversarial set must show no new safety failures.
+4. Cost per task and latency must stay within budget.
+5. A human reviews a sample of changed outputs before go-live.
+
+### Try it yourself
+
+Take 30 outputs from any prompt you use. Label each PASS or FAIL yourself on
+one clear criterion, then write a judge prompt for the same criterion and
+run it on all 30. Compute raw agreement and Cohen's kappa with the function
+above, read every disagreement, revise the judge once, and measure again.
+Note which revision moved kappa the most.

@@ -2,7 +2,8 @@
 title: "Edge vs Node.js Runtime"
 description: "Choosing where a route executes, and the real tradeoffs between speed and capability."
 module: "Backend"
-order: 17
+level: "advanced"
+order: 21
 ---
 
 Every route in Next.js runs in one of two JavaScript runtimes, and picking
@@ -20,9 +21,10 @@ export async function GET() {
 }
 ```
 
-The proxy (`src/proxy.ts`) always runs on the Edge runtime — that's not
-configurable — but individual Route Handlers, pages, and Server Actions can
-each opt into either runtime independently.
+The proxy (`src/proxy.ts`) runs on the Node.js runtime in Next.js 16, and
+that isn't configurable — setting `runtime` in `proxy.ts` throws an error.
+Individual Route Handlers and pages, by contrast, can opt into either runtime
+independently.
 
 ## What the Edge runtime gives you
 
@@ -30,7 +32,7 @@ each opt into either runtime independently.
   milliseconds, versus a heavier Node.js process spin-up.
 - **Geographic distribution** — a request is handled by the server
   closest to the visitor, cutting network latency, especially valuable for
-  something that runs on every request like a proxy.
+  small, latency-sensitive Route Handlers.
 
 ## What the Edge runtime takes away
 
@@ -47,7 +49,7 @@ each opt into either runtime independently.
 
 | Scenario | Runtime | Why |
 |---|---|---|
-| This app's `src/proxy.ts` (session refresh check) | Edge (fixed) | Runs on every request; needs to be fast everywhere |
+| This app's `src/proxy.ts` (session refresh check) | Node.js (fixed in Next.js 16) | Not configurable; keep it light because it runs on every matched request |
 | A Route Handler doing a simple auth/geolocation check | Edge | Latency-sensitive, no heavy dependencies |
 | A Route Handler querying Postgres via a traditional driver | Node.js | Needs a persistent TCP connection the Edge runtime doesn't support |
 | A Server Action processing an uploaded file or calling a Node-only SDK | Node.js | Needs full Node.js APIs or native packages |

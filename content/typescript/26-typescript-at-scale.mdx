@@ -1,0 +1,214 @@
+---
+title: "TypeScript at Scale: Project References & Compiler Performance"
+description: "Structuring large codebases and monorepos with project references and tsc --build, plus diagnosing and fixing slow type-checking with real compiler tooling."
+module: "Pro Level"
+level: "pro"
+order: 26
+---
+
+On a small app, `tsc --noEmit` finishes in seconds and nobody thinks about it. At
+a few lakh lines across dozens of packages, the same command can take minutes,
+the editor lags on every keystroke, and CI becomes the bottleneck. This lesson
+covers the two levers you have: **splitting the program** so the compiler does
+less work, and **finding the types** that make it work too hard.
+
+## Project references in one picture
+
+Normally one `tsconfig.json` means one big program: every file is parsed and
+checked together. **Project references** split a codebase into smaller projects
+that build in dependency order, each producing `.d.ts` files that downstream
+projects consume instead of re-checking the source.
+
+```text
+repo/
+  tsconfig.base.json        shared compilerOptions
+  tsconfig.json             "solution" file: lists projects, compiles nothing
+  packages/
+    shared/  tsconfig.json  composite: true
+    api/     tsconfig.json  references: [{ "path": "../shared" }]
+    web/     tsconfig.json  references: [{ "path": "../shared" }]
+```
+
+```json
+// tsconfig.base.json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "nodenext",
+    "strict": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "skipLibCheck": true
+  }
+}
+```
+
+```json
+// packages/api/tsconfig.json
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
+  "include": ["src"],
+  "references": [{ "path": "../shared" }]
+}
+```
+
+```json
+// tsconfig.json at the root: the solution file
+{ "files": [], "references": [{ "path": "packages/shared" }, { "path": "packages/api" }] }
+```
+
+`composite: true` is required on any referenced project. It forces `declaration`
+on, requires every source file to be matched by `include`/`files`, and enables
+incremental `.tsbuildinfo` output. `declarationMap` makes "Go to definition"
+jump to the original `.ts` source.
+
+## `tsc --build`
+
+Build mode (`tsc -b`) is a small build orchestrator. It reads the reference graph,
+builds projects in order, and skips any project whose inputs have not changed:
+
+```bash
+npx tsc -b --verbose
+# Projects in this build:
+#     * packages/shared/tsconfig.json
+#     * packages/api/tsconfig.json
+#     * tsconfig.json
+# Project 'packages/shared/tsconfig.json' is up to date because newest input
+#   'packages/shared/src/money.ts' is older than output 'packages/shared/tsconfig.tsbuildinfo'
+# Project 'packages/api/tsconfig.json' is up to date because ...
+```
+
+Useful flags: `--watch`, `--clean` (delete outputs), `--force` (rebuild
+everything), `--dry`. Editing a file in `api` rebuilds only `api`; editing
+`shared` rebuilds `shared` and then its dependents, and if `shared`'s public
+`.d.ts` did not change, downstream checking stays cheap.
+
+Within a monorepo, packages usually import each other by package name
+(`@fictional/shared`) through workspaces, with the package's `exports` pointing at
+`dist`. The references tell `tsc` about build order; the workspace tells the
+runtime where to find the code.
+
+## Settings that help large codebases
+
+| Option | What it buys you |
+|---|---|
+| `incremental` (implied by `composite`) | Reuses the previous run's state from `.tsbuildinfo` |
+| `skipLibCheck` | Skips checking every `.d.ts` in `node_modules`; usually a big win |
+| `types: ["node"]` | Lists exactly which `@types` packages are global. Older compilers auto-included every installed `@types/*`; since 6.0 nothing is included unless listed |
+| `isolatedModules` / `verbatimModuleSyntax` | Guarantees each file can be transpiled alone by esbuild, swc or Node type stripping |
+| `isolatedDeclarations` | Requires explicit types on exports so `.d.ts` files can be generated per file, without a full type-check |
+
+`isolatedDeclarations` (added in TypeScript 5.5) is the strictest of these. It
+rejects exports whose type would need inference:
+
+```ts
+export const add = (a: number, b: number) => a + b;
+// error TS9013: Expression type can't be inferred with --isolatedDeclarations.
+export const add2 = (a: number, b: number): number => a + b; // OK
+```
+
+The payoff is that other tools can emit declarations in parallel, without
+running the checker.
+
+**Split transpiling from type-checking.** In most large setups, a fast tool
+(esbuild, swc, Vite, Node's own type stripping) turns TypeScript into JavaScript,
+and `tsc -b` (or `tsc --noEmit`) runs separately in CI and the editor. The
+isolation flags above make that split safe.
+
+## Diagnosing a slow build
+
+Measure before changing anything.
+
+```bash
+# A 70-line file of type-level experiments (tuple arithmetic up to ~1000), TypeScript 7.0.2
+npx tsc --noEmit --strict --extendedDiagnostics experiments.ts
+# Files:               83
+# Lines:            58514
+# Types:           543592
+# Instantiations:  549797
+# Memory used:    398360K
+# Check time:      1.032s
+# Total time:      1.079s
+```
+
+Seventy lines of source and over five lakh type instantiations: a handful of
+clever types can outweigh the rest of a codebase.
+
+Read it like this: a large **Files** or **Lines** count means you
+are pulling in more than you think (use `--explainFiles` to see why each file is
+included). High **Check time** and **Instantiations** point to expensive types.
+For those, `--generateTrace traceDir` writes a trace you can load in a Chromium
+browser's performance viewer (or analyse with the `@typescript/analyze-trace`
+package) to find the specific files and types that are slow. (Older 5.x
+compilers print more rows, such as `Lines of Library` and `Lines of
+Definitions`; the same file reports 179 files on 5.9 because 5.x
+auto-included every installed `@types` package.)
+
+## Writing types the compiler can check fast
+
+From the TypeScript team's performance guidance:
+
+- **Prefer `interface extends` over intersections** for object types. Interfaces
+  are cached by name and their relationships are checked once; large
+  intersections are re-flattened each time.
+- **Annotate return types of exported functions.** The checker (and
+  `.d.ts` emit) can use the annotation instead of inferring through the body,
+  and the declaration files stay small and readable.
+- **Avoid huge unions** (hundreds of members) in hot positions; comparing two
+  unions can be quadratic. Discriminated unions with a literal tag check faster.
+- **Name complex types.** A named alias is cached; an inline conditional type
+  repeated in fifty signatures is recomputed.
+- **Keep type-level recursion shallow** (see "Type-Level Programming: Recursive
+  & Variadic Types").
+
+## TypeScript 7: the native compiler
+
+The current release, TypeScript 7, is the compiler ported to Go. `npm install -D
+typescript` now installs a small package plus a native binary for your platform,
+and `tsc` can check files in parallel. The type system is meant to behave the
+same: the examples in these advanced lessons give the same results on 5.9 and
+7.0, including the TS2589 depth limits. The visible differences are cosmetic:
+a few error codes and messages changed (such as the `isolatedDeclarations`
+error above, TS9007 on 5.x), and unions of literals print in a stable sorted
+order (`"CARD" | "UPI"` rather than declaration order). Sample runs on one
+Windows laptop (your numbers will differ):
+
+| Same input, `tsc --noEmit` total time | 5.9.3 | 7.0.2 |
+|---|---|---|
+| Small Zod-based app (the course project) | about 4.1 s | 0.9 to 1.3 s |
+| The type-level experiments file above | 3.7 to 5.9 s | 1.0 to 3.1 s |
+
+Gains are largest on real projects; a single file of heavy type arithmetic is
+still bound by the work itself. What changed for tooling, verified locally:
+
+- **Removed options** (each is now an error, such as TS5102 or TS5108): `baseUrl`,
+  `outFile`, `downlevelIteration`, `target: "ES5"`, `module: "AMD"`/`"UMD"`,
+  `moduleResolution: "node10"`/`"classic"`, and `esModuleInterop: false`.
+  TypeScript 6.0, the last JavaScript-based line, reports these as deprecated
+  first, so upgrading to 6.0 and clearing its warnings is the usual stepping stone.
+- **New concurrency flags:** `--checkers` (checkers per project), `--builders`
+  (projects built at once with `-b`) and `--singleThreaded`.
+- **No classic JavaScript API.** `require("typescript")` now exposes only the
+  version; programmatic access moved to new `typescript/unstable/*` entry points.
+  Tools built on the old API (`ts.createProgram` and friends) must be updated or
+  keep a 6.x copy installed alongside.
+
+Project references, `tsc -b` and the advice above still apply unchanged.
+
+Interviewers often ask: "Our `tsc` takes eight minutes in CI. What would you do?"
+A strong answer is ordered: measure with `--extendedDiagnostics`, cut accidental
+inputs (`types`, `include`, `skipLibCheck`), split into project references with
+`tsc -b` and cache `.tsbuildinfo` in CI, move emit to a fast transpiler, then
+hunt expensive types with `--generateTrace`.
+
+### Try it yourself
+
+1. Create a two-package repo (`shared` and `api`) with project references. Run
+   `tsc -b --verbose` twice and explain each "up to date" message. Then change a
+   comment in `shared` and a public function signature, and compare what rebuilds.
+2. Run `--extendedDiagnostics` and `--explainFiles` on a project you work on.
+   Find one file or `@types` package that is included for a reason you did not expect.
+3. Turn on `isolatedDeclarations` in a small package and fix every error it reports.
+   Compare the generated `.d.ts` before and after.

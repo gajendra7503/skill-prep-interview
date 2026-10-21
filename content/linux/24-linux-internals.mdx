@@ -1,0 +1,174 @@
+---
+title: "Linux Internals: Kernel, System Calls, /proc & strace"
+description: "How user programs talk to the kernel through system calls, how processes and file descriptors work, and how to inspect them with /proc and strace."
+module: "Pro Level"
+level: "pro"
+order: 24
+---
+
+Senior interviews rarely stop at "which command lists processes?". They
+ask **why** a process is stuck, where its memory went, or what a program
+is really doing. The answers live at the boundary between your program
+and the kernel, and Linux gives you excellent windows onto that boundary.
+
+## Kernel space and user space
+
+The CPU runs in (at least) two privilege modes. The **kernel** runs in
+privileged mode and owns the hardware: memory, disks, network cards, the
+scheduler. Your programs, shells and even `root`'s processes run in
+**user space** and cannot touch hardware directly.
+
+The only legal way across is a **system call**: the program puts a
+syscall number and arguments in registers and executes a special
+instruction that traps into the kernel. The kernel checks permissions,
+does the work and returns a result (or a negative error such as `ENOENT`).
+
+```text
+  your code ──> glibc wrapper (fopen, printf, malloc) ──> syscall (openat, write, mmap)
+                                                          │  mode switch
+                                                          ▼
+                                    kernel: VFS, scheduler, memory manager, drivers
+```
+
+Library functions are not syscalls: `printf` buffers in user space and
+eventually calls `write`; `malloc` mostly reuses memory it already has and
+only sometimes calls `brk` or `mmap`. Some calls, like `clock_gettime`,
+are served by the **vDSO** (a small kernel-provided library mapped into
+every process) without a real mode switch, because they are so frequent.
+
+## Watching syscalls with strace
+
+`strace` uses the `ptrace` interface to print each syscall a process makes.
+
+```bash
+strace cat hello.txt
+```
+
+```text
+openat(AT_FDCWD, "hello.txt", O_RDONLY) = 3
+fstat(3, {st_mode=S_IFREG|0644, st_size=6, ...}) = 0
+read(3, "hello\n", 131072)              = 6
+write(1, "hello\n", 6)                  = 6
+read(3, "", 131072)                     = 0
+close(3)                                = 0
+```
+
+(Trimmed: the start-up calls that load shared libraries are omitted, and
+the exact list varies by coreutils version.) Read it as: open the file and
+get descriptor 3, read 6 bytes, write them to descriptor 1 (stdout), read
+0 bytes (end of file), close.
+
+The flags you will use most:
+
+| Command | Use |
+|---|---|
+| `strace -f -o trace.txt ./app` | Follow child processes and threads, write to a file |
+| `strace -e trace=openat,connect ./app` | Only file opens and network connects |
+| `strace -e trace=%file ./app` | Every syscall that takes a file name |
+| `strace -p 4242` | Attach to a running process |
+| `strace -c ./app` | Summary table: count, errors and time per syscall |
+| `strace -tt -T ./app` | Timestamps and time spent inside each call |
+
+Classic debugging wins: "config not found" (look for `openat(...) = -1 ENOENT`),
+"app hangs" (attach and see it blocked in `connect`, `read` or `futex`),
+"permission denied" (`EACCES` on a specific path).
+
+**Warning:** `ptrace` stops the process on every syscall, so strace can
+slow a busy service dramatically. On production systems prefer short
+attachments, `-e` filters, or lower-overhead tools such as `perf trace`
+and eBPF-based tools (`bpftrace`, the BCC tools).
+
+## Processes: fork, exec, wait
+
+A new program starts in two steps. The parent **forks** (on Linux,
+`clone`) to make a near-copy of itself; memory is shared **copy-on-write**,
+so this is cheap. The child then calls **execve** to replace its image with
+the new program. The parent calls **wait** to collect the exit status.
+
+```bash
+strace -f -e trace=clone,clone3,execve,wait4 bash -c 'ls >/dev/null; echo done'
+```
+
+```text
+execve("/usr/bin/bash", ["bash", "-c", "ls >/dev/null; echo done"], ...) = 0
+clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, ...) = 5121
+[pid  5121] execve("/usr/bin/ls", ["ls"], ...) = 0
+wait4(-1, [{WIFEXITED(s) && WEXITSTATUS(s) == 0}], 0, NULL) = 5121
+done
+```
+
+If a parent never waits, the finished child stays as a **zombie** (`Z` in
+`ps`): it uses no memory, only a process-table slot. Killing a zombie does
+nothing; fix or kill the parent. Orphans are adopted by PID 1 (usually
+systemd), which reaps them.
+
+## File descriptors: "everything is a file"
+
+Every open file, pipe, socket and terminal is a small integer in the
+process's descriptor table: 0 stdin, 1 stdout, 2 stderr, then the lowest
+free number. Redirection (`2>&1`) is just the shell calling `dup2` before `exec`.
+
+```bash
+ls -l /proc/$$/fd
+```
+
+```text
+lrwx------ 1 asha asha 64 Oct 15 10:02 0 -> /dev/pts/0
+lrwx------ 1 asha asha 64 Oct 15 10:02 1 -> /dev/pts/0
+lrwx------ 1 asha asha 64 Oct 15 10:02 2 -> /dev/pts/0
+lrwx------ 1 asha asha 64 Oct 15 10:02 255 -> /dev/pts/0
+```
+
+"Too many open files" (`EMFILE`) means the process hit its limit; check
+`ulimit -n` and `/proc/PID/limits`, and look for a descriptor leak by
+counting `ls /proc/PID/fd | wc -l` over time. A deleted log file that is
+still open keeps using disk space until the process closes it:
+`sudo lsof +L1` lists such files.
+
+## /proc: the kernel's live view
+
+`/proc` is a virtual filesystem: nothing is on disk, and each read asks
+the kernel for current data.
+
+| Path | Shows |
+|---|---|
+| `/proc/PID/status` | State, threads, `VmRSS` (resident memory), UID |
+| `/proc/PID/cmdline`, `environ` | Arguments and environment (NUL-separated) |
+| `/proc/PID/maps` | Memory mappings: binary, libraries, heap, stack |
+| `/proc/PID/fd/`, `limits` | Open descriptors, resource limits |
+| `/proc/meminfo`, `/proc/loadavg` | System memory, load averages |
+| `/proc/sys/...` | Tunable kernel parameters (read and set with `sysctl`) |
+
+```bash
+grep -E 'State|Threads|VmRSS' /proc/1104/status
+tr '\0' ' ' < /proc/1104/cmdline; echo
+sysctl net.core.somaxconn          # same as cat /proc/sys/net/core/somaxconn
+```
+
+Tools like `ps`, `top` and `free` are mostly friendly formatters over these
+files. `/sys` is the sibling for devices and drivers.
+
+## Virtual memory in one paragraph
+
+Each process sees its own virtual address space. Pages are allocated
+lazily: touching a page for the first time causes a **page fault**, and
+the kernel maps real memory. A **minor fault** needs no disk access; a
+**major fault** reads from disk (swap or a file) and is slow. That is why
+`VSZ` (virtual size) can be huge while `RSS` (resident pages) is small,
+and why free memory on a healthy server is low: the kernel uses spare RAM
+as **page cache** for files and gives it back on demand.
+
+Interviewers often ask: "What happens when you run `ls` in a shell?"
+Walk through it: the shell parses the line, searches `PATH`, forks, the
+child execs `/usr/bin/ls`, the dynamic loader maps libc, `ls` calls
+`openat` and `getdents64` on the directory, `write`s to fd 1, exits, and
+the shell's `wait` returns the status into `$?`.
+
+### Try it yourself
+
+1. Run `strace -c ls /usr/bin > /dev/null` and identify the three most
+   frequent syscalls. Which one reads directory entries?
+2. Start `sleep 300 &`, then inspect `/proc/$!/status`, `/proc/$!/cmdline`
+   and `/proc/$!/fd`. Compare with `ps -o pid,stat,rss,cmd -p $!`.
+3. Use `strace -e trace=openat` on a program that reads a config file and
+   find every path it tries before it succeeds.

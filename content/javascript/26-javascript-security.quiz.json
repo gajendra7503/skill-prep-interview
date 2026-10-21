@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A page displays a name taken from the URL query string. Which line is safe from XSS?",
+      "options": [
+        "greeting.innerHTML = `Hello, ${name}`",
+        "greeting.insertAdjacentHTML(\"beforeend\", name)",
+        "greeting.textContent = `Hello, ${name}`",
+        "document.write(name)"
+      ],
+      "correctIndex": 2,
+      "explanation": "textContent always treats the value as plain text, while innerHTML, insertAdjacentHTML and document.write parse it as HTML and can run injected handlers."
+    },
+    {
+      "question": "After `merge({}, JSON.parse('{\"__proto__\": {\"isAdmin\": true}}'))` with a naive recursive merge, what does `({}).isAdmin` return?",
+      "options": [
+        "true, because the merge wrote isAdmin onto Object.prototype",
+        "undefined, because JSON.parse strips __proto__ keys",
+        "A TypeError",
+        "false"
+      ],
+      "correctIndex": 0,
+      "explanation": "JSON.parse keeps __proto__ as an own key, but target['__proto__'] in the merge reaches the real prototype, so every object inherits isAdmin: true."
+    },
+    {
+      "question": "Which is the strongest defence for storing user-controlled keys without prototype pollution risk?",
+      "options": [
+        "Using Object.assign instead of a loop",
+        "Wrapping the merge in try/catch",
+        "Converting all keys to uppercase",
+        "Using a Map or an object created with Object.create(null)"
+      ],
+      "correctIndex": 3,
+      "explanation": "A Map does not treat keys as properties, and Object.create(null) has no prototype to reach, so special keys like __proto__ are just data."
+    },
+    {
+      "question": "What does `npm ci` do that makes it preferable to `npm install` in CI pipelines?",
+      "options": [
+        "It upgrades every dependency to the newest version",
+        "It installs exactly the versions pinned in package-lock.json and fails if the lockfile is out of sync",
+        "It removes all install scripts from packages permanently",
+        "It scans the code for XSS vulnerabilities"
+      ],
+      "correctIndex": 1,
+      "explanation": "npm ci gives reproducible installs from the committed lockfile, so an unexpected new (possibly malicious) version cannot slip in silently."
+    }
+  ]
+}

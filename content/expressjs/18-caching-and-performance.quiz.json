@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A client sends If-None-Match with a matching ETag and gets a 304. What has been saved?",
+      "options": [
+        "The database query and handler execution",
+        "Bandwidth, because no response body is sent; the handler still ran",
+        "Nothing; 304 is an error",
+        "The TLS handshake"
+      ],
+      "correctIndex": 1,
+      "explanation": "Express generates the ETag from the response body, so the handler runs as normal. Only the body transfer is skipped. Cache-Control max-age is what avoids the request entirely."
+    },
+    {
+      "question": "Which Cache-Control value is appropriate for an authenticated endpoint returning a user's bank details?",
+      "options": [
+        "public, max-age=3600",
+        "public, no-cache",
+        "max-age=300",
+        "no-store"
+      ],
+      "correctIndex": 3,
+      "explanation": "no-store forbids any cache from keeping the response. Marking per-user data public lets a CDN serve it to other users."
+    },
+    {
+      "question": "When is Redis preferred over an in-memory Map for application caching?",
+      "options": [
+        "When the app runs multiple instances and they need a shared cache that survives restarts",
+        "When you need the absolute lowest latency on a single process",
+        "When you want to avoid setting TTLs",
+        "Redis is never preferred; in-memory is always better"
+      ],
+      "correctIndex": 0,
+      "explanation": "An in-memory cache is per process and lost on restart. Redis is shared by all instances and supports expiry natively, at the cost of a network hop."
+    },
+    {
+      "question": "An endpoint loads 20 orders, then loops and queries each order's customer separately. What is this and how do you fix it with Prisma?",
+      "options": [
+        "A memory leak; fix it with compression",
+        "A race condition; fix it with a transaction",
+        "An N+1 query problem; fix it by loading the relation with include (or one batched in-query)",
+        "Cache stampede; fix it with ETags"
+      ],
+      "correctIndex": 2,
+      "explanation": "One list query plus one query per item is N+1. Prisma's include or select on the relation, or a single where id in [...] query, loads related rows in a batch."
+    }
+  ]
+}

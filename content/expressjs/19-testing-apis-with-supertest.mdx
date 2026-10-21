@@ -1,0 +1,187 @@
+---
+title: "Testing APIs with supertest"
+description: "Test Express 5 endpoints end to end with supertest and node:test, covering status codes, response bodies, auth headers, a test database and mocking."
+module: "Testing & Deployment"
+level: "advanced"
+order: 21
+---
+
+"How do you test an API?" is a near-certain interview question for backend
+roles. The strong answer: HTTP-level tests that send real requests through
+your middleware, routing, validation and error handling, plus unit tests
+for pure logic. In the Express world the standard tool is **supertest**.
+
+## Step 1: separate the app from the server
+
+supertest needs the Express `app` object, not a running server. Export the
+app from one module and call `listen()` in another:
+
+```js
+// src/app.js
+import express from "express";
+
+export function createApp({ todoRepo }) {
+  const app = express();
+  app.use(express.json());
+
+  app.get("/todos/:id", async (req, res) => {
+    const todo = await todoRepo.findById(Number(req.params.id));
+    if (!todo) return res.status(404).json({ error: "Todo not found" });
+    res.json(todo);
+  });
+
+  app.post("/todos", async (req, res) => {
+    if (!req.body?.title) return res.status(422).json({ error: "title is required" });
+    res.status(201).json(await todoRepo.create(req.body.title));
+  });
+
+  return app;
+}
+
+// src/server.js
+import { createApp } from "./app.js";
+import { todoRepo } from "./todo-repo.js";
+createApp({ todoRepo }).listen(3000);
+```
+
+Passing dependencies in (`todoRepo`) is a factory pattern that makes the
+app easy to test with fakes. The tests never open port 3000: supertest
+starts the app on a temporary port and closes it for you.
+
+## Step 2: your first supertest test
+
+This course uses Node's built-in runner, `node:test`, with
+`node:assert/strict`.
+
+```bash
+npm install --save-dev supertest
+```
+
+```js
+// test/todos.test.js
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import request from "supertest";
+import { createApp } from "../src/app.js";
+
+const fakeRepo = {
+  findById: async (id) => (id === 1 ? { id: 1, title: "Pay electricity bill" } : null),
+  create: async (title) => ({ id: 2, title }),
+};
+const app = createApp({ todoRepo: fakeRepo });
+
+describe("GET /todos/:id", () => {
+  it("returns the todo as JSON", async () => {
+    const res = await request(app)
+      .get("/todos/1")
+      .expect("Content-Type", /json/)
+      .expect(200);
+    assert.deepEqual(res.body, { id: 1, title: "Pay electricity bill" });
+  });
+
+  it("returns 404 for an unknown id", async () => {
+    await request(app).get("/todos/99").expect(404, { error: "Todo not found" });
+  });
+});
+
+describe("POST /todos", () => {
+  it("creates a todo", async () => {
+    const res = await request(app).post("/todos").send({ title: "Renew FD" }).expect(201);
+    assert.equal(res.body.title, "Renew FD");
+  });
+
+  it("rejects a missing title with 422", async () => {
+    await request(app).post("/todos").send({}).expect(422);
+  });
+});
+```
+
+```bash
+node --test
+  # ▶ GET /todos/:id
+  #   ✔ returns the todo as JSON
+  #   ✔ returns 404 for an unknown id
+  # ▶ POST /todos
+  #   ✔ creates a todo
+  #   ✔ rejects a missing title with 422
+  # ℹ tests 4
+  # ℹ pass 4
+  # ℹ fail 0
+```
+
+Key API points: `.send(obj)` serialises JSON and sets `Content-Type`;
+`.set("Authorization", "Bearer abc")` adds headers; `.query({ page: 2 })`
+builds a query string; `.expect(status)`, `.expect(header, regex)` and
+`.expect(status, body)` assert; awaiting the chain gives a response with
+`status`, `headers`, `body` and `text`. Always `await` (or return) the
+request, or the test finishes before the assertions run.
+
+## Testing auth and cookies
+
+```js
+it("blocks requests without a token", async () => {
+  await request(app).get("/me").expect(401);
+});
+
+it("keeps the session cookie across requests", async () => {
+  const agent = request.agent(app);            // stores cookies like a browser
+  await agent.post("/login").send({ email: "asha@example.in", password: "s3cret!" }).expect(200);
+  await agent.get("/me").expect(200);
+});
+```
+
+## Mocking dependencies
+
+`node:test` ships a mock API. `mock.fn()` records calls, and
+`mock.method()` replaces a method on an existing object until restored:
+
+```js
+import { mock, afterEach } from "node:test";
+
+afterEach(() => mock.restoreAll());
+
+it("passes the id to the repository", async () => {
+  const findById = mock.fn(async () => ({ id: 7, title: "File ITR" }));
+  const app = createApp({ todoRepo: { findById, create: mock.fn() } });
+
+  await request(app).get("/todos/7").expect(200);
+  assert.equal(findById.mock.callCount(), 1);
+  assert.deepEqual(findById.mock.calls[0].arguments, [7]);
+});
+```
+
+Mock things you do not own and that are slow or non-deterministic: payment
+gateways, email, SMS, time. Prefer a real database for data access logic,
+because mocks cannot catch a wrong query or a missing unique constraint.
+
+## A real test database
+
+Integration tests should hit a **separate** database, never development or
+production. A typical setup:
+
+```bash
+npx prisma migrate deploy   # with DATABASE_URL pointing at todos_test
+node --env-file=.env.test --test --test-concurrency=1
+```
+
+- Apply migrations once before the run, so the schema matches production.
+- Reset state in `beforeEach` (delete rows child-first, or truncate) so
+  tests do not depend on each other's data or order.
+- `node --test` runs test files in parallel processes by default; use
+  `--test-concurrency=1` (or one database per worker) when files share a DB.
+- Close the database client in an `after` hook so the process exits.
+
+## Vitest instead?
+
+Vitest works the same way with supertest: swap `node:test` for `vitest`
+imports, `assert` for `expect(...)`, and `mock.fn()` for `vi.fn()`. Pick
+one runner per project. Vitest adds TypeScript support and watch mode out
+of the box; `node:test` needs no dependency at all.
+
+### Try it yourself
+
+Add `DELETE /todos/:id` to the app above, returning 204 on success and 404
+when the repository reports nothing deleted. Write supertest tests for both
+cases, use `mock.fn()` to assert the repository was called with a number
+(not a string), and add a test proving a non-JSON body to `POST /todos`
+gets a 4xx response rather than a 500.

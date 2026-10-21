@@ -1,0 +1,139 @@
+---
+title: "Control Flow & Comprehensions"
+description: "if/for/while, the often-misunderstood loop else, structural pattern matching, comprehensions and the walrus operator."
+module: "Fundamentals"
+level: "beginner"
+order: 5
+---
+
+Python's control flow looks familiar, but it has a few features that other
+languages lack and interviewers love to probe: an `else` clause on loops,
+the `match` statement, comprehensions with their own scope, and the walrus
+operator `:=`. Knowing exactly when each one runs is what separates "I've
+used Python" from "I understand Python".
+
+## `if`, `for` and `while`
+
+Python's `for` iterates over any iterable — there is no C-style index loop.
+Use `enumerate` when you need the index and `zip` to walk sequences in
+parallel. `zip(..., strict=True)` (3.10+) raises if lengths differ.
+
+```python
+names = ["asha", "ravi"]
+scores = [91, 78]
+for i, (name, score) in enumerate(zip(names, scores, strict=True), start=1):
+    grade = "A" if score >= 90 else "B"    # conditional expression
+    print(i, name, grade)
+# 1 asha A
+# 2 ravi B
+```
+
+Comparisons can be chained: `0 <= x < 10` means `0 <= x and x < 10`, with
+`x` evaluated only once.
+
+## `else` on loops
+
+A loop's `else` block runs when the loop finishes **without hitting
+`break`**. Think of it as "no break". It is ideal for search loops:
+
+```python
+def find_first_negative(nums):
+    for n in nums:
+        if n < 0:
+            print("found", n)
+            break
+    else:
+        print("no negatives")
+
+find_first_negative([3, -1, 4])   # found -1
+find_first_negative([3, 1, 4])    # no negatives
+find_first_negative([])           # no negatives — empty loop, no break
+```
+
+The same rule applies to `while ... else`: the `else` runs when the
+condition becomes false, but not if the loop exits via `break`, `return` or
+an exception.
+
+## Structural pattern matching with `match`
+
+`match` (3.10+) is not a switch statement on values only — it destructures
+data by shape. Cases are tried top to bottom; the first match wins, and
+there is no fall-through.
+
+```python
+def handle(command):
+    match command:
+        case ["go", direction]:
+            return f"moving {direction}"
+        case ["pick", *items] if items:          # guard
+            return f"picking {len(items)} items"
+        case {"action": "quit"}:
+            return "bye"
+        case int() | float() as n:              # class pattern + OR + capture
+            return f"number {n}"
+        case _:
+            return "unknown"
+
+print(handle(["go", "north"]))       # moving north
+print(handle(["pick", "a", "b"]))    # picking 2 items
+print(handle({"action": "quit"}))    # bye
+print(handle(3.5))                   # number 3.5
+```
+
+A classic trap: a bare name in a case is a **capture pattern**, not a
+comparison. `case RED:` matches anything and binds it to `RED`. To compare
+against a constant, use a dotted name such as `case Color.RED:` or a
+literal. Mapping patterns match if the listed keys exist; extra keys are
+ignored.
+
+## Comprehensions
+
+Comprehensions build a list, set or dict from an iterable in one expression.
+Filters go at the end; a conditional expression goes at the front.
+
+```python
+nums = range(10)
+squares = [n * n for n in nums if n % 2 == 0]   # [0, 4, 16, 36, 64]
+labels = ["even" if n % 2 == 0 else "odd" for n in range(3)]
+unique_lens = {len(w) for w in ["a", "bb", "cc"]}   # {1, 2}
+index = {w: i for i, w in enumerate(["x", "y"])}     # {'x': 0, 'y': 1}
+pairs = [(r, c) for r in range(2) for c in range(2)]  # nested: outer first
+total = sum(n * n for n in nums)                 # generator expression
+```
+
+Comprehensions have their own scope, so the loop variable does not leak.
+Use a generator expression (parentheses) when you only need to iterate once
+— it is lazy and does not build the full list in memory. Keep
+comprehensions short; if it needs nested conditions, a plain loop reads
+better.
+
+## The walrus operator `:=`
+
+An assignment expression (3.8+) assigns and returns a value in one step,
+avoiding repeated computation:
+
+```python
+import re
+
+if (m := re.search(r"\d+", "order 42")) is not None:
+    print(m.group())          # 42
+
+data = [3, 8, 1, 9]
+big = [y for x in data if (y := x * 10) > 50]   # [80, 90]
+
+while (line := input("> ")) != "quit":
+    print(line.upper())
+```
+
+Inside a comprehension, a walrus target binds in the **enclosing** scope,
+so `y` is still available after the comprehension above. It cannot be used
+as a bare top-level statement (`x := 5` is a `SyntaxError`) and usually
+needs parentheses.
+
+### Try it yourself
+
+Write `parse(event)` using `match` that handles `["click", x, y]`,
+`["key", name]`, and `{"type": "scroll", "delta": d}` (any extra keys
+allowed), returning a description string, with a `_` fallback. Then write a
+`for ... else` loop that reports the first event that is a click, or "no
+clicks" if none exist.

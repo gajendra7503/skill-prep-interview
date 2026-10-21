@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is Node.js?",
+      "options": [
+        "A JavaScript runtime that runs JavaScript outside the browser",
+        "A different programming language that compiles to JavaScript",
+        "A browser extension for debugging web pages",
+        "A code editor made for JavaScript"
+      ],
+      "correctIndex": 0,
+      "explanation": "Node.js packages a JavaScript engine (V8) so JavaScript can run on your computer or server, with access to files, networks and processes."
+    },
+    {
+      "question": "Why does the lesson recommend downloading the LTS version of Node.js?",
+      "options": [
+        "It is the only version that includes npm",
+        "It is the only version that works on Windows",
+        "It receives bug and security fixes for a long period, making it the safe default",
+        "It runs JavaScript faster than every other version"
+      ],
+      "correctIndex": 2,
+      "explanation": "LTS stands for Long-Term Support: those releases are maintained with fixes for years, so they are the standard choice for learning and production."
+    },
+    {
+      "question": "You saved hello.js in a folder called hello-js. What must be true for `node hello.js` to work?",
+      "options": [
+        "The file must be opened in a browser first",
+        "The terminal's current folder must be the one that contains hello.js",
+        "You must run npm init -y before every run",
+        "The file must be named index.js"
+      ],
+      "correctIndex": 1,
+      "explanation": "node looks for the file relative to the terminal's current directory, so you need to cd into the folder that contains it (or pass the full path)."
+    },
+    {
+      "question": "What does `npm init -y` do?",
+      "options": [
+        "Installs Node.js",
+        "Runs every .js file in the folder",
+        "Starts the Node REPL",
+        "Creates a package.json file with default values"
+      ],
+      "correctIndex": 3,
+      "explanation": "npm init -y creates package.json, the file that records a project's name, scripts and dependencies, accepting all the default answers."
+    }
+  ]
+}

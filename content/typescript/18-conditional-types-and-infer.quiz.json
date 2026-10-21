@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Given `type ToArray<T> = T extends unknown ? T[] : never;`, what is `ToArray<string | number>`?",
+      "options": [
+        "(string | number)[]",
+        "string[] | number[]",
+        "never",
+        "unknown[]"
+      ],
+      "correctIndex": 1,
+      "explanation": "T is a naked type parameter, so the conditional distributes over the union: ToArray<string> | ToArray<number>, which is string[] | number[]. Wrapping as [T] extends [unknown] would give (string | number)[]."
+    },
+    {
+      "question": "Given `type IsString<T> = T extends string ? \"yes\" : \"no\";`, what is `IsString<never>`?",
+      "options": [
+        "\"no\"",
+        "\"yes\"",
+        "\"yes\" | \"no\"",
+        "never"
+      ],
+      "correctIndex": 3,
+      "explanation": "never is the empty union. A distributive conditional maps over each member, and there are none, so the result is never. Use [T] extends [never] to test for never."
+    },
+    {
+      "question": "Which definition extracts the element type of an array type, returning T unchanged for non-arrays?",
+      "options": [
+        "type El<T> = T extends (infer E)[] ? E : T;",
+        "type El<T> = T extends any[] ? T[number] : never;",
+        "type El<T> = infer E extends T[] ? E : T;",
+        "type El<T> = T[] extends infer E ? E : T;"
+      ],
+      "correctIndex": 0,
+      "explanation": "infer declares a type variable inside the extends clause. If T matches (infer E)[], E holds the element type; otherwise the false branch returns T. The second option returns never for non-arrays, and the other two are invalid or wrong."
+    },
+    {
+      "question": "A function has two overloads: `(x: string): string` and `(x: number): number`. What does `ReturnType<typeof fn>` give?",
+      "options": [
+        "string | number",
+        "string",
+        "number",
+        "never"
+      ],
+      "correctIndex": 2,
+      "explanation": "When inferring from an overloaded function type, conditional types use only the last overload signature, so the result is number."
+    }
+  ]
+}

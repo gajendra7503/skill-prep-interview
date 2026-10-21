@@ -25,14 +25,14 @@ export function CopyCodeBlock({ children, ...props }: React.ComponentProps<"pre"
       <pre
         ref={preRef}
         {...props}
-        className="overflow-x-auto rounded-lg bg-zinc-900 p-4 pr-16 text-sm"
+        className="overflow-x-auto rounded-lg bg-slate-900 p-4 pr-16 text-sm"
       >
         {children}
       </pre>
       <button
         type="button"
         onClick={handleCopy}
-        className="absolute right-2 top-2 rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-1 text-xs font-medium text-zinc-300 opacity-60 transition hover:bg-zinc-700 hover:text-white hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
+        className="absolute right-2 top-2 rounded-md border border-slate-700 bg-slate-800/80 px-2 py-1 text-xs font-medium text-slate-300 opacity-60 transition hover:bg-slate-700 hover:text-white hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
       >
         {copied ? "Copied!" : "Copy"}
       </button>

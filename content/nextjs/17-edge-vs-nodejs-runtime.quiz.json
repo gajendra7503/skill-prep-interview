@@ -1,15 +1,15 @@
 {
   "questions": [
     {
-      "question": "Which runtime does this app's src/proxy.ts always run on?",
+      "question": "Which runtime does src/proxy.ts run on in Next.js 16?",
       "options": [
         "Whichever you set via `export const runtime`",
-        "The Edge runtime — it's fixed and not configurable for proxy/middleware",
-        "Node.js, always",
-        "A separate runtime called 'Proxy Runtime'"
+        "The Edge runtime, always",
+        "Node.js — it is fixed, and setting `runtime` in proxy.ts throws an error",
+        "A separate runtime called \"Proxy Runtime\""
       ],
-      "correctIndex": 1,
-      "explanation": "Proxy/middleware always executes on the Edge runtime regardless of any runtime config set elsewhere in the app."
+      "correctIndex": 2,
+      "explanation": "Since Next.js 16, proxy defaults to the Node.js runtime and the runtime segment option is not available in proxy files; setting it throws an error."
     },
     {
       "question": "What is a key capability the Edge runtime does NOT provide?",

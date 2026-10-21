@@ -1,0 +1,179 @@
+---
+title: "TypeScript on the Server: Node & Express"
+description: "Run TypeScript on Node 24, type Express routes, middleware and error handlers, extend the Request object, and handle environment variables safely."
+module: "TypeScript in Practice"
+level: "intermediate"
+order: 16
+---
+
+On the backend, route handlers, database rows and API responses all have
+shapes, and a typo in any of them is a production incident. This lesson covers
+running TypeScript on Node, typing an Express app, and the one big trap: types
+describe what you *expect* from a request, not what a client actually sends.
+
+## Three ways to run TypeScript on Node
+
+| Approach | How | Type-checks? | Good for |
+|---|---|---|---|
+| Compile with `tsc` | `tsc` emits `.js` into `dist/`, then `node dist/index.js` | Yes | production builds |
+| A runner such as `tsx` | `npx tsx src/index.ts` | No, only strips types | fast local development |
+| Node's built-in type stripping | `node src/index.ts` | No | scripts and small services |
+
+Node 24 can run `.ts` files directly by **stripping** type annotations. It does
+not type-check, and it only supports *erasable* syntax: things that disappear
+when you delete the types. Enums, namespaces with runtime code and constructor
+parameter properties need code generation, so Node rejects them with
+`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` ("not supported in strip-only mode").
+
+Two more rules matter with stripping. Relative imports must include the `.ts`
+extension, and type-only imports must say so, because after stripping a plain
+`import { Request } from "express"` asks the runtime for an export that does
+not exist:
+
+```ts
+import express, { type Request } from "express"; // OK: "type" is erased
+// import { Request } from "express";
+// SyntaxError: Named export 'Request' not found.
+```
+
+Turn on `verbatimModuleSyntax` (forces `import type`) and, in recent versions,
+`erasableSyntaxOnly` (flags enums and parameter properties), and the compiler
+warns you before Node does. Whatever runs your code, keep `tsc --noEmit` in CI:
+it is the only step that checks types (see "tsconfig & Strict Mode Explained").
+
+## Typing routes
+
+Install `@types/express` and `@types/node` as dev dependencies. For simple
+routes you write no annotations: `req` and `res` are inferred, and route
+parameters are even inferred from the path string:
+
+```ts
+import express from "express";
+
+type Fund = { code: string; name: string; navInr: number };
+const funds: Fund[] = [{ code: "EQ01", name: "Northwind Equity", navInr: 152.4 }];
+
+const app = express();
+app.use(express.json());
+
+app.get("/funds/:code", (req, res) => {
+  const fund = funds.find((f) => f.code === req.params.code); // params.code: string
+  if (!fund) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json(fund);
+});
+```
+
+When you need more control, `Request` takes up to four type arguments, in
+this order: route params, response body, request body, query string.
+`Response` takes the response body type:
+
+```ts
+import type { Request, Response } from "express";
+
+type CreateFundBody = { code: string; name: string; navInr: number };
+type FundResponse = Fund | { error: string };
+
+app.post(
+  "/funds",
+  (req: Request<{}, FundResponse, CreateFundBody>, res: Response<FundResponse>) => {
+    const { code, name, navInr } = req.body; // typed as CreateFundBody
+    const fund: Fund = { code, name, navInr };
+    funds.push(fund);
+    res.status(201).json(fund);  // OK
+    res.json({ foo: 1 });        // Error: not assignable to FundResponse
+  },
+);
+```
+
+### The trap: req.body is a claim, not a fact
+
+Interviewers often ask, "If you type `req.body` as `CreateFundBody`, is it
+safe?" The honest answer is no. The annotation is a claim you make to the
+compiler; nothing checks it at runtime. A client can send
+`navInr: "lots"` or omit `code` entirely, and TypeScript will not notice. Treat
+all incoming data (body, query, params, headers) as untrusted and validate it
+at the boundary. "Runtime Validation & Type-Safe Boundaries (Zod)" shows how to
+derive the type from a validator so the two never drift apart.
+
+## Middleware and extending Request
+
+Middleware is a function of `(req, res, next)`. A classic need is attaching the
+logged-in user to `req`. Rather than casting everywhere, augment Express's
+`Request` interface once using declaration merging (the mechanism is explained
+in "Modules, Declaration Files & @types"):
+
+```ts
+// src/types/express.d.ts
+declare global {
+  namespace Express {
+    interface Request {
+      user?: { id: string; role: "admin" | "advisor" };
+    }
+  }
+}
+export {}; // makes this file a module so "declare global" is allowed
+```
+
+```ts
+import type { Request, Response, NextFunction } from "express";
+
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  req.user = { id: "u1", role: "advisor" }; // OK after augmentation
+  next();
+}
+
+app.get("/me", requireAuth, (req, res) => {
+  res.json({ role: req.user?.role }); // still optional: TS cannot know requireAuth ran
+});
+```
+
+## Error handlers and async routes
+
+An error handler has four parameters. Use the `ErrorRequestHandler` type so you
+do not have to annotate each one, and remember that `err` is not guaranteed to
+be an `Error`:
+
+```ts
+import type { ErrorRequestHandler } from "express";
+
+const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
+  const message = err instanceof Error ? err.message : "Unknown error";
+  res.status(500).json({ error: message });
+};
+app.use(errorHandler); // register after all routes
+```
+
+In Express 5, a rejected promise from an `async` handler reaches the error
+handler automatically; in Express 4 you had to call `next(err)` yourself.
+
+## Environment variables
+
+`process.env` values are typed `string | undefined`, which is accurate: any of
+them may be missing. Read and convert them once, at startup, and fail fast:
+
+```ts
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (value === undefined) throw new Error(`Missing env var ${name}`);
+  return value;
+}
+
+export const config = {
+  port: Number(process.env.PORT ?? 3000), // number
+  dbUrl: requireEnv("DATABASE_URL"),      // string, guaranteed
+};
+```
+
+
+### Try it yourself
+
+1. Create a folder with `"type": "module"` in `package.json`, write an
+   `index.ts` with an interface and a function, and run it with `node index.ts`.
+   Then add an `enum` and read the error Node prints.
+2. Build a `GET /sips/:id` route that returns a typed SIP object
+   (`{ id: string; amountInr: number; day: number }`) or a 404, with no `any`.
+3. Add a `requestId: string` property to `Request` via augmentation, set it in
+   a middleware, and log it from the error handler.

@@ -2,57 +2,80 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { createAccount, setSessionCookie, signIn, signOut } from "@/lib/local-auth";
+import { createCaptcha, verifyCaptcha, type Captcha } from "@/lib/captcha";
 
-type AuthState = { error: string | null; message?: string | null };
+type AuthState = { error: string | null; message?: string | null; captcha?: Captcha };
+
+// Every failed attempt gets a fresh challenge, because each one can be used only once.
+function failure(error: string): AuthState {
+  return { error, captcha: createCaptcha() };
+}
+
+export async function refreshCaptcha() {
+  return createCaptcha();
+}
+
+/**
+ * Where to go after signing in. Only same-site paths are allowed ("/tests", "/courses/react/…"), never
+ * protocol-relative or absolute URLs, so the `next` parameter can't redirect people off-site.
+ */
+function getSafeDestination(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || value.length > 2048) return "/dashboard";
+  if (!value.startsWith("/") || value.startsWith("//") || /[\\\r\n\t]/.test(value) || /^\/(login|signup)\b/.test(value)) {
+    return "/dashboard";
+  }
+  return value;
+}
 
 export async function login(_prevState: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (error) {
-    return { error: error.message };
+  if (!verifyCaptcha(formData.get("captchaToken"), formData.get("captchaAnswer"))) {
+    return failure("The security check answer was wrong or expired. Please try again.");
+  }
+  const user = await signIn(email, password);
+  if (!user.ok) {
+    return failure(
+      user.reason === "locked"
+        ? "Too many failed attempts. Please wait 15 minutes and try again."
+        : "Email or password is incorrect."
+    );
   }
 
+  await setSessionCookie(user.token);
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(getSafeDestination(formData.get("next")));
 }
 
 export async function signup(_prevState: AuthState, formData: FormData): Promise<AuthState> {
+  const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
-  const origin = host ? `${protocol}://${host}` : "http://localhost:3000";
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { emailRedirectTo: `${origin}/auth/callback?next=/dashboard` },
-  });
-
-  if (error) {
-    return { error: error.message };
+  if (!verifyCaptcha(formData.get("captchaToken"), formData.get("captchaAnswer"))) {
+    return failure("The security check answer was wrong or expired. Please try again.");
   }
-
-  if (!data.session) {
-    return { error: null, message: "Check your email for a confirmation link to finish creating your account." };
+  if (name.length < 2 || name.length > 80) {
+    return failure("Enter your full name (2 to 80 characters).");
   }
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return failure("Enter a valid email address.");
+  }
+  if (password.length < 8 || password.length > 128) {
+    return failure("Password must be between 8 and 128 characters long.");
+  }
+  const user = await createAccount(name, email, password);
+  if (!user) return failure("An account with this email already exists. Please log in.");
 
+  await setSessionCookie(user.token);
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(getSafeDestination(formData.get("next")));
 }
 
 export async function logout() {
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signOut();
-  if (error) throw new Error(error.message);
+  await signOut();
   revalidatePath("/", "layout");
   redirect("/");
 }

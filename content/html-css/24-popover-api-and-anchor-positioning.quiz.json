@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A dropdown inside a card with `overflow: hidden` gets clipped. Why does converting it to a `popover` fix this?",
+      "options": [
+        "Popovers automatically get z-index: 9999",
+        "Popovers render in the top layer, above all stacking contexts and unclipped by ancestors' overflow",
+        "Popovers are moved to the end of the body element in the DOM",
+        "Popovers disable overflow on all ancestors"
+      ],
+      "correctIndex": 1,
+      "explanation": "The top layer sits above the normal document painting order, so z-index, stacking contexts and ancestor overflow clipping no longer apply. The element stays where it is in the DOM."
+    },
+    {
+      "question": "Which popover type should a toast notification that must stay visible until you close it use?",
+      "options": [
+        "popover=\"auto\"",
+        "popover=\"hint\"",
+        "A <dialog> opened with showModal()",
+        "popover=\"manual\""
+      ],
+      "correctIndex": 3,
+      "explanation": "manual popovers have no light dismiss and do not close other popovers, so they stay open until code or a button hides them."
+    },
+    {
+      "question": "What is the key behavioural difference between a popover and a `<dialog>` opened with `showModal()`?",
+      "options": [
+        "The modal dialog makes the rest of the page inert and contains focus; a popover is non-modal",
+        "Only popovers can use ::backdrop",
+        "Only dialogs render in the top layer",
+        "Popovers cannot be closed with Escape"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both use the top layer and support ::backdrop, but only the modal dialog blocks interaction with the rest of the page."
+    },
+    {
+      "question": "In anchor positioning, what does `position-try-fallbacks: flip-block` do?",
+      "options": [
+        "Makes the element a block-level box",
+        "Hides the element when the anchor scrolls away",
+        "Tries the position mirrored on the block axis (for example above instead of below) if the original placement overflows",
+        "Creates a new anchor name for the element"
+      ],
+      "correctIndex": 2,
+      "explanation": "Fallbacks are tried in order when the element would overflow its containing block. flip-block mirrors the placement across the block axis. Hiding on scroll is position-visibility."
+    }
+  ]
+}

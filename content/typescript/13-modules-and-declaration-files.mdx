@@ -1,0 +1,188 @@
+---
+title: "Modules, Declaration Files & @types"
+description: "How TypeScript resolves ES modules, type-only imports, what .d.ts files are, where @types packages fit, and how to type an untyped library or augment globals."
+module: "Tooling"
+level: "intermediate"
+order: 13
+---
+
+Sooner or later you import a package and see "Could not find a declaration
+file for module". Fixing it confidently requires knowing how TypeScript
+finds types for modules — the topic of this lesson.
+
+## Modules vs scripts
+
+A file with at least one top-level `import` or `export` is a **module**:
+its declarations are private unless exported. A file with neither is a
+**script**, and its top-level declarations are global — two scripts that
+both declare `const config` clash. Setting `"moduleDetection": "force"`
+(included in `tsc --init` output) treats every non-declaration file
+as a module, which avoids these surprises.
+
+```ts
+// money.ts
+export const GST_RATE = 0.18;
+
+export function withGst(amountRupees: number): number {
+  return Math.round(amountRupees * (1 + GST_RATE));
+}
+
+// checkout.ts
+import { withGst } from "./money.js";
+console.log(withGst(1000)); // 1180
+```
+
+## Why `./money.js` and not `./money`?
+
+With `"module": "nodenext"` (the right choice for code that runs on
+Node), TypeScript follows Node's own ES module rules, and Node requires
+full file extensions in relative imports. You write the extension of the
+**output** file, because that is what will exist at runtime:
+
+```ts
+import { withGst } from "./money";
+// Error TS2835: Relative import paths need explicit file extensions in ECMAScript imports
+// when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './money.js'?
+```
+
+TypeScript maps `./money.js` back to `money.ts` while type checking. Two
+alternatives exist in recent versions:
+
+| Setup | Import style | Relevant option |
+|---|---|---|
+| Compile with `tsc`, run the `.js` output | `./money.js` | default `nodenext` behaviour |
+| Run `.ts` directly with Node type stripping | `./money.ts` | `allowImportingTsExtensions` (with `noEmit`) |
+| Write `.ts`, have `tsc` emit `.js` | `./money.ts` | `rewriteRelativeImportExtensions` |
+| Bundler (Vite, Next.js, webpack) | `./money` | `"moduleResolution": "bundler"` |
+
+Node's type stripping does not rewrite import paths, so `./money.js` fails
+with `ERR_MODULE_NOT_FOUND` if only `money.ts` exists.
+
+## Type-only imports
+
+Types vanish at compile time, so an import used only for types should
+vanish too. `import type` guarantees that:
+
+```ts
+import type { Loan } from "./models.js";           // erased entirely
+// or, inline: import { type Loan, createLoan } from "./models.js";
+```
+
+With `verbatimModuleSyntax` enabled (also in `tsc --init` output),
+importing a type without the `type` keyword is an error:
+
+```ts
+import { Loan } from "./models.js";
+// Error TS1484: 'Loan' is a type and must be imported using a type-only import
+// when 'verbatimModuleSyntax' is enabled.
+```
+
+Anything without `type` stays in the output exactly as written — vital for
+esbuild, SWC and Node's type stripping, which compile one file at a time
+and cannot tell whether an imported name is a type.
+
+## Declaration files (`.d.ts`)
+
+A **declaration file** contains only types — no implementations. It
+describes JavaScript that exists elsewhere:
+
+```ts
+// money.d.ts — what `tsc --declaration` generates for money.ts
+export declare const GST_RATE = 0.18;
+export declare function withGst(amountRupees: number): number;
+```
+
+Libraries ship `.js` plus `.d.ts`; `declare` means "this exists at
+runtime; trust me about its type".
+
+## Where types for packages come from
+
+When you `import x from "some-lib"`, TypeScript looks for types in order:
+
+1. **Bundled types** — the package's own `package.json` points at its
+   `.d.ts` files (via `types` or `exports`). Axios, Zod and date-fns do this.
+2. **`@types/some-lib`** — community-maintained types from the
+   DefinitelyTyped repository, installed as a dev dependency:
+
+```bash
+npm install lodash
+npm install -D @types/lodash
+```
+
+3. **Neither** — you get error TS7016 ("Could not find a declaration file
+   for module 'some-lib'... implicitly has an 'any' type") under `strict`.
+
+Interviewers often ask why `@types/node` is needed: Node's globals and
+built-in modules such as `process` and `node:fs` are typed in that
+package, not in TypeScript itself. Note that **the `types` option defaults
+to an empty array** in current TypeScript (since 6.0), so global type
+packages are not picked up automatically — list them explicitly:
+
+```json
+{
+  "compilerOptions": {
+    "types": ["node"]
+  }
+}
+```
+
+Older projects on TypeScript 5.x and earlier relied on every package under
+`node_modules/@types` being included by default; upgrading them usually
+means adding a `types` list. Publishing your own typed package is covered in "Publishing
+Typed Libraries".
+
+## Typing an untyped library yourself
+
+If no types exist, write an **ambient module declaration** in any `.d.ts`
+file included by your project:
+
+```ts
+// src/types/legacy-sms.d.ts
+declare module "legacy-sms" {
+  export interface SendResult { id: string; ok: boolean }
+  export default function send(to: string, body: string): Promise<SendResult>;
+}
+```
+
+Only declare what you use. As a quick escape hatch, `declare module "legacy-sms";`
+on its own makes every import from it `any` — better than a red build, but
+you lose all checking. Wildcard declarations type non-code imports that
+bundlers handle:
+
+```ts
+declare module "*.svg" {
+  const url: string;
+  export default url;
+}
+```
+
+## Augmenting globals and existing modules
+
+To add a property to a global such as `window`, use `declare global` inside
+a module file:
+
+```ts
+// src/types/global.d.ts
+export {};
+
+declare global {
+  interface Window {
+    analytics: { track(event: string): void };
+  }
+}
+```
+
+This works because interfaces **merge**: your declaration adds to the
+built-in `Window` instead of replacing it. The same idea — **module
+augmentation** with `declare module "lib-name"` plus an `interface` — adds
+fields to a library's types, such as a `user` on Express's request object
+(see "TypeScript on the Server: Node & Express").
+
+### Try it yourself
+
+1. Create two files in a `"type": "module"` project using `nodenext`, import
+   one from the other without an extension, read the error, and fix it.
+2. Write a `.d.ts` for a pretend untyped package `pincode-lookup` exporting
+   `lookup(pin: string): { city: string; state: string } | null`, and use it.
+3. Add `declare global` typing for `window.APP_VERSION: string` and confirm
+   that `window.APP_VERSION.toUpperCase()` type-checks.

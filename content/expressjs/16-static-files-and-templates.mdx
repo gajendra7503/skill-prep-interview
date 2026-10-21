@@ -1,0 +1,137 @@
+---
+title: "Static Files and Templates"
+description: "Serve static assets with express.static and the right caching headers, render HTML with EJS, and decide between server-side rendering and an SPA."
+module: "Advanced Express"
+level: "advanced"
+order: 18
+---
+
+Not every Express app is a pure JSON API. Many serve a built front end,
+images and downloads, or render HTML pages on the server. Express handles
+both with `express.static` and a pluggable view engine.
+
+## Serving files with express.static
+
+`express.static` is built-in middleware that maps URL paths to files in a
+folder.
+
+```js
+import express from "express";
+import path from "node:path";
+
+const app = express();
+const publicDir = path.join(import.meta.dirname, "public");
+
+app.use(express.static(publicDir));
+// public/logo.png       -> GET /logo.png
+// public/css/site.css   -> GET /css/site.css
+// public/index.html     -> GET /  (index.html is served for directories)
+
+app.use("/assets", express.static(path.join(import.meta.dirname, "uploads")));
+// uploads/report.pdf    -> GET /assets/report.pdf
+```
+
+Things worth knowing:
+
+- Always build an **absolute path** (`import.meta.dirname` in ESM, available
+  in recent Node versions). A relative path resolves against the process's
+  working directory, which breaks when you start the app from another folder.
+- If no file matches, `express.static` calls `next()`, so your routes still
+  run. Register it before the routes that should take priority.
+- It protects against path traversal (`/../../etc/passwd`) and by default
+  ignores dotfiles such as `.env` — but never point it at your project root.
+
+## Caching headers for static assets
+
+Static files are perfect for browser and CDN caching. `express.static`
+already sends `ETag` and `Last-Modified`, so repeat requests can get a cheap
+`304 Not Modified`. For fingerprinted build output you can go further.
+
+```js
+// Vite/webpack output: file names contain a content hash, e.g. app.3f9a1c.js
+app.use("/assets", express.static(path.join(distDir, "assets"), {
+  maxAge: "1y",      // Cache-Control: public, max-age=31536000
+  immutable: true,   // adds "immutable": no revalidation at all
+}));
+
+// index.html must stay fresh so users pick up new asset names
+app.use(express.static(distDir, { maxAge: 0 }));
+```
+
+```bash
+curl -I http://localhost:3000/assets/app.3f9a1c.js
+  # HTTP/1.1 200 OK
+  # Cache-Control: public, max-age=31536000, immutable
+  # ETag: W/"5b2-19a..."
+```
+
+The rule of thumb: **long cache for hashed files, no cache for the HTML
+that references them.** Deploying a new build changes the hashes, so users
+never get stale JavaScript.
+
+## Server-side templates with EJS
+
+A view engine turns a template plus data into HTML. EJS is popular because
+templates are just HTML with small tags.
+
+```bash
+npm install ejs
+```
+
+```js
+app.set("view engine", "ejs");
+app.set("views", path.join(import.meta.dirname, "views"));
+
+app.get("/orders/:id", async (req, res) => {
+  const order = await prisma.order.findUnique({ where: { id: Number(req.params.id) } });
+  if (!order) return res.status(404).render("not-found");
+  res.render("order", { order, title: `Order #${order.id}` });
+});
+```
+
+```html
+<!-- views/order.ejs -->
+<h1><%= title %></h1>
+<p>Customer: <%= order.customerName %></p>
+<p>Total: ₹<%= order.total.toLocaleString("en-IN") %></p>
+<% if (order.paid) { %>
+  <span class="badge">Paid</span>
+<% } %>
+```
+
+`<%= %>` **HTML-escapes** the value, which is what you want for anything a
+user could have typed. `<%- %>` outputs raw HTML — use it only for trusted
+markup such as an included partial, never for user input, or you've created
+a stored XSS hole.
+
+## SSR or an SPA?
+
+**Render on the server (EJS, Pug, Handlebars)** when pages are mostly
+content, SEO matters, interactivity is light (admin panels, emails, invoices,
+marketing pages), or you want one simple deployable.
+
+**Serve a single-page app** (React, Angular, Vue built to static files) when
+the UI is highly interactive and Express is mainly a JSON API. Express then
+serves the build and falls back to `index.html` for client-side routes:
+
+```js
+app.use("/api", apiRouter);
+app.use(express.static(distDir));
+
+// Express 5 syntax: "/{*splat}" also matches "/", while "/*splat" does not
+app.get("/{*splat}", (req, res) => {
+  res.sendFile(path.join(distDir, "index.html"));
+});
+```
+
+Mount the API first so unknown `/api` paths return a JSON 404 instead of the
+SPA's HTML. Many teams skip this entirely and put the built front end on a
+CDN, keeping Express API-only — or use a framework like Next.js when they
+want both SSR and rich interactivity.
+
+### Try it yourself
+
+Serve a `public` folder with a hashed `app.[hash].js` and an `index.html`.
+Give the JS a one-year immutable cache and the HTML no cache, then compare
+the `Cache-Control` headers with `curl -I`. Add an EJS page that prints a
+user-supplied `?name=` query parameter and confirm `<script>` is escaped.

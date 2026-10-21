@@ -1,0 +1,138 @@
+---
+title: "Introduction to Express"
+description: "What Express adds on top of node:http, a first Express 5 server, what changed from Express 4, and auto-restarting with node --watch or nodemon."
+module: "Fundamentals"
+level: "beginner"
+order: 3
+---
+
+Express is a small, unopinionated web framework for Node.js. It does not
+replace `node:http`; it wraps it. Interviewers usually start here to check
+that you know what the framework actually gives you and which major
+version you are working with, because Express 5 changed several defaults.
+
+## The problem with raw `node:http`
+
+```js
+// server-raw.js
+import http from "node:http";
+
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  if (req.method === "GET" && url.pathname === "/health") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ status: "ok" }));
+  }
+  res.writeHead(404, { "Content-Type": "text/plain" });
+  res.end("Not found");
+});
+
+server.listen(3000);
+```
+
+Every app ends up re-writing the same pieces by hand: matching method and
+path, pulling out URL parameters, parsing JSON bodies, setting headers and
+serialising responses, and sharing logic such as auth across routes.
+
+## What Express adds
+
+- **Routing**: `app.get("/users/:id", handler)` matches the method and the
+  path pattern and fills `req.params` for you.
+- **Middleware**: a pipeline of functions that run in order for each
+  request (logging, auth, body parsing), each calling `next()` to continue.
+- **Request and response helpers**: `req.query`, `res.json()`,
+  `res.status()`, `res.redirect()`, `res.sendFile()` and more.
+- **Error handling**: a dedicated error-handling middleware signature with
+  four arguments, `(err, req, res, next)`.
+
+Under the hood `app` is just a request listener function, which is why you
+can still pass it to `http.createServer(app)` or `https.createServer(app)`.
+
+## Install and hello world
+
+```bash
+mkdir rupee-api && cd rupee-api
+npm init -y
+npm pkg set type=module     # use ESM import/export
+npm install express         # installs Express 5, the current major
+```
+
+```js
+// server.js
+import express from "express";
+
+const app = express();
+const PORT = process.env.PORT ?? 3000;
+
+app.get("/", (req, res) => {
+  res.send("Hello from Express");
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", uptime: process.uptime() });
+});
+
+app.listen(PORT, () => {
+  console.log(`Listening on http://localhost:${PORT}`);
+});
+```
+
+```bash
+curl http://localhost:3000/health      # {"status":"ok","uptime":3.21}
+curl -i http://localhost:3000/missing  # HTTP/1.1 404 Not Found ("Cannot GET /missing")
+```
+
+`res.json()` sets `Content-Type: application/json`, serialises the object
+and ends the response. Any path with no matching route falls through to
+Express's default 404 handler.
+
+## Express 5 vs Express 4 at a high level
+
+Express 5.0 shipped in late 2024 after a very long beta, and since 2025 it
+has been the `latest` tag on npm, so `npm install express` now gives you
+v5. It needs a modern Node.js (18 or newer). The changes interviewers ask
+about most:
+
+- **Async errors**: if an `async` handler throws or returns a rejected
+  promise, Express 5 forwards the error to your error middleware
+  automatically. In Express 4 you had to wrap handlers or call `next(err)`.
+- **Route path syntax**: path matching moved to a newer `path-to-regexp`.
+  Wildcards must be named (`/*splat`), optional parts use braces
+  (`/:file{.:ext}`), and regex characters such as `?` and `+` are no
+  longer allowed in string paths.
+- **`req.query` is a getter**, so you cannot assign to it in middleware.
+- **Removed deprecated APIs**: `app.del()` is gone (use `app.delete()`),
+  as are `req.param()` and the old `res.send(status)` and
+  `res.json(obj, status)` signatures. Use `res.status(201).json(obj)` or
+  `res.sendStatus(204)`.
+- **Body parsing defaults**: `express.urlencoded()` now defaults to
+  `extended: false`.
+
+Upgrading an Express 4 app is mostly mechanical: fix route strings, rename
+removed methods, and delete promise-wrapping helpers you no longer need.
+
+## Auto-restart during development
+
+```json
+{
+  "scripts": {
+    "dev": "node --watch server.js",
+    "dev:nodemon": "nodemon server.js",
+    "start": "node server.js"
+  }
+}
+```
+
+Modern Node.js has a built-in `--watch` flag that restarts the process when
+imported files change, so many projects no longer need `nodemon`.
+`nodemon` is still common in older codebases and offers more config
+(watching extra extensions, ignore lists, delays). Never use either in
+production; run `node server.js` under a process manager or container.
+
+### Try it yourself
+
+Create a new project with `"type": "module"`, install Express, and add
+`GET /` and `GET /health` routes. Add a `GET /balance` route that returns
+`{ "currency": "INR", "balance": "₹12,500" }`, run it with `npm run dev`,
+change the balance, and confirm the server restarts on its own. Then write
+the same `/health` route with raw `node:http` and compare the two.

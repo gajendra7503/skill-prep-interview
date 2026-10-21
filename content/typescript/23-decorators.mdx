@@ -1,0 +1,183 @@
+---
+title: "Decorators"
+description: "Standard ECMAScript decorators in modern TypeScript: method, field, accessor and class decorators, metadata, and how they differ from the legacy experimental decorators used by Angular and NestJS."
+module: "Advanced Patterns"
+level: "advanced"
+order: 23
+---
+
+A decorator is a function that runs when a class is defined and can observe or
+replace the thing it is attached to: a method, field, accessor, getter, setter or
+the class itself. You write it with `@` in front of the declaration.
+
+There are **two different decorator systems** in TypeScript, and mixing them up
+is the most common source of confusion:
+
+| | Standard decorators | Legacy "experimental" decorators |
+|---|---|---|
+| Enabled by | Default since TypeScript 5.0 | `"experimentalDecorators": true` |
+| Based on | The TC39 decorators proposal (stage 3) | An earlier draft of the proposal |
+| Signature | `(value, context)` | `(target, key, descriptor)` |
+| Parameter decorators | Not supported | Supported |
+| `emitDecoratorMetadata` | Not supported | Supported (with `reflect-metadata`) |
+| Used by | New code, newer libraries | Angular, NestJS, TypeORM, older code |
+
+This lesson focuses on standard decorators. If you work in an Angular or NestJS
+codebase, keep `experimentalDecorators` on; those frameworks depend on it.
+
+## Your first method decorator
+
+A standard decorator receives two arguments: the original value, and a
+**context** object describing what is being decorated. A method decorator can
+return a replacement function.
+
+```ts
+function logged<This, Args extends unknown[], Return>(
+  target: (this: This, ...args: Args) => Return,
+  context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>,
+) {
+  const name = String(context.name);
+  return function (this: This, ...args: Args): Return {
+    console.log(`-> ${name}(${args.join(", ")})`);
+    const result = target.call(this, ...args);
+    console.log(`<- ${name} returned ${result}`);
+    return result;
+  };
+}
+
+class Wallet {
+  balance = 0;
+  @logged
+  credit(amount: number) { this.balance += amount; return this.balance; }
+}
+
+new Wallet().credit(500);
+// -> credit(500)
+// <- credit returned 500
+```
+
+The generics keep the replacement's `this`, parameters and return type identical
+to the original, so callers see no difference. The context object includes
+`kind` (`"method"`, `"field"`, `"accessor"`, `"getter"`, `"setter"`, `"class"`),
+`name`, `static`, `private`, `addInitializer` and `metadata`.
+
+## Decorator factories
+
+To pass options, write a function that **returns** a decorator:
+
+```ts
+function retry(times: number) {
+  return function <This, Args extends unknown[], Return>(
+    target: (this: This, ...args: Args) => Promise<Return>,
+    _context: ClassMethodDecoratorContext,
+  ) {
+    return async function (this: This, ...args: Args): Promise<Return> {
+      for (let attempt = 1; ; attempt++) {
+        try { return await target.call(this, ...args); }
+        catch (err) { if (attempt >= times) throw err; }
+      }
+    };
+  };
+}
+
+class PaymentClient {
+  @retry(3) async charge(amountInPaise: number) { /* call the gateway */ }
+}
+```
+
+`context.addInitializer` registers code that runs for each new instance (for
+non-static members). A classic use is a `@bound` decorator that does
+`this[context.name] = target.bind(this)` so the method can be passed around as a
+callback without losing `this`.
+
+## Fields, accessors and classes
+
+A **field** decorator receives `undefined` as its value (the field does not exist
+yet) and can return a function that transforms the initial value. An
+**accessor** decorator works with the `accessor` keyword, which creates a
+getter/setter pair backed by private storage, and can wrap `get` and `set`.
+
+```ts
+function clamp(min: number, max: number) {
+  return function <This>(_: undefined, _ctx: ClassFieldDecoratorContext<This, number>) {
+    return (initial: number) => Math.min(max, Math.max(min, initial));
+  };
+}
+
+function nonNegative<This>(
+  target: ClassAccessorDecoratorTarget<This, number>,
+  context: ClassAccessorDecoratorContext<This, number>,
+): ClassAccessorDecoratorResult<This, number> {
+  return {
+    set(value) {
+      if (value < 0) throw new RangeError(`${String(context.name)} cannot be negative`);
+      target.set.call(this, value);
+    },
+  };
+}
+
+class Account {
+  @clamp(0, 50) discountPercent = 80;
+  @nonNegative accessor balance = 0;
+}
+
+const acc = new Account();
+console.log(acc.discountPercent); // 50
+acc.balance = -1;                 // RangeError: balance cannot be negative
+```
+
+A **class** decorator receives the class itself and can return a replacement
+class or register initializers that run after the class is fully defined.
+
+## Decorator metadata
+
+Every decorator on a class shares one `context.metadata` object, which ends up on
+the class as `Class[Symbol.metadata]`. This is how a library can collect
+information (column names, validation rules, routes) without a global registry:
+
+```ts
+(Symbol as { metadata?: symbol }).metadata ??= Symbol("Symbol.metadata"); // polyfill
+
+function column(name: string) {
+  return function (_: undefined, context: ClassFieldDecoratorContext) {
+    const cols = (context.metadata.columns ??= []) as string[];
+    cols.push(`${String(context.name)}->${name}`);
+  };
+}
+
+class Customer { @column("owner_name") owner = "Ravi"; }
+console.log(Customer[Symbol.metadata]);
+// [Object: null prototype] { columns: [ 'owner->owner_name' ] }
+```
+
+`Symbol.metadata` is not yet available in every runtime, hence the polyfill line.
+You also need `"ESNext.Decorators"` (or `"ESNext"`) in `lib` for the types.
+
+## Running decorated code
+
+Standard decorators are real runtime syntax, not type annotations, and JavaScript
+engines do not ship them yet. TypeScript compiles them into helper calls. That
+also means Node's built-in type stripping cannot run them: `node file.ts` fails
+with a `SyntaxError` at the `@`. Compile with `tsc` (or a bundler that supports
+decorators) first.
+
+**When to use them:** good fits are cross-cutting concerns attached declaratively: logging, timing,
+retries, caching, binding, and framework registration (routes, DI, ORM columns).
+Avoid them for core business logic; a plain higher-order function is easier to
+test and does not hide behaviour behind an `@`.
+
+Interviewers often ask: "Why can't I use my NestJS-style parameter decorators
+with standard decorators?" Because parameter decorators and
+`emitDecoratorMetadata` exist only in the legacy system. Another favourite:
+"When does a decorator run?" Once, when the class is defined; the function it
+returns runs on each call.
+
+### Try it yourself
+
+1. Write a `@timed` method decorator that logs how many milliseconds an async
+   method took, using `performance.now()`, and keeps the method's types intact.
+2. Write a `@memoize` decorator for single-argument methods that caches results
+   per instance in a `WeakMap` keyed by `this`.
+3. Using decorator metadata, write `@required` for fields and a
+   `validate(instance)` function that reads `Class[Symbol.metadata]` and
+   throws if any required field is empty.

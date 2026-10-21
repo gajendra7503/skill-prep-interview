@@ -1,0 +1,163 @@
+---
+title: "High Availability: Group Replication & InnoDB Cluster"
+description: "RPO and RTO, why async failover loses data, Group Replication's consensus and certification, quorum and split brain, InnoDB Cluster with MySQL Router, and choosing an HA design."
+module: "Pro Level"
+level: pro
+order: 26
+---
+
+Plain source-replica replication gives you copies of the data, not high
+availability. When the primary dies at 2 a.m., something must decide which
+replica becomes the new primary, make sure no committed transaction is
+lost, stop the old primary from accepting writes if it comes back, and
+point the application at the new one. This lesson covers how MySQL does
+that natively and the trade-offs a senior engineer must explain.
+
+## RPO and RTO
+
+- **RPO (recovery point objective)**: how much committed data you can
+  afford to lose. "Zero" for a payments ledger; minutes may be fine for
+  analytics.
+- **RTO (recovery time objective)**: how long the service may be down.
+  "Under 30 seconds" rules out a human being paged to fail over.
+
+Every HA design is a position on these two numbers, paid for in latency,
+hardware and operational complexity.
+
+## Why async failover can lose data
+
+With asynchronous replication the source commits and replies to the
+client **before** any replica has the transaction. If the source's disk
+dies a second later, those transactions exist nowhere else; promoting a
+replica gives RPO greater than zero. Semi-synchronous replication waits
+until at least one replica has **received** the event, which narrows the
+gap, and tools such as Orchestrator automate failover for async and
+semi-sync topologies. But two hard problems remain: picking the most
+up-to-date replica, and **fencing** the old primary so it cannot keep
+taking writes after a network blip. Two primaries accepting writes at once
+is **split brain**, and reconciling it is manual and painful.
+
+## Group Replication: consensus built in
+
+Group Replication is a MySQL plugin that turns a set of servers (up to 9)
+into a group that agrees on every transaction:
+
+1. A transaction executes locally on the primary as usual.
+2. At commit, its **write set** (the primary keys of rows it changed) is
+   broadcast to the group through a Paxos-based protocol, which delivers
+   all transactions to all members in the **same order**.
+3. Each member **certifies** the transaction: if no earlier transaction in
+   that order changed the same rows, it commits; otherwise it is rolled
+   back.
+4. The commit returns once a **majority** has received and ordered it.
+
+Requirements follow from this design: InnoDB tables, a primary key (or
+non-null unique key) on every table, GTIDs enabled and row-based binary
+logging.
+
+## Quorum and split brain
+
+A group can make progress only while a majority of members can talk to
+each other.
+
+| Members | Majority | Failures tolerated |
+| --- | --- | --- |
+| 3 | 2 | 1 |
+| 5 | 3 | 2 |
+| 7 | 4 | 3 |
+
+If a network split leaves 2 members on one side and 1 on the other, the
+pair keeps working and the lone member **blocks writes**, because it can
+no longer reach a majority. Split brain is prevented by design. That is
+why groups use an odd number of members, ideally spread across three
+availability zones, and why a 2-member group is pointless: losing either
+member loses quorum.
+
+## Single-primary vs multi-primary
+
+- **Single-primary** (the default): one member takes writes, the others
+  are read-only. On primary failure the group elects a new primary
+  automatically, typically within seconds.
+- **Multi-primary**: all members accept writes. Concurrent transactions on
+  the same rows conflict at certification and the later one fails at
+  commit, so the application must retry. Multi-primary also restricts
+  some features, such as cascading foreign keys. Most teams stay
+  single-primary.
+
+Read consistency on secondaries is controlled by
+`group_replication_consistency`. `EVENTUAL` lets secondaries lag slightly;
+`BEFORE_ON_PRIMARY_FAILOVER` makes a newly elected primary apply its
+backlog before serving traffic (MySQL 8.4 made this the default); `AFTER`
+or `BEFORE` buy read-your-writes on any member at the cost of latency.
+
+## InnoDB Cluster: the packaged solution
+
+**InnoDB Cluster** combines three pieces: Group Replication for data,
+**MySQL Shell** (its AdminAPI) for setup and operations, and **MySQL
+Router** for connection routing.
+
+```js
+// In MySQL Shell (mysqlsh), JavaScript mode
+dba.configureInstance('clusteradmin@db1:3306')   // checks and fixes settings
+var cluster = dba.createCluster('orders_prod')
+cluster.addInstance('clusteradmin@db2:3306', {recoveryMethod: 'clone'})
+cluster.addInstance('clusteradmin@db3:3306', {recoveryMethod: 'clone'})
+cluster.status()
+// "status": "OK", "statusText": "Cluster is ONLINE and can tolerate up to ONE failure."
+```
+
+```bash
+# Router learns the topology from the cluster metadata
+mysqlrouter --bootstrap clusteradmin@db1:3306 --user=mysqlrouter
+# Default classic-protocol ports: 6446 read-write, 6447 read-only
+```
+
+The application connects to Router, not to a database host. After a
+failover Router sends new read-write connections to the new primary;
+existing connections to the old primary break, so the app must reconnect
+and retry. The `clone` recovery method copies a full physical snapshot to
+a new member, so adding a node needs no manual backup restore.
+
+```sql
+SELECT member_host, member_state, member_role
+FROM performance_schema.replication_group_members;
+-- db1  ONLINE  PRIMARY
+-- db2  ONLINE  SECONDARY
+-- db3  ONLINE  SECONDARY
+```
+
+For disaster recovery across regions, **InnoDB ClusterSet** links a
+primary cluster to replica clusters with asynchronous replication, since
+consensus across continents would add too much commit latency.
+
+## Costs and gotchas
+
+- Every commit waits for a network round trip to a majority, so write
+  latency rises, sharply if members are far apart.
+- Large transactions are broadcast as one message; the default
+  `group_replication_transaction_size_limit` is about 143 MB, beyond which
+  the transaction is rolled back. Batch big updates.
+- **Flow control** throttles the primary when secondaries fall behind.
+- A member that drops out must rejoin and catch up via distributed
+  recovery; alert on `member_state` anything other than `ONLINE`.
+
+## Choosing a design
+
+| Need | Reasonable choice |
+| --- | --- |
+| Small app, minutes of RTO acceptable | Async replica plus tested manual failover |
+| RPO near zero, automatic failover in one region | InnoDB Cluster (3 or 5 members) |
+| Regional disaster recovery | InnoDB ClusterSet, or async replica clusters |
+| No team to run it | Managed service (RDS or Aurora Multi-AZ, Cloud SQL HA) |
+
+Whatever you pick, failover you have never rehearsed is not failover.
+Schedule drills: kill the primary and measure the real RTO.
+
+### Try it yourself
+
+Using Docker, start three MySQL 8.4 containers on one network and build an
+InnoDB Cluster with MySQL Shell. Bootstrap MySQL Router, run a loop that
+inserts a row every 100 ms through port 6446, then `docker stop` the
+primary. Record how long writes failed, which member became primary, and
+whether any acknowledged insert was missing. Finally stop a second member
+and explain why the last one refuses writes.

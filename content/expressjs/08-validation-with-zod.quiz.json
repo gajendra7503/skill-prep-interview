@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the difference between schema.parse(data) and schema.safeParse(data) in Zod?",
+      "options": [
+        "parse() validates only types; safeParse() also checks constraints like min and max",
+        "parse() is asynchronous; safeParse() is synchronous",
+        "parse() throws a ZodError on invalid data; safeParse() returns an object with success and either data or error",
+        "safeParse() skips unknown keys; parse() keeps them"
+      ],
+      "correctIndex": 2,
+      "explanation": "safeParse never throws. It returns { success: true, data } or { success: false, error }, which suits middleware that wants to build a 400 response."
+    },
+    {
+      "question": "A route /expenses/:id is called as /expenses/42. Which schema correctly validates the id as a positive integer?",
+      "options": [
+        "z.object({ id: z.coerce.number().int().positive() })",
+        "z.object({ id: z.number().int().positive() })",
+        "z.object({ id: z.int() }).strict()",
+        "No schema is needed; Express converts numeric params automatically"
+      ],
+      "correctIndex": 0,
+      "explanation": "Route params and query values are always strings, so z.number() would reject \"42\". z.coerce.number() converts the string first, then the int and positive checks run."
+    },
+    {
+      "question": "Why does the validate() middleware store parsed values on req.validated instead of assigning them back to req.query in Express 5?",
+      "options": [
+        "Zod output cannot be assigned to request properties",
+        "Assigning to req.query would bypass the router",
+        "req.query is cleared after the first middleware runs",
+        "In Express 5 req.query is a read-only getter, so it cannot be reassigned"
+      ],
+      "correctIndex": 3,
+      "explanation": "Express 5 exposes req.query through a getter. Storing results on a separate property (or res.locals) works for body, params and query alike."
+    },
+    {
+      "question": "By default, what does z.object() do with keys in the input that are not in the schema, such as \"isAdmin\": true?",
+      "options": [
+        "It fails validation with an unrecognized key error",
+        "It strips them from the parsed data",
+        "It passes them through unchanged",
+        "It converts them to strings"
+      ],
+      "correctIndex": 1,
+      "explanation": "z.object strips unknown keys from the output, so using result.data protects you from mass assignment. z.strictObject rejects them instead."
+    }
+  ]
+}

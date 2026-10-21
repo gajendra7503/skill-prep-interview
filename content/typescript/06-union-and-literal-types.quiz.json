@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `function f(v: string | number) { return v.toUpperCase(); }` fail to compile?",
+      "options": [
+        "toUpperCase does not exist on strings",
+        "Unions cannot be used as parameter types",
+        "The return type is missing",
+        "Only members shared by every type in the union can be used, and number has no toUpperCase"
+      ],
+      "correctIndex": 3,
+      "explanation": "Without narrowing, TypeScript only allows operations valid for all members of the union."
+    },
+    {
+      "question": "Given `type Status = \"paid\" | \"failed\"` and `function f(s: Status)`, which code compiles?",
+      "options": [
+        "`let s = \"paid\"; f(s);`",
+        "`const s = \"paid\"; f(s);`",
+        "`const p = { status: \"paid\" }; f(p.status);`",
+        "`f(\"cancelled\");`"
+      ],
+      "correctIndex": 1,
+      "explanation": "const keeps the literal type \"paid\". let and object properties widen to string, which is not assignable to Status."
+    },
+    {
+      "question": "With strict mode, `function find(): string | null` is called as `const n = find(); n.length;`. What happens?",
+      "options": [
+        "A compile error: 'n' is possibly 'null'",
+        "It compiles; null checks are only done at runtime",
+        "n.length returns 0 for null",
+        "It compiles but n is typed any"
+      ],
+      "correctIndex": 0,
+      "explanation": "With strict null checks, null must be handled before accessing properties, for example with a check or optional chaining."
+    },
+    {
+      "question": "What makes a union of object types a discriminated union?",
+      "options": [
+        "Every member is declared with interface",
+        "Every member has exactly the same set of properties",
+        "Every member has a shared property with a distinct literal value, such as method: \"upi\" or method: \"card\"",
+        "The union has exactly two members"
+      ],
+      "correctIndex": 2,
+      "explanation": "A shared literal-typed property (the discriminant) lets TypeScript narrow to the right member when you check its value."
+    }
+  ]
+}

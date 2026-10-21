@@ -1,0 +1,187 @@
+---
+title: "Multi-Tenant & Multi-Zone Architecture"
+description: "Serve many customers from one Next.js app with host-based routing, and split one large domain into independently deployed zones."
+module: "Pro Level"
+level: "pro"
+order: 27
+---
+
+Two architecture questions come up again and again in senior interviews and
+design reviews. **"We sell a white-label portal to 300 distributors — do we
+deploy 300 apps?"** (No: build one multi-tenant app.) And **"Our single
+Next.js app takes 25 minutes to build and five teams step on each other —
+do we split it?"** (Maybe: multi-zones.) This lesson covers both, and the
+trade-offs that decide between them.
+
+## Multi-tenancy: one app, many customers
+
+A tenant is a customer who gets their own branding, data and often their
+own domain — `sharma-wealth.example.in`, `portal.guptafinserv.com` — while
+you run **one codebase and one deployment**. The trick is to turn the
+`Host` header into a route segment, so the rest of the app is ordinary
+App Router code.
+
+```text
+app/
+  [tenant]/
+    layout.tsx        // loads branding for the tenant
+    page.tsx          // tenant home page
+    funds/[id]/page.tsx
+proxy.ts              // maps Host -> /[tenant]/...
+```
+
+## Mapping the host in `proxy.ts`
+
+The Proxy runs before routing. It reads the host, resolves it to a tenant
+slug and **rewrites** (not redirects) the request, so the browser keeps
+showing the tenant's own URL:
+
+```ts
+// proxy.ts
+import { NextResponse, type NextRequest } from "next/server";
+
+const ROOT = "example.in";
+
+export function proxy(request: NextRequest) {
+  const host = (request.headers.get("host") ?? "").split(":")[0];
+  const { pathname, search } = request.nextUrl;
+
+  // sharma-wealth.example.in -> "sharma-wealth"
+  // portal.guptafinserv.com  -> looked up by full domain
+  const tenant = host.endsWith(`.${ROOT}`)
+    ? host.slice(0, -(ROOT.length + 1))
+    : host;
+
+  const url = new URL(`/${tenant}${pathname}${search}`, request.url);
+  return NextResponse.rewrite(url);
+  // browser URL:  https://sharma-wealth.example.in/funds/42
+  // route served: /sharma-wealth/funds/42
+}
+
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};
+```
+
+Keep the Proxy cheap: no database calls on every request. Pass the raw
+slug or domain through and resolve it in the layout, where the lookup can
+be cached.
+
+## Resolving the tenant inside the app
+
+`params` is a Promise in Next.js 16, so await it. Unknown tenants must hit
+`notFound()` — never fall back to a "default" tenant's data.
+
+```tsx
+// app/[tenant]/layout.tsx
+import { notFound } from "next/navigation";
+import { getTenant } from "@/lib/tenants";
+
+export default async function TenantLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ tenant: string }>;
+}) {
+  const { tenant: key } = await params;
+  const tenant = await getTenant(key); // by slug OR custom domain
+  if (!tenant) notFound();
+
+  return (
+    <div style={{ "--brand": tenant.brandColor } as React.CSSProperties}>
+      <header>{tenant.name}</header>
+      {children}
+    </div>
+  );
+}
+```
+
+Because the tenant is now a normal route segment, `generateMetadata`,
+caching and `generateStaticParams` all work per tenant. You can prerender
+your largest tenants at build time and let smaller ones render on demand.
+
+## The rules that keep tenants isolated
+
+| Risk | What goes wrong | Guard |
+| --- | --- | --- |
+| Cache keys without the tenant | Tenant A sees Tenant B's fund list | Pass the tenant ID as an argument to every cached function so it is part of the key |
+| Trusting the URL segment | A user edits the path to `/other-tenant/...` | In every query and Server Action, check the session's tenant matches |
+| Shared `revalidateTag("funds", "max")` | One tenant's update purges everyone | Use tenant-scoped tags such as `funds:sharma-wealth` |
+| Cookies on the root domain | Session leaks across subdomains | Scope cookies to the exact host |
+
+The second row matters most: the Proxy only decides which route renders.
+Authorisation still belongs in the data layer and inside each Server
+Action, because a Server Action is just a POST to the route it lives on.
+
+## Multi-zones: one domain, many apps
+
+Multi-tenancy is one app serving many customers. **Multi-zones** is the
+reverse: one domain served by several independent Next.js apps, each
+owning a set of paths. It is Next.js's take on micro-frontends.
+
+```text
+www.example.in/             -> "home" zone  (marketing, default)
+www.example.in/blog/*       -> "blog" zone  (content team)
+www.example.in/dashboard/*  -> "app" zone   (product team)
+```
+
+Each zone builds and deploys on its own, so builds get smaller and teams
+release independently. A zone is a normal app with an `assetPrefix`, so its
+`/_next/...` files do not collide with another zone's:
+
+```js
+// blog zone: next.config.js
+module.exports = {
+  assetPrefix: "/blog-static", // assets served from /blog-static/_next/...
+};
+```
+
+The default zone routes paths to the others with `rewrites` (lowest
+latency), or with `proxy.ts` when the decision is dynamic — for example a
+feature flag during a gradual migration:
+
+```js
+// home zone: next.config.js
+module.exports = {
+  async rewrites() {
+    return [
+      { source: "/blog", destination: `${process.env.BLOG_DOMAIN}/blog` },
+      { source: "/blog/:path+", destination: `${process.env.BLOG_DOMAIN}/blog/:path+` },
+      { source: "/blog-static/:path+", destination: `${process.env.BLOG_DOMAIN}/blog-static/:path+` },
+    ];
+  },
+};
+```
+
+## The costs of zones
+
+- **Hard navigations between zones.** `Link` prefetches and soft-navigates
+  only within its own app, so cross-zone links must be plain `a` tags, and
+  each crossing is a full page load. Put pages users visit together in the
+  same zone.
+- **Unique paths.** Two zones serving `/blog` is a routing conflict.
+- **Server Actions** need the user-facing domain listed in
+  `experimental.serverActions.allowedOrigins`, since one domain now fronts
+  several apps.
+- **Shared UI and releases.** Keep the header, design system and auth
+  helpers in a shared package (a monorepo helps) and use feature flags so
+  changes that span zones go live together.
+
+## Choosing between them
+
+Use **multi-tenancy** when every customer gets the same product with
+different branding and data. Use **multi-zones** when one product has
+clearly separate areas owned by different teams. Neither is a fix for slow
+code: if builds are slow because of one heavy page, fix the page first.
+
+### Try it yourself
+
+Build a two-tenant app: map `alpha.localhost:3000` and `beta.localhost:3000`
+to `/alpha` and `/beta` with the Proxy above, show a different brand colour
+in each layout, and return `notFound()` for `gamma.localhost`. Then add a
+cached `getFunds(tenantId)` and prove that editing Alpha's data and calling
+`revalidateTag("funds:alpha", "max")` leaves Beta's page untouched. Finally, cost
+it out: if each separate deployment costs ₹4,000 a month, what does one
+multi-tenant app save over 300 per-customer deployments? (Answer: about
+₹11,96,000 a month, before the larger single instance's extra cost.)

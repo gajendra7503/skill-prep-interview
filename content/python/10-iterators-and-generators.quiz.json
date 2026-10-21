@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does calling a generator function such as `countdown(3)` do immediately?",
+      "options": [
+        "Runs the whole body and returns a list",
+        "Runs the body up to the first yield",
+        "Returns a generator object without executing any of the body",
+        "Raises StopIteration"
+      ],
+      "correctIndex": 2,
+      "explanation": "Calling a generator function only creates a generator object. The body starts running on the first next() call and pauses at each yield."
+    },
+    {
+      "question": "Given `squares = (n * n for n in range(4))`, what does calling `sum(squares)` twice return?",
+      "options": [
+        "14 and then 0",
+        "14 and then 14",
+        "14 and then a StopIteration error",
+        "0 and then 14"
+      ],
+      "correctIndex": 0,
+      "explanation": "Generators are single-use. The first sum consumes every value; the exhausted generator yields nothing afterwards, so the second sum is 0 with no error."
+    },
+    {
+      "question": "Which pair of methods defines the iterator protocol for an iterator object?",
+      "options": [
+        "__getitem__ and __len__",
+        "__iter__ returning the iterator itself, and __next__ returning the next value or raising StopIteration",
+        "__enter__ and __exit__",
+        "__call__ and __next__"
+      ],
+      "correctIndex": 1,
+      "explanation": "An iterator implements __next__ (raising StopIteration when done) and an __iter__ that returns itself. An iterable only needs __iter__ returning a fresh iterator."
+    },
+    {
+      "question": "In a recursive `flatten` generator, what does `yield from flatten(item)` do?",
+      "options": [
+        "Returns the entire flattened sub-list as a single value",
+        "Starts a new thread for the sub-generator",
+        "Yields only the first item of the sub-generator",
+        "Yields every item produced by the sub-generator, also forwarding send() and throw() and evaluating to its return value"
+      ],
+      "correctIndex": 3,
+      "explanation": "yield from delegates to the sub-iterable, yielding each of its items in turn; with sub-generators it also forwards send()/throw() and evaluates to the sub-generator's return value."
+    }
+  ]
+}

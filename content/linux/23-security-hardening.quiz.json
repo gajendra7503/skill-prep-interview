@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "On current Ubuntu, sshd includes /etc/ssh/sshd_config.d/*.conf at the top of sshd_config. Why does the lesson name the hardening file 01-hardening.conf?",
+      "options": [
+        "sshd ignores files whose names do not start with a digit",
+        "For most options the first value sshd reads wins, so an early file overrides later defaults",
+        "The last file read always wins, and 01 is read last",
+        "Numbered files are reloaded automatically without a restart"
+      ],
+      "correctIndex": 1,
+      "explanation": "Drop-ins are read in lexical order and, for most sshd options, the first obtained value is used. Verify the effective result with `sudo sshd -T`."
+    },
+    {
+      "question": "You are about to run `sudo ufw enable` on a remote server with `default deny incoming`. What must you do first?",
+      "options": [
+        "Run `sudo ufw allow 80/tcp`",
+        "Disable sshd",
+        "Allow SSH (for example `sudo ufw allow OpenSSH`) so your session is not cut off",
+        "Reboot the server"
+      ],
+      "correctIndex": 2,
+      "explanation": "With a default-deny policy and no SSH rule, enabling the firewall blocks your own remote access."
+    },
+    {
+      "question": "In `ss -tulpn` output, a database listens on `127.0.0.1:5432`. What does that mean?",
+      "options": [
+        "It is reachable only from processes on the same machine",
+        "It is reachable from the whole internet",
+        "It is reachable only over IPv6",
+        "The database is not running"
+      ],
+      "correctIndex": 0,
+      "explanation": "127.0.0.1 is the loopback interface, so only local processes can connect. 0.0.0.0 would mean all interfaces."
+    },
+    {
+      "question": "Which command gives user asha sudo rights on Ubuntu WITHOUT removing her from her other groups?",
+      "options": [
+        "sudo usermod -G sudo asha",
+        "sudo chmod 777 /home/asha",
+        "sudo passwd -l asha",
+        "sudo usermod -aG sudo asha"
+      ],
+      "correctIndex": 3,
+      "explanation": "-a (append) with -G adds the group. Without -a, usermod replaces the user's supplementary group list."
+    }
+  ]
+}

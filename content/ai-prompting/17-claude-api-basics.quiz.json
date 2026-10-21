@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "How should you read the text of a Messages API response in Python?",
+      "options": [
+        "print(response.text)",
+        "print(response.content)",
+        "Loop over response.content and read block.text only when block.type == \"text\"",
+        "print(response.messages[-1])"
+      ],
+      "correctIndex": 2,
+      "explanation": "response.content is a list of blocks of different types; check the type before reading text."
+    },
+    {
+      "question": "Your reply ends abruptly and stop_reason is \"max_tokens\". What does this mean?",
+      "options": [
+        "The output hit the max_tokens limit and is incomplete",
+        "The model refused the request",
+        "The input prompt was too long",
+        "The model finished its answer naturally"
+      ],
+      "correctIndex": 0,
+      "explanation": "max_tokens means the cap was reached and the reply was cut off; end_turn indicates a natural finish."
+    },
+    {
+      "question": "How do you continue a multi-turn conversation with the Claude API?",
+      "options": [
+        "Pass a conversation ID returned by the previous call",
+        "Send only the newest user message; the API remembers the rest",
+        "End the messages list with a partial assistant turn",
+        "Resend the full message history, starting with a user message, on every call"
+      ],
+      "correctIndex": 3,
+      "explanation": "The API is stateless, so the full history must be sent each time; prefill is not supported on current models."
+    },
+    {
+      "question": "On claude-opus-5-5, how do you make the model spend less effort thinking on a simple task?",
+      "options": [
+        "Set temperature to 0",
+        "Set output_config={\"effort\": \"low\"}",
+        "Disable thinking entirely",
+        "Lower max_tokens to 100"
+      ],
+      "correctIndex": 1,
+      "explanation": "Current models use adaptive thinking controlled by effort; thinking cannot be disabled on claude-opus-5-5 and sampling parameters are rejected."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A .env file contains FEATURE_X=false and the code checks `if (process.env.FEATURE_X) { ... }`. What happens?",
+      "options": [
+        "The block runs, because \"false\" is a non-empty string and therefore truthy",
+        "The block is skipped, because Node converts the value to a boolean",
+        "Node throws a TypeError",
+        "process.env.FEATURE_X is undefined because booleans are not allowed"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every value in process.env is a string. Compare explicitly (value === \"true\") or use a parser such as zod's stringbool to convert it."
+    },
+    {
+      "question": "You run `PORT=8080 node --env-file=.env server.js` and .env contains PORT=3000. What is process.env.PORT?",
+      "options": [
+        "\"3000\", because the file is loaded last",
+        "undefined, because of the conflict",
+        "\"8080\", because variables already in the environment take precedence over the file",
+        "The number 8080"
+      ],
+      "correctIndex": 2,
+      "explanation": "Node's --env-file loader does not overwrite variables that are already set in the environment, and values are always strings."
+    },
+    {
+      "question": "Why validate configuration with a schema at application startup?",
+      "options": [
+        "It makes process.env faster to read",
+        "It encrypts the secrets in memory",
+        "It is required by Node before --env-file works",
+        "Missing or malformed values fail the deploy immediately instead of breaking a request later in production"
+      ],
+      "correctIndex": 3,
+      "explanation": "Parsing env vars once at boot gives a typed, frozen config object and a clear error message, so a bad deploy fails fast rather than serving broken requests."
+    },
+    {
+      "question": "A database password was accidentally committed to git. What is the correct response?",
+      "options": [
+        "Delete the line in a new commit; that removes it from history",
+        "Rotate the password and move it to a secret manager or environment variable",
+        "Rename the variable so attackers cannot find it",
+        "Make the repository private and keep the password"
+      ],
+      "correctIndex": 1,
+      "explanation": "Anything in git history should be treated as leaked. Rotate the secret and inject it at deploy time from a secret manager or environment variables, with .env listed in .gitignore."
+    }
+  ]
+}

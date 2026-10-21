@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In `<a href=\"/plans\" class=\"btn\">See plans</a>`, what is `href=\"/plans\"`?",
+      "options": [
+        "A CSS declaration",
+        "The element's content",
+        "An attribute in the opening tag",
+        "A closing tag"
+      ],
+      "correctIndex": 2,
+      "explanation": "Attributes are name=\"value\" pairs written inside the opening tag that add information to the element."
+    },
+    {
+      "question": "In a CSS rule `.price { color: green; }`, which part is the property?",
+      "options": [
+        "color",
+        ".price",
+        "green",
+        "the curly braces"
+      ],
+      "correctIndex": 0,
+      "explanation": ".price is the selector, color is the property, and green is the value. Together color: green; is one declaration."
+    },
+    {
+      "question": "You set `width: 200px` on a plain `<span>` and nothing changes. Why?",
+      "options": [
+        "Spans cannot be styled with CSS",
+        "px is not a valid unit for width",
+        "The rule needs !important",
+        "A span is inline by default, and width has no effect on inline elements"
+      ],
+      "correctIndex": 3,
+      "explanation": "Inline elements are only as wide as their content and ignore width, height and vertical margins. Changing display to block or inline-block makes width apply."
+    },
+    {
+      "question": "Why is `rem` usually preferred over `px` for font sizes?",
+      "options": [
+        "rem is the only unit that works in every browser",
+        "rem scales with the root font size, so a user's larger default font setting enlarges text everywhere",
+        "rem values are always smaller than px values",
+        "px cannot be used for fonts"
+      ],
+      "correctIndex": 1,
+      "explanation": "1rem equals the root font size (16px by default). If the user raises that default, rem-based text grows with it, which helps readability and accessibility."
+    }
+  ]
+}

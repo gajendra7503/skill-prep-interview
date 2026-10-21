@@ -1,0 +1,173 @@
+---
+title: "tsconfig & Strict Mode Explained"
+description: "What the important tsconfig.json options do, exactly which checks strict turns on, the extra safety flags worth enabling, and how to migrate a loose project to strict."
+module: "Tooling"
+level: "intermediate"
+order: 14
+---
+
+`tsconfig.json` decides which files are compiled, what JavaScript comes
+out, and how strict the type checker is. Two projects with identical code
+but different configs can behave very differently, so "walk me through your
+tsconfig" is a common interview question.
+
+## How tsc finds the config
+
+Running `tsc` with no file arguments looks for `tsconfig.json` in the
+current directory (or the one passed with `-p`). Passing files directly,
+as in `tsc src/index.ts`, **ignores** the config — so since TypeScript 6.0,
+`tsc` refuses with error TS5112 if a tsconfig is present, unless you add
+`--ignoreConfig`.
+
+A realistic config for a Node service compiled with `tsc`:
+
+```json
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "nodenext",
+    "lib": ["es2022"],
+    "types": ["node"],
+    "rootDir": "src",
+    "outDir": "dist",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "sourceMap": true
+  },
+  "include": ["src"]
+}
+```
+
+## The options that matter most
+
+| Option | What it controls |
+|---|---|
+| `include` / `exclude` / `files` | Which source files belong to the project |
+| `target` | Which JavaScript syntax is emitted (newer syntax is down-levelled) |
+| `lib` | Which built-in APIs are typed, e.g. `"dom"` for browser globals |
+| `module` / `moduleResolution` | Output module format and how imports are resolved (see "Modules, Declaration Files & @types") |
+| `types` | Which global `@types` packages are loaded |
+| `rootDir` / `outDir` | Where sources live and where compiled output goes |
+| `noEmit` | Type-check only — common when a bundler or Next.js does the compiling |
+| `declaration` / `sourceMap` | Emit `.d.ts` files / source maps |
+| `skipLibCheck` | Skip type-checking `.d.ts` files, which speeds builds and avoids errors in third-party types |
+| `isolatedModules` | Report code that single-file compilers (esbuild, SWC, Babel) cannot handle |
+| `extends` | Inherit from a base config, such as a shared team config or a `@tsconfig/*` package |
+
+A frequent confusion: `target` affects **syntax**, `lib` affects **types**.
+Setting `target: "es2015"` does not polyfill `Array.prototype.at`; it only
+changes what the compiler emits and, by default, which `lib` is assumed.
+
+## What `strict` actually turns on
+
+`strict` is an umbrella. It enables a family of checks, and any of them can
+be switched off individually:
+
+| Flag | What it catches |
+|---|---|
+| `noImplicitAny` | Parameters and variables whose type silently becomes `any` |
+| `strictNullChecks` | Using a value that may be `null` or `undefined` |
+| `strictFunctionTypes` | Unsafe function assignments (parameters are checked contravariantly) |
+| `strictBindCallApply` | Wrong arguments passed through `bind`, `call` and `apply` |
+| `strictPropertyInitialization` | Class fields not assigned in the constructor |
+| `noImplicitThis` | `this` whose type would be `any` |
+| `useUnknownInCatchVariables` | `catch (err)` gives `err` type `unknown`, not `any` |
+| `strictBuiltinIteratorReturn` | Built-in iterators return `undefined` instead of `any` when done |
+
+New flags are added to the family over time, so upgrading TypeScript with
+`strict: true` can surface new errors — expected and usually helpful.
+
+`strictNullChecks` is by far the most valuable: without it, `null` and
+`undefined` are assignable to every type, and the classic "cannot read
+properties of undefined" crash is invisible to the compiler.
+
+```ts
+try {
+  JSON.parse("{");
+} catch (err) {
+  console.log(err.message);
+  // Error: 'err' is of type 'unknown'.  (useUnknownInCatchVariables)
+  if (err instanceof Error) console.log(err.message); // OK after narrowing
+}
+```
+
+## Flags beyond `strict`
+
+These are **not** part of `strict` but catch real bugs. The `tsc --init`
+output enables the first two:
+
+```ts
+// noUncheckedIndexedAccess — indexing may return undefined
+const target: Record<string, number> = { delhi: 5_00_00_000 };
+const pune: number = target["pune"];
+// Error: Type 'number | undefined' is not assignable to type 'number'.
+
+// exactOptionalPropertyTypes — "optional" is not the same as "may be undefined"
+interface Prefs { theme?: "dark" | "light" }
+const p: Prefs = { theme: undefined };
+// Error: ... with 'exactOptionalPropertyTypes: true'
+
+// noImplicitReturns — some code paths forget to return
+function convenienceFee(amount: number) {
+  if (amount > 1000) return 20;
+}
+// Error: Not all code paths return a value.
+```
+
+Also worth knowing: `noImplicitOverride` (see "Classes, Access Modifiers &
+Abstract Classes"), `noFallthroughCasesInSwitch`, and `noUnusedLocals` /
+`noUnusedParameters` (often left to a linter instead).
+
+## Defaults in TypeScript 7
+
+TypeScript 7, the current release (the compiler rewritten as a native Go
+program), keeps the defaults that TypeScript 6.0 introduced. Verified with
+`tsc` 7.0.2:
+
+- `strict` defaults to **true** — a file with an implicit `any` fails even
+  with no tsconfig. Set `"strict": false` explicitly to opt out.
+- `types` defaults to an empty array, so list `"node"` and friends.
+- With no config, output is modern ES module syntax rather than the old ES5 +
+  CommonJS default.
+- Legacy options have been **removed** and are now errors (TS5102 or
+  TS5108): `baseUrl`, `outFile`, `downlevelIteration`, `target: "es5"`,
+  `"module": "amd"`/`"umd"`, `"moduleResolution": "node10"` (the old `"node"`)
+  and `esModuleInterop: false`, among others.
+
+If you maintain an older project: TypeScript 6.0 reported those same options
+as deprecated, and `"ignoreDeprecations": "6.0"` silenced them there; in
+TypeScript 7 that escape hatch no longer works, so remove the options (for
+example, replace `baseUrl` with `paths`). If you read an older tutorial that
+says strict is "off by default", it describes TypeScript 5.x and earlier.
+
+## Migrating a loose project to strict
+
+Interviewers often ask how you would do this on a large codebase without
+freezing feature work. A practical sequence:
+
+1. Turn on `noImplicitAny` first and fix or explicitly annotate the `any`s.
+2. Enable `strictNullChecks` next; it produces the most errors and the most
+   real bug fixes. Tackle it folder by folder.
+3. Enable the remaining flags, then replace them with `"strict": true`.
+4. For JavaScript files, `allowJs` lets them coexist and `checkJs` (or a
+   `// @ts-check` comment per file) type-checks them gradually.
+
+When you must suppress an error, prefer `// @ts-expect-error` over
+`// @ts-ignore`: it suppresses the next line's error but itself becomes an
+error once the problem is fixed, so stale suppressions do not pile up.
+
+Large monorepos split configs with `extends` and project references; that
+is covered in "TypeScript at Scale: Project References & Compiler
+Performance".
+
+### Try it yourself
+
+1. Run `npx tsc --init` in an empty folder (outside any project), read the
+   generated file, and list which flags beyond `strict` it enables.
+2. Take a small JavaScript-style file with untyped parameters and a
+   possibly-undefined lookup. Compile it with `--strict false`, then with
+   `--strict --noUncheckedIndexedAccess`, and fix every error.
+3. Add a line with a deliberate type error under `// @ts-expect-error`,
+   then fix the error and observe what the compiler says about the comment.

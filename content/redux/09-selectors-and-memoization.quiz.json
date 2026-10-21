@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `useSelector((state) => state.products.items.filter((p) => p.inStock))` cause re-renders on every dispatched action?",
+      "options": [
+        "useSelector deep-compares results, which is slow",
+        "filter mutates the store",
+        "filter returns a new array each time, so the === comparison always fails",
+        "useSelector re-renders on every action regardless of the selector"
+      ],
+      "correctIndex": 2,
+      "explanation": "useSelector compares the new result to the previous one with ===. A new array is never === the old one, so the component re-renders after any action."
+    },
+    {
+      "question": "When does a selector built with createSelector re-run its result function?",
+      "options": [
+        "When at least one input selector returns a different reference than last time",
+        "On every call, but it caches the output for the component",
+        "Only when the whole root state object is replaced",
+        "Only when you call selector.recomputations()"
+      ],
+      "correctIndex": 0,
+      "explanation": "createSelector compares input selector results by reference. If none changed, it returns the cached result without calling the result function."
+    },
+    {
+      "question": "With RTK 2's default memoizer, you call `selectByCategory(state, \"grocery\")`, then `\"kitchen\"`, then `\"grocery\"` with the same state. How many times does the result function run?",
+      "options": [
+        "1",
+        "3",
+        "0",
+        "2"
+      ],
+      "correctIndex": 3,
+      "explanation": "Reselect 5 uses weakMapMemoize by default, which caches per distinct argument set. The second \"grocery\" call is a cache hit, so only 2 recomputations happen. lruMemoize with size 1 would give 3."
+    },
+    {
+      "question": "Which createSelector is written correctly according to the 'input selectors extract, result function transforms' rule?",
+      "options": [
+        "createSelector([(s) => s.todos.map((t) => t.id)], (ids) => ids.length)",
+        "createSelector([(s) => s.todos], (todos) => todos.map((t) => t.id))",
+        "createSelector([(s) => s.todos], (todos) => todos)",
+        "createSelector([(s) => ({ todos: s.todos })], (x) => x.todos)"
+      ],
+      "correctIndex": 1,
+      "explanation": "The input selector only reads an existing reference and the mapping happens in the result function. The others either build new references in inputs (failing the stability check) or return the input unchanged (failing the identity check)."
+    }
+  ]
+}

@@ -1,0 +1,153 @@
+---
+title: "Setting Up Node.js and Your Tools"
+description: "Install Node.js and npm, pick an editor and an API client, create your first project with package.json, and run your first JavaScript file from the terminal."
+module: "Getting Started"
+level: "beginner"
+order: 1
+---
+
+Express is a library for Node.js, so before writing a single route you need
+Node itself, a terminal you are comfortable in, an editor, and a way to send
+requests to the server you build. This lesson assumes nothing: by the end you
+will have a working project folder and you will have run your first script.
+
+## What Node.js and npm are
+
+- **Node.js** is a program that runs JavaScript outside the browser. The same
+  language you may have used in web pages can read files, open network ports
+  and act as a web server.
+- **npm** (Node Package Manager) is installed together with Node. It downloads
+  libraries such as Express from the public npm registry and records which
+  ones your project uses.
+- **Express** is one of those libraries. You install it per project; it is
+  not part of Node.
+
+## Install Node.js
+
+Download the installer marked **LTS** (Long Term Support) from nodejs.org.
+LTS releases get security fixes for years, which is what companies run in
+production. Express 5 needs Node 18 or newer, so any current LTS is fine.
+
+If you expect to switch between Node versions for different projects, use a
+version manager instead of the installer: `nvm` on macOS and Linux,
+`nvm-windows` or `fnm` on Windows.
+
+```bash
+# with a version manager (nvm shown)
+nvm install --lts
+nvm use --lts
+```
+
+Open a **new** terminal window and check that both commands work:
+
+```bash
+node -v    # v24.x.x (any recent LTS number is fine)
+npm -v     # 11.x.x (comes bundled with Node)
+```
+
+If you see "command not found", close and reopen the terminal so it picks up
+the updated PATH, or restart your machine on Windows.
+
+## The rest of your toolkit
+
+- **An editor**: VS Code is the common choice. Its built-in terminal (opened
+  with Ctrl+backtick) means you never leave the editor.
+- **A terminal**: Terminal on macOS, any shell on Linux, and PowerShell or
+  Git Bash on Windows. You only need `cd`, `ls` (or `dir`) and `mkdir`.
+- **An API client**: a browser can only easily send GET requests. To send
+  POST, PUT and DELETE requests with JSON bodies, use `curl` (built into
+  macOS, Linux and Windows 10 and later) or a GUI tool such as Postman,
+  Insomnia, Bruno or a VS Code REST client extension.
+- **Git**: version control for your code, and the way you will deploy later.
+
+## Create your first project
+
+A Node project is just a folder with a `package.json` file describing it.
+
+```bash
+mkdir hello-node
+cd hello-node
+npm init -y                 # creates package.json with default values
+npm pkg set type=module     # lets you use import/export syntax
+```
+
+```json
+{
+  "name": "hello-node",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
+```
+
+`"type": "module"` tells Node to treat `.js` files as ES modules, so you
+write `import express from "express"` instead of the older
+`const express = require("express")`. Every lesson in this course uses ES
+modules.
+
+## Run your first script
+
+Create `index.js`:
+
+```js
+// index.js
+const salary = 85000;
+const rupees = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
+
+console.log("Hello from Node", process.version);
+console.log("Monthly salary:", rupees.format(salary));
+console.log("Yearly salary:", rupees.format(salary * 12));
+```
+
+```bash
+node index.js
+# Hello from Node v24.21.0
+# Monthly salary: ₹85,000.00
+# Yearly salary: ₹10,20,000.00
+```
+
+Notice the Indian digit grouping (`10,20,000`) comes for free from the
+`en-IN` locale. There is no browser here: `console.log` prints straight to
+your terminal.
+
+## npm scripts and installing packages
+
+Add a script so you do not have to remember commands:
+
+```bash
+npm pkg set scripts.start="node index.js"
+npm start
+# Hello from Node v24.21.0 ...
+```
+
+Installing a package adds it to `dependencies` in `package.json` and
+downloads its code into `node_modules/`:
+
+```bash
+npm install express
+# added 60-odd packages (the exact count varies by version)
+```
+
+Two rules that save trouble:
+
+- **Never commit `node_modules/`.** Add it to a `.gitignore` file. Anyone can
+  recreate it from `package.json` and `package-lock.json` with `npm install`.
+- **Do commit `package-lock.json`.** It pins the exact versions that were
+  installed so every machine gets the same code.
+
+```bash
+echo "node_modules" > .gitignore
+```
+
+### Try it yourself
+
+Create a folder called `rupee-tools`, run `npm init -y` and set
+`"type": "module"`. Write a script that takes a list of three expenses
+(for example rent ₹18,000, groceries ₹6,500 and travel ₹2,250), prints each
+one formatted with `Intl.NumberFormat("en-IN")`, and prints the total. Add
+it as an `npm start` script, install Express, then check that
+`node_modules` is listed in `.gitignore` and that `package.json` now shows
+`express` under `dependencies`.

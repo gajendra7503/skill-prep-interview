@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In `with open('f.txt') as f:`, what is `f` bound to?",
+      "options": [
+        "Always the context manager object itself",
+        "The return value of `__exit__`",
+        "The return value of the manager's `__enter__` method",
+        "The file path string"
+      ],
+      "correctIndex": 2,
+      "explanation": "The `as` target receives whatever `__enter__` returns. For files that happens to be the file object itself, but other managers can return something different."
+    },
+    {
+      "question": "What happens if `__exit__` returns `True` while an exception is propagating out of the `with` body?",
+      "options": [
+        "The exception is suppressed and execution continues after the `with` block",
+        "The exception is re-raised with a new traceback",
+        "Python raises a RuntimeError",
+        "`__exit__` is called a second time"
+      ],
+      "correctIndex": 0,
+      "explanation": "A truthy return value from `__exit__` tells Python to swallow the exception. Returning None or False lets it propagate."
+    },
+    {
+      "question": "Why should the `yield` in a `@contextmanager` generator be wrapped in `try`/`finally`?",
+      "options": [
+        "Generators cannot yield outside a try block",
+        "It makes the context manager faster",
+        "It is required for the `as` clause to work",
+        "An exception in the `with` body is re-raised at the `yield`, so teardown code after it would otherwise be skipped"
+      ],
+      "correctIndex": 3,
+      "explanation": "Exceptions from the body are thrown into the generator at the yield point. Without finally, the cleanup code after yield never runs."
+    },
+    {
+      "question": "When is `contextlib.ExitStack` the right tool?",
+      "options": [
+        "When you need to suppress a specific exception type",
+        "When the number of context managers to enter is only known at runtime",
+        "When you want to turn a generator into a context manager",
+        "When you need to time a block of code"
+      ],
+      "correctIndex": 1,
+      "explanation": "ExitStack lets you enter a dynamic number of managers with enter_context and guarantees they are all exited in reverse order, even if a later one fails to open."
+    }
+  ]
+}

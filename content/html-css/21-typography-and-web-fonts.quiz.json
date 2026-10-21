@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which `font-display` value is best for minimising layout shift, at the cost of sometimes not showing the web font on a first visit?",
+      "options": [
+        "block",
+        "swap",
+        "optional",
+        "auto"
+      ],
+      "correctIndex": 2,
+      "explanation": "optional has a very short block period and no swap period: the web font is used only if it is available almost immediately (e.g. cached), so text never reflows later."
+    },
+    {
+      "question": "Why does a font preload need the `crossorigin` attribute even when the font is on the same origin?",
+      "options": [
+        "Fonts are always fetched in CORS mode, so a preload without crossorigin does not match the real request and the font is downloaded twice",
+        "Without it the browser blocks all fonts",
+        "It enables the font-display property",
+        "It is only needed for variable fonts"
+      ],
+      "correctIndex": 0,
+      "explanation": "The preload's request mode must match the actual font request. Font requests use CORS mode, so the preload must say crossorigin or its response is not reused."
+    },
+    {
+      "question": "Why should a fluid font size like `clamp(1.75rem, 1.2rem + 2.5vw, 3rem)` include a rem term instead of using only vw?",
+      "options": [
+        "vw units are not allowed inside clamp()",
+        "rem makes the font load faster",
+        "clamp() requires at least two different units",
+        "Pure vw sizing ignores browser zoom and the user's default font size, failing text-resize accessibility requirements"
+      ],
+      "correctIndex": 3,
+      "explanation": "Viewport units do not change when a user zooms or raises their base font size. Mixing in rem keeps the text responsive to those settings (WCAG 1.4.4)."
+    },
+    {
+      "question": "What does `unicode-range` on split `@font-face` rules achieve for a site that serves both English and Hindi pages?",
+      "options": [
+        "It converts Devanagari text to Latin script",
+        "The browser downloads only the font files whose ranges cover characters actually used on the page, so English pages skip the Devanagari file",
+        "It forces all subsets to download in parallel",
+        "It disables OpenType shaping to reduce file size"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each @font-face declares which code points it covers; the browser fetches a file only when the page contains characters in its range."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the main benefit of placing pasted material inside `<document>` tags and instructions inside `<instructions>` tags?",
+      "options": [
+        "The model processes tagged text faster",
+        "It makes clear which text is material to work on and which is the task",
+        "Only specific tag names are recognised by the model",
+        "Tags reduce the cost per token"
+      ],
+      "correctIndex": 1,
+      "explanation": "Delimiting separates instructions from data, reducing confusion and making embedded text harder to mistake for instructions."
+    },
+    {
+      "question": "You tagged a contract as `<contract>`. What is the best way to refer to it in your instructions?",
+      "options": [
+        "\"the text above\"",
+        "\"the agreement\"",
+        "\"the doc\"",
+        "\"the contract in the <contract> tags\""
+      ],
+      "correctIndex": 3,
+      "explanation": "Referring to tags by their exact name removes ambiguity; switch names and the model has to guess."
+    },
+    {
+      "question": "Why ask the model to put its final recommendation in `<decision>` tags?",
+      "options": [
+        "So code can reliably extract the decision from the response",
+        "Because the model cannot make decisions otherwise",
+        "To hide the decision from the user",
+        "To make the model think harder"
+      ],
+      "correctIndex": 0,
+      "explanation": "Tagged output is easy to read and easy to parse, for example with a simple regular expression."
+    },
+    {
+      "question": "Which statement about \"prefilling\" the start of Claude's reply is accurate for current models?",
+      "options": [
+        "It is the recommended way to force JSON output",
+        "It is required whenever you use XML tags",
+        "It is a legacy trick not supported on current Claude models; use format instructions and structured outputs instead",
+        "It only works with documents placed at the end of the prompt"
+      ],
+      "correctIndex": 2,
+      "explanation": "Prefill is not supported on current Claude models; clear format instructions and the provider's structured output feature replace it."
+    }
+  ]
+}

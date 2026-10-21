@@ -1,0 +1,170 @@
+---
+title: "Claude API Basics"
+description: "Make your first Messages API call in Python and TypeScript, read responses safely, manage conversation history, choose a model, and handle errors."
+module: "Building with the API"
+level: "advanced"
+order: 20
+---
+
+Everything you have learned about prompting applies directly when you call a
+model from code. The API simply makes the pieces explicit: a system prompt,
+a list of messages, and settings such as which model to use and how long the
+answer may be. This lesson covers the Claude Messages API with the official
+SDKs: `anthropic` for Python and `@anthropic-ai/sdk` for TypeScript.
+
+## Setup and API keys
+
+Install the SDK (`pip install anthropic` or `npm install @anthropic-ai/sdk`)
+and set your key as an environment variable named `ANTHROPIC_API_KEY`. The
+client reads it automatically.
+
+**Never hard-code API keys** in source files, notebooks or screenshots, and
+never commit them to Git. Use environment variables or your organisation's
+secrets manager. Anyone with the key can run up charges on your account.
+
+## Your first request in Python
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from the environment
+
+try:
+    response = client.messages.create(
+        model="claude-opus-5-5",
+        max_tokens=16000,
+        system="You are a concise assistant for the customer-care team at "
+               "Sunrise Home Appliances, a fictional company.",
+        messages=[
+            {"role": "user",
+             "content": "Draft a two-line apology for a delayed refund of ₹18,450."}
+        ],
+    )
+except anthropic.RateLimitError:
+    print("Rate limited -- wait and retry with backoff.")
+    raise
+except anthropic.APIStatusError as e:
+    print(f"API error {e.status_code}: {e.message}")
+    raise
+
+for block in response.content:
+    if block.type == "text":
+        print(block.text)
+
+print("Stop reason:", response.stop_reason)
+print("Tokens in/out:", response.usage.input_tokens, response.usage.output_tokens)
+```
+
+Key points:
+
+- `system` holds your role, rules and context — the same content you would
+  put at the top of a well-structured prompt, XML tags included.
+- `messages` is the conversation. Each item has a `role` (`user` or
+  `assistant`) and `content`.
+- `max_tokens` caps the length of the reply, not the input.
+
+## Reading the response safely
+
+`response.content` is a **list of content blocks**, not a single string.
+Different block types can appear (for example, thinking or tool-use blocks),
+so always check `block.type == "text"` before reading `block.text`.
+
+Always check `response.stop_reason` too:
+
+| stop_reason | Meaning |
+| --- | --- |
+| `end_turn` | The model finished naturally |
+| `max_tokens` | The reply hit your `max_tokens` limit and is cut off |
+| `stop_sequence` | A custom stop sequence was produced |
+| `tool_use` | The model wants to call one of your tools |
+| `pause_turn` | A long-running server-side turn paused; continue it |
+| `refusal` | The model declined the request |
+
+If you see `max_tokens`, the output is incomplete — do not save a truncated
+JSON object as if it were valid. `response.usage` reports input and output
+tokens, which is what you are billed on.
+
+## Multi-turn conversations
+
+The API is **stateless**: it remembers nothing between calls. To continue a
+conversation, resend the full history each time, alternating roles. The
+first message must have the `user` role.
+
+```python
+history = [
+    {"role": "user", "content": "Summarise this policy clause: ..."},
+    {"role": "assistant", "content": "The clause says ..."},
+    {"role": "user", "content": "Now explain it for a new customer in Hindi."},
+]
+response = client.messages.create(
+    model="claude-opus-5-5", max_tokens=16000, messages=history
+)
+```
+
+Note that the list ends with a `user` message. On current Claude models,
+**prefill** — ending the list with a partial `assistant` turn to steer the
+start of the reply — is not supported and returns a 400 error. Put format
+instructions in the system prompt or use structured outputs instead.
+
+## Choosing a model
+
+| Model ID | Positioning | Price (input / output per million tokens) |
+| --- | --- | --- |
+| `claude-fable-5-1` | Most capable | $10 / $50 |
+| `claude-opus-5-5` | Most capable Opus; a sensible default | $4 / $20 |
+| `claude-sonnet-5-5` | Balanced capability and cost | $2 / $10 |
+| `claude-haiku-4-5` | Fastest and cheapest | $1 / $5 |
+
+Prices are in US dollars, current as of October 2026, and change over time —
+check Anthropic's pricing page before estimating costs. A common pattern is
+to use a smaller model for high-volume, simple tasks such as email
+classification, and a larger one for complex reasoning — and to decide using
+your own test set from the evaluation lesson.
+
+## Controlling thinking depth
+
+Current Claude models think adaptively before answering. You control how
+much effort they spend with `output_config`:
+
+```python
+response = client.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=16000,
+    output_config={"effort": "low"},   # low | medium | high | xhigh | max
+    messages=[{"role": "user", "content": "Classify this email: ..."}],
+)
+```
+
+Lower effort is faster and cheaper; higher effort helps on hard, multi-step
+problems. On `claude-opus-5-5`, thinking cannot be switched off and the
+default effort is `medium`. Older tutorials may show sampling parameters
+such as `temperature` or a thinking token budget; do not copy those onto
+current models — `claude-opus-5-5`, for example, rejects sampling parameters.
+
+## The same call in TypeScript
+
+```ts
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic(); // reads ANTHROPIC_API_KEY
+
+const response = await client.messages.create({
+  model: "claude-opus-5-5",
+  max_tokens: 16000,
+  system: "You summarise internal MIS notes in three bullets.",
+  messages: [{ role: "user", content: "Summarise: ..." }],
+});
+
+for (const block of response.content) {
+  if (block.type === "text") console.log(block.text);
+}
+console.log(response.stop_reason, response.usage.output_tokens);
+```
+
+### Try it yourself
+
+Set `ANTHROPIC_API_KEY` in your environment and run the Python example with
+`claude-haiku-4-5`, then with `claude-opus-5-5`. Print `stop_reason` and the
+token usage for each. Next, set `max_tokens` very low (say 20) and confirm
+you get `max_tokens` as the stop reason. Finally, build a three-turn
+conversation by appending each reply to `history`.

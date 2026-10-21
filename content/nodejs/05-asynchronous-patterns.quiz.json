@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In Node's error-first callback convention, what is the first argument passed to the callback?",
+      "options": [
+        "The result data",
+        "An error object, or null when the operation succeeded",
+        "The name of the function that was called",
+        "A promise for the result"
+      ],
+      "correctIndex": 1,
+      "explanation": "Error-first callbacks receive (err, result). The code must check err before using the result, and usually return after handling the error."
+    },
+    {
+      "question": "You need to send 50 notification emails and report which ones failed, without stopping at the first failure. Which combinator fits best?",
+      "options": [
+        "Promise.race",
+        "Promise.any",
+        "Promise.all",
+        "Promise.allSettled"
+      ],
+      "correctIndex": 3,
+      "explanation": "Promise.allSettled waits for every promise and returns a status object for each, so you can see all successes and failures. Promise.all rejects on the first failure."
+    },
+    {
+      "question": "Why is `const a = await getUser(); const b = await getOrders();` slower than it needs to be when the two calls are independent?",
+      "options": [
+        "The second call does not start until the first finishes; Promise.all would run them concurrently",
+        "await blocks the whole event loop",
+        "await converts the calls into synchronous file reads",
+        "It is not slower; both forms take the same time"
+      ],
+      "correctIndex": 0,
+      "explanation": "Sequential awaits serialise the operations. Starting both and awaiting Promise.all([getUser(), getOrders()]) lets them overlap. await pauses only the current async function, not the loop."
+    },
+    {
+      "question": "What is the simplest built-in way to make a fetch call give up after 3 seconds?",
+      "options": [
+        "Wrap fetch in try/catch",
+        "Call process.exit after 3 seconds",
+        "Pass { signal: AbortSignal.timeout(3000) } to fetch",
+        "Use util.promisify(fetch)"
+      ],
+      "correctIndex": 2,
+      "explanation": "AbortSignal.timeout(ms) returns a signal that aborts automatically after the delay, and fetch accepts it through the signal option."
+    }
+  ]
+}

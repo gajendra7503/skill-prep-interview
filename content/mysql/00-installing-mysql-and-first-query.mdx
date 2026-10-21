@@ -1,0 +1,177 @@
+---
+title: "Installing MySQL & Your First Query"
+description: "Install a MySQL server on Windows, macOS, Linux or Docker, connect with the mysql client, and create, fill and query your first table."
+module: "Getting Started"
+level: beginner
+order: 1
+---
+
+Before you can write a single query you need two things: a running MySQL
+**server** that stores the data, and a **client** that sends it SQL. This
+lesson gets both working on your machine and walks you through your first
+database, table, insert and select. No prior database knowledge is needed.
+
+## Server and client: two separate programs
+
+MySQL is a **client-server** system:
+
+- The **server** (`mysqld`) runs in the background, owns the data files on
+  disk and listens for connections, by default on TCP port **3306**.
+- A **client** connects to the server, sends SQL statements and shows the
+  results. The classic client is the command-line `mysql` program; MySQL
+  Workbench and editors such as DBeaver or the VS Code MySQL extensions are
+  graphical clients. Your application code (Python, Node, Java) is also a
+  client.
+
+Many clients can talk to one server at the same time, and the server can be
+on your laptop, on another machine in the office, or in the cloud (Amazon
+RDS, Google Cloud SQL, Azure Database for MySQL). The SQL is the same.
+
+## Choosing a version
+
+Oracle publishes two release tracks:
+
+- **LTS (long-term support)** releases, such as **MySQL 8.4**, get bug and
+  security fixes for years with no new features. Pick this for learning
+  and for production.
+- **Innovation** releases (the 9.x line) add new features every few months
+  and are supported only until the next one ships.
+
+Everything in this course works on MySQL 8.0 and 8.4. Note that 8.0
+reached end of life in April 2026, so new installations should use 8.4.
+
+## Installing the server
+
+Pick whichever route suits your machine.
+
+```bash
+# Docker (any OS) — the quickest way to get a disposable server
+docker run --name mysql-dev -e MYSQL_ROOT_PASSWORD=devpass \
+  -p 3306:3306 -d mysql:8.4
+
+# macOS with Homebrew
+brew install mysql@8.4
+brew services start mysql@8.4
+
+# Ubuntu / Debian (version depends on your distribution's packages)
+sudo apt update && sudo apt install mysql-server
+sudo systemctl status mysql        # should say "active (running)"
+```
+
+On **Windows**, download the MySQL Installer (MSI) from dev.mysql.com,
+choose the server and MySQL Workbench, and set a root password when
+prompted. The installer registers MySQL as a Windows service so it starts
+automatically.
+
+The `root` account can do anything. Use it to get started, but later in
+the course you will create less privileged accounts for applications.
+
+## Connecting with the mysql client
+
+```bash
+mysql -u root -p -h 127.0.0.1 -P 3306
+# Enter password: ********
+# Welcome to the MySQL monitor.  Commands end with ; or \g.
+# mysql>
+
+# With Docker, run the client inside the container instead
+docker exec -it mysql-dev mysql -u root -p
+```
+
+`-u` is the user, `-p` asks for the password (never type it on the command
+line, where it lands in shell history), `-h` the host and `-P` the port.
+Once you see the `mysql>` prompt you are connected. Check the version:
+
+```sql
+SELECT VERSION();
+-- 8.4.x
+```
+
+Every statement ends with a **semicolon**. If you press Enter without one,
+the prompt changes to `->` and waits for the rest. Type `exit` (or `\q`)
+to leave.
+
+## Your first database and table
+
+A server holds many **databases**. Create one for this course and switch
+to it:
+
+```sql
+CREATE DATABASE shop;
+USE shop;
+-- Database changed
+
+CREATE TABLE products (
+  id     INT AUTO_INCREMENT PRIMARY KEY,
+  name   VARCHAR(100) NOT NULL,
+  price  DECIMAL(10,2) NOT NULL
+);
+
+SHOW TABLES;
+-- products
+
+DESCRIBE products;
+-- id     int            NO   PRI  NULL  auto_increment
+-- name   varchar(100)   NO        NULL
+-- price  decimal(10,2)  NO        NULL
+```
+
+`AUTO_INCREMENT` makes MySQL number the rows for you, and `PRIMARY KEY`
+says that `id` uniquely identifies each row.
+
+## Inserting and reading rows
+
+```sql
+INSERT INTO products (name, price) VALUES
+  ('Notebook', 60.00),
+  ('Steel bottle', 449.00),
+  ('Wireless mouse', 799.00);
+-- Query OK, 3 rows affected
+
+SELECT * FROM products;
+-- +----+----------------+--------+
+-- | id | name           | price  |
+-- +----+----------------+--------+
+-- |  1 | Notebook       |  60.00 |
+-- |  2 | Steel bottle   | 449.00 |
+-- |  3 | Wireless mouse | 799.00 |
+-- +----+----------------+--------+
+
+SELECT name, price FROM products WHERE price < 500 ORDER BY price DESC;
+-- Steel bottle  449.00
+-- Notebook       60.00
+```
+
+Text values go in **single quotes**. `*` means "all columns", but in real
+code list the columns you need.
+
+## Running a script file
+
+Typing long statements at the prompt gets tedious. Save them in a file,
+say `setup.sql`, and run it in one go:
+
+```bash
+mysql -u root -p shop < setup.sql
+```
+
+Inside the client you can also run `SOURCE setup.sql;`. Keeping your schema
+in `.sql` files means you can rebuild the database at any time.
+
+## When it does not connect
+
+| Error | Usual cause |
+| --- | --- |
+| `Can't connect to MySQL server on '127.0.0.1:3306'` | Server not running, or a different port |
+| `Access denied for user 'root'@'localhost'` | Wrong password or user |
+| `Unknown database 'shop'` | Typo, or the database was never created |
+| `mysql: command not found` | Client not on your PATH |
+
+### Try it yourself
+
+Install MySQL by one of the routes above and connect with the `mysql`
+client. Create a database called `practice`, then a `books` table with an
+auto-increment `id`, a `title`, an `author` and a `price_inr`. Insert five
+books priced between ₹199 and ₹899, and write a query that lists the books
+under ₹500, cheapest first. Finally, save all your statements in a
+`books.sql` file, drop the database with `DROP DATABASE practice;`, and
+rebuild it by running the file.

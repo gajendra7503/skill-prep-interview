@@ -1,0 +1,199 @@
+---
+title: "systemd Services, Timers & journalctl"
+description: "Run your app as a systemd service that starts on boot and restarts on failure, schedule jobs with timers, and read logs with journalctl."
+module: "Administration"
+level: "advanced"
+order: 19
+---
+
+On Ubuntu, Fedora, RHEL and most mainstream distros, **systemd** is the
+first process the kernel starts (PID 1). It starts everything else, keeps
+services running, and collects their logs. If you deploy a Node, Python or
+Java app to a VM, a systemd unit is the standard way to keep it alive.
+
+## Units and systemctl
+
+systemd manages **units**. The common types are `.service` (a process),
+`.timer` (a schedule), `.socket`, `.mount` and `.target` (a group, like
+`multi-user.target`). You control them with `systemctl`:
+
+| Command | Effect |
+|---|---|
+| `systemctl status nginx` | state, PID, memory and recent log lines |
+| `sudo systemctl start` / `stop` / `restart nginx` | change it now |
+| `sudo systemctl reload nginx` | re-read config without dropping connections (if supported) |
+| `sudo systemctl enable` / `disable nginx` | start / do not start at boot |
+| `sudo systemctl enable --now nginx` | enable and start in one step |
+| `systemctl is-active nginx` / `is-enabled nginx` | script-friendly checks |
+| `systemctl --failed` | list units that failed |
+
+Interviewers love this one: **start** affects the running system now;
+**enable** only affects the next boot. You usually want both.
+
+```text
+$ systemctl status myapp
+● myapp.service - Shop API (Node.js)
+     Loaded: loaded (/etc/systemd/system/myapp.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-10-15 10:02:11 IST; 2h 5min ago
+   Main PID: 2210 (node)
+     Memory: 58.3M
+     CGroup: /system.slice/myapp.service
+             └─2210 /usr/bin/node /opt/myapp/server.js
+
+Oct 15 10:02:11 web1 systemd[1]: Started myapp.service - Shop API (Node.js).
+```
+
+`Loaded` tells you where the unit file is and whether it is enabled;
+`Active` tells you whether it is running right now.
+
+## Writing a service unit
+
+Your own units go in `/etc/systemd/system/`. Files under
+`/lib/systemd/system/` (or `/usr/lib/systemd/system/`) belong to packages;
+do not edit them.
+
+```ini
+# /etc/systemd/system/myapp.service
+[Unit]
+Description=Shop API (Node.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=shopapi
+Group=shopapi
+WorkingDirectory=/opt/myapp
+EnvironmentFile=/etc/myapp/env
+ExecStart=/usr/bin/node /opt/myapp/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- `[Unit]` describes the unit and its ordering. `After=` controls **order**
+  only; `Wants=` or `Requires=` create the actual **dependency**.
+- `[Service]` says how to run it. Run as a dedicated unprivileged `User=`,
+  never root. `ExecStart=` needs an absolute path, and it is **not** run
+  through a shell, so pipes, `&&` and `~` do not work there.
+- `Restart=on-failure` restarts the process if it exits with an error or is
+  killed by a signal. `always` restarts even after a clean exit.
+- `[Install]` is used by `enable`: `WantedBy=multi-user.target` means "start
+  this during normal boot".
+
+`EnvironmentFile` holds plain `KEY=value` lines, keeping secrets out of the
+unit file. Make it readable only by root (mode `600`); systemd reads it
+before dropping privileges:
+
+```ini
+# /etc/myapp/env
+NODE_ENV=production
+PORT=3000
+DATABASE_URL=postgres://shop:secret@10.0.1.20/shopdb
+```
+
+After creating or editing any unit file, run `sudo systemctl daemon-reload`
+so systemd re-reads it, then `sudo systemctl enable --now myapp`. Forgetting
+`daemon-reload` is the classic "my change did nothing" mistake.
+
+### Overriding package units
+
+To change a packaged service (say, raise nginx's file limit) without
+editing its file, run `sudo systemctl edit nginx`. It opens an editor for a
+drop-in, `/etc/systemd/system/nginx.service.d/override.conf`, which survives
+package upgrades:
+
+```ini
+[Service]
+LimitNOFILE=65535
+```
+
+`systemctl cat nginx` shows the original file plus all drop-ins.
+
+## Reading logs with journalctl
+
+systemd's journal captures everything a service writes to stdout and
+stderr, so your app can simply log to the console.
+
+```bash
+journalctl -u myapp                 # all logs for one unit
+journalctl -u myapp -f              # follow live, like tail -f
+journalctl -u myapp -n 50           # last 50 lines
+journalctl -u myapp --since "1 hour ago"   # also --until "2026-10-15 10:00"
+journalctl -p err -b                # errors and worse since this boot
+journalctl -b -1                    # previous boot (if the journal is persistent)
+```
+
+Priorities follow syslog levels: `emerg`, `alert`, `crit`, `err`,
+`warning`, `notice`, `info`, `debug`; `-p err` includes everything more
+severe. Reading other services' logs needs `sudo` or membership of the
+`systemd-journal` (or `adm`) group, and `journalctl --disk-usage` shows how
+much space the journal takes (limits live in `/etc/systemd/journald.conf`).
+
+A typical crash investigation: `systemctl status myapp` shows
+"activating (auto-restart)" or "failed", so you read the recent logs:
+
+```text
+$ journalctl -u myapp -n 100 --no-pager
+Oct 15 12:10:04 web1 node[3012]: Error: listen EADDRINUSE: address already in use :::3000
+Oct 15 12:10:04 web1 systemd[1]: myapp.service: Main process exited, code=exited, status=1/FAILURE
+Oct 15 12:10:04 web1 systemd[1]: myapp.service: Failed with result 'exit-code'.
+```
+
+## Timers: systemd's scheduler
+
+A timer activates a service on a schedule. You need two files with the same
+name:
+
+```ini
+# /etc/systemd/system/db-backup.service
+[Unit]
+Description=Nightly database backup
+
+[Service]
+Type=oneshot
+User=backup
+ExecStart=/usr/local/bin/db-backup.sh
+```
+
+```ini
+# /etc/systemd/system/db-backup.timer
+[Unit]
+Description=Run db-backup every night at 02:30
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable the **timer**, not the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now db-backup.timer
+systemctl list-timers               # next and last run of every timer
+systemd-analyze calendar "*-*-* 02:30:00"   # check when an expression fires
+sudo systemctl start db-backup.service      # run the job once, right now
+```
+
+`Persistent=true` runs a missed job at the next boot if the machine was off
+at 02:30. `OnCalendar` also accepts words such as `daily`, `weekly` and
+`Mon..Fri 09:00`. Compared with cron (see "Scheduling Jobs with cron"),
+timers give you logs in the journal, dependency handling and catch-up of
+missed runs, at the cost of two files per job.
+
+### Try it yourself
+
+1. Write a unit file for `python3 -m http.server 8000` running as your own
+   user from `/srv/www`, with `Restart=on-failure`. Enable it, kill its PID
+   with `kill -9`, and watch systemd restart it in `journalctl -f`.
+2. Show only `warning` and worse messages from the SSH service in the last
+   24 hours. (The unit is `ssh` on Ubuntu and `sshd` on Fedora/RHEL.)
+3. Create a timer that runs a cleanup script every Sunday at 03:00 and
+   confirm its next run with `systemctl list-timers`.

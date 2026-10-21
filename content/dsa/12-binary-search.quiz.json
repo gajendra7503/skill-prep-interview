@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "For the sorted array [40, 55, 55, 55, 70, 90], what does lowerBound(a, 60) return (first index with a[i] >= 60)?",
+      "options": [
+        "3",
+        "4",
+        "-1",
+        "5"
+      ],
+      "correctIndex": 1,
+      "explanation": "Index 4 holds 70, the first value that is at least 60. lowerBound returns an insert position, never -1."
+    },
+    {
+      "question": "Which property must hold to apply 'binary search on the answer'?",
+      "options": [
+        "The input array must be sorted in ascending order",
+        "The answer must be a power of two",
+        "The yes/no check must be monotonic: once it is true for some value, it stays true for all larger values",
+        "The check must run in O(1)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Search on the answer looks for the boundary between 'no' and 'yes' over a range of candidate answers, which only exists if the check is monotonic."
+    },
+    {
+      "question": "In searching a rotated sorted array with distinct values, how do you know the left half a[lo..mid] is sorted?",
+      "options": [
+        "a[lo] <= a[mid]",
+        "a[mid] < a[hi]",
+        "target < a[mid]",
+        "mid is even"
+      ],
+      "correctIndex": 0,
+      "explanation": "If the first element of the range is not larger than a[mid], no rotation point lies between them, so that half is sorted."
+    },
+    {
+      "question": "Using the inclusive template `while (lo <= hi)`, which update pairing is correct?",
+      "options": [
+        "lo = mid and hi = mid",
+        "lo = mid + 1 and hi = mid",
+        "lo = mid and hi = mid - 1",
+        "lo = mid + 1 and hi = mid - 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "With an inclusive range, mid has already been checked, so both sides exclude it. Using hi = mid with lo <= hi can loop forever."
+    }
+  ]
+}

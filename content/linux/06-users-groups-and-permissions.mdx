@@ -1,0 +1,186 @@
+---
+title: "Users, Groups, Permissions & sudo"
+description: "How Linux decides who may read, write or run a file: users and groups, the rwx permission model, chmod and chown, umask, and using sudo responsibly."
+module: "Command-Line Basics"
+level: "beginner"
+order: 6
+---
+
+Every file on Linux has an owner, every process runs as some user, and the
+kernel checks permissions on every access. This lesson teaches you to read
+and fix "Permission denied" properly, without the dangerous `chmod 777`.
+
+## Users and groups
+
+Each **user** has a name and a numeric ID (UID). Each user also belongs to
+one or more **groups**, which let you grant access to a team at once.
+
+```bash
+whoami     # asha
+id         # uid=1000(asha) gid=1000(asha) groups=1000(asha),27(sudo)
+```
+
+Key facts:
+
+- **root** has UID 0 and bypasses normal permission checks.
+- On Ubuntu and Fedora, regular human accounts start at UID 1000; lower
+  numbers are system accounts for services such as `www-data` (the web
+  server user on Ubuntu).
+- Accounts are listed in `/etc/passwd`, one per line, colon-separated:
+
+```text
+asha:x:1000:1000:Asha Rao,,,:/home/asha:/bin/bash
+```
+
+Fields: username, `x` (hash kept in root-only `/etc/shadow`), UID, primary
+GID, comment, home, login shell. Groups are listed in `/etc/group`.
+
+## Reading permissions
+
+`ls -l` shows a 10-character permission string:
+
+```text
+-rwxr-x--- 1 asha developers 2048 Oct 15 10:00 deploy.sh
+
+-    rwx    r-x    ---
+type owner  group  others
+```
+
+| Letter | On a file | On a directory |
+| --- | --- | --- |
+| `r` (read) | Read the contents | List the names inside (`ls`) |
+| `w` (write) | Change the contents | Create, delete or rename entries inside |
+| `x` (execute) | Run it as a program | Enter it (`cd`) and access items inside |
+
+So for `deploy.sh`: the owner `asha` can read, write and run it; members of
+the `developers` group can read and run it; everyone else has no access.
+
+The directory rules surprise people. Deleting a file needs **write
+permission on the directory**, not on the file. And without `x` on a
+directory you cannot reach anything inside it, even files you own.
+
+Interviewers often ask: "What does execute permission mean on a
+directory?" Answer: permission to enter it and access the entries inside
+(traverse it); listing the names needs `r`.
+
+## Changing permissions with `chmod`
+
+### Symbolic mode
+
+Who: `u` (user/owner), `g` (group), `o` (others), `a` (all). Operator:
+`+` add, `-` remove, `=` set exactly.
+
+```bash
+chmod u+x deploy.sh        # owner may run it
+chmod g-w report.csv       # group may no longer write
+chmod o= secrets.env       # others get nothing
+chmod a+r index.html       # everyone may read
+chmod u=rw,g=r,o= app.conf # set all three at once
+```
+
+### Octal (numeric) mode
+
+Each permission has a value — `r`=4, `w`=2, `x`=1 — and you add them per
+class:
+
+| Octal | Permissions | Typical use |
+| --- | --- | --- |
+| `755` | `rwxr-xr-x` | Scripts, programs, directories |
+| `644` | `rw-r--r--` | Normal files, web pages |
+| `600` | `rw-------` | Private files: SSH keys, `.env` with secrets |
+| `700` | `rwx------` | Private directories such as `~/.ssh` |
+| `640` | `rw-r-----` | Config readable by a service's group |
+
+For example, `chmod 600 ~/.ssh/id_ed25519` or `chmod 755 deploy.sh`.
+
+**Never "fix" permission problems with `chmod 777`** (or `chmod -R 777`).
+It lets every user and every compromised process on the machine modify
+the files — on a web server that is an open door for attackers. Work out
+**who** needs access and grant exactly that, usually through the owner or
+group.
+
+Be careful with `chmod -R` too: `chmod -R 755 project/` marks every file
+executable. Capital `X` adds execute only to directories (and files that
+are already executable): `chmod -R u=rwX,go=rX project/`.
+
+A script needs `x` to be run directly:
+
+```bash
+./deploy.sh      # bash: ./deploy.sh: Permission denied
+chmod +x deploy.sh
+./deploy.sh      # deployed
+```
+
+## Changing ownership: `chown` and `chgrp`
+
+Only root can give a file to another user, so these usually need `sudo`:
+
+```bash
+sudo chown asha report.csv                # change owner
+sudo chown asha:developers report.csv     # owner and group
+sudo chgrp developers report.csv          # group only
+sudo chown -R www-data:www-data /var/www/shop   # a whole tree
+```
+
+A typical real fix: the web server (running as `www-data`) cannot write to
+an uploads directory. The right answer is
+`sudo chown -R www-data:www-data /var/www/shop/uploads`, not `chmod 777`.
+
+## Default permissions: `umask`
+
+New files do not start as `777`. The **umask** (run `umask` to see yours)
+removes bits from the defaults of `666` for files and `777` for
+directories. With the common `022`, new files are `644` and new directories
+`755`; some distributions use `002` for regular users, adding group write.
+
+## Special bits (recognise them)
+
+| Bit | Looks like | Effect |
+| --- | --- | --- |
+| setuid | `-rwsr-xr-x` on `/usr/bin/passwd` | Program runs as its owner (root), so users can change their own password |
+| setgid on a directory | `drwxrwsr-x` | New files inherit the directory's group — handy for shared team folders |
+| sticky bit | `drwxrwxrwt` on `/tmp` | Anyone can create files, but only the owner can delete theirs |
+
+## `sudo`: borrowing root's powers
+
+Logging in as root for daily work is risky: one typo has unlimited reach.
+Instead, users in an admin group run individual commands as root with
+**sudo**:
+
+```bash
+sudo apt update          # asks for YOUR password, not root's
+sudo -l                  # what am I allowed to run with sudo?
+sudo -i                  # interactive root shell (use sparingly; exit when done)
+```
+
+sudo remembers your password for a short time (15 minutes by default) and
+logs every use. On Ubuntu the admin group is `sudo` and the root account
+has no password by default; on Fedora/RHEL it is `wheel`.
+
+## Managing users and groups
+
+```bash
+sudo adduser ravi                    # Debian/Ubuntu: interactive, creates home dir
+sudo useradd -m -s /bin/bash ravi    # portable low-level tool (all distros)
+sudo passwd ravi                     # set or reset a password
+sudo groupadd developers             # create a group
+sudo usermod -aG developers ravi     # ADD ravi to an extra group
+sudo usermod -aG sudo ravi           # make ravi an admin (wheel on Fedora/RHEL)
+groups ravi                          # check membership
+```
+
+Two classic mistakes: forgetting `-a` in `usermod -aG` replaces all of
+ravi's extra groups instead of adding one, and forgetting that **new
+group membership only applies after the user logs in again**. Edit sudo
+rules only with `sudo visudo` (or files in `/etc/sudoers.d/`), which checks
+the syntax — a broken sudoers file can lock everyone out of sudo.
+
+### Try it yourself
+
+1. Create `secret.env` in your home directory, then set permissions so only
+   you can read and write it, first in symbolic mode and then in octal.
+   Confirm with `ls -l`.
+2. Write a two-line script `hello.sh`, try to run it with `./hello.sh`,
+   note the error and the exit status (`echo $?`), then fix it with `chmod`.
+3. Decode these without running anything: `-rw-r-----`, `drwx--x--x`,
+   `750`. For the directory, can "others" list it? Can they `cd` into it?

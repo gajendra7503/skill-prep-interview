@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A slice is created with `name: \"cart\"` and a reducer key `itemRemoved`. What is the generated action type?",
+      "options": [
+        "ITEM_REMOVED",
+        "itemRemoved",
+        "cart.itemRemoved",
+        "cart/itemRemoved"
+      ],
+      "correctIndex": 3,
+      "explanation": "createSlice builds action types as name + \"/\" + reducer key."
+    },
+    {
+      "question": "Your todoAdded action needs a generated ID and a createdAt timestamp. Where should that code go?",
+      "options": [
+        "In a prepare callback on the todoAdded reducer",
+        "Inside the case reducer, before pushing the item",
+        "In extraReducers",
+        "In the slice's initialState"
+      ],
+      "correctIndex": 0,
+      "explanation": "prepare runs inside the action creator before dispatch, so random IDs and timestamps end up in the payload and the reducer stays pure."
+    },
+    {
+      "question": "The todos slice must reset when the auth feature dispatches `auth/userLoggedOut`. How should the todos slice handle it?",
+      "options": [
+        "Add a userLoggedOut key to the todos slice's reducers",
+        "Use builder.addCase(userLoggedOut, ...) in extraReducers",
+        "Have the auth reducer import and modify todos state",
+        "Pass an object { \"auth/userLoggedOut\": fn } to extraReducers"
+      ],
+      "correctIndex": 1,
+      "explanation": "extraReducers handles actions defined elsewhere. A key in reducers would create a new todos/userLoggedOut action, and the object notation was removed in RTK 2."
+    },
+    {
+      "question": "A slice defines `selectors: { selectPendingCount: (state) => ... }`. What does `todosSlice.selectors.selectPendingCount` expect as its argument?",
+      "options": [
+        "Only the todos array",
+        "The action being dispatched",
+        "The root state, from which it reads the slice's own key",
+        "The store object"
+      ],
+      "correctIndex": 2,
+      "explanation": "Inside the selectors field you write functions of the slice state; the generated slice.selectors versions take the root state and look up the slice (state.todos by default)."
+    }
+  ]
+}

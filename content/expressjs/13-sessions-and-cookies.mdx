@@ -1,0 +1,152 @@
+---
+title: "Sessions and Cookies"
+description: "Set secure cookies, keep users logged in with express-session and a real session store, and hash passwords properly with bcrypt or argon2."
+module: "Auth & Security"
+level: "intermediate"
+order: 15
+---
+
+HTTP is stateless: every request arrives with no memory of the last one.
+Cookies are how a server asks the browser to remember a small value and send
+it back on every request. Session-based auth builds on that — the cookie
+holds only a random session ID, and the actual user data stays on the server.
+
+## Setting and reading cookies
+
+Express can set cookies out of the box with `res.cookie()`. Reading them
+needs the `cookie-parser` middleware, which fills `req.cookies` (and
+`req.signedCookies` if you give it a secret).
+
+```js
+import express from "express";
+import cookieParser from "cookie-parser";
+
+const app = express();
+app.use(cookieParser(process.env.COOKIE_SECRET));
+
+app.get("/theme/:name", (req, res) => {
+  res.cookie("theme", req.params.name, {
+    httpOnly: true,        // not readable from document.cookie
+    secure: true,          // only sent over HTTPS
+    sameSite: "lax",       // not sent on most cross-site requests
+    maxAge: 30 * 24 * 60 * 60 * 1000, // milliseconds, here 30 days
+  });
+  res.json({ ok: true });
+});
+
+app.get("/theme", (req, res) => {
+  res.json({ theme: req.cookies.theme ?? "light" });
+});
+// GET /theme -> { "theme": "dark" }
+```
+
+## The three cookie flags interviewers ask about
+
+- **`httpOnly`** — JavaScript in the page cannot read the cookie, so an XSS
+  bug cannot simply steal the session ID with `document.cookie`.
+- **`secure`** — the browser only sends the cookie over HTTPS, so it never
+  travels in plain text on public Wi-Fi.
+- **`sameSite`** — controls whether the cookie is attached to cross-site
+  requests. `"lax"` (a good default) blocks it on cross-site POSTs and
+  sub-requests but allows top-level link navigation; `"strict"` blocks it on
+  all cross-site requests; `"none"` always sends it and requires `secure`.
+
+A **signed** cookie (`signed: true` with cookie-parser's secret) can be read
+by the client but not tampered with — the signature check fails if the value
+changes. Signing is not encryption, so never put secrets in it.
+
+## Sessions with express-session
+
+`express-session` generates a random session ID, stores it in a cookie and
+keeps the session data server-side, exposing it as `req.session`.
+
+```js
+import session from "express-session";
+
+app.set("trust proxy", 1); // needed for secure cookies behind a load balancer
+
+app.use(session({
+  name: "sid",                       // don't advertise the default "connect.sid"
+  secret: process.env.SESSION_SECRET,
+  resave: false,                     // don't re-save unchanged sessions
+  saveUninitialized: false,          // no cookie until something is stored
+  cookie: { httpOnly: true, secure: true, sameSite: "lax", maxAge: 1000 * 60 * 60 * 8 },
+  // store: a Redis or database store in production (see below)
+}));
+```
+
+`secure: true` cookies are only set when Express believes the request came
+over HTTPS. Behind a proxy that terminates TLS, Express sees plain HTTP
+unless you configure `trust proxy` — a common "my session cookie never
+appears in production" bug.
+
+## Session stores
+
+The default `MemoryStore` is for development only: it leaks memory, loses
+every session on restart, and cannot be shared between two server instances.
+In production plug in a store such as `connect-redis` or a database-backed
+store, so any instance behind the load balancer can look up any session and
+you can revoke a session simply by deleting it.
+
+## Hashing passwords: bcrypt or argon2
+
+Never store plain passwords, and never use a fast hash like SHA-256 or MD5 —
+they can be brute-forced billions of times per second. Use a deliberately
+slow, salted password hash: **bcrypt** or **argon2**. Both embed the salt in
+the stored string, so you store just one column.
+
+```js
+import bcrypt from "bcrypt";
+
+// Signup
+const passwordHash = await bcrypt.hash(password, 12); // 12 = cost factor
+await prisma.user.create({ data: { email, passwordHash } });
+// stored: "$2b$12$Q9...", salt included
+
+// Login
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  const user = await prisma.user.findUnique({ where: { email } });
+  const ok = user && (await bcrypt.compare(password, user.passwordHash));
+  if (!ok) return res.status(401).json({ error: "Invalid email or password" });
+
+  req.session.regenerate((err) => {      // new ID prevents session fixation
+    if (err) return res.status(500).json({ error: "Login failed" });
+    req.session.userId = user.id;
+    res.json({ id: user.id, email: user.email });
+  });
+});
+```
+
+With argon2 the equivalent calls are `argon2.hash(password)` and
+`argon2.verify(hash, password)`. Note the deliberately vague error message —
+saying "no such email" lets attackers enumerate accounts.
+
+## Protecting routes and logging out
+
+```js
+function requireLogin(req, res, next) {
+  if (!req.session.userId) return res.status(401).json({ error: "Login required" });
+  next();
+}
+
+app.get("/me", requireLogin, (req, res) => res.json({ userId: req.session.userId }));
+
+app.post("/logout", (req, res, next) => {
+  req.session.destroy((err) => {
+    if (err) return next(err);
+    res.clearCookie("sid");
+    res.status(204).end();
+  });
+});
+```
+
+`destroy()` removes the session from the store, so the old cookie is useless
+even if someone copied it — server-side revocation is the big advantage of
+sessions over stateless tokens.
+
+### Try it yourself
+
+Build `/signup`, `/login`, `/me` and `/logout` with express-session and
+bcrypt. Log in, copy the `sid` cookie from DevTools, log out, then replay the
+old cookie with curl and confirm `/me` returns 401.

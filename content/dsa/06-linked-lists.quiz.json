@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "When reversing a singly linked list iteratively, why must you save `cur.next` before setting `cur.next = prev`?",
+      "options": [
+        "To keep the list sorted",
+        "Because otherwise the reference to the rest of the list is lost",
+        "Because JavaScript objects are immutable",
+        "To make the algorithm O(log n)"
+      ],
+      "correctIndex": 1,
+      "explanation": "Once cur.next is overwritten, nothing points to the remaining nodes. Saving it first lets you continue the walk."
+    },
+    {
+      "question": "What problem does a dummy (sentinel) node before the head solve?",
+      "options": [
+        "It makes access by index O(1)",
+        "It prevents cycles",
+        "It removes the need to special-case operations that change the head",
+        "It halves memory usage"
+      ],
+      "correctIndex": 2,
+      "explanation": "With a dummy, every real node has a predecessor, so insert/remove code works the same at the head as anywhere else. The real head is dummy.next."
+    },
+    {
+      "question": "Which operation is O(1) for a singly linked list with head and tail pointers but O(n) for an array?",
+      "options": [
+        "Inserting at the front",
+        "Accessing the i-th element",
+        "Searching for a value",
+        "Removing the last element"
+      ],
+      "correctIndex": 0,
+      "explanation": "Prepending just creates a node pointing at the old head. An array must shift every element. Removing the tail of a singly linked list is O(n) because you must find its predecessor."
+    },
+    {
+      "question": "What is the space complexity of the recursive linked list reversal?",
+      "options": [
+        "O(1)",
+        "O(log n)",
+        "O(n²)",
+        "O(n), for the call stack"
+      ],
+      "correctIndex": 3,
+      "explanation": "It recurses once per node before unwinding, so n frames sit on the stack. The iterative version uses O(1) space."
+    }
+  ]
+}

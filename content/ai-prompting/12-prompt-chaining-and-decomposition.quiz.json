@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which is a key debugging advantage of prompt chaining over one large prompt?",
+      "options": [
+        "Chains never produce errors",
+        "Chains always cost less",
+        "You can inspect each step's output and find exactly where an error entered",
+        "Chains remove the need for a system prompt"
+      ],
+      "correctIndex": 2,
+      "explanation": "Because each step has one job and a visible output, failures can be traced to a specific step and fixed independently."
+    },
+    {
+      "question": "In an extract, analyse, draft, review pipeline, what should the review prompt receive?",
+      "options": [
+        "The draft plus the earlier outputs, such as the analysis, so it can check claims against them",
+        "Only the original raw document",
+        "Nothing except an instruction to \"make it better\"",
+        "Only the draft, to avoid bias"
+      ],
+      "correctIndex": 0,
+      "explanation": "Giving the reviewer both the draft and the analysis lets it catch unsupported statements and omitted issues."
+    },
+    {
+      "question": "You need summaries of 40 independent branch audit reports and then a comparison. What structure fits best?",
+      "options": [
+        "One prompt containing all 40 reports and the comparison request",
+        "A strict sequence where each report's summary waits for the previous one",
+        "Ask the model to guess the reports' contents",
+        "Summarise each report in parallel, then combine the labelled summaries in a final comparison prompt"
+      ],
+      "correctIndex": 3,
+      "explanation": "Independent sub-tasks can run in parallel; a final step then compares clearly labelled results."
+    },
+    {
+      "question": "When is a single prompt usually the better choice?",
+      "options": [
+        "Whenever the task involves a document",
+        "When the task is simple and one well-structured prompt already gives reliable results in testing",
+        "Whenever accuracy matters",
+        "When you need to insert a human check between steps"
+      ],
+      "correctIndex": 1,
+      "explanation": "Chaining adds latency, cost, and maintenance. Start with one prompt and split only where testing shows it failing."
+    }
+  ]
+}

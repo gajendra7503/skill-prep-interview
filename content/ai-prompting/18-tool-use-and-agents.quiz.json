@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Claude's response contains two `tool_use` blocks. How should you send the results back?",
+      "options": [
+        "Send two separate user messages, one per tool_result",
+        "Append the assistant turn, then send one user message containing both tool_result blocks",
+        "Send only the result of the first tool and let Claude ask again",
+        "Concatenate both results into a single text block without IDs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Append the assistant content unchanged, then return all tool_result blocks, each with its matching tool_use_id, in one user message."
+    },
+    {
+      "question": "A tool call fails because the order ID does not exist. What is the recommended handling?",
+      "options": [
+        "Raise the exception and end the conversation",
+        "Silently drop the tool_use block",
+        "Retry the same call in a loop until it succeeds",
+        "Return a tool_result with \"is_error\": True and an actionable message"
+      ],
+      "correctIndex": 3,
+      "explanation": "An error result lets the model correct its input, try another approach, or explain the problem to the user."
+    },
+    {
+      "question": "Which situation most clearly calls for an agent rather than a fixed workflow?",
+      "options": [
+        "Investigating failed payouts where each finding decides the next query",
+        "A five-step KYC document check with known steps",
+        "Translating a fixed template into Hindi",
+        "Classifying emails into three known categories"
+      ],
+      "correctIndex": 0,
+      "explanation": "Agents earn their extra cost when the steps depend on what is discovered along the way; known steps suit a fixed workflow."
+    },
+    {
+      "question": "Where should the human-approval check for a tool like `issue_refund` live?",
+      "options": [
+        "In the system prompt, asking Claude to always confirm first",
+        "In the tool description only",
+        "In your application code, before the tool actually executes",
+        "Nowhere; strict mode makes approval unnecessary"
+      ],
+      "correctIndex": 2,
+      "explanation": "Prompts can be bypassed; a code-level gate before side-effecting tools reliably enforces human approval."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which of these is best treated as server state rather than client state?",
+      "options": [
+        "The user's portfolio holdings fetched from an API",
+        "The selected theme",
+        "A half-filled form draft",
+        "Which tab is currently active"
+      ],
+      "correctIndex": 0,
+      "explanation": "Server state is a cached copy of backend data that can go stale and needs refetching — a job for TanStack Query, not a hand-managed global store."
+    },
+    {
+      "question": "Why can `useStore((s) => ({ a: s.a, b: s.b }))` cause problems in Zustand v5?",
+      "options": [
+        "Selectors cannot read more than one field",
+        "It throws a TypeScript error",
+        "It returns a new object every time, so the value always looks changed — causing extra renders or an infinite loop unless wrapped in useShallow",
+        "Zustand requires a Provider for object selectors"
+      ],
+      "correctIndex": 2,
+      "explanation": "Zustand compares selector results with Object.is. Select primitives separately or use useShallow to compare the object's fields shallowly."
+    },
+    {
+      "question": "What is a practical difference between persisting a Zustand store with AsyncStorage versus MMKV?",
+      "options": [
+        "AsyncStorage encrypts data; MMKV does not",
+        "MMKV only works on iOS",
+        "AsyncStorage is synchronous; MMKV is asynchronous",
+        "AsyncStorage is asynchronous so hydration happens after the first render; MMKV is synchronous via JSI so hydration is effectively immediate"
+      ],
+      "correctIndex": 3,
+      "explanation": "With AsyncStorage you may need to wait for hasHydrated() before acting on persisted values. Neither store is encrypted by default."
+    },
+    {
+      "question": "How do you make TanStack Query refetch stale data when a React Native app returns to the foreground?",
+      "options": [
+        "It works automatically via window focus events",
+        "Listen to AppState changes and call focusManager.setFocused(status === \"active\")",
+        "Set gcTime to 0",
+        "Use onlineManager with NetInfo"
+      ],
+      "correctIndex": 1,
+      "explanation": "There's no window focus event on mobile, so AppState is wired to focusManager. NetInfo plus onlineManager handles connectivity separately."
+    }
+  ]
+}

@@ -1,0 +1,183 @@
+---
+title: "Containers Under the Hood: Namespaces, cgroups & OverlayFS"
+description: "See what a container really is: an ordinary Linux process isolated by namespaces, limited by cgroups and given a layered root filesystem by OverlayFS."
+module: "Pro Level"
+level: "pro"
+order: 26
+---
+
+There is no "container" object in the Linux kernel. A container is a
+normal process that the runtime has wrapped in three kernel features:
+
+| Feature | Answers | Example |
+|---|---|---|
+| **Namespaces** | What can the process **see**? | its own PIDs, hostname, network, mounts |
+| **cgroups** | How much can it **use**? | 512 MB RAM, half a CPU, 100 processes |
+| **OverlayFS** (union mount) | What is its **filesystem**? | read-only image layers plus a writable layer |
+
+Add capabilities, seccomp and AppArmor/SELinux for security, and you have
+what Docker, Podman and Kubernetes run. Because every container shares the
+**host kernel**, containers start in milliseconds, but they are a weaker
+isolation boundary than virtual machines, which have their own kernel.
+
+## Namespaces: a private view
+
+Each namespace type virtualises one global resource:
+
+| Namespace | Isolates |
+|---|---|
+| `mnt` | mount points (the filesystem tree) |
+| `pid` | process IDs: the first process inside is PID 1 |
+| `net` | interfaces, IPs, routes, firewall rules, ports |
+| `uts` | hostname and domain name |
+| `ipc` | System V IPC and POSIX message queues |
+| `user` | UID/GID mappings: root inside, unprivileged outside |
+| `cgroup` | the view of the cgroup tree |
+| `time` | boot and monotonic clocks (recent kernels) |
+
+Every process's namespaces appear as links in `/proc/PID/ns` (for example
+`net -> net:[4026531840]`); two processes in the same namespace show the
+same inode number. `lsns` lists all namespaces on the host.
+
+### Try namespaces with unshare
+
+`unshare` (from util-linux) runs a program in new namespaces:
+
+```bash
+sudo unshare --uts --pid --fork --mount-proc bash
+hostname box1          # changes the hostname only inside this namespace
+ps -ef
+```
+
+```text
+UID          PID    PPID  C STIME TTY          TIME CMD
+root           1       0  0 10:15 pts/1    00:00:00 bash
+root           8       1  0 10:15 pts/1    00:00:00 ps -ef
+```
+
+Inside, `bash` is PID 1 and sees only its own children. On the host,
+`ps` shows the same `bash` with an ordinary PID such as 23817: same
+process, two views. `--fork` is needed because the caller itself cannot
+move into a new PID namespace; only its children can. `--mount-proc`
+mounts a fresh `/proc` so that `ps` reads the new namespace.
+
+A new network namespace starts with only a loopback interface, which is down:
+
+```bash
+sudo ip netns add demo
+sudo ip netns exec demo ip link
+sudo ip netns delete demo
+```
+
+```text
+1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+```
+
+Runtimes then create a **veth pair** (a virtual cable), put one end inside
+the namespace and attach the other to a bridge such as `docker0`, with NAT
+rules for outbound traffic.
+
+### Debugging with nsenter
+
+`nsenter` joins the namespaces of an existing process. This lets you use
+**host tools** inside a minimal container that has no shell or `ip` binary:
+
+```bash
+PID=$(docker inspect -f '{{.State.Pid}}' web)
+sudo nsenter -t "$PID" -n ss -tlnp      # network namespace only, host's ss binary
+```
+
+## cgroups: limits and accounting
+
+Control groups v2 (the default on current mainstream distributions) form
+one tree under `/sys/fs/cgroup`. Each directory is a group, and files in it
+are the knobs:
+
+| File | Meaning |
+|---|---|
+| `memory.max` | hard memory limit; exceeding it triggers the OOM killer in that group |
+| `memory.current` | current usage |
+| `memory.events` | counters, including `oom_kill` |
+| `cpu.max` | `quota period` in microseconds; `50000 100000` means half a CPU |
+| `pids.max` | maximum number of processes (stops fork bombs) |
+| `cgroup.procs` | PIDs in the group |
+
+```bash
+cat /proc/self/cgroup
+```
+
+```text
+0::/user.slice/user-1000.slice/session-3.scope
+```
+
+On systemd hosts, systemd owns the tree. You can run any command in a
+limited transient group, and `docker run --memory=256m --cpus=0.5` writes
+the same files for its container:
+
+```bash
+sudo systemd-run --scope -p MemoryMax=200M -p CPUQuota=50% ./report-job
+systemd-cgtop          # live CPU/memory per group
+```
+
+A Java or Node.js process in a container that gets "randomly killed" is
+often hitting `memory.max`; check `memory.events` and set the runtime's
+heap below the limit.
+
+## OverlayFS: layered filesystems
+
+An image is a stack of read-only layers. OverlayFS merges them with one
+writable layer into a single view:
+
+```bash
+mkdir lower upper work merged
+echo "from image" > lower/app.conf
+sudo mount -t overlay overlay \
+  -o lowerdir=lower,upperdir=upper,workdir=work merged
+echo "changed" > merged/app.conf     # may need sudo, depending on ownership
+cat lower/app.conf upper/app.conf
+```
+
+```text
+from image
+changed
+```
+
+The lower layer is untouched. Writing to a lower file triggers **copy-up**
+into `upperdir`; deleting one creates a **whiteout** (a special character
+device) in `upperdir` that hides it. Several lower layers are separated by
+colons, leftmost on top. This is why 50 containers from one image share
+its layers on disk, why the first write to a large file in a container is
+slow, and why data written in the container layer vanishes with the
+container unless you use a volume. Clean up with `sudo umount merged`.
+
+## Putting it together: a container by hand
+
+```bash
+mkdir rootfs
+docker export "$(docker create alpine)" | tar -x -C rootfs
+sudo unshare --mount --uts --ipc --net --pid --fork \
+  chroot rootfs /bin/sh -c 'mount -t proc proc /proc; hostname box1; exec /bin/sh'
+```
+
+You now have a shell with its own PID 1, hostname, network and root
+filesystem: most of a container. Real runtimes (runc, crun, invoked by
+containerd or Podman) also use `pivot_root` instead of `chroot` (harder to
+escape), user namespaces, cgroup limits, dropped **capabilities**
+(fine-grained pieces of root, for example `CAP_NET_BIND_SERVICE`) and a
+**seccomp** filter that blocks risky syscalls.
+
+Interviewers often ask: "How is a container different from a VM?"
+Answer: a VM virtualises hardware and runs its own kernel; a container is
+a host process isolated by namespaces and limited by cgroups, sharing the
+host kernel. So a kernel vulnerability can affect all containers on a host.
+
+### Try it yourself
+
+1. Run `sudo unshare --pid --fork --mount-proc bash`, start `sleep 500`,
+   and find the same `sleep` from another terminal with `ps -ef | grep sleep`.
+   Compare the PIDs.
+2. Run `sudo systemd-run --scope -p MemoryMax=50M python3 -c "x = 'a' * 200_000_000"`
+   and find the evidence of the OOM kill with `journalctl -k`.
+3. Build the OverlayFS demo, delete `merged/app.conf`, and inspect `upper/`
+   with `ls -l` to see the whiteout.

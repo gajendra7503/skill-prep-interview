@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Your API uses cookie-based auth and must be called from https://app.example.com. Which CORS setup is correct?",
+      "options": [
+        "origin: \"*\" with credentials: true",
+        "An explicit origin allow-list containing https://app.example.com, with credentials: true",
+        "Reflect whatever Origin header arrives, with credentials: true",
+        "No CORS middleware; cookies make CORS unnecessary"
+      ],
+      "correctIndex": 1,
+      "explanation": "Browsers reject a wildcard origin with credentials, and reflecting any origin lets every site make authenticated requests. An explicit allow-list is the safe choice."
+    },
+    {
+      "question": "Your app runs behind one load balancer and you add express-rate-limit without setting trust proxy. What happens?",
+      "options": [
+        "Every request appears to come from the load balancer's IP, so all users share one rate-limit bucket",
+        "Rate limiting is applied per user ID automatically",
+        "Express throws on startup",
+        "Each request gets a random IP, so nothing is limited"
+      ],
+      "correctIndex": 0,
+      "explanation": "req.ip is the proxy's address unless trust proxy is configured. Setting it to the hop count (e.g. 1) makes req.ip the real client IP."
+    },
+    {
+      "question": "Why is app.set(\"trust proxy\", true) risky on a server behind a single proxy?",
+      "options": [
+        "It disables HTTPS",
+        "It breaks helmet's headers",
+        "It turns off cookie parsing",
+        "Express trusts the whole X-Forwarded-For chain, so clients can spoof their IP and dodge IP-based rate limits"
+      ],
+      "correctIndex": 3,
+      "explanation": "Trusting every hop means the left-most, client-controlled value is used as req.ip. Trusting exactly the known number of proxies prevents spoofing."
+    },
+    {
+      "question": "Which API is NOT exposed to classic CSRF attacks?",
+      "options": [
+        "One that authenticates with a session cookie using sameSite: \"none\"",
+        "One that changes data on GET requests with cookie auth",
+        "One that only accepts a Bearer token in the Authorization header",
+        "One that stores a JWT in a cookie without sameSite"
+      ],
+      "correctIndex": 2,
+      "explanation": "CSRF relies on the browser attaching credentials automatically. A malicious site cannot make the browser add an Authorization header, so Bearer-token-only APIs avoid classic CSRF."
+    }
+  ]
+}

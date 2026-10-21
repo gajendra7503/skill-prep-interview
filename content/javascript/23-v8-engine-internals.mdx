@@ -1,0 +1,140 @@
+---
+title: "Inside the Engine: JIT, Hidden Classes & Inline Caches"
+description: "How V8 turns JavaScript into fast machine code, what hidden classes and inline caches are, and the coding habits that avoid deoptimisation."
+module: "Pro Level"
+level: "pro"
+order: 24
+---
+
+"JavaScript is slow because it's dynamic" was true in 2005. Modern engines
+run hot code at speeds close to compiled languages — *if* the code behaves
+predictably. Senior interviews (and real performance work on Node services)
+expect you to explain why. This lesson uses V8, the engine in Chrome, Edge
+and Node; SpiderMonkey and JavaScriptCore use the same core ideas under
+different names.
+
+## The tiered pipeline
+
+V8 doesn't compile your whole program up front. It starts cheap and spends
+effort only on code that proves to be hot:
+
+1. **Parser** turns source into an AST (lazily — inner functions are only
+   fully parsed when first called).
+2. **Ignition**, the interpreter, generates compact bytecode and runs it
+   immediately, while recording **type feedback**: which shapes of objects
+   and which types of values each operation actually saw.
+3. **Sparkplug**, a fast baseline compiler, turns bytecode into
+   unoptimised machine code with almost no analysis.
+4. **Maglev**, a mid-tier optimising compiler, uses the feedback for quick
+   optimisations.
+5. **TurboFan**, the top-tier optimising compiler, makes *speculative*
+   assumptions ("this `+` always gets two small integers") and emits highly
+   optimised machine code guarded by cheap checks.
+
+If a guard fails — the assumption is broken — V8 **deoptimises**: it throws
+the optimised code away and falls back to a lower tier. You can watch it:
+
+```js
+// deopt.js
+function add(a, b) { return a + b; }
+for (let i = 0; i < 1e6; i++) add(i, 1); // hot, always small integers -> optimised
+add("a", "b");                            // breaks the speculation
+```
+
+```bash
+node --trace-deopt deopt.js
+# [bailout (kind: deopt-eager, reason: not a Smi): ... deoptimizing ... <JSFunction add ...>
+```
+
+A **Smi** is a "small integer" that V8 stores directly in a tagged value
+instead of allocating a heap number — the cheapest number representation.
+
+## Hidden classes (Maps / shapes)
+
+Objects in JavaScript can gain and lose properties at any time, so V8
+can't use fixed C-style struct offsets directly. Instead every object
+points at a **hidden class** (V8 calls it a *Map*) that records which
+properties exist and at what offset. Objects built the same way share a
+Map; adding a property moves the object along a **transition chain** to a
+new one:
+
+```js
+// run with: node --allow-natives-syntax shapes.js  (debug-only intrinsics)
+function Point(x, y) { this.x = x; this.y = y; }
+const a = new Point(1, 2);
+const b = new Point(3, 4);
+const c = new Point(5, 6);
+c.z = 1; // c transitions to a new Map
+
+console.log(%HaveSameMap(a, b));                       // true
+console.log(%HaveSameMap(a, c));                       // false
+console.log(%HaveSameMap({ x: 1, y: 2 }, { y: 1, x: 2 })); // false — order matters
+
+const o = { x: 1, y: 2 };
+delete o.x;
+console.log(%HasFastProperties(o)); // false — fell back to slow "dictionary mode"
+```
+
+The `%` functions are internal V8 debugging hooks — never use them in real
+code, but they make the invisible visible.
+
+## Inline caches: why shape stability matters
+
+Every property access site (`s.w` in a specific line of code) gets an
+**inline cache** that remembers the Maps it has seen and the offset to read:
+
+| Maps seen at a site | State | Cost |
+|---|---|---|
+| 1 | monomorphic | one compare + direct load — fastest |
+| 2 to 4 | polymorphic | a short linear check |
+| more | megamorphic | generic lookup in a global cache — much slower |
+
+```js
+function area(s) { return s.w * s.h; }
+
+area({ w: 2, h: 3 });            // shape A
+area({ h: 3, w: 2 });            // shape B (different property order!)
+area({ w: 2, h: 3, label: "x" }); // shape C
+// The s.w and s.h sites are now polymorphic. Feed enough distinct shapes
+// (common with "options bag" objects built ad hoc) and they go megamorphic.
+```
+
+## Elements kinds: arrays have shapes too
+
+V8 also tracks what an array's **elements** contain, and transitions only
+go one way, from specific to general:
+
+```js
+const a = [1, 2, 3];  // PACKED_SMI_ELEMENTS    — fastest
+a.push(1.5);          // PACKED_DOUBLE_ELEMENTS
+a.push("x");          // PACKED_ELEMENTS        — generic, never goes back
+const h = [1, 2, 3];
+h[10] = 4;            // HOLEY_SMI_ELEMENTS     — holes force prototype-chain checks
+const n = new Array(3); // holey from birth; Array.from({ length: 3 }, () => 0) is packed
+```
+
+## Habits that keep code fast
+
+- Initialise **all** properties in the constructor, in the same order;
+  set them to `null` rather than adding them later.
+- Avoid `delete` on hot objects — set the property to `undefined`, or use a
+  `Map` for genuinely dynamic keys.
+- Keep functions **type-stable**: don't let one function return numbers
+  sometimes and strings other times.
+- Don't create holey or mixed-type arrays in hot loops; pre-fill instead of
+  `new Array(n)` when you need a packed array.
+- **Measure first.** Use `node --cpu-prof` or the DevTools Performance
+  panel and optimise only proven hot paths — these effects matter in tight
+  loops that run millions of times, not in ordinary business logic.
+
+Micro-benchmarks lie easily: the JIT may optimise away work whose result is
+unused, and warm-up changes results. Benchmark with realistic data and
+always consume the result.
+
+### Try it yourself
+
+Write a function `total(items)` that sums `item.price` over an array of
+100,000 objects. Time it (with `performance.now()`) when every object is
+created by the same factory, then again when objects are created with five
+different property orders. Run both with `--allow-natives-syntax` and use
+`%HaveSameMap` to confirm how many shapes you actually produced.

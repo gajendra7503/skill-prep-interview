@@ -1,0 +1,147 @@
+---
+title: "Request and Response"
+description: "Reading params, query, body and headers from req, and sending responses with res.status, json, send, set, redirect and content negotiation."
+module: "Fundamentals"
+level: "beginner"
+order: 5
+---
+
+Every handler receives `req` and `res`, enhanced versions of Node's
+`IncomingMessage` and `ServerResponse`. Interviewers want to see that you
+know exactly where each kind of input arrives, which response helpers set
+which headers, and the classic "headers already sent" bug.
+
+## Where input lives on `req`
+
+```js
+import express from "express";
+
+const app = express();
+app.use(express.json()); // without this, req.body is undefined
+
+app.post("/accounts/:id/transfers", (req, res) => {
+  res.json({
+    params: req.params,                  // from the path: { id: "42" }
+    query: req.query,                    // from ?dryRun=true
+    body: req.body,                      // parsed JSON body
+    auth: req.get("authorization"),      // header lookup, case-insensitive
+    contentType: req.headers["content-type"], // raw headers, lowercased keys
+    method: req.method,                  // "POST"
+    path: req.path,                      // "/accounts/42/transfers"
+    ip: req.ip,
+  });
+});
+```
+
+```bash
+curl -X POST "localhost:3000/accounts/42/transfers?dryRun=true" \
+  -H "Content-Type: application/json" -H "Authorization: Bearer abc" \
+  -d '{"to":"ravi@okbank","amount":1500}'
+```
+
+```json
+{
+  "params": { "id": "42" },
+  "query": { "dryRun": "true" },
+  "body": { "to": "ravi@okbank", "amount": 1500 },
+  "auth": "Bearer abc",
+  "contentType": "application/json",
+  "method": "POST",
+  "path": "/accounts/42/transfers",
+  "ip": "::1"
+}
+```
+
+A quick rule: **params** identify the resource, **query** filters or tweaks
+the request, **body** carries the data being created or changed, and
+**headers** carry metadata such as auth tokens and content type. Everything
+except a parsed JSON body arrives as strings.
+
+## Sending responses
+
+```js
+app.get("/demo/json", (req, res) => {
+  res.status(200).json({ balance: 25000, currency: "INR" }); // application/json
+});
+
+app.get("/demo/text", (req, res) => {
+  res.send("Balance: ₹25,000"); // string -> text/html; charset=utf-8
+});
+
+app.post("/demo/created", (req, res) => {
+  res.status(201)
+    .set("Location", "/accounts/43")
+    .json({ id: 43 });
+});
+
+app.delete("/demo/item", (req, res) => {
+  res.sendStatus(204); // status + default body, no content for 204
+});
+
+app.get("/demo/old", (req, res) => {
+  res.redirect(301, "/demo/json"); // default status is 302
+});
+```
+
+- `res.status(code)` only sets the code and returns `res`, so it chains.
+  Express 5 rejects invalid status codes instead of silently passing them on.
+- `res.json(value)` serialises with `JSON.stringify` and sets the content type.
+- `res.send(value)` picks a content type: strings become HTML, Buffers become
+  `application/octet-stream`, and objects are sent as JSON.
+- `res.set(name, value)` (alias `res.header`) sets headers; `res.type("csv")`
+  is a shortcut for `Content-Type`.
+- In Express 5, `res.redirect("back")` was removed. Read the `Referer` header
+  yourself, for example `res.redirect(req.get("Referer") ?? "/")`.
+
+## One response per request
+
+```js
+app.get("/accounts/:id", async (req, res) => {
+  const account = await findAccount(req.params.id);
+  if (!account) {
+    return res.status(404).json({ error: "Account not found" }); // return!
+  }
+  res.json(account);
+});
+```
+
+Without the `return`, execution continues to the second `res.json()` and
+Express throws `Error: Cannot set headers after they are sent to the
+client`. Return when you send early, and check `res.headersSent` in code
+that may run after a response has gone out.
+
+## Content negotiation
+
+Clients state what they want with the `Accept` header. `res.format()` runs
+the handler that matches best, falls back to `default` if you provide one,
+and otherwise responds with 406 Not Acceptable.
+
+```js
+app.get("/statement", (req, res) => {
+  const rows = [{ date: "2025-04-01", amount: 1500 }];
+  res.format({
+    "application/json": () => res.json(rows),
+    "text/csv": () => res.type("csv").send("date,amount\n2025-04-01,1500"),
+    default: () => res.status(406).send("Not Acceptable"),
+  });
+});
+```
+
+```bash
+curl -H "Accept: text/csv" localhost:3000/statement          # date,amount (newline) 2025-04-01,1500
+curl -H "Accept: application/json" localhost:3000/statement  # [{"date":"2025-04-01","amount":1500}]
+curl -H "Accept: image/png" localhost:3000/statement         # 406 Not Acceptable (default handler)
+```
+
+For a simple check, `req.accepts(["json", "html"])` returns the best match
+or `false`, and `req.is("application/json")` checks the incoming
+`Content-Type`.
+
+### Try it yourself
+
+Build `POST /payments` that reads `amount` from the body, a `currency`
+query parameter (default `INR`) and an `Idempotency-Key` header. Return 400
+if the header is missing, otherwise 201 with a `Location` header and the
+created payment as JSON. Add `GET /payments/:id` that supports both JSON and
+plain text (for example "Payment 7: ₹1,500") through `res.format()`, and
+deliberately trigger the "headers already sent" error once to see it.

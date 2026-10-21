@@ -1,0 +1,185 @@
+---
+title: "Typing Redux: RootState, AppDispatch & Typed Hooks"
+description: "Infer RootState and AppDispatch from your store, create typed hooks with withTypes, and type slices, selectors and thunks without boilerplate."
+module: "Redux Toolkit"
+level: "intermediate"
+order: 8
+---
+
+Redux Toolkit was written in TypeScript, and almost everything it returns is
+already typed. Your job is small but important: **infer two types from the
+store, create pre-typed hooks once, and annotate your slice state and
+payloads**. Everything else flows from there. This lesson builds a typed
+shopping cart for a fictional store, "Kirana Cart".
+
+## Step 1: infer RootState and AppDispatch from the store
+
+Never hand-write the shape of your root state. Let TypeScript read it off the
+store you already built:
+
+```ts
+// app/store.ts
+import { configureStore } from "@reduxjs/toolkit";
+import { cartSlice } from "../features/cart/cartSlice";
+
+export const store = configureStore({
+  reducer: { cart: cartSlice.reducer },
+});
+
+export type AppStore = typeof store;
+export type RootState = ReturnType<AppStore["getState"]>;
+export type AppDispatch = AppStore["dispatch"];
+```
+
+Add a slice or middleware and both types update automatically. `AppDispatch`
+matters because the plain `Dispatch` type only accepts action objects, while
+the store's real `dispatch` also accepts thunks (`configureStore` adds the
+thunk middleware). An untyped `useDispatch()` with a thunk fails (real
+`tsc` output, shortened):
+
+```text
+error TS2345: Argument of type 'AsyncThunkAction<...>' is not assignable
+to parameter of type 'UnknownAction'.
+```
+
+## Step 2: typed hooks with withTypes
+
+React-Redux 9 lets you create pre-typed hooks with `.withTypes()`. Define
+them once and import them everywhere instead of the raw hooks:
+
+```ts
+// app/hooks.ts
+import { useDispatch, useSelector, useStore } from "react-redux";
+import { createAsyncThunk, createSelector } from "@reduxjs/toolkit";
+import type { AppDispatch, AppStore, RootState } from "./store";
+
+export const useAppDispatch = useDispatch.withTypes<AppDispatch>();
+export const useAppSelector = useSelector.withTypes<RootState>();
+export const useAppStore = useStore.withTypes<AppStore>();
+
+export const createAppSelector = createSelector.withTypes<RootState>();
+export const createAppAsyncThunk = createAsyncThunk.withTypes<{
+  state: RootState;
+  dispatch: AppDispatch;
+  rejectValue: string;
+}>();
+```
+
+Now `useAppSelector((state) => state.cart.items)` knows the type of `state`
+without an annotation. With the raw hook, `state` is `unknown` (TS18046).
+Older codebases write `const useAppSelector: TypedUseSelectorHook<RootState> =
+useSelector`. It still works, but `withTypes` is the current recommendation
+and covers dispatch, store and selectors in the same style.
+
+## Step 3: type the slice state and payloads
+
+`createSlice` infers the state type from `initialState`, so give
+`initialState` an explicit type. Each reducer's `action` gets a
+`PayloadAction<T>`:
+
+```ts
+// features/cart/cartSlice.ts
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import type { RootState } from "../../app/store";
+
+export interface CartItem { id: string; name: string; priceInr: number; qty: number }
+interface CartState { items: CartItem[]; coupon: string | null }
+
+const initialState: CartState = { items: [], coupon: null };
+
+export const cartSlice = createSlice({
+  name: "cart",
+  initialState,
+  reducers: {
+    itemAdded(state, action: PayloadAction<CartItem>) {
+      state.items.push(action.payload);
+    },
+    couponApplied(state, action: PayloadAction<string>) {
+      state.coupon = action.payload;
+    },
+  },
+  selectors: {
+    // receives only this slice's state, already typed as CartState
+    selectItemCount: (cart) => cart.items.reduce((n, i) => n + i.qty, 0),
+  },
+});
+
+export const { itemAdded, couponApplied } = cartSlice.actions;
+export const { selectItemCount } = cartSlice.selectors;
+
+// a selector that needs the whole state uses RootState
+export const selectCartTotal = (state: RootState) =>
+  state.cart.items.reduce((sum, i) => sum + i.priceInr * i.qty, 0);
+```
+
+The generated action creators are now typed: `itemAdded({ ..., priceInr: "20" })`
+fails with `Type 'string' is not assignable to type 'number'`.
+
+Notice the circular import: the store imports the slice, and the slice
+imports `RootState` from the store. That is fine because it is a
+**type-only** import (`import type`), which is erased at compile time.
+Interviewers sometimes ask exactly this: "isn't that a circular dependency?"
+(Without the `CartState` annotation, a literal like `status: "idle"` would
+widen to `string` and lose its union type.)
+
+## Typed thunks
+
+`createAppAsyncThunk` (from Step 2) already knows `getState()` returns
+`RootState` and that `rejectWithValue` takes a `string`. You only annotate
+the argument:
+
+```ts
+export const applyCoupon = createAppAsyncThunk(
+  "cart/applyCoupon",
+  async (code: string, { getState, dispatch, rejectWithValue }) => {
+    const total = getState().cart.items.reduce((s, i) => s + i.priceInr * i.qty, 0);
+    if (total < 500) return rejectWithValue("Cart total must be at least ₹500");
+    dispatch(couponApplied(code));
+    return { code, discountInr: Math.round(total * 0.1) };
+  },
+);
+```
+
+Running it with Node 24 against the store above:
+
+```ts
+let r = await store.dispatch(applyCoupon("DIWALI10"));
+console.log(r.type, r.payload);
+// cart/applyCoupon/rejected Cart total must be at least ₹500
+
+store.dispatch(itemAdded({ id: "kb1", name: "Keyboard", priceInr: 1499, qty: 2 }));
+r = await store.dispatch(applyCoupon("DIWALI10"));
+if (applyCoupon.fulfilled.match(r)) console.log("discount", r.payload.discountInr);
+// discount 300   (r.payload is narrowed to { code; discountInr })
+```
+
+`.match()` narrows the result; in components, `.unwrap()` is more common.
+Thunks are covered in "Async Logic with Thunks & createAsyncThunk".
+
+## A makeStore function for tests and SSR
+
+When you need many store instances (tests, Next.js), export a factory and
+infer `RootState` from the reducer, so `preloadedState` can use it without a
+circular type:
+
+```ts
+const rootReducer = combineReducers({ cart: cartSlice.reducer });
+export type RootState = ReturnType<typeof rootReducer>;
+
+export function makeStore(preloadedState?: Partial<RootState>) {
+  return configureStore({ reducer: rootReducer, preloadedState });
+}
+export type AppStore = ReturnType<typeof makeStore>;
+export type AppDispatch = AppStore["dispatch"];
+```
+
+### Try it yourself
+
+1. Add a `status: "idle" | "saving" | "error"` field to `CartState` and a
+   `statusChanged` reducer. Confirm `statusChanged("done")` fails to compile.
+2. Replace every raw `useSelector` in a small component with `useAppSelector`
+   and delete the `(state: RootState)` annotations. Check that hovering
+   `state` still shows the full type.
+3. Write a `removeItem` thunk with `createAppAsyncThunk` that rejects with
+   `"Item not in cart"` when the id is missing, and narrow the result with
+   `removeItem.rejected.match()`.

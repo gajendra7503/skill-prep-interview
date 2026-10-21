@@ -1,0 +1,192 @@
+---
+title: "Topological Sort & Union-Find"
+description: "Ordering tasks with dependencies using Kahn's algorithm and DFS, detecting cycles in directed graphs, and tracking connectivity with a Union-Find structure."
+module: "Graphs"
+level: "advanced"
+order: 19
+---
+
+Two tools build on "Graphs: Representation, BFS & DFS":
+
+- **Topological sort**: "in what order can I do tasks when some must come
+  first?" Course prerequisites, build steps, database migrations.
+- **Union-Find** (Disjoint Set Union, DSU): "are these two items in the same
+  group?" while groups keep merging. Network connectivity, merging duplicate
+  customer accounts, Kruskal's minimum spanning tree.
+
+## Topological sort: the idea
+
+Model each task as a node and each "A before B" as a directed edge `A -> B`.
+A topological order lists every node so all edges point forward. It exists
+**only if there is no directed cycle** (the graph is a DAG, a directed acyclic
+graph); detecting a cycle is often the real question.
+
+```text
+ 0 = "JavaScript basics"           0
+ 1 = "Node.js"                   /   \
+ 2 = "React"                    1     2      valid orders: 0 1 2 3
+ 3 = "Full-stack project"        \   /                     0 2 1 3
+                                   3
+```
+
+Several valid orders can exist; any one is accepted unless stated otherwise.
+
+## Kahn's algorithm (BFS on in-degrees)
+
+A node's **in-degree** (edges pointing in) is its count of unmet
+prerequisites. Nodes at 0 can be done now. Do one, decrement its neighbours'
+in-degrees, and enqueue any neighbour that drops to 0.
+
+```js
+// prerequisites: [course, pre] means pre must be taken before course
+function topoSortKahn(n, prerequisites) {
+  const graph = Array.from({ length: n }, () => []);
+  const indegree = new Array(n).fill(0);
+  for (const [course, pre] of prerequisites) {
+    graph[pre].push(course);
+    indegree[course]++;
+  }
+  const queue = [];
+  for (let v = 0; v < n; v++) if (indegree[v] === 0) queue.push(v);
+  const order = [];
+  let head = 0;
+  while (head < queue.length) {
+    const v = queue[head++];
+    order.push(v);
+    for (const next of graph[v]) {
+      if (--indegree[next] === 0) queue.push(next);
+    }
+  }
+  return order.length === n ? order : null; // null => cycle
+}
+console.log(topoSortKahn(4, [[1, 0], [2, 0], [3, 1], [3, 2]])); // [ 0, 1, 2, 3 ]
+console.log(topoSortKahn(2, [[0, 1], [1, 0]]));                 // null
+```
+
+**Cycle detection for free:** nodes on a cycle never reach in-degree 0, so
+fewer than n outputs means a cycle. That is the standard answer to "can all
+courses be finished?". Time and space O(V + E).
+
+## DFS-based topological sort and the three colours
+
+Run DFS; when a node **finishes** (all descendants done), push it to a list;
+the reversed list is a topological order. To detect cycles in a *directed*
+graph, track three states: **white** (unvisited), **grey** (on the current
+recursion path) and **black** (finished). Meeting a **grey** node means an
+edge back into your own path: a cycle. A black node is just a shared
+dependency. The undirected "visited and not parent" trick does not work here.
+
+```js
+// graph[x] lists what must come AFTER x
+function topoSortDFS(graph) {
+  const WHITE = 0, GREY = 1, BLACK = 2;
+  const state = new Map(), order = [];
+  function visit(node) {
+    state.set(node, GREY);
+    for (const next of graph[node] ?? []) {
+      const s = state.get(next) ?? WHITE;
+      if (s === GREY) throw new Error(`cycle via ${node} -> ${next}`);
+      if (s === WHITE) visit(next);
+    }
+    state.set(node, BLACK);
+    order.push(node); // post-order: pushed after all dependents
+  }
+  for (const node of Object.keys(graph)) {
+    if ((state.get(node) ?? WHITE) === WHITE) visit(node);
+  }
+  return order.reverse();
+}
+const build = { utils: ["api", "web"], api: ["web"], config: ["utils"], web: [] };
+console.log(topoSortDFS(build)); // [ 'config', 'utils', 'api', 'web' ]
+try { topoSortDFS({ a: ["b"], b: ["c"], c: ["a"] }); } catch (e) { console.log(e.message); }
+// cycle via c -> a
+```
+
+| | Kahn's (BFS) | DFS post-order |
+|---|---|---|
+| Time / space | O(V + E) / O(V + E) | O(V + E) / O(V + E) |
+| Cycle signal | output shorter than V | grey node revisited |
+| Recursion risk | none | deep chains can overflow the stack |
+| Extra perk | easy to process "levels" (parallel batches) | reuses an existing DFS |
+
+## Union-Find: the idea
+
+Each group is a tree identified by its **root**. `find(x)` walks up to the
+root; `union(a, b)` attaches one root under the other. Two optimisations make
+it nearly constant time:
+
+- **Union by size**: attach the smaller tree under the larger.
+- **Path compression**: while finding, point nodes closer to the root. Below
+  we use *path halving* (each node jumps to its grandparent), an iterative
+  variant with the same guarantees.
+
+```js
+class UnionFind {
+  constructor(n) {
+    this.parent = Array.from({ length: n }, (_, i) => i);
+    this.size = new Array(n).fill(1);
+    this.count = n; // number of separate groups
+  }
+  find(x) {
+    while (this.parent[x] !== x) {
+      this.parent[x] = this.parent[this.parent[x]]; // path halving
+      x = this.parent[x];
+    }
+    return x;
+  }
+  union(a, b) {
+    let ra = this.find(a), rb = this.find(b);
+    if (ra === rb) return false;                // already connected
+    if (this.size[ra] < this.size[rb]) [ra, rb] = [rb, ra];
+    this.parent[rb] = ra;                       // smaller under larger
+    this.size[ra] += this.size[rb];
+    this.count--;
+    return true;
+  }
+}
+const uf = new UnionFind(6);
+uf.union(0, 1); uf.union(1, 2); uf.union(3, 4);
+console.log(uf.count); // 3   groups: {0,1,2} {3,4} {5}
+console.log(uf.find(2) === uf.find(0), uf.find(2) === uf.find(3)); // true false
+```
+
+With both optimisations each operation is **O(α(n)) amortised**, where α (the
+inverse Ackermann function) is at most 4 for any realistic n: "effectively
+constant". Space is O(n). Without them, `find` can degrade to O(n).
+
+## Problem: Redundant connection
+
+A network of n nodes was a tree until one extra cable was added. Find it:
+the first edge whose endpoints are **already connected** is the culprit.
+
+```js
+function redundantConnection(edges) {        // nodes are numbered 1..n
+  const uf = new UnionFind(edges.length + 1);
+  for (const [a, b] of edges) if (!uf.union(a, b)) return [a, b];
+  return null;
+}
+console.log(redundantConnection([[1, 2], [1, 3], [2, 3]]));                 // [ 2, 3 ]
+console.log(redundantConnection([[1, 2], [2, 3], [3, 4], [1, 4], [1, 5]])); // [ 1, 4 ]
+```
+
+O(E α(n)) time. Interviewers often ask when to prefer DSU over DFS: DSU wins
+when edges arrive **incrementally** and you must answer connectivity
+questions after each one, without re-traversing the graph.
+
+## Common mistakes
+
+- **Reversing edge direction.** For `[course, pre]` the edge is
+  `pre -> course`; backwards silently gives a reversed order.
+- **Using the undirected cycle check on a directed graph.** Use grey states.
+- **Dropping nodes with no edges** from the topological order.
+- **Comparing `parent[a] === parent[b]`** instead of `find(a) === find(b)`.
+- **Skipping union by size or path compression**, which leaves O(n) chains.
+
+### Try it yourself
+
+1. Modify Kahn's algorithm to group courses by semester (all courses whose
+   prerequisites are done are taken together).
+2. Number of provinces: given an n x n adjacency matrix of road links between
+   cities, return the number of groups via `UnionFind.count`.
+3. Accounts merge: customer records sharing any email are the same person.
+   Use a `Map` from email to record index plus Union-Find to merge them.

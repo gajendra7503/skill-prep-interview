@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the main job of the InnoDB redo log?",
+      "options": [
+        "Store old row versions for rollback",
+        "Make committed changes durable cheaply via sequential write-ahead logging, replayed after a crash",
+        "Cache hot pages in memory",
+        "Record SQL statements for replication"
+      ],
+      "correctIndex": 1,
+      "explanation": "Redo records physical page changes sequentially at commit so dirty pages can be flushed lazily; crash recovery replays it. Old versions live in undo; the binlog serves replication."
+    },
+    {
+      "question": "Under REPEATABLE READ, session A reads a row, then session B updates and commits it. What does A see if it reads the row again in the same transaction?",
+      "options": [
+        "The original value, because A reuses the read view from its first consistent read",
+        "The new value, because B committed",
+        "An error, because the row changed",
+        "A blocks until B's transaction is purged"
+      ],
+      "correctIndex": 0,
+      "explanation": "REPEATABLE READ keeps one read view for the whole transaction; older versions are reconstructed from undo. READ COMMITTED would show the new value."
+    },
+    {
+      "question": "Which problem does the doublewrite buffer solve?",
+      "options": [
+        "Duplicate primary keys during bulk inserts",
+        "Slow secondary index maintenance",
+        "Replication lag between primary and replica",
+        "Torn pages caused by a crash partway through writing a 16 KB page"
+      ],
+      "correctIndex": 3,
+      "explanation": "Pages are written to the doublewrite area first, so a partially written page can be restored from an intact copy before redo is applied."
+    },
+    {
+      "question": "With `innodb_flush_log_at_trx_commit = 2`, what can be lost?",
+      "options": [
+        "Nothing, it is identical to 1",
+        "All uncommitted and committed data since startup",
+        "About the last second of committed transactions if the OS crashes or power fails; a mysqld-only crash loses nothing",
+        "About the last second of transactions even if only mysqld crashes, but nothing on power loss"
+      ],
+      "correctIndex": 2,
+      "explanation": "With 2 the redo is written to the OS cache at commit and fsynced roughly once per second, so it survives a mysqld crash but not an OS crash or power cut."
+    }
+  ]
+}

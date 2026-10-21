@@ -1,0 +1,188 @@
+---
+title: "Basic Types & Type Inference"
+description: "The primitive types, any versus unknown, never and void, and how TypeScript infers types so you rarely need to write annotations."
+module: "Getting Started"
+level: "beginner"
+order: 2
+---
+
+Every value in TypeScript has a type. You can write that type yourself
+with an **annotation**, but most of the time the compiler works it out for
+you through **type inference**. Knowing when to annotate and when to let
+inference do the work is the first habit that separates clean TypeScript
+from noisy TypeScript.
+
+## The primitive types
+
+These map directly to JavaScript's runtime primitives:
+
+```ts
+let customerName: string = "Meera";
+let balance: number = 250000.75;      // integers and decimals share one type
+let isActive: boolean = true;
+let bigAmount: bigint = 9007199254740993n;
+let id: symbol = Symbol("id");
+let nothing: null = null;
+let notSet: undefined = undefined;
+```
+
+Use the lowercase names. `String`, `Number` and `Boolean` (capitalised)
+refer to the wrapper *objects* and are almost never what you want.
+
+With `strict` on (see "Why TypeScript & Setting Up"), `null` and
+`undefined` are **not** part of other types. A `string` variable cannot
+hold `null` unless you say so explicitly — how to say so is covered in
+"Union & Literal Types".
+
+```ts
+let city: string = "Jaipur";
+city = null;
+// Error: Type 'null' is not assignable to type 'string'.
+```
+
+## Type inference
+
+When you initialise a variable, TypeScript infers its type from the value:
+
+```ts
+let price = 1299;          // inferred: number
+let product = "Headphones"; // inferred: string
+
+price = "free";
+// Error: Type 'string' is not assignable to type 'number'.
+
+const gst = 0.18;          // inferred: 0.18 (a literal type — const never changes)
+```
+
+Notice the difference between `let` and `const`. A `let` can be reassigned,
+so TypeScript **widens** the type to `number`. A `const` can never change,
+so its type is the exact literal `0.18`. Literal types are explored fully
+in "Union & Literal Types".
+
+Inference also flows through expressions and return values:
+
+```ts
+const items = 3;
+const unitPrice = 450;
+const total = items * unitPrice;   // number
+
+function withGst(amount: number) {
+  return amount * 1.18;            // return type inferred as number
+}
+
+const label = withGst(total) > 1000 ? "high" : "low"; // "high" | "low"
+```
+
+## When to annotate
+
+| Situation | Annotate? |
+|---|---|
+| Variable initialised with a value | No — inference is enough |
+| Function parameters | **Yes** — TypeScript cannot guess what callers pass |
+| Function return type | Optional; useful for public APIs and to catch mistakes inside the function |
+| Variable declared now, assigned later | Yes |
+
+```ts
+let discount: number;   // declared without a value — annotate it
+if (Math.random() > 0.5) {
+  discount = 10;
+} else {
+  discount = 0;
+}
+console.log(discount);
+```
+
+A variable declared with `let x;` and no annotation starts as `any`-like
+and changes as you assign to it, which is confusing. Annotate instead.
+
+Interviewers often ask: "Do you annotate everything?" A good answer is no —
+annotate parameters and public boundaries, and let inference handle local
+variables. Over-annotating adds noise and can even *lose* information,
+such as a literal type.
+
+## any: switching the checker off
+
+`any` means "do not check this value at all". Anything is assignable to
+it, and you can do anything with it:
+
+```ts
+let data: any = "hello";
+data.toFixed(2);     // no compile error...
+// TypeError at runtime: data.toFixed is not a function
+```
+
+`any` is contagious: properties of an `any` value are also `any`, so one
+`any` can silently spread through a codebase. Strict mode's
+`noImplicitAny` stops TypeScript from quietly giving unannotated
+parameters the type `any`.
+
+## unknown: the safe alternative
+
+`unknown` also accepts any value, but you **cannot use** it until you
+check what it is:
+
+```ts
+function parseAmount(input: unknown): number {
+  // input.toFixed(2);
+  // Error: 'input' is of type 'unknown'.
+
+  if (typeof input === "number") {
+    return input;              // here input is number
+  }
+  if (typeof input === "string") {
+    return Number(input);      // here input is string
+  }
+  throw new Error("Invalid amount");
+}
+
+console.log(parseAmount("1500")); // 1500
+```
+
+Use `unknown` for values whose shape you genuinely do not know — the
+result of `JSON.parse`, a `catch` clause variable, data from a third-party
+script. The checks that turn `unknown` into something usable are covered
+in "Narrowing & Type Guards".
+
+| | Accepts any value | Can be used without checks |
+|---|---|---|
+| `any` | Yes | Yes (unsafe) |
+| `unknown` | Yes | No — must narrow first |
+
+## void and never
+
+- `void` is the return type of a function that returns nothing useful.
+- `never` is the type of a value that can **never exist** — for example
+  the return type of a function that always throws.
+
+```ts
+function logVisit(page: string): void {
+  console.log(`Visited ${page}`);
+}
+
+function fail(message: string): never {
+  throw new Error(message);
+}
+```
+
+`never` becomes very useful for exhaustiveness checks, which you will
+meet in "Narrowing & Type Guards".
+
+## Types are erased
+
+Annotations exist only at compile time. This runs, then prints `string`,
+not a TypeScript type:
+
+```ts
+const pin: string = "560001";
+console.log(typeof pin); // "string" — JavaScript's runtime typeof
+```
+
+### Try it yourself
+
+1. Hover over each variable in this snippet in your editor and write down
+   the inferred type before checking: `let a = 10; const b = 10; let c =
+   [1, 2]; const d = a > 5 ? "big" : "small";`.
+2. Write `function toRupees(value: unknown): string` that returns strings
+   like `"₹1500"` for numbers and numeric strings and throws otherwise.
+3. Change the parameter in exercise 2 to `any`, remove your checks, and
+   pass an object. Note that it compiles — and what happens at runtime.

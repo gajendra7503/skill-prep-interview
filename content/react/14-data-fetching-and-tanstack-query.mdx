@@ -1,0 +1,145 @@
+---
+title: "Data Fetching & TanStack Query"
+description: "Why fetching in useEffect is fragile, and how TanStack Query's keys, caching, invalidation and optimistic updates replace it."
+module: "Data & Hooks in Practice"
+level: intermediate
+order: 11
+---
+
+"How do you fetch data in React?" sounds like a beginner question, but
+interviewers use it to see whether you understand **server state**: data you
+don't own, that can go stale, and that many components want at once.
+
+## Why `useEffect` fetching is fragile
+
+The hand-rolled version looks fine until you list what it doesn't handle:
+
+```tsx
+function Product({ id }: { id: string }) {
+  const [product, setProduct] = useState<Product | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/products/${id}`)
+      .then((r) => r.json())
+      .then(setProduct); // bug: no cancellation
+  }, [id]);
+
+  return product ? <h2>{product.name}</h2> : <p>Loading…</p>;
+}
+```
+
+- **Race conditions:** change `id` from 1 to 2 quickly, and if request 1
+  resolves last, the screen shows product 1 under product 2's URL.
+- **No cache:** every mount refetches; two components showing the same
+  product make two requests.
+- **No retries, no refetch on focus or reconnect, no deduplication.**
+- **Double-fetch in development:** Strict Mode mounts effects twice to expose
+  missing cleanup.
+
+You can patch each one with an `AbortController` and a shared cache, but at
+that point you've written a worse data library.
+
+## `useQuery`: declarative server state
+
+```tsx
+import { useQuery } from "@tanstack/react-query";
+
+function Product({ id }: { id: string }) {
+  const { data, isPending, isError, error } = useQuery({
+    queryKey: ["products", id],
+    queryFn: async ({ signal }) => {
+      const res = await fetch(`/api/products/${id}`, { signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`); // fetch doesn't reject on 4xx/5xx
+      return res.json() as Promise<Product>;
+    },
+    staleTime: 60_000,
+  });
+
+  if (isPending) return <p>Loading…</p>;
+  if (isError) return <p>Error: {error.message}</p>;
+  return <h2>{data.name} — ₹{data.price.toLocaleString("en-IN")}</h2>;
+}
+```
+
+The **query key** is the cache identity. It must include every variable the
+`queryFn` depends on — `["products", id]` means a new `id` is a new cache
+entry, and the stale request's result can never overwrite it. Keys are
+hierarchical arrays, which makes invalidation by prefix possible. Wrap the
+app once in `QueryClientProvider` with a `new QueryClient()`.
+
+## `staleTime` vs `gcTime`
+
+The most common TanStack Query interview question:
+
+- **`staleTime`** (default `0`): how long data counts as *fresh*. Fresh data
+  is served from cache with no refetch. Stale data is still shown instantly,
+  but triggers a background refetch on mount, window focus or reconnect.
+- **`gcTime`** (default 5 minutes, called `cacheTime` before v5): how long an
+  *unused* query — one with no mounted observers — stays in memory before
+  being garbage-collected.
+
+So `staleTime` controls *refetching*; `gcTime` controls *memory*. A product
+catalogue might use a `staleTime` of several minutes; a live order status,
+`0`.
+
+## `useMutation` and invalidation
+
+Reads are queries; writes are mutations. After a write succeeds, tell the
+cache which data is now out of date:
+
+```tsx
+const queryClient = useQueryClient();
+
+const addToCart = useMutation({
+  mutationFn: (item: CartItem) =>
+    fetch("/api/cart", { method: "POST", body: JSON.stringify(item) }),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["cart"] }); // matches ["cart"], ["cart", "summary"], ...
+  },
+});
+
+// <button disabled={addToCart.isPending} onClick={() => addToCart.mutate(item)}>
+```
+
+`invalidateQueries` marks matching queries stale and refetches the ones that
+are currently rendered — you don't manually patch state everywhere.
+
+## Optimistic updates with rollback
+
+```tsx
+useMutation({
+  mutationFn: toggleWishlist,
+  onMutate: async (productId: string) => {
+    await queryClient.cancelQueries({ queryKey: ["wishlist"] }); // stop in-flight refetches overwriting us
+    const previous = queryClient.getQueryData<string[]>(["wishlist"]);
+    queryClient.setQueryData<string[]>(["wishlist"], (old = []) =>
+      old.includes(productId) ? old.filter((p) => p !== productId) : [...old, productId],
+    );
+    return { previous }; // becomes `context`
+  },
+  onError: (_err, _id, context) => {
+    queryClient.setQueryData(["wishlist"], context?.previous); // roll back
+  },
+  onSettled: () => queryClient.invalidateQueries({ queryKey: ["wishlist"] }),
+});
+```
+
+For a change shown in only one place, v5 also lets you render
+`mutation.variables` while `isPending` instead of touching the cache.
+
+## Where React 19's `use` fits
+
+`use(promise)` *reads* a promise and suspends — it does not cache, dedupe or
+refetch. The promise must be created outside render (by a Server Component,
+a router loader, or a cache), or every render would create a new one. For
+Suspense-style client fetching, TanStack Query offers `useSuspenseQuery`,
+where `data` is always defined and loading is handled by the nearest
+`<Suspense>`. A good interview answer: `use` is a primitive; TanStack Query
+is a server-state cache that can plug into Suspense.
+
+### Try it yourself
+
+Build a product list filtered by a search box, keyed as
+`["products", { search }]`. Type quickly and confirm in React Query Devtools
+that each search term gets its own cache entry. Then add a "Like" button that
+updates optimistically and rolls back when the API returns a 500.

@@ -1,0 +1,155 @@
+---
+title: "Building Custom Hooks"
+description: "Rules of hooks, extracting reusable logic like useDebounce and useMediaQuery, returning stable values, and testing hooks with renderHook."
+module: "Data & Hooks in Practice"
+level: advanced
+order: 17
+---
+
+The Hooks Deep Dive introduced a simple `useLocalStorage`. This lesson is
+about doing it at production quality — the version an interviewer probes
+with "what happens on the server?" or "why does this re-render forever?"
+
+## The rules of hooks, and why they exist
+
+1. **Only call hooks at the top level** — never inside conditions, loops or
+   after an early `return`.
+2. **Only call hooks from React function components or other hooks.**
+
+React stores hook state in a list per component and matches each call to its
+slot **by call order**. If a condition skips a `useState` on one render,
+every hook after it reads the wrong slot. The `use` API is the one deliberate
+exception: it can be called conditionally. The `eslint-plugin-react-hooks`
+rules catch violations and missing effect dependencies — treat them as
+errors, not warnings.
+
+A custom hook is any function whose name starts with `use` and that calls
+hooks. Each component calling it gets **its own independent state** — hooks
+share logic, not state.
+
+## `useDebounce`: delaying a fast-changing value
+
+```tsx
+function useDebounce<T>(value: T, delay = 300): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id); // each keystroke cancels the previous timer
+  }, [value, delay]);
+
+  return debounced;
+}
+
+// const search = useDebounce(query, 400);
+// useQuery({ queryKey: ["funds", search], queryFn: ... })
+```
+
+The cleanup is the whole trick: only the last value that survives `delay`
+milliseconds is committed.
+
+## `useLocalStorage`, hardened
+
+```tsx
+function useLocalStorage<T>(key: string, initial: T) {
+  const [value, setValue] = useState<T>(() => {
+    if (typeof window === "undefined") return initial; // SSR: no localStorage
+    try {
+      const raw = window.localStorage.getItem(key);
+      return raw !== null ? (JSON.parse(raw) as T) : initial;
+    } catch {
+      return initial; // corrupt JSON or blocked storage
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {} // quota exceeded / private mode
+  }, [key, value]);
+
+  return [value, setValue] as const; // tuple type, not (T | setter)[]
+}
+```
+
+The lazy initialiser reads storage once instead of on every render, and
+returning `setValue` straight from `useState` means callers get functional
+updates (`setValue((v) => ...)`) and a setter whose identity never changes.
+
+## `useMediaQuery` with `useSyncExternalStore`
+
+Browser APIs like `matchMedia` are **external stores**. Copying them into
+state with `useEffect` can tear during concurrent rendering and always
+renders the wrong value first. `useSyncExternalStore` is built for this:
+
+```tsx
+function useMediaQuery(query: string): boolean {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const mql = window.matchMedia(query);
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    },
+    [query],
+  );
+
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(query).matches, // getSnapshot (client)
+    () => false, // getServerSnapshot: used during SSR and hydration
+  );
+}
+```
+
+Two gotchas: `getSnapshot` must return the same value when nothing changed
+(returning a new object each call causes an infinite loop), and `subscribe`
+should be stable — a new function every render makes React resubscribe.
+
+## Returning stable values
+
+Callers put your hook's return values into dependency arrays and `memo`
+props. If you return a fresh object or function every render, you silently
+break their memoisation:
+
+```tsx
+function useCounter(initial = 0) {
+  const [count, setCount] = useState(initial);
+  const increment = useCallback(() => setCount((c) => c + 1), []);
+  const reset = useCallback(() => setCount(initial), [initial]);
+  return useMemo(() => ({ count, increment, reset }), [count, increment, reset]);
+}
+```
+
+With the React Compiler enabled, much of this memoisation is automatic, but
+interviewers still expect you to explain *why* referential stability matters.
+
+## Testing hooks with `renderHook`
+
+`renderHook` from `@testing-library/react` mounts a hook inside a throwaway
+component; `result.current` always holds the latest return value:
+
+```tsx
+import { renderHook, act } from "@testing-library/react";
+
+test("useDebounce only updates after the delay", () => {
+  vi.useFakeTimers();
+  const { result, rerender } = renderHook(({ v }) => useDebounce(v, 500), {
+    initialProps: { v: "a" },
+  });
+
+  rerender({ v: "ab" });
+  expect(result.current).toBe("a");
+
+  act(() => vi.advanceTimersByTime(500)); // state updates must be wrapped in act
+  expect(result.current).toBe("ab");
+});
+```
+
+Test hooks directly when they're reusable units; for hooks used by a single
+component, testing the component's behaviour is usually enough.
+
+### Try it yourself
+
+Write a `useOnlineStatus` hook using `useSyncExternalStore` with the
+`online`/`offline` window events and `navigator.onLine`. Then test it with
+`renderHook`, dispatching `new Event("offline")` inside `act`.

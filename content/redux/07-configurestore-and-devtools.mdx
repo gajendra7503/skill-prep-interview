@@ -1,0 +1,197 @@
+---
+title: "configureStore, Middleware Defaults & Redux DevTools"
+description: "What configureStore sets up for you, the default middleware and its development checks, how to customise middleware and enhancers safely, and debugging with Redux DevTools."
+module: "Redux Toolkit"
+level: "intermediate"
+order: 7
+---
+
+So far `configureStore` has been one line: `configureStore({ reducer })`.
+Behind that line RTK does a surprising amount of work. Knowing exactly what
+it adds explains warnings you will meet in real projects ("A non-serializable
+value was detected...") and lets you customise the store without breaking
+the defaults.
+
+## What configureStore does for you
+
+Compared with the legacy `createStore`, one `configureStore` call combines
+a `reducer` object with `combineReducers`, adds default middleware and
+enhancers, connects Redux DevTools, and validates its options. Its options:
+
+| Option | Type | Default |
+|---|---|---|
+| `reducer` | Reducer function or object of slice reducers | required |
+| `middleware` | Callback `(getDefaultMiddleware) => Tuple` | default middleware |
+| `enhancers` | Callback `(getDefaultEnhancers) => Tuple` | default enhancers |
+| `devTools` | `boolean` or DevTools options object | `true` |
+| `preloadedState` | Initial state, same shape as the reducer map | none |
+| `duplicateMiddlewareCheck` | `boolean` | `true` |
+
+## The default middleware
+
+Middleware sits between `dispatch` and the reducer (how it works is in
+"Middleware: How It Works & Writing Your Own"). `getDefaultMiddleware()`
+returns, in order:
+
+| Middleware | Environment | What it does |
+|---|---|---|
+| Action creator check | dev only | Warns if you dispatch an action creator instead of calling it |
+| Immutability check | dev only | Throws if state was mutated between or during dispatches |
+| Thunk | always | Lets you dispatch functions for async logic |
+| Serializability check | dev only | Warns about non-serialisable values in actions or state |
+
+We confirmed the count by logging `getDefaultMiddleware().length`: **4**
+in development, **1** (just thunk) with `NODE_ENV=production`. The checks
+cost time on every dispatch, which is why they are stripped from production
+builds.
+
+What the checks catch:
+
+```text
+// dispatch(languageChanged)   -- forgot the ()
+Detected an action creator with type "prefs/languageChanged" being dispatched.
+Make sure you're calling the action creator before dispatching, i.e.
+`dispatch(languageChanged())` instead of `dispatch(languageChanged)`.
+
+// dispatch(seen(new Date()))  -- a Date in the payload and in state
+A non-serializable value was detected in an action, in the path: `payload`.
+A non-serializable value was detected in the state, in the path: `prefs.lastSeen`.
+
+// a hand-written reducer that mutates
+Error: A state mutation was detected inside a dispatch, in the path: list.items.0.
+```
+
+The serializable warning is the one you will see most. Redux expects
+plain data because DevTools, persistence and server rendering all need to
+copy or serialise it. The fix is usually to store a different form: an ISO
+string instead of a `Date`, an ID instead of a class instance, an array
+instead of a `Set`.
+
+## Customising middleware
+
+`middleware` must be a **callback**, and you should build on the defaults
+rather than replace them:
+
+```ts
+import { configureStore, type Middleware } from "@reduxjs/toolkit";
+
+const logger: Middleware = (storeApi) => (next) => (action) => {
+  console.log("dispatching", (action as { type: string }).type);
+  const result = next(action);
+  console.log("next state", storeApi.getState());
+  return result;
+};
+
+export const store = configureStore({
+  reducer: { prefs: prefsReducer },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      thunk: { extraArgument: { api } },          // injected into every thunk
+      serializableCheck: {
+        ignoredActions: ["prefs/seen"],            // skip checking these actions
+        ignoredPaths: ["prefs.lastSeen"],          // skip these state paths
+      },
+    }).concat(logger),
+  devTools: { name: "Expense Tracker", maxAge: 100 },
+});
+
+store.dispatch(languageChanged("ta"));
+// dispatching prefs/languageChanged
+// next state { prefs: { language: 'ta', lastSeen: null } }
+```
+
+Key points:
+
+- `getDefaultMiddleware()` returns a `Tuple` — an array subclass whose
+  `.concat()` and `.prepend()` keep each middleware's TypeScript type. Use
+  them instead of spreading into a plain array, or you lose type
+  information (for example, dispatch's ability to accept thunks).
+- `getDefaultMiddleware(options)` accepts `thunk`, `immutableCheck`,
+  `serializableCheck` and `actionCreatorCheck`. Each can be `false` or an
+  options object. `immutableCheck` and `serializableCheck` also accept
+  `warnAfter` (milliseconds) and `ignoredPaths`, useful when a very large
+  state makes the checks slow in development.
+- To fully replace the defaults, return `new Tuple(myMiddleware)` — but
+  then you lose thunk too. A dispatched function would hit the reducer and
+  throw "Actions must be plain objects".
+
+Common mistakes and their messages:
+
+```js
+configureStore({ reducer, middleware: [logger] });
+// Error: `middleware` field must be a callback
+
+configureStore({ reducer, middleware: (g) => g().concat(logger, logger) });
+// Error: Duplicate middleware references found when creating the store.
+```
+
+Order matters: middleware runs in array order. In the setup above, a
+thunk is intercepted by the thunk middleware before it reaches `logger`, so
+the logger only ever sees plain actions.
+
+## preloadedState and enhancers
+
+`preloadedState: { prefs: { language: "hi", lastSeen: null } }` makes
+`getState()` start from that value instead of the reducers' initial state.
+Its keys must match the reducer map; loading it from storage safely is the
+topic of "Persisting & Hydrating State".
+
+Enhancers wrap the store creator itself (middleware is implemented as one).
+RTK's defaults are the middleware enhancer and `autoBatchEnhancer`, which
+lets RTK Query's frequent internal actions notify subscribers less often.
+If you ever need one (offline libraries are the usual reason), keep the
+defaults: `enhancers: (getDefaultEnhancers) => getDefaultEnhancers().concat(myEnhancer)`.
+
+## Redux DevTools
+
+Install the **Redux DevTools** browser extension (Chrome, Edge and
+Firefox). With `devTools` left at `true`, `configureStore` connects to it
+automatically. You get:
+
+| Feature | What it is for |
+|---|---|
+| Action log | Every dispatched action, in order, with its payload |
+| State / Diff tabs | The full state after an action, or only what changed |
+| Time travel | Jump to or skip any past action and watch the UI follow |
+| Trace | The stack trace of the code that dispatched an action |
+| Dispatcher | Dispatch a hand-written action to test a reducer |
+
+This is why purity and serialisability matter: replaying actions only
+works if reducers are deterministic and state can be copied.
+
+Useful `devTools` options include `name` (label for the instance),
+`maxAge` (how many actions to keep), `actionsDenylist` (hide noisy actions,
+e.g. polling) and `trace`. In current RTK versions, action traces are
+switched on by default in development builds.
+
+**Production:** `devTools` defaults to `true`, so anyone with the extension
+can inspect your production state. If state may hold personal or financial
+data, disable it:
+
+```ts
+devTools: process.env.NODE_ENV !== "production",
+```
+
+(In Vite apps, `import.meta.env.DEV` is the equivalent check.)
+
+## Interview angles
+
+Interviewers often ask:
+
+- **"What does configureStore add over createStore?"** Combined reducers,
+  thunk, dev-only immutability/serializability/action-creator checks, the
+  auto-batch enhancer and DevTools — with good defaults.
+- **"Why are the checks dev-only?"** They walk the state on every dispatch;
+  that cost is not acceptable in production.
+- **"Why use `.concat()` instead of spreading?"** The `Tuple` preserves
+  middleware types, so `dispatch` stays correctly typed.
+
+### Try it yourself
+
+1. Store a `new Date()` in a slice, read the warning, then fix it by
+   storing `toISOString()` instead.
+2. Add the `logger` middleware with `.concat()`, then try `.prepend()` and
+   explain the difference in output when you dispatch a thunk.
+3. Install Redux DevTools, dispatch a few actions in your counter app, and
+   use the slider to time-travel. Then set `devTools` so it is disabled in
+   production builds.

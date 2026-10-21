@@ -1,0 +1,156 @@
+---
+title: "Prompts for Coding"
+description: "Give coding assistants the context they need, ask for a plan before code, debug with full errors, request tests, and review generated code critically."
+module: "Prompting at Work"
+level: "intermediate"
+order: 15
+---
+
+Coding assistants can write a working function in seconds — or a confident,
+plausible one that breaks in production. The difference is mostly context
+and verification. Treat the model like a capable new team member who has
+never seen your codebase.
+
+## Give the full context
+
+A weak prompt leaves every important decision to chance:
+
+```text
+Write a function to validate PAN numbers.
+```
+
+An improved prompt states language, versions, existing conventions and
+constraints:
+
+```text
+Python 3.12, FastAPI 0.115, Pydantic v2. We validate inputs with Pydantic
+field validators (example below), raise ValueError with user-facing
+messages, and use no third-party libraries beyond what is installed.
+
+Write a validator for a `pan` field on the CustomerKYC model.
+- Format: 5 uppercase letters, 4 digits, 1 uppercase letter.
+- Accept lowercase input and normalise to uppercase.
+- Strip surrounding whitespace.
+- Never log the PAN value itself.
+
+<existing_code>
+class CustomerKYC(BaseModel):
+    mobile: str
+
+    @field_validator("mobile")
+    @classmethod
+    def check_mobile(cls, v: str) -> str:
+        ...
+</existing_code>
+```
+
+Useful context includes: language and framework versions, the file or
+function it must fit into, coding conventions, what must not change (public
+APIs, database schema), and performance or security requirements.
+
+## Ask for a plan before code
+
+For anything bigger than a single function, ask the model to propose an
+approach first. Reviewing a ten-line plan is much faster than reviewing two
+hundred lines of code built on a wrong assumption.
+
+```text
+We need to add CSV export to the monthly MIS report endpoint. Before
+writing code, give me a short plan: which files change, the approach for
+large reports (about 2 lakh rows), and any questions you have about
+requirements. Wait for my go-ahead before implementing.
+```
+
+## Debug with the full error message
+
+"It's not working" gives the model nothing. Paste the complete error and
+stack trace, the code involved, what you expected, and what you have already
+tried.
+
+```text
+Running `pytest tests/test_report.py` fails. Full output:
+
+<error>
+Traceback (most recent call last):
+  File "app/report.py", line 42, in build_summary
+    total = sum(row["net_amount"] for row in rows)
+TypeError: unsupported operand type(s) for +: 'int' and 'str'
+</error>
+
+Relevant code is below. Rows come from a CSV via csv.DictReader.
+I expected net_amount to be numeric. Explain the root cause before
+proposing a fix.
+```
+
+Asking for the root cause first discourages quick patches that hide the
+symptom — here, the real fix is converting CSV strings to numbers (and
+deciding how to handle blanks), not wrapping the line in a try/except.
+
+## Ask for tests
+
+Generated code should come with tests, and the tests should cover edge
+cases you care about. Be specific:
+
+```text
+Write pytest tests for validate_pan covering: a valid PAN, lowercase input,
+surrounding spaces, wrong length, digits in the wrong position, an empty
+string, and None. Use obviously fake values like ABCDE1234F.
+```
+
+```python
+import pytest
+from app.validators import validate_pan
+
+@pytest.mark.parametrize("raw, expected", [
+    ("ABCDE1234F", "ABCDE1234F"),
+    ("  abcde1234f ", "ABCDE1234F"),
+])
+def test_valid(raw, expected):
+    assert validate_pan(raw) == expected
+
+@pytest.mark.parametrize("raw", ["ABCD1234F", "ABCDE12345", "12345ABCDE", ""])
+def test_invalid(raw):
+    with pytest.raises(ValueError):
+        validate_pan(raw)
+```
+
+Run the tests yourself. A test written by the same model can share the same
+misunderstanding as the code, so read the test cases too.
+
+## Review generated code like a pull request
+
+You are responsible for every line you merge. Check in particular:
+
+- **Correctness** — off-by-one errors, time zones, rounding of rupee
+  amounts, empty inputs.
+- **Security** — SQL built with string formatting instead of parameters,
+  secrets hard-coded in source, missing authorisation checks, sensitive data
+  written to logs.
+- **Invented APIs** — functions or options that do not exist in your library
+  version. Confirm against the official documentation.
+- **Licences and dependencies** — new packages the model added without being
+  asked.
+
+```js
+// Generated -- unsafe: user input concatenated into SQL
+db.query(`SELECT * FROM policies WHERE holder = '${name}'`);
+
+// Fixed -- parameterised query
+db.query("SELECT * FROM policies WHERE holder = $1", [name]);
+```
+
+## Agentic coding tools, briefly
+
+Tools such as Claude Code can read your repository, run commands and tests,
+and edit several files in a loop. The same principles apply, with higher
+stakes: give clear goals and constraints, ask for a plan first, keep changes
+small, review diffs before committing, and follow your organisation's rules
+on what such tools may access.
+
+### Try it yourself
+
+Pick a small bug or feature from your current work. Write a prompt that
+includes versions, the relevant existing code, constraints and the full
+error (if any), and ask for a plan first. After approving it, request the
+code plus tests for at least four edge cases, run them, and review the
+result against the security checklist above.

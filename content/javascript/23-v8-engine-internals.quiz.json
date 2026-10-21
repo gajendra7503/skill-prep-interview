@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What happens when TurboFan-optimised code hits a value that breaks one of its speculative assumptions?",
+      "options": [
+        "The program throws a TypeError",
+        "V8 deoptimises: it discards the optimised code and continues in a lower tier",
+        "V8 silently converts the value to match the assumption",
+        "The function is permanently blocked from running"
+      ],
+      "correctIndex": 1,
+      "explanation": "Optimised code is guarded by checks; when a guard fails V8 bails out (deoptimises) to a lower tier, which you can observe with --trace-deopt."
+    },
+    {
+      "question": "Why do `{ x: 1, y: 2 }` and `{ y: 1, x: 2 }` end up with different hidden classes?",
+      "options": [
+        "Because their values are different",
+        "Because object literals never share hidden classes",
+        "Because hidden classes are built by property-addition order, so different orders follow different transition chains",
+        "Because y is alphabetically after x"
+      ],
+      "correctIndex": 2,
+      "explanation": "A hidden class (Map) records which properties were added and in what order; adding x then y and y then x produce different Maps."
+    },
+    {
+      "question": "A property access site has seen objects of 12 different shapes. What is its inline cache state?",
+      "options": [
+        "Monomorphic",
+        "Polymorphic",
+        "Optimised",
+        "Megamorphic"
+      ],
+      "correctIndex": 3,
+      "explanation": "One shape is monomorphic, a few (up to about 4 in V8) is polymorphic, and beyond that the site goes megamorphic and uses a slower generic lookup."
+    },
+    {
+      "question": "Which habit best helps V8 keep objects on fast paths?",
+      "options": [
+        "Initialise all properties in the constructor in a consistent order instead of adding or deleting them later",
+        "Use delete to remove properties you no longer need",
+        "Store numbers and strings in the same array to save memory",
+        "Create arrays with new Array(n) and fill them sparsely"
+      ],
+      "correctIndex": 0,
+      "explanation": "Consistent construction keeps objects on one shared hidden class; delete can push objects into dictionary mode, and mixed or holey arrays move to slower elements kinds."
+    }
+  ]
+}

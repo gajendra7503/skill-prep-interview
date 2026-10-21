@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is \"You are an expert customer support agent\" considered a weak role?",
+      "options": [
+        "Models ignore roles entirely, so any role is wasted text",
+        "It gives no information about the company, audience, channel, goal, or limits of authority",
+        "Roles must always be written in the user message, not the system prompt",
+        "The word \"expert\" causes models to refuse simple questions"
+      ],
+      "correctIndex": 1,
+      "explanation": "A useful role describes the situation: organisation, audience, emotional context, goal, and what the assistant may not do. A bare job title leaves all of that to guesswork."
+    },
+    {
+      "question": "Which item most clearly belongs in the user message rather than the system prompt?",
+      "options": [
+        "The rule that the assistant cannot promise claim amounts",
+        "The default tone and target audience",
+        "The specific customer email being answered in this turn",
+        "The escalation process for questions the policy does not cover"
+      ],
+      "correctIndex": 2,
+      "explanation": "Persistent context (identity, tone, limits, escalation) goes in the system prompt; the specific document or request for this turn goes in the user message."
+    },
+    {
+      "question": "A prompt says \"NEVER USE ALL CAPS IN REPLIES!!!\". What is the recommended rewrite for modern models?",
+      "options": [
+        "Repeat the rule three times so it is not missed",
+        "Delete it, because models never use capitals",
+        "Add \"or you will be penalised\" to increase compliance",
+        "\"Avoid all-caps and exclamation marks, because customers read them as shouting.\""
+      ],
+      "correctIndex": 3,
+      "explanation": "Modern models follow instructions literally and generalise from reasons, so a calm instruction with an explanation works better than shouting."
+    },
+    {
+      "question": "Which practice helps keep a production system prompt maintainable?",
+      "options": [
+        "Organise it into sections such as role, audience, rules, and output format, and keep it in version control",
+        "Store API keys in it so the model can call other services",
+        "Add a new special-case rule every time a single output looks wrong",
+        "Keep contradictory rules so the model can choose the best one"
+      ],
+      "correctIndex": 0,
+      "explanation": "Clear sections, version control, and re-testing on change keep prompts maintainable. Secrets should never be placed in prompts, and piles of special cases or contradictions degrade behaviour."
+    }
+  ]
+}

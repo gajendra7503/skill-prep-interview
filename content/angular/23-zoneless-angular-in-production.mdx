@@ -1,0 +1,162 @@
+---
+title: "Zoneless Angular in Production"
+description: "Removing Zone.js: what actually schedules change detection without it, how to migrate a large app safely, and the testing and SSR details that bite."
+module: "Pro Level"
+level: "pro"
+order: 24
+---
+
+Earlier you saw that Zone.js monkey-patches every async browser API so
+Angular knows "something might have changed". Recent Angular versions
+offer a stable **zoneless** mode, and new CLI projects default to it. For a
+greenfield app that is a checkbox; for a five-year-old enterprise app it is
+a migration with real failure modes. This lesson is about the second case.
+
+## Why teams go zoneless
+
+- **No monkey-patching.** `setTimeout`, `Promise`, `addEventListener` and
+  `fetch` behave exactly as the platform defines them.
+- **Smaller, faster startup.** Zone.js no longer has to load before your
+  app, and Angular stops running change detection after every unrelated
+  timer or third-party script callback.
+- **Native `async`/`await`.** Zone.js cannot intercept native `async`
+  functions, so the CLI has to downlevel them when Zone.js is present.
+  Without it, your code ships as written.
+- **Readable stack traces.** No `Zone.run` frames wrapped around every
+  callback.
+
+The trade-off: Angular no longer *guesses* when to re-render. Something
+must explicitly tell it.
+
+## What schedules change detection without Zone.js
+
+```ts
+// app.config.ts
+import { ApplicationConfig, provideZonelessChangeDetection } from "@angular/core";
+
+export const appConfig: ApplicationConfig = {
+  providers: [provideZonelessChangeDetection()],
+};
+```
+
+In zoneless mode, Angular schedules a render when one of these happens:
+
+1. A **signal read in a template** changes.
+2. `ChangeDetectorRef.markForCheck()` is called — which the `async` pipe
+   does for you on every emission.
+3. An **event listener bound in a template or host binding** fires, such
+   as `(click)`.
+4. An input is set via a template binding or `ComponentRef.setInput()`.
+5. A view that was marked dirty by one of the above is attached.
+
+Anything outside that list — a plain property assigned inside
+`setTimeout`, a WebSocket callback, a third-party chart library's event —
+updates your class but **not the screen**.
+
+## The classic breakage
+
+```ts
+@Component({
+  selector: "app-fx-rate",
+  template: `<p>USD to INR: ₹{{ rate }}</p>`,
+})
+export class FxRate {
+  rate = 0;
+
+  constructor() {
+    // Works with Zone.js, silently stale without it
+    setInterval(() => (this.rate = fetchLatestRate()), 5000);
+  }
+}
+```
+
+The fix is to make the state reactive rather than sprinkling
+`markForCheck()` calls:
+
+```ts
+@Component({
+  selector: "app-fx-rate",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `<p>USD to INR: ₹{{ rate() }}</p>`,
+})
+export class FxRate {
+  rate = signal(0);
+
+  constructor() {
+    const id = setInterval(() => this.rate.set(fetchLatestRate()), 5000);
+    inject(DestroyRef).onDestroy(() => clearInterval(id));
+  }
+}
+```
+
+A useful rule: **if a component already works correctly with `OnPush`, it
+almost certainly works zoneless.** `OnPush` forces you to use exactly the
+notification paths zoneless relies on.
+
+## A migration plan for a large app
+
+1. **Make `OnPush` the default** for new components, then convert
+   existing ones leaf-first, fixing anything that stops updating.
+2. **Hunt for zone-dependent APIs.** Search for `NgZone.onStable`,
+   `onMicrotaskEmpty` and `isStable` — these never emit when Zone.js is
+   absent. `NgZone.run` and `runOutsideAngular` become harmless no-ops and
+   can be removed later.
+3. **Audit third-party libraries** that mutate component state from their
+   own callbacks (maps, charts, drag libraries). Wrap their outputs in
+   signals.
+4. **Switch the provider**, then remove `zone.js` from the `polyfills`
+   array in `angular.json` and uninstall the package.
+5. **Ship behind real-user monitoring.** Stale UI does not throw errors;
+   watch support tickets and session replays for "it didn't update".
+
+## Testing zoneless components
+
+`fakeAsync` and `tick` are built on Zone.js, so zoneless test suites lean
+on real async and `whenStable()`:
+
+```ts
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [provideZonelessChangeDetection()],
+  });
+});
+
+it("shows the updated rate", async () => {
+  const fixture = TestBed.createComponent(FxRate);
+  fixture.componentInstance.rate.set(83.5);
+  await fixture.whenStable();
+  expect(fixture.nativeElement.textContent).toContain("₹83.5");
+  // passes: the signal change scheduled a render
+});
+```
+
+Running your existing suite with the zoneless provider is itself a
+migration tool: tests that start failing point straight at components
+that rely on Zone.js.
+
+## SSR: telling the server when you are done
+
+With Zone.js, the server waited until no macrotasks were pending before
+serialising HTML. Zoneless SSR has no such signal, so async work that must
+finish before rendering should be registered with `PendingTasks`:
+
+```ts
+const pending = inject(PendingTasks);
+const done = pending.add();
+try {
+  this.report.set(await loadQuarterlyReport());
+} finally {
+  done(); // server may now serialise the page
+}
+```
+
+`HttpClient` and the router already register their own pending tasks, so
+you only need this for custom async sources.
+
+### Try it yourself
+
+Take any component in an existing project that updates a plain property
+from `setTimeout` or a third-party callback. Add
+`provideZonelessChangeDetection()` to a test for it and watch it fail,
+then convert the state to a signal and make the test pass again with
+`await fixture.whenStable()`.

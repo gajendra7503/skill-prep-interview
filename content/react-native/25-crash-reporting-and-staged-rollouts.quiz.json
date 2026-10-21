@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A crash report from a release build shows only `index.android.bundle:1:284731`. What is missing?",
+      "options": [
+        "The uploaded source maps for that exact build (for Hermes, the composed Metro + bytecode map)",
+        "A React error boundary",
+        "The App Store phased release setting",
+        "A feature flag"
+      ],
+      "correctIndex": 0,
+      "explanation": "Minified/bytecode bundles need matching source maps to symbolicate JS frames back to original files and lines."
+    },
+    {
+      "question": "Which errors does a React error boundary NOT catch?",
+      "options": [
+        "Errors thrown while rendering a child component",
+        "Errors in lifecycle methods of children",
+        "Errors thrown in a child component's constructor",
+        "Errors in event handlers, timers and async code"
+      ],
+      "correctIndex": 3,
+      "explanation": "Boundaries catch render-phase errors. Errors from handlers, timers and promises go to the global handler, which crash reporters hook."
+    },
+    {
+      "question": "Why should every OTA update have its own source maps uploaded?",
+      "options": [
+        "Because OTA updates change native code",
+        "Because the stores require it for review",
+        "Because each OTA update is a new JS bundle, so stack traces from it only map correctly with that update's source maps",
+        "Because Hermes is disabled for OTA updates"
+      ],
+      "correctIndex": 2,
+      "explanation": "A new bundle means new minified positions. Source maps must be keyed to the specific update ID to symbolicate its crashes."
+    },
+    {
+      "question": "A new UPI payment flow crashes on one manufacturer's phones after release. What gives the fastest mitigation?",
+      "options": [
+        "Submitting a new native build and waiting for review",
+        "Turning the feature off via a remote feature flag / kill switch for the affected devices",
+        "Asking users to reinstall the app",
+        "Increasing the staged rollout to 100%"
+      ],
+      "correctIndex": 1,
+      "explanation": "Remote flags take effect in minutes without a build or store review, which is why risky features ship behind them."
+    }
+  ]
+}

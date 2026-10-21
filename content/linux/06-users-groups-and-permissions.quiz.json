@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What permissions does `chmod 640 app.conf` set?",
+      "options": [
+        "rw-r----- : owner read/write, group read, others nothing",
+        "rwxr----- : owner full access, group read",
+        "rw-rw-r-- : owner and group read/write, others read",
+        "r--rw---- : owner read, group read/write"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each digit is r=4 + w=2 + x=1 for owner, group and others: 6 = rw-, 4 = r--, 0 = ---."
+    },
+    {
+      "question": "The web server (running as www-data) cannot write to /var/www/shop/uploads. What is the appropriate fix?",
+      "options": [
+        "sudo chmod -R 777 /var/www/shop",
+        "Run the web server as root",
+        "sudo chown -R www-data:www-data /var/www/shop/uploads",
+        "chmod u+x /var/www/shop/uploads"
+      ],
+      "correctIndex": 2,
+      "explanation": "Give ownership to the user that needs access. chmod 777 lets every user and process modify the files, and running services as root is far riskier."
+    },
+    {
+      "question": "You ran `sudo usermod -G docker ravi` (without -a). What is the likely problem?",
+      "options": [
+        "Nothing; -a is only needed on Fedora",
+        "The command deletes the user ravi",
+        "Ravi becomes root",
+        "Ravi's supplementary groups are replaced by docker alone, removing others such as sudo"
+      ],
+      "correctIndex": 3,
+      "explanation": "-G sets the full list of supplementary groups. -a (append) is what adds a group while keeping the existing ones."
+    },
+    {
+      "question": "A directory has permissions drwx--x--x. What can other users do with it?",
+      "options": [
+        "List the file names inside but not enter it",
+        "Enter it and access files whose names they already know, but not list its contents",
+        "Create and delete files inside it",
+        "Nothing at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "On a directory, x allows traversal (cd and accessing entries by name), while r is needed to list names and w to create or delete entries."
+    }
+  ]
+}

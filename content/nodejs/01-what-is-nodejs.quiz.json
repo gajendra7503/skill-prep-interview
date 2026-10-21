@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which component of Node.js provides the event loop and asynchronous I/O?",
+      "options": [
+        "V8",
+        "npm",
+        "libuv",
+        "The REPL"
+      ],
+      "correctIndex": 2,
+      "explanation": "V8 executes JavaScript; libuv is the C library that implements the event loop, non-blocking I/O and the thread pool."
+    },
+    {
+      "question": "Node is often called single-threaded. Which statement is most accurate?",
+      "options": [
+        "Your JavaScript runs on one main thread, but libuv uses a thread pool (default 4 threads) for work like file system calls and some crypto",
+        "Node runs every request on its own operating system thread",
+        "Node has no threads at all, including inside V8",
+        "Node can only handle one network connection at a time"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only one JavaScript callback runs at a time on the main thread, but fs, dns.lookup, pbkdf2/scrypt and zlib use the libuv thread pool, and V8 uses background threads too."
+    },
+    {
+      "question": "Which workload is Node.js least suited to running on its main thread?",
+      "options": [
+        "A JSON REST API that mostly waits on a database",
+        "A WebSocket chat server",
+        "A reverse proxy forwarding HTTP requests",
+        "A long-running image-processing calculation done in plain JavaScript"
+      ],
+      "correctIndex": 3,
+      "explanation": "CPU-bound work blocks the single main thread and stalls every other request; I/O-bound work is where Node shines. Heavy computation belongs in worker threads or separate processes."
+    },
+    {
+      "question": "Which Node release line is the usual recommendation for production?",
+      "options": [
+        "The newest odd-numbered Current release",
+        "An Active LTS release",
+        "Any release that has reached end-of-life, because it is stable",
+        "Whatever version happens to be installed globally"
+      ],
+      "correctIndex": 1,
+      "explanation": "Active LTS releases receive bug and security fixes for a long period; Current releases are for trying new features, and end-of-life releases get no security fixes."
+    }
+  ]
+}

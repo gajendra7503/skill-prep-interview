@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is `const o: Opts = { timeout: 1, retries: 3 }` an error when `Opts` is `{ timeout: number }`, while assigning a variable holding the same object is not?",
+      "options": [
+        "Variables are checked nominally",
+        "Excess property checks apply only to fresh object literals",
+        "Object literals are always readonly",
+        "The variable is widened to any"
+      ],
+      "correctIndex": 1,
+      "explanation": "Structural typing allows extra properties in general. Excess property checking is a special rule for fresh literals, where an extra key is probably a typo."
+    },
+    {
+      "question": "Under `strictFunctionTypes`, if Dog extends Animal, which assignment between function-typed properties is allowed?",
+      "options": [
+        "A `(d: Dog) => void` assigned to `(a: Animal) => void`",
+        "Neither direction",
+        "Both directions",
+        "A `(a: Animal) => void` assigned to `(d: Dog) => void`"
+      ],
+      "correctIndex": 3,
+      "explanation": "Parameters are contravariant: a handler for any Animal can safely handle a Dog, but not the reverse."
+    },
+    {
+      "question": "Which strict-mode program compiles but fails at runtime because of a deliberate soundness hole?",
+      "options": [
+        "`const dogs: Dog[] = [new Dog()]; const animals: Animal[] = dogs; animals.push(new Cat()); dogs[1].bark();`",
+        "`const x: number = \"1\";`",
+        "`const d: Dog = new Animal();`",
+        "`const h: (a: Animal) => void = (d: Dog) => d.bark();`"
+      ],
+      "correctIndex": 0,
+      "explanation": "Mutable arrays are treated as covariant, so a Cat can be pushed into what is really a Dog[]. The other options are compile errors."
+    },
+    {
+      "question": "Why does `Object.keys(obj)` return `string[]` instead of `(keyof typeof obj)[]`?",
+      "options": [
+        "Because keys can be numbers",
+        "Because of a bug that was never fixed",
+        "Because structural typing lets an object have more keys at runtime than its type lists",
+        "Because Object.keys is not typed in the standard lib"
+      ],
+      "correctIndex": 2,
+      "explanation": "A value typed as { x; y } may carry extra keys (width subtyping), so promising only keyof T would be unsound."
+    }
+  ]
+}

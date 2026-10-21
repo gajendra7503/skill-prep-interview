@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which type best describes the body of a PATCH endpoint that may update any field of `Loan` except `id`?",
+      "options": [
+        "Omit<Partial<Loan>, \"id\" | \"amountRupees\">",
+        "Partial<Omit<Loan, \"id\">>",
+        "Required<Pick<Loan, \"id\">>",
+        "Readonly<Loan>"
+      ],
+      "correctIndex": 1,
+      "explanation": "Omit removes id, and Partial makes every remaining property optional, so the client can send any subset of the editable fields."
+    },
+    {
+      "question": "Given `const p: Readonly<{ name: string; address: { city: string } }>`, which assignment compiles?",
+      "options": [
+        "p.address.city = \"Pune\"",
+        "p.name = \"Ravi\"",
+        "p.address = { city: \"Pune\" }",
+        "None of them"
+      ],
+      "correctIndex": 0,
+      "explanation": "Readonly is shallow: it marks only top-level properties readonly. The nested address object is still mutable, so p.address.city can be reassigned."
+    },
+    {
+      "question": "For `async function fetchLoan(): Promise<Loan>` (or one inferred to return a promise of Loan), which type gives you `Loan`?",
+      "options": [
+        "ReturnType<typeof fetchLoan>",
+        "Parameters<typeof fetchLoan>",
+        "InstanceType<typeof fetchLoan>",
+        "Awaited<ReturnType<typeof fetchLoan>>"
+      ],
+      "correctIndex": 3,
+      "explanation": "ReturnType gives Promise<Loan>; Awaited unwraps the promise to Loan. typeof is required because fetchLoan is a value, not a type."
+    },
+    {
+      "question": "What is the difference between `Omit` and `Exclude`?",
+      "options": [
+        "They are aliases for the same type",
+        "Omit works on union members; Exclude works on object keys",
+        "Omit removes keys from an object type; Exclude removes members from a union type",
+        "Exclude only works with string literals; Omit works with any type"
+      ],
+      "correctIndex": 2,
+      "explanation": "Omit<T, K> produces an object type without the keys K. Exclude<U, X> filters a union, keeping members not assignable to X, for example Exclude<Method, \"CASH\">."
+    }
+  ]
+}

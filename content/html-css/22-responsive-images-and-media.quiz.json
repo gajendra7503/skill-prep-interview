@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "An `<img>` has a `srcset` with w descriptors but no `sizes` attribute. What happens when it is shown as a 300px thumbnail?",
+      "options": [
+        "The browser measures the CSS width first and picks a small file",
+        "sizes defaults to 100vw, so the browser assumes a full-viewport-width slot and may download a much larger file than needed",
+        "The srcset is ignored and only src is used",
+        "The image fails to render"
+      ],
+      "correctIndex": 1,
+      "explanation": "The browser chooses a candidate before layout, using sizes. Without sizes it assumes 100vw, so thumbnails over-download."
+    },
+    {
+      "question": "Which is the correct treatment for the hero image that is the page's LCP element?",
+      "options": [
+        "loading=\"lazy\" so it does not block other resources",
+        "decoding=\"async\" and no width or height",
+        "Load it eagerly with fetchpriority=\"high\" and explicit width and height",
+        "Put it in a CSS background with no preload"
+      ],
+      "correctIndex": 2,
+      "explanation": "Lazy-loading the LCP image delays it until layout. fetchpriority=\"high\" moves it ahead of other images, and dimensions reserve its space."
+    },
+    {
+      "question": "How do the `width` and `height` attributes on an `<img>` prevent layout shift in a responsive layout that also uses `height: auto`?",
+      "options": [
+        "They fix the image at exactly those pixel dimensions on every screen",
+        "They make the image download faster",
+        "They are only used by search engines",
+        "The browser derives an aspect ratio from them before the file loads and reserves the right amount of space, while CSS still scales the image"
+      ],
+      "correctIndex": 3,
+      "explanation": "Modern browsers map width and height attributes to an internal aspect-ratio, so space is reserved up front without breaking responsive sizing."
+    },
+    {
+      "question": "In a `<picture>` element with several `<source>` children, which source does the browser use?",
+      "options": [
+        "The first source whose media and type both match",
+        "The smallest file among all sources",
+        "The last source listed",
+        "The source with the highest resolution"
+      ],
+      "correctIndex": 0,
+      "explanation": "Sources are evaluated in order and the first match wins, so list preferred formats (AVIF before WebP) and specific media conditions first."
+    }
+  ]
+}

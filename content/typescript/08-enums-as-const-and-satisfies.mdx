@@ -1,0 +1,192 @@
+---
+title: "Enums, as const & satisfies"
+description: "Numeric and string enums, why many teams replace them with as const objects, and how satisfies checks a value without widening its type."
+module: "Core Type System"
+level: "intermediate"
+order: 8
+---
+
+Every codebase needs fixed sets of named values: order statuses, roles,
+payment methods. TypeScript offers `enum`, `as const` and `satisfies` for
+this, and interviewers like asking which you would pick and why.
+
+## Numeric enums
+
+Without initialisers, enum members are numbered from 0:
+
+```ts
+enum OrderStatus {
+  Pending,   // 0
+  Shipped,   // 1
+  Delivered, // 2
+}
+
+console.log(OrderStatus.Shipped); // 1
+console.log(OrderStatus[1]);      // "Shipped"  (reverse mapping)
+```
+
+Unlike most TypeScript syntax, an enum is **not erased**: the compiler
+emits a real JavaScript object, which for numeric enums maps both ways.
+Numbers make logs unreadable (`status: 1` tells you nothing), and
+inserting a member in the middle silently renumbers the rest — a nasty bug
+if those numbers are stored in a database.
+
+## String enums
+
+String enums fix both problems. Every member needs an explicit value:
+
+```ts
+enum Role { Admin = "ADMIN", Advisor = "ADVISOR", Customer = "CUSTOMER" }
+
+function canApproveLoan(role: Role): boolean {
+  return role === Role.Admin;
+}
+
+canApproveLoan(Role.Admin);   // OK
+canApproveLoan("ADMIN");      // Error: '"ADMIN"' is not assignable to parameter of type 'Role'
+```
+
+String enums have **no reverse mapping**, and they are effectively
+**nominal**: `Role.Admin` is `"ADMIN"` at runtime, yet a plain `"ADMIN"` is
+rejected. Sometimes that is what you want; it is awkward when values arrive
+as strings from JSON or a form.
+
+## The problems with enums
+
+| Concern | What happens |
+|---|---|
+| Type stripping | Node can run `.ts` files by stripping types, but only erasable syntax — an `enum` throws `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` |
+| `erasableSyntaxOnly` | Recent compiler versions offer this flag, which reports enums, namespaces and parameter properties as errors |
+| `const enum` | Inlined and erased by `tsc`, but single-file transpilers (esbuild, Babel, SWC) cannot inline values from other files — risky in libraries |
+
+None of this makes enums wrong — many Angular and NestJS codebases use
+them happily — but many teams now prefer a plain object with `as const`.
+
+## `as const`: literal, readonly values
+
+By default TypeScript **widens** literals in mutable positions:
+
+```ts
+const config = { currency: "INR", maxLoan: 5000000 };
+// type: { currency: string; maxLoan: number }
+
+const frozen = { currency: "INR", maxLoan: 5000000 } as const;
+// type: { readonly currency: "INR"; readonly maxLoan: 5000000 }
+
+frozen.currency = "USD"; // Error: Cannot assign to 'currency' because it is a read-only property
+```
+
+A **const assertion** infers the narrowest literal types and makes
+everything `readonly`, all the way down. Arrays become readonly tuples:
+
+```ts
+const METHODS = ["UPI", "CARD", "NETBANKING"] as const;
+// type: readonly ["UPI", "CARD", "NETBANKING"]
+
+type PaymentMethod = (typeof METHODS)[number];
+// "UPI" | "CARD" | "NETBANKING"
+
+METHODS.push("CASH"); // Error: Property 'push' does not exist on type 'readonly [...]'
+```
+
+`(typeof METHODS)[number]` reads "the type of any element of `METHODS`";
+the operators are covered in "keyof, typeof & Indexed Access Types".
+
+## The enum replacement pattern
+
+Combine an `as const` object with a derived union type of the same name:
+
+```ts
+const OrderStatus = { Pending: "PENDING", Shipped: "SHIPPED", Delivered: "DELIVERED" } as const;
+
+type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
+// "PENDING" | "SHIPPED" | "DELIVERED"
+
+function track(status: OrderStatus) {
+  console.log(`Order is ${status}`);
+}
+
+track(OrderStatus.Shipped); // OK — "Order is SHIPPED"
+track("DELIVERED");         // OK — plain literals work too
+track("LOST");              // Error: '"LOST"' is not assignable to parameter of type 'OrderStatus'
+```
+
+Call sites still read `OrderStatus.Shipped`, type stripping leaves the
+object alone, and plain strings are accepted. A value and a type may share
+a name because they live in separate namespaces.
+
+## `satisfies`: check without widening
+
+An annotation makes the variable **become** the annotated type, losing the
+more precise inferred information. `satisfies` checks that the value is
+**compatible** with a type but keeps the value's own inferred type:
+
+```ts
+type City = "Mumbai" | "Pune" | "Jaipur";
+
+const annotated: Record<City, number | string> = {
+  Mumbai: 400001, Pune: "411001", Jaipur: 302001,
+};
+annotated.Pune.toUpperCase();
+// Error: Property 'toUpperCase' does not exist on type 'string | number'
+
+const pincodes = {
+  Mumbai: 400001, Pune: "411001", Jaipur: 302001,
+} satisfies Record<City, number | string>;
+
+pincodes.Pune.toUpperCase();   // OK — Pune is known to be a string
+pincodes.Mumbai.toFixed(0);    // OK — Mumbai is known to be a number
+```
+
+You keep the safety checks: a missing city, a misspelt key such as `Pnue`,
+or a boolean value would all be reported as errors.
+
+Interviewers often ask: "What is the difference between `: Type`, `as`
+and `satisfies`?"
+
+| Syntax | Checks compatibility? | Resulting type |
+|---|---|---|
+| `const x: T = value` | Yes | `T` (widened) |
+| `const x = value as T` | Only that the types overlap — an assertion can lie | `T` |
+| `const x = value satisfies T` | Yes | The inferred type of `value` |
+
+## `as const satisfies`: the best of both
+
+Combined, you get literal, readonly types **and** a shape check:
+
+```ts
+type FeeRule = { percent: number; capRupees: number };
+
+const FEES = {
+  UPI: { percent: 0, capRupees: 0 },
+  CARD: { percent: 1.8, capRupees: 2500 },
+  NETBANKING: { percent: 0.9, capRupees: 1000 },
+} as const satisfies Record<string, FeeRule>;
+
+type Method = keyof typeof FEES; // "UPI" | "CARD" | "NETBANKING"
+const cap = FEES.CARD.capRupees; // type: 2500
+```
+
+Had you annotated `FEES` as `Record<string, FeeRule>`, `keyof typeof FEES`
+would be just `string` and the specific keys would be lost.
+
+## Which should you use?
+
+| Option | Use it when |
+|---|---|
+| String enum | The team already uses them, code is compiled by `tsc` or a bundler, and you want nominal strictness |
+| `as const` object plus union | New code — works with type stripping and accepts validated plain strings |
+| Plain union of literals | You never need the values at runtime — just the type |
+| `satisfies` | Validating a config object without throwing away its precise type |
+
+### Try it yourself
+
+1. Convert `enum Plan { Basic = "BASIC", Pro = "PRO", Enterprise = "ENTERPRISE" }`
+   into an `as const` object plus a `Plan` union type, and write a function
+   `priceOf(plan: Plan): number` that returns ₹499, ₹1,499 and ₹9,999.
+2. Declare a `ROUTES` object mapping page names to paths, ending with
+   `as const satisfies Record<string, string>`. Confirm that a number value
+   is rejected and that `ROUTES.home` keeps its literal type (for example
+   `"/home"`) instead of widening to `string`.
+3. Compile a numeric enum with `tsc`, inspect the emitted JavaScript, then
+   run the `.ts` file directly with `node` and read the error.

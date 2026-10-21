@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What two arguments does a standard (TC39) method decorator receive?",
+      "options": [
+        "target, propertyKey and a property descriptor",
+        "The original method and a context object (kind, name, addInitializer, metadata and more)",
+        "The class constructor and the method name",
+        "Only the instance `this`"
+      ],
+      "correctIndex": 1,
+      "explanation": "Standard decorators use `(value, context)`. The `(target, key, descriptor)` signature belongs to legacy experimentalDecorators."
+    },
+    {
+      "question": "Your NestJS project uses parameter decorators like `@Body()` and relies on `emitDecoratorMetadata`. Which setting must stay on?",
+      "options": [
+        "`isolatedModules`",
+        "`erasableSyntaxOnly`",
+        "`useDefineForClassFields`",
+        "`experimentalDecorators`"
+      ],
+      "correctIndex": 3,
+      "explanation": "Parameter decorators and emitDecoratorMetadata exist only in the legacy experimental decorator system, which Angular and NestJS depend on."
+    },
+    {
+      "question": "What happens if you run a file with standard decorators directly via `node file.ts` on Node 24?",
+      "options": [
+        "It fails with a SyntaxError, because decorators are runtime syntax that type stripping cannot remove and the engine does not support yet",
+        "Node strips the decorators and runs the class without them",
+        "It runs normally, since Node 24 supports decorators natively",
+        "Node prints a warning and compiles them with tsc automatically"
+      ],
+      "correctIndex": 0,
+      "explanation": "Decorators are not erasable type syntax. Compile with tsc or a decorator-aware bundler first."
+    },
+    {
+      "question": "What can a standard field decorator return?",
+      "options": [
+        "A replacement property descriptor",
+        "A new class",
+        "A function that receives the field's initial value and returns the value to use",
+        "Nothing; field decorators cannot affect the field"
+      ],
+      "correctIndex": 2,
+      "explanation": "A field decorator receives `undefined` as its value and may return an initializer-transforming function, as in the `@clamp(0, 50)` example."
+    }
+  ]
+}

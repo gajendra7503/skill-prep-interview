@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the recommended way to get the RootState type in a Redux Toolkit app with a single store?",
+      "options": [
+        "Write an interface by hand listing every slice's state",
+        "Import the RootState type exported by @reduxjs/toolkit",
+        "Infer it with ReturnType<AppStore[\"getState\"]> where AppStore = typeof store",
+        "Use the any type, because Redux state cannot be typed"
+      ],
+      "correctIndex": 2,
+      "explanation": "Inferring RootState from the store keeps it in sync automatically: adding a slice to the reducer map updates the type with no manual edits."
+    },
+    {
+      "question": "Why should components use a typed AppDispatch instead of the plain Dispatch type?",
+      "options": [
+        "AppDispatch includes the middleware's dispatch extensions, so dispatching a thunk type-checks",
+        "Plain Dispatch is deprecated in Redux 5 and throws at runtime",
+        "AppDispatch makes dispatch synchronous",
+        "Plain Dispatch cannot dispatch actions created by createSlice"
+      ],
+      "correctIndex": 0,
+      "explanation": "configureStore adds the thunk middleware, so the store's dispatch accepts thunk functions. The plain Dispatch type only accepts action objects, so dispatching a thunk fails to compile."
+    },
+    {
+      "question": "Which line creates a pre-typed selector hook in React-Redux 9?",
+      "options": [
+        "export const useAppSelector = createSelectorHook<RootState>()",
+        "export const useAppSelector = useSelector<RootState>",
+        "export const useAppSelector = useSelector(RootState)",
+        "export const useAppSelector = useSelector.withTypes<RootState>()"
+      ],
+      "correctIndex": 3,
+      "explanation": "React-Redux 9 adds .withTypes() to useSelector, useDispatch and useStore. It returns a hook whose state parameter is already typed."
+    },
+    {
+      "question": "A slice file imports RootState from store.ts, and store.ts imports the slice. Why is this not a problem?",
+      "options": [
+        "Redux Toolkit resolves circular imports at runtime",
+        "The slice uses `import type`, which is erased at compile time, so there is no runtime cycle",
+        "TypeScript forbids circular imports, so this code never compiles",
+        "Bundlers automatically duplicate the store module"
+      ],
+      "correctIndex": 1,
+      "explanation": "A type-only import exists only for the type checker and disappears from the emitted JavaScript, so the runtime module graph has no cycle."
+    }
+  ]
+}

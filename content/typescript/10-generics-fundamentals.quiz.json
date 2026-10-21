@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Given `function first<T>(items: T[]): T | undefined`, what is the type of `first([\"UPI\", \"CARD\"])`?",
+      "options": [
+        "any",
+        "string | undefined",
+        "T | undefined",
+        "\"UPI\" | \"CARD\""
+      ],
+      "correctIndex": 1,
+      "explanation": "TypeScript infers T from the argument. The array literal is inferred as string[], so T is string and the return type is string | undefined."
+    },
+    {
+      "question": "`function emptyList<T>(): T[] { return []; }` is called as `emptyList()` with no type argument. What is the result type?",
+      "options": [
+        "any[]",
+        "never[]",
+        "T[]",
+        "unknown[]"
+      ],
+      "correctIndex": 3,
+      "explanation": "Nothing at the call site mentions T, so inference has no candidates and falls back to unknown, giving unknown[]. Pass a type argument such as emptyList<string>() instead."
+    },
+    {
+      "question": "What is the main problem with `async function fetchJson<T>(url: string): Promise<T> { return (await (await fetch(url)).json()) as T; }`?",
+      "options": [
+        "The cast to T is only an assertion; nothing checks that the response actually matches T",
+        "Async functions cannot be generic",
+        "Promise<T> is not a valid return type",
+        "T must be constrained to object"
+      ],
+      "correctIndex": 0,
+      "explanation": "Generics describe types but do not validate data. The server could return any shape and the code would still claim it is T; runtime validation is needed at such boundaries."
+    },
+    {
+      "question": "According to the 'appear at least twice' rule, which signature uses a type parameter pointlessly?",
+      "options": [
+        "function first<T>(items: T[]): T | undefined",
+        "function mapArray<T, U>(items: T[], fn: (item: T) => U): U[]",
+        "function logValue<T>(value: T): void",
+        "function pair<K, V>(key: K, value: V): [K, V]"
+      ],
+      "correctIndex": 2,
+      "explanation": "In logValue, T appears only once, so it relates nothing to anything. A plain parameter of type unknown expresses the same thing more simply."
+    }
+  ]
+}

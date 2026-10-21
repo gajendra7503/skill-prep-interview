@@ -1,0 +1,147 @@
+---
+title: "Dataclasses, Properties & Protocols"
+description: "Managed attributes with @property, boilerplate-free classes with dataclasses, and ABCs vs typing.Protocol for interfaces."
+module: "Object-Oriented Python"
+level: "intermediate"
+order: 11
+---
+
+Modern Python code rarely hand-writes `__init__`, `__repr__` and `__eq__`
+for simple data holders, and rarely uses getter and setter methods. This
+lesson covers the three tools that replace that boilerplate — and the
+interview favourite: nominal vs structural typing.
+
+## `@property`: computed and validated attributes
+
+A property lets you start with a plain public attribute and later add logic
+without changing the calling code. Callers still write `obj.attr`.
+
+```python
+class Product:
+    def __init__(self, name, price):
+        self.name = name
+        self.price = price          # goes through the setter below
+
+    @property
+    def price(self):
+        return self._price
+
+    @price.setter
+    def price(self, value):
+        if value < 0:
+            raise ValueError("price cannot be negative")
+        self._price = value
+
+    @property
+    def price_with_gst(self):       # read-only, computed on access
+        return round(self._price * 1.18, 2)
+
+p = Product("Course", 1000)
+print(p.price_with_gst)             # 1180.0
+p.price = -5                        # ValueError: price cannot be negative
+p.price_with_gst = 1                # AttributeError: no setter
+```
+
+This is why Python does not need Java-style `get_price()` methods: you can
+always upgrade an attribute to a property later.
+
+## Dataclasses
+
+`@dataclass` generates `__init__`, `__repr__` and `__eq__` from annotated
+class fields.
+
+```python
+from dataclasses import dataclass, field
+
+@dataclass
+class Order:
+    order_id: int
+    customer: str
+    items: list[str] = field(default_factory=list)
+    discount: float = 0.0
+
+o = Order(1, "Neha")
+o.items.append("Python course")
+print(o)   # Order(order_id=1, customer='Neha', items=['Python course'], discount=0.0)
+print(o == Order(1, "Neha", ["Python course"]))   # True
+```
+
+Writing `items: list[str] = []` raises `ValueError` at class creation —
+dataclasses refuse mutable defaults precisely to prevent the shared-list
+bug. `field(default_factory=list)` creates a fresh list per instance. Fields
+without defaults must come before fields with defaults.
+
+### Frozen dataclasses
+
+```python
+@dataclass(frozen=True)
+class Point:
+    x: float
+    y: float
+
+pt = Point(1, 2)
+pt.x = 5                    # dataclasses.FrozenInstanceError
+print({pt, Point(1, 2)})    # {Point(x=1, y=2)}  - hashable
+```
+
+With `frozen=True` (and the default `eq=True`), the dataclass also gets a
+generated `__hash__`, so instances can be dict keys. A plain dataclass sets
+`__hash__` to `None`. Other useful options include `slots=True`, `order=True`
+and `kw_only=True`, plus a `__post_init__` hook for validation.
+
+## ABCs: nominal interfaces
+
+An abstract base class from `abc` declares methods subclasses must
+implement. You cannot instantiate a class while any abstract method remains.
+
+```python
+from abc import ABC, abstractmethod
+
+class PaymentGateway(ABC):
+    @abstractmethod
+    def charge(self, amount: int) -> bool: ...
+
+class UpiGateway(PaymentGateway):
+    pass
+
+UpiGateway()   # TypeError: Can't instantiate abstract class UpiGateway ...
+```
+
+Implementations must explicitly inherit from the ABC — this is *nominal*
+typing.
+
+## `typing.Protocol`: structural duck typing
+
+A `Protocol` describes a shape. Any class with matching methods satisfies
+it, with no inheritance, which is how Python's duck typing is expressed to
+static type checkers such as mypy and pyright.
+
+```python
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class SupportsClose(Protocol):
+    def close(self) -> None: ...
+
+class FileLike:                      # does NOT inherit SupportsClose
+    def close(self) -> None:
+        print("closed")
+
+def shutdown(resource: SupportsClose) -> None:
+    resource.close()
+
+shutdown(FileLike())                          # closed - type checks fine
+print(isinstance(FileLike(), SupportsClose))  # True (needs @runtime_checkable)
+```
+
+Rule of thumb: use an ABC when you own the hierarchy and want shared code
+or enforcement at instantiation; use a Protocol to type third-party or
+unrelated classes by what they can do. Note that the runtime check only
+verifies method names exist, not their signatures.
+
+### Try it yourself
+
+Model a `BankAccount` dataclass with a validated `balance` property, a
+frozen `Transaction` dataclass used as a set member, and a `Notifier`
+Protocol satisfied by two unrelated classes, `EmailNotifier` and
+`SmsNotifier`.

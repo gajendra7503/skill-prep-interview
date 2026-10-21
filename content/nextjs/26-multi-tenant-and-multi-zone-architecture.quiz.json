@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In a multi-tenant app, why does proxy.ts use NextResponse.rewrite rather than a redirect to map sharma-wealth.example.in/funds/42 to /sharma-wealth/funds/42?",
+      "options": [
+        "Redirects are not allowed in proxy.ts",
+        "A rewrite serves the internal route while the browser keeps showing the tenant's own URL",
+        "A rewrite skips the [tenant] layout and is therefore faster",
+        "Rewrites automatically cache the tenant lookup"
+      ],
+      "correctIndex": 1,
+      "explanation": "The rewrite turns the Host header into a route segment internally; the visitor still sees their tenant's domain and path."
+    },
+    {
+      "question": "Which practice best prevents Tenant A from seeing Tenant B's cached fund list?",
+      "options": [
+        "Disable caching for all tenants",
+        "Use a single shared tag such as \"funds\" for all revalidations",
+        "Resolve the tenant in proxy.ts with a database call on every request",
+        "Pass the tenant ID as an argument to every cached function so it becomes part of the cache key"
+      ],
+      "correctIndex": 3,
+      "explanation": "Cache keys must include the tenant. Tenant-scoped tags like funds:sharma-wealth also stop one tenant's update from purging everyone's cache."
+    },
+    {
+      "question": "Why should links from the home zone to the blog zone use a plain a tag instead of Link?",
+      "options": [
+        "Link prefetches and soft-navigates only within its own app, which does not work across zones",
+        "Link does not support absolute paths",
+        "Plain a tags enable Server Actions across zones",
+        "Link breaks assetPrefix"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each zone is a separate Next.js app, so crossing zones is a hard navigation. Pages visited together should live in the same zone."
+    },
+    {
+      "question": "What does setting assetPrefix: \"/blog-static\" in the blog zone achieve?",
+      "options": [
+        "It makes the blog zone the default zone",
+        "It encrypts the blog zone's Server Actions",
+        "It serves the zone's JS and CSS under /blog-static/_next/... so they do not collide with other zones' assets",
+        "It moves all blog pages under the /blog-static path"
+      ],
+      "correctIndex": 2,
+      "explanation": "Every zone has its own /_next files; the prefix keeps them apart, and the default zone rewrites /blog-static/* to the blog zone."
+    }
+  ]
+}

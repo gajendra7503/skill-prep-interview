@@ -1,0 +1,179 @@
+---
+title: "Side Effects with the Listener Middleware"
+description: "Use createListenerMiddleware to run reactive side effects — debouncing, multi-step workflows, waiting for conditions — without sagas or observables."
+module: "Advanced Redux"
+level: "advanced"
+order: 17
+---
+
+Thunks answer "do this async work **now**". Many features instead need
+"**whenever** X happens, do Y": save the draft when it changes, run a search
+after the user stops typing, start onboarding after the first login. Redux
+Saga and Redux-Observable used to own this space. RTK's
+`createListenerMiddleware` covers most of the same use cases with plain
+`async`/`await` and a far smaller API.
+
+## Setup and typed helpers
+
+Create the middleware in its own file so features can register listeners
+without importing the store (which would create import cycles):
+
+```ts
+// app/listenerMiddleware.ts
+import { createListenerMiddleware, addListener } from '@reduxjs/toolkit'
+import type { AppState, AppDispatch } from './store'
+
+export const listenerMiddleware = createListenerMiddleware()
+export const startAppListening = listenerMiddleware.startListening.withTypes<AppState, AppDispatch>()
+export const addAppListener = addListener.withTypes<AppState, AppDispatch>()
+```
+
+```ts
+// app/store.ts
+middleware: getDefaultMiddleware => getDefaultMiddleware().prepend(listenerMiddleware.middleware)
+```
+
+Prepend it: `addListener` actions carry functions, and the listener
+middleware must intercept them before the serializability check sees them.
+
+## Choosing what to listen for
+
+Each listener has exactly one trigger:
+
+| Option | Fires when | Example |
+|---|---|---|
+| `actionCreator` | that specific action is dispatched | `actionCreator: queryChanged` |
+| `type` | an action with that type string | `type: 'search/queryChanged'` |
+| `matcher` | a matcher returns true | `matcher: isAnyOf(loggedIn, loggedOut)` |
+| `predicate` | `(action, currentState, previousState)` returns true | react to a state change, whatever caused it |
+
+Effects run **after** the reducers have processed the action, so
+`api.getState()` is already the new state. `api.getOriginalState()` gives
+the state from just before this action.
+
+## Pattern 1: debounce a search
+
+`cancelActiveListeners()` cancels earlier, still-running instances of the
+same listener. Combined with `delay`, that is a debounce:
+
+```js
+startAppListening({
+  actionCreator: queryChanged,
+  effect: async (action, api) => {
+    api.cancelActiveListeners() // earlier runs throw at their next await
+    await api.delay(300)
+    console.log('searching for', JSON.stringify(action.payload))
+    const results = await searchFunds(action.payload, { signal: api.signal })
+    api.dispatch(resultsReceived(results))
+  },
+})
+
+for (const q of ['l', 'li', 'liq']) store.dispatch(queryChanged(q))
+// searching for "liq"        <- only one search ran
+```
+
+`api.signal` is an `AbortSignal` that fires when this run is cancelled, so
+passing it to `fetch` aborts the stale HTTP request too.
+
+## Pattern 2: react to a state change
+
+A `predicate` sees both states, so it can fire on a transition no matter
+which action caused it:
+
+```js
+startAppListening({
+  predicate: (action, cur, prev) => cur.search.results.length > 0 && prev.search.results.length === 0,
+  effect: () => console.log('first results arrived'),
+})
+// first results arrived
+```
+
+## Pattern 3: multi-step workflows with take and condition
+
+Listeners can pause mid-effect. `take(matcher)` waits for the next matching
+action and resolves with `[action, currentState, previousState]`;
+`condition(predicate, timeoutMs)` resolves `true` once the predicate passes,
+or `false` on timeout.
+
+```js
+startAppListening({
+  actionCreator: loggedIn,
+  effect: async (action, api) => {
+    api.unsubscribe() // run this workflow only for the first login
+    console.log('welcome flow for', action.payload)
+    const [next] = await api.take(loggedOut.match)
+    console.log('welcome flow ended by', next.type)
+  },
+})
+// welcome flow for asha
+// welcome flow ended by auth/loggedOut
+```
+
+```js
+startAppListening({
+  actionCreator: sipSetupStarted,
+  effect: async (_action, api) => {
+    const ok = await api.condition((_a, state) => state.kyc.verified, 100)
+    console.log(ok ? 'KYC done, enabling SIP' : 'timed out waiting for KYC')
+  },
+})
+// (KYC never verified)        timed out waiting for KYC
+// (verified after 20ms)       KYC done, enabling SIP
+```
+
+`api.fork(fn)` starts a child task you can await (`await task.result` gives
+`{ status: 'ok', value }`) or cancel; child tasks are cancelled with the
+parent.
+
+## Adding listeners from components
+
+Components can register a listener at runtime by **dispatching**
+`addListener`; the dispatch returns an unsubscribe function, which fits
+`useEffect` cleanup perfectly:
+
+```tsx
+useEffect(() => {
+  const unsubscribe = dispatch(
+    addAppListener({
+      actionCreator: orderFilled,
+      effect: action => toast(`Order ${action.payload.id} filled`),
+    }),
+  )
+  return unsubscribe
+}, [dispatch])
+```
+
+## Gotchas
+
+- **Errors in effects do not crash the app** — they are caught and logged.
+  Pass `createListenerMiddleware({ onError })` to send them to your monitoring
+  tool.
+- **Cancellation is cooperative.** It only takes effect at the next
+  `api.delay`, `api.pause`, `take`/`condition`, or when you check
+  `api.signal`; plain `await somePromise` keeps running unless you wrap it in
+  `api.pause(somePromise)`.
+- **Do not replace reducers with listeners.** If the effect only computes new
+  state from the action, it belongs in a reducer.
+- **Listeners are not for data fetching caches** — use RTK Query.
+
+## Thunks vs listeners vs sagas
+
+| | Thunk | Listener | Saga |
+|---|---|---|---|
+| Triggered by | explicit `dispatch(thunk)` | matching actions or state changes | matching actions |
+| Syntax | async function | async function | generator functions + effects |
+| Cancel / debounce | manual | built in | built in |
+| Extra dependency | none (in RTK) | none (in RTK) | `redux-saga` |
+
+Interviewers often ask how you would debounce an action or cancel a stale
+request in Redux. A strong modern answer: a listener with
+`cancelActiveListeners()` + `delay()`, passing `api.signal` to `fetch`.
+
+### Try it yourself
+
+1. Write a listener that saves the `draft` slice to the server 1 second after
+   the last `draftEdited` action, cancelling the in-flight save if another
+   edit arrives.
+2. Use `take` to build a "confirm before delete" flow: on
+   `deleteRequested`, wait for either `deleteConfirmed` or `deleteCancelled`.
+3. Add an `onError` handler and throw inside an effect to see it called.

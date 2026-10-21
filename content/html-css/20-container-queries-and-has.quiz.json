@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is `container-type: inline-size` usually preferred over `container-type: size`?",
+      "options": [
+        "`size` is not supported in any browser",
+        "`size` contains both axes, so the element needs an explicit height or it collapses, while `inline-size` lets height still grow with content",
+        "`inline-size` also enables media queries inside the element",
+        "`inline-size` makes the element query its own width"
+      ],
+      "correctIndex": 1,
+      "explanation": "Size containment on both axes means the element's height no longer comes from its children. inline-size only contains the width, which is what most component queries need."
+    },
+    {
+      "question": "A `.card` has `container-type: inline-size` and an `@container (min-width: 30rem) { .card { ... } }` rule. Why might the rule never apply to `.card` itself?",
+      "options": [
+        "Container queries only work with px units",
+        "The container must also have a container-name",
+        "An element cannot query itself; @container matches the nearest ancestor container, so the container should be a wrapper",
+        "@container rules must be placed inside a @layer"
+      ],
+      "correctIndex": 2,
+      "explanation": "Container queries style descendants of the container. To restyle the card, put container-type on its parent wrapper."
+    },
+    {
+      "question": "Which selector styles a list as two columns only once it has five or more items, without JavaScript?",
+      "options": [
+        ".list:has(> li:nth-child(5)) { columns: 2; }",
+        ".list li:nth-child(5) { columns: 2; }",
+        ".list:nth-child(5) { columns: 2; }",
+        ".list:focus-within { columns: 2; }"
+      ],
+      "correctIndex": 0,
+      "explanation": "If a fifth li child exists, the :has() argument matches, so the parent .list is selected. This is a quantity query built on :has()."
+    },
+    {
+      "question": "With `@layer base, components, utilities;` declared, which normal (non-important) declaration wins?",
+      "options": [
+        "The one with the highest specificity, whatever layer it is in",
+        "A rule in the base layer, because it was declared first",
+        "A rule in components, because it is in the middle",
+        "An unlayered rule, which beats all layered rules regardless of specificity"
+      ],
+      "correctIndex": 3,
+      "explanation": "Among layers, later ones win over earlier ones before specificity is considered, and unlayered styles beat all layers for normal declarations. The order flips for !important."
+    }
+  ]
+}

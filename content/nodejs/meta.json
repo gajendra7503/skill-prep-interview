@@ -1,0 +1,6 @@
+{
+  "title": "Node.js",
+  "description": "JavaScript on the server — the event loop, modules, streams, the file system, HTTP, workers and production-ready Node.",
+  "icon": "nodejs",
+  "accent": "#5fa04e"
+}

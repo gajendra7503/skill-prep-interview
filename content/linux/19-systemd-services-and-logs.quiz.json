@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the difference between `systemctl start myapp` and `systemctl enable myapp`?",
+      "options": [
+        "start runs it now; enable makes it start at boot",
+        "They are aliases",
+        "enable runs it now; start makes it start at boot",
+        "start runs it as root; enable runs it as the current user"
+      ],
+      "correctIndex": 0,
+      "explanation": "start affects the running system immediately; enable only affects future boots. systemctl enable --now does both."
+    },
+    {
+      "question": "You edited `/etc/systemd/system/myapp.service` and restarted the service, but your change had no effect. What did you most likely forget?",
+      "options": [
+        "systemctl enable myapp",
+        "journalctl --vacuum-time=1d",
+        "systemctl daemon-reload",
+        "Rebooting the server"
+      ],
+      "correctIndex": 2,
+      "explanation": "systemd caches unit files. After creating or editing one, run sudo systemctl daemon-reload so it re-reads them."
+    },
+    {
+      "question": "Which statement about `ExecStart=` in a service unit is correct?",
+      "options": [
+        "It runs through Bash, so pipes and && work",
+        "It accepts a relative path resolved against WorkingDirectory",
+        "It is optional for Type=simple services",
+        "It needs an absolute path and is not run through a shell, so pipes and ~ do not work"
+      ],
+      "correctIndex": 3,
+      "explanation": "systemd executes the command directly rather than via a shell. Put complex logic in a script and point ExecStart at it."
+    },
+    {
+      "question": "Which command follows the live logs of the `myapp` service?",
+      "options": [
+        "systemctl logs myapp --follow",
+        "journalctl -u myapp -f",
+        "tail -f /etc/systemd/system/myapp.service",
+        "journalctl -p myapp"
+      ],
+      "correctIndex": 1,
+      "explanation": "-u filters by unit and -f follows new entries, like tail -f. -p filters by priority, not unit."
+    }
+  ]
+}

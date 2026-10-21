@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which of these is the best candidate to persist to localStorage from a Redux store?",
+      "options": [
+        "The user's theme and language preferences",
+        "An auth access token",
+        "A `status: 'loading'` flag",
+        "The full RTK Query cache of live NAV prices"
+      ],
+      "correctIndex": 0,
+      "explanation": "Small user preferences are ideal. Tokens are exposed to XSS in localStorage, loading flags restore a stuck UI, and cached financial data goes stale and is refetched anyway."
+    },
+    {
+      "question": "When adding redux-persist to a store built with configureStore, why do you pass FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE and REGISTER to serializableCheck.ignoredActions?",
+      "options": [
+        "Those actions are dispatched too often and slow down the store",
+        "redux-persist's internal actions contain functions, which the serializability check would warn about",
+        "Otherwise configureStore removes the persisted reducer",
+        "It is needed to enable migrations"
+      ],
+      "correctIndex": 1,
+      "explanation": "RTK's development serializability middleware warns on non-serialisable values in actions. redux-persist's lifecycle actions carry callback functions, so they are explicitly ignored."
+    },
+    {
+      "question": "In a server-rendered React app, the client reads localStorage during its first render to set the theme. What problem does this cause?",
+      "options": [
+        "localStorage throws in every browser during render",
+        "The store becomes immutable",
+        "The first client render differs from the server HTML, causing a hydration mismatch",
+        "Redux DevTools stops working"
+      ],
+      "correctIndex": 2,
+      "explanation": "The server has no localStorage, so it renders defaults. Reading storage during the first client render produces different output. Load stored state in useEffect after mount instead."
+    },
+    {
+      "question": "You rename a persisted field from darkMode to theme. What should you do so existing users' saved state still works?",
+      "options": [
+        "Nothing; redux-persist renames fields automatically",
+        "Ask users to clear their browser data",
+        "Persist both fields forever",
+        "Bump the persisted version and add a migration that converts the old shape to the new one"
+      ],
+      "correctIndex": 3,
+      "explanation": "Versioning plus a migration (createMigrate in redux-persist, or a version check in a hand-rolled loader) converts old stored data instead of letting an outdated shape reach new reducers."
+    }
+  ]
+}

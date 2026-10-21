@@ -1,0 +1,149 @@
+---
+title: "Refs, Portals & Imperative APIs"
+description: "useRef for DOM nodes and mutable values, ref as a prop in React 19, callback refs with cleanup, useImperativeHandle, and createPortal."
+module: "Data & Hooks in Practice"
+level: advanced
+order: 18
+---
+
+Advanced Hooks covered the basics of `useRef`. This lesson covers the parts
+that come up when building reusable components — passing refs through,
+exposing a limited imperative API, and rendering outside the parent's DOM.
+
+## `useRef`: two jobs, one box
+
+A ref is `{ current }` that persists across renders without triggering one.
+Use it for **DOM nodes** and for **mutable values** that don't affect
+output — timer IDs, the previous value, "is this the first render":
+
+```tsx
+function usePrevious<T>(value: T) {
+  const ref = useRef<T | undefined>(undefined);
+  useEffect(() => {
+    ref.current = value; // runs after render, so render saw the old value
+  });
+  return ref.current;
+}
+```
+
+Don't read or write `ref.current` *during render* for anything that affects
+output — React can't track it, so the UI won't update, and it breaks under
+concurrent rendering. In React 19's TypeScript types, `useRef` requires an
+argument and returns a mutable `RefObject`.
+
+## `ref` as a prop in React 19
+
+Before React 19, a function component couldn't receive `ref` — you needed
+`forwardRef`. Now `ref` is an ordinary prop:
+
+```tsx
+// React 19
+function TextField({ label, ref, ...props }: { label: string; ref?: React.Ref<HTMLInputElement> } & React.ComponentProps<"input">) {
+  return (
+    <label>
+      {label}
+      <input ref={ref} {...props} />
+    </label>
+  );
+}
+
+// Parent
+const panRef = useRef<HTMLInputElement>(null);
+<TextField label="PAN" ref={panRef} />;
+```
+
+`forwardRef` still works but is no longer needed and is slated for
+deprecation. Class components are the exception: `ref` on a class still
+refers to the instance.
+
+## Callback refs and cleanup
+
+Pass a function instead of a ref object and React calls it with the node
+when it attaches. In React 19 a callback ref can **return a cleanup
+function**, called when the node detaches:
+
+```tsx
+function AutoSizeBox() {
+  const [height, setHeight] = useState(0);
+
+  const measureRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    const ro = new ResizeObserver(([entry]) => setHeight(entry.contentRect.height));
+    ro.observe(node);
+    return () => ro.disconnect(); // React 19: cleanup instead of a null call
+  }, []);
+
+  return <div ref={measureRef}>Height: {height}px</div>;
+}
+```
+
+Callback refs fit cases where the node may mount later (inside a
+conditional) or where you need to set up something per node, like an
+observer for each list item. Keep the callback stable with `useCallback`:
+an inline function changes every render, so React detaches and reattaches it
+each time.
+
+## `useImperativeHandle`: expose less, not more
+
+Sometimes a parent needs to *command* a child — focus, scroll, play. Rather
+than leaking the whole DOM node, expose a small API:
+
+```tsx
+type OtpHandle = { focus: () => void; clear: () => void };
+
+function OtpInput({ ref }: { ref?: React.Ref<OtpHandle> }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current?.focus(),
+    clear: () => {
+      if (inputRef.current) inputRef.current.value = "";
+    },
+  }), []);
+
+  return <input ref={inputRef} inputMode="numeric" maxLength={6} />;
+}
+
+// parent: otpRef.current?.clear(); otpRef.current?.focus();
+```
+
+Use it sparingly — if something can be expressed as a prop (`isOpen`,
+`value`), a prop is better. Imperative handles suit actions that aren't
+state: focusing, scrolling, triggering animations.
+
+## `createPortal`: render elsewhere in the DOM
+
+Modals, tooltips and toasts get clipped by a parent's `overflow: hidden` or
+trapped under a sibling's `z-index`. `createPortal` renders children into a
+different DOM node while keeping them in the same React tree:
+
+```tsx
+import { createPortal } from "react-dom";
+
+function Modal({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+  if (!open) return null;
+  return createPortal(
+    <div className="backdrop" onClick={onClose}>
+      <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+```
+
+The key interview point: **events bubble through the React tree, not the
+DOM tree.** A click inside the portal reaches an `onClick` on the component
+that rendered `Modal`, even though in the DOM the modal is a child of
+`body`. Context also flows through a portal unchanged. That's why the inner
+`stopPropagation` above is needed to keep clicks in the dialog from closing
+it. For production modals, also handle focus trapping, Escape, and
+restoring focus — or use the native `dialog` element with `showModal()`.
+
+### Try it yourself
+
+Build a `Tooltip` that renders into `document.body` via a portal and
+positions itself using a callback ref on the trigger plus
+`getBoundingClientRect()`. Put the trigger inside a container with
+`overflow: hidden` and confirm the tooltip isn't clipped.

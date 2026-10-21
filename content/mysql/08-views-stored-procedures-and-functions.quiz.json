@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does MySQL store when you create a view?",
+      "options": [
+        "Only the view's SELECT definition; results are merged or materialized at query time",
+        "A materialized copy of the rows, refreshed automatically on every write",
+        "A materialized copy refreshed nightly by the Event Scheduler",
+        "An index over the base tables' columns"
+      ],
+      "correctIndex": 0,
+      "explanation": "MySQL has no materialized views. A view is a stored query that is either merged into the outer query or materialized into a temporary table per statement."
+    },
+    {
+      "question": "A view is defined with `WHERE city = 'Mumbai' WITH CHECK OPTION`. What happens on `INSERT INTO the_view (name, city) VALUES ('Ravi', 'Pune')`?",
+      "options": [
+        "The row is inserted but is not visible through the view",
+        "The insert fails because the new row would not satisfy the view's WHERE clause",
+        "The city is silently changed to 'Mumbai'",
+        "Views can never accept INSERT statements"
+      ],
+      "correctIndex": 1,
+      "explanation": "WITH CHECK OPTION rejects inserts and updates that would produce rows the view cannot see (error 1369)."
+    },
+    {
+      "question": "What is `DELIMITER //` in a stored procedure script?",
+      "options": [
+        "A server-side setting stored with the procedure",
+        "Part of the CREATE PROCEDURE syntax required by every driver",
+        "A command for the mysql client so the semicolons inside the routine body do not end the statement early",
+        "A way to declare a comment block"
+      ],
+      "correctIndex": 2,
+      "explanation": "DELIMITER is interpreted by the mysql command-line client and is never sent to the server; drivers and GUI tools do not need it."
+    },
+    {
+      "question": "With binary logging on and log_bin_trust_function_creators off, why might CREATE FUNCTION fail with error 1418?",
+      "options": [
+        "Functions cannot use DECIMAL return types",
+        "Functions must always declare OUT parameters",
+        "Functions are disabled when binary logging is enabled",
+        "The function was not declared DETERMINISTIC, NO SQL or READS SQL DATA"
+      ],
+      "correctIndex": 3,
+      "explanation": "MySQL requires one of these characteristics for safe replication. DETERMINISTIC is an unchecked promise, so declaring it falsely can cause wrong results."
+    }
+  ]
+}

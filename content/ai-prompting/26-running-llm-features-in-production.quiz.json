@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What counts as the release unit for an LLM feature?",
+      "options": [
+        "The system prompt only",
+        "The combination of prompt, examples, tools, model ID and settings",
+        "Only the model ID",
+        "The front-end code"
+      ],
+      "correctIndex": 1,
+      "explanation": "Changing any of these changes replies, so they are versioned and released together."
+    },
+    {
+      "question": "What does a stop_reason of max_tokens mean, and how should you treat the response?",
+      "options": [
+        "The model refused; show it anyway",
+        "The cache expired; ignore it",
+        "Output was truncated; never save or act on it, retry instead",
+        "The request was successful"
+      ],
+      "correctIndex": 2,
+      "explanation": "max_tokens means truncated output; retry with a higher limit or request shorter output."
+    },
+    {
+      "question": "In the sample logs, input tokens served from cache came to 68%. How is that figure calculated?",
+      "options": [
+        "Successful calls divided by total calls",
+        "Cache reads divided by cache reads plus uncached input tokens",
+        "Refusals divided by total calls",
+        "Output tokens divided by input tokens"
+      ],
+      "correctIndex": 1,
+      "explanation": "Cache share is cache_read / (cache_read + input): 10,400 / (10,400 + 4,950), about 68%."
+    },
+    {
+      "question": "Which is the first step in the AI incident runbook?",
+      "options": [
+        "Write the blameless review",
+        "Add cases to the regression set",
+        "Count affected conversations by prompt version",
+        "Contain: flip the kill switch or tighten the fallback path"
+      ],
+      "correctIndex": 3,
+      "explanation": "The runbook runs Contain, Scope, Fix, Review; containment comes first."
+    }
+  ]
+}

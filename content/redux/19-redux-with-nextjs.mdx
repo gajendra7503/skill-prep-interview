@@ -1,0 +1,188 @@
+---
+title: "Redux with the Next.js App Router"
+description: "Set up Redux Toolkit safely in the Next.js App Router: a store per request, a client StoreProvider, server data as initial state, and what never belongs in Redux."
+module: "Advanced Redux"
+level: "advanced"
+order: 19
+---
+
+In a Vite single-page app you create one store in `store.ts` and import it
+everywhere. Copy that into a Next.js App Router project and you get bugs that
+only appear in production under load. The App Router renders on a long-lived
+Node server, and most components are **React Server Components** (RSC) that
+cannot use context or hooks. This lesson follows the Redux team's Next.js
+guidance, checked against the Next.js 16 docs.
+
+## Three rules
+
+1. **No global store.** Create a new store per request with a `makeStore`
+   function.
+2. **Server Components never read or write the store.** Redux lives in
+   Client Components only.
+3. **Redux holds client-side, changeable state.** Data that the server
+   fetches and the page simply displays should be rendered by Server
+   Components, not copied into Redux.
+
+Rule 1 is not theoretical. A module-level store is shared by every request
+the server process handles:
+
+```js
+// one store for the whole server process (BAD) vs one per request (GOOD)
+console.log(await Promise.all([handleBad('Asha', 20), handleBad('Ravi', 5)]))
+// [ 'render for Asha: hello Ravi', 'render for Ravi: hello Ravi' ]   <- data leak
+console.log(await Promise.all([handleGood('Asha', 20), handleGood('Ravi', 5)]))
+// [ 'render for Asha: hello Asha', 'render for Ravi: hello Ravi' ]
+```
+
+Asha's page rendered Ravi's name because both requests mutated one object
+while awaiting data. In a fintech app that is a privacy incident.
+
+## lib/store.ts: a factory, not an instance
+
+```ts
+// lib/store.ts
+import { configureStore } from '@reduxjs/toolkit'
+import { cartSlice, type CartState } from './features/cart/cartSlice'
+
+export const makeStore = (preloaded?: { cart: CartState }) =>
+  configureStore({ reducer: { cart: cartSlice.reducer }, preloadedState: preloaded })
+
+export type AppStore = ReturnType<typeof makeStore>
+export type RootState = ReturnType<AppStore['getState']>
+export type AppDispatch = AppStore['dispatch']
+```
+
+```ts
+// lib/hooks.ts
+import { useDispatch, useSelector, useStore } from 'react-redux'
+import type { AppDispatch, AppStore, RootState } from './store'
+
+export const useAppDispatch = useDispatch.withTypes<AppDispatch>()
+export const useAppSelector = useSelector.withTypes<RootState>()
+export const useAppStore = useStore.withTypes<AppStore>()
+```
+
+## app/StoreProvider.tsx: the client boundary
+
+React context is not supported in Server Components, so the Next.js docs
+recommend a Client Component that accepts `children`. Create the store
+**once per component instance** with a ref, so re-renders do not replace it:
+
+```tsx
+// app/StoreProvider.tsx
+'use client'
+import { useRef, type ReactNode } from 'react'
+import { Provider } from 'react-redux'
+import { makeStore, type AppStore } from '@/lib/store'
+import type { CartState } from '@/lib/features/cart/cartSlice'
+
+export default function StoreProvider({ initialCart, children }: { initialCart: CartState; children: ReactNode }) {
+  const storeRef = useRef<AppStore | null>(null)
+  if (storeRef.current === null) {
+    storeRef.current = makeStore({ cart: initialCart })
+  }
+  return <Provider store={storeRef.current}>{children}</Provider>
+}
+```
+
+`'use client'` must be the first line, before imports. During server
+rendering this component runs once per request, so each request gets its own
+store; in the browser it runs once and the store lives for the session.
+
+## Wiring it into a layout
+
+Layouts are Server Components by default, so they can fetch the initial data
+and pass it down. Props crossing into a Client Component must be
+**serialisable** (plain objects, arrays, strings, numbers — no class
+instances or functions).
+
+```tsx
+// app/layout.tsx (Server Component)
+import StoreProvider from './StoreProvider'
+import { getCartForCurrentUser } from '@/lib/data'
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cart = await getCartForCurrentUser()
+  return (
+    <html lang="en">
+      <body>
+        <StoreProvider initialCart={cart}>{children}</StoreProvider>
+      </body>
+    </html>
+  )
+}
+```
+
+Children passed through `StoreProvider` can still be Server Components: they
+are rendered on the server and handed to the client boundary as rendered
+output. Only components that call `useAppSelector`/`useAppDispatch` need
+`'use client'`. The Next.js docs suggest rendering providers as deep as
+possible, so if only `/checkout` needs Redux, put `StoreProvider` in
+`app/checkout/layout.tsx` instead.
+
+Reading per-user data (for example through `cookies()`) in a layout makes
+that route render per request. That is correct for personalised pages, but
+do not do it in a layout shared by pages you expect to be static.
+
+## What happens if a Server Component touches Redux
+
+React-Redux ships a separate `react-server` build. Calling its hooks from an
+RSC throws immediately:
+
+```text
+Error: This function is not supported in React Server Components. Please only use this export in a Client Component.
+```
+
+## Per-route stores and navigation
+
+Layouts **persist** across navigations between their child routes, so a
+store created in a layout keeps its state. When a store must start fresh for
+each value of a dynamic segment, key the provider by it (here a second
+provider built the same way, for a portfolio-scoped store). In Next.js 16,
+`params` is a Promise:
+
+```tsx
+// app/portfolio/[id]/layout.tsx
+export default async function PortfolioLayout(
+  { children, params }: { children: React.ReactNode; params: Promise<{ id: string }> },
+) {
+  const { id } = await params
+  const draft = await getRebalanceDraft(id)
+  return <PortfolioStoreProvider key={id} initialDraft={draft}>{children}</PortfolioStoreProvider>
+}
+```
+
+With the `cacheComponents` option enabled, Next.js 16 keeps recently
+visited routes mounted but hidden (using React's `Activity`), so a
+page-level store also survives a back navigation. Decide deliberately
+whether that is what users expect.
+
+## RTK Query in the App Router
+
+RTK Query hooks work in Client Components exactly as in an SPA. For data a
+page needs on first paint, prefer fetching in the Server Component and
+rendering it there (rule 3); use RTK Query for client-driven data such as
+polling, infinite lists and mutations with cache updates. Restoring server
+state into a client cache is covered in "Persisting & Hydrating State".
+
+| Where | Can use Redux? | Typical job |
+|---|---|---|
+| Server Component (page, layout) | No | Fetch data, pass serialisable initial state as props |
+| `StoreProvider` (Client Component) | Creates it | One store per request / browser session |
+| Client Components | Yes, via typed hooks | Interactive state: carts, filters, wizards, drafts |
+| Server Actions / Route Handlers | No | Mutations on the server; the client then updates Redux or refetches |
+
+Interviewers often ask: "Why can't you export a store singleton in Next.js?"
+Answer: the server process handles many requests concurrently, so a module
+level store leaks one user's state into another's render. Use `makeStore`
+inside a client `StoreProvider`.
+
+### Try it yourself
+
+1. Convert a Vite app's `export const store = configureStore(...)` into
+   `makeStore` plus `StoreProvider`, and confirm no file imports a store
+   instance directly.
+2. Move `StoreProvider` from the root layout to `app/checkout/layout.tsx` and
+   check which client components break (they were relying on it).
+3. Add `key={id}` to a per-portfolio provider and observe the store reset
+   when switching between `/portfolio/1` and `/portfolio/2`.

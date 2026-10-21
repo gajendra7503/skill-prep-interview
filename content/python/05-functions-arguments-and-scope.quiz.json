@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In what order does Python search scopes when resolving a name (the LEGB rule)?",
+      "options": [
+        "Global, Local, Built-in, Enclosing",
+        "Local, Enclosing, Global, Built-in",
+        "Built-in, Global, Enclosing, Local",
+        "Local, Global, Enclosing, Built-in"
+      ],
+      "correctIndex": 1,
+      "explanation": "Python checks Local, then Enclosing function scopes, then the module Global scope, then Built-ins, stopping at the first match."
+    },
+    {
+      "question": "Why does `print(count)` raise UnboundLocalError in a function that later does `count = 1`, even though a global `count` exists?",
+      "options": [
+        "Global variables cannot be read inside functions",
+        "print cannot accept integers",
+        "Any assignment in the function body makes the name local for the whole function, decided at compile time",
+        "The global variable is deleted when the function is called"
+      ],
+      "correctIndex": 2,
+      "explanation": "Scope is determined at compile time; because count is assigned in the body, it is local throughout, so reading it before assignment fails."
+    },
+    {
+      "question": "Given `def transfer(src, dst, /, amount, *, currency=\"INR\")`, which call is valid?",
+      "options": [
+        "transfer(\"A\", \"B\", amount=500, currency=\"USD\")",
+        "transfer(src=\"A\", dst=\"B\", amount=500)",
+        "transfer(\"A\", \"B\", 500, \"USD\")",
+        "transfer(\"A\", amount=500)"
+      ],
+      "correctIndex": 0,
+      "explanation": "src and dst are positional-only, amount can be passed either way, and currency is keyword-only after the bare `*`."
+    },
+    {
+      "question": "Why does `def add_tag(tag, tags=[])` return a growing list across separate calls?",
+      "options": [
+        "Lists are copied on every call but the copy is cached",
+        "Python reuses the last return value automatically",
+        "append() modifies a global list named tags",
+        "The default list is created once when `def` runs and the same object is reused on every call"
+      ],
+      "correctIndex": 3,
+      "explanation": "Defaults are evaluated once at definition time; use `tags=None` and create a new list inside the function instead."
+    }
+  ]
+}

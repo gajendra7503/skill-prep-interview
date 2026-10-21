@@ -1,0 +1,194 @@
+---
+title: "Generic Constraints & Defaults"
+description: "Restrict type parameters with extends, relate one parameter to another with keyof, give parameters defaults, and control inference with const type parameters and NoInfer."
+module: "Generics"
+level: "intermediate"
+order: 11
+---
+
+An unconstrained `T` could be anything — a number, `null`, a function — so
+TypeScript lets you do almost nothing with it. **Constraints** tell the
+compiler what every `T` is guaranteed to have, and **defaults** make
+generic types pleasant to use. Both appear constantly in library code.
+
+## Why constraints are needed
+
+```ts
+function logLength<T>(value: T): T {
+  console.log(value.length);
+  // Error: Property 'length' does not exist on type 'T'
+  return value;
+}
+```
+
+The error is correct: `logLength(42)` would be legal, and numbers have no
+`length`. Add a constraint with `extends`:
+
+```ts
+function longest<T extends { length: number }>(a: T, b: T): T {
+  return a.length >= b.length ? a : b;
+}
+
+const s = longest("pune", "mumbai"); // s: "mumbai" | "pune"
+let city = longest("pune", "mumbai"); // city: string
+const arr = longest([1, 2], [3]);    // arr: number[]
+longest(10, 20);
+// Error: Argument of type 'number' is not assignable to parameter of type '{ length: number; }'
+```
+
+Read `T extends X` as "T must be assignable to X". Any type with a numeric
+`length` qualifies — strings, arrays, or your own objects.
+
+Notice that `s` is the literal union `"mumbai" | "pune"`, not `string`.
+Because `T` is the function's whole return type, TypeScript infers `T` from
+the literal arguments and keeps it un-widened, so the result is exactly one
+of the two values passed in. Literal types widen to `string` only when the
+value lands somewhere mutable: `let city` above is `string`. (If `T` were
+nested in the return type, say `{ v: T }`, the literals would widen to
+`string` at inference time.)
+
+## Constraint vs a plain parameter type
+
+Why not simply write `function longest(a: { length: number }, ...)`?
+Because the plain version **forgets** the specific type:
+
+```ts
+function longestPlain(a: { length: number }, b: { length: number }) {
+  return a.length >= b.length ? a : b;
+}
+
+const p = longestPlain("pune", "mumbai"); // p: { length: number }
+p.toUpperCase();
+// Error: Property 'toUpperCase' does not exist on type '{ length: number; }'
+```
+
+The generic version returns the caller's string type (`"mumbai" | "pune"`,
+a subtype of `string`), so string methods still work. That is
+the whole point: a constraint sets a **minimum** while the type parameter
+**preserves** the caller's actual type.
+
+## The most confusing generic error
+
+Interviewers like this one. Why does this fail?
+
+```ts
+function emptyOf<T extends { length: number }>(sample: T): T {
+  return { length: 0 };
+  // Error: Type '{ length: number; }' is not assignable to type 'T'.
+  // '{ length: number; }' is assignable to the constraint of type 'T', but 'T'
+  // could be instantiated with a different subtype of constraint '{ length: number; }'.
+}
+```
+
+The **caller** chooses `T`, not the function. If someone calls
+`emptyOf("abc")`, `T` is `string`, and `{ length: 0 }` is not a string.
+Satisfying the constraint is not the same as being `T`. Fix it by returning
+something actually derived from the input, or by changing the return type
+to the constraint itself.
+
+## Constraining one parameter by another
+
+The classic example is a type-safe property getter. `keyof T` is the union
+of `T`'s keys, so `K extends keyof T` means "K must be a real key of T":
+
+```ts
+function getProp<T, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key];
+}
+
+const loan = { id: "L-1", amountRupees: 500000, city: "Indore" };
+
+const amt = getProp(loan, "amountRupees"); // amt: number
+const c = getProp(loan, "city");           // c: string
+getProp(loan, "rate");
+// Error: Argument of type '"rate"' is not assignable to parameter of type '"amountRupees" | "city" | "id"'
+```
+
+The return type `T[K]` is an indexed-access type — "the type of property K
+of T". Both `keyof` and indexed access are explained fully in "keyof,
+typeof & Indexed Access Types".
+
+## Type parameter defaults
+
+Like function parameters, type parameters can have defaults, used when the
+caller does not supply one and nothing is inferred:
+
+```ts
+interface ApiResponse<T = unknown> {
+  ok: boolean;
+  data: T;
+}
+
+const raw: ApiResponse = { ok: true, data: 42 };          // data: unknown
+const typed: ApiResponse<string[]> = { ok: true, data: [] }; // data: string[]
+
+type AppEvent<Payload = void, Name extends string = string> = {
+  name: Name;
+  payload: Payload;
+};
+
+const logout: AppEvent = { name: "logout", payload: undefined };
+```
+
+Rules worth remembering:
+
+| Rule | Example |
+|---|---|
+| Defaults go after required parameters | `<A, B = string>` is fine; `<A = string, B>` is an error |
+| A default must satisfy the constraint | `<T extends object = {}>` is fine; `= string` would be an error |
+| Inference beats the default | `first<T = string>([1])` still infers `number` |
+
+React's types use defaults heavily — for example, many component and event
+types have default type arguments so you can write the short form.
+
+## `const` type parameters
+
+Normally, inference widens literals: an array of route strings becomes
+`string[]`. Adding the `const` modifier to a type parameter asks for the
+narrowest type, as if the caller had written `as const`:
+
+```ts
+function defineRoutes<const T extends readonly string[]>(routes: T): T {
+  return routes;
+}
+
+function defineRoutesWide<T extends readonly string[]>(routes: T): T {
+  return routes;
+}
+
+const r1 = defineRoutes(["/home", "/loans"]);     // readonly ["/home", "/loans"]
+const r2 = defineRoutesWide(["/home", "/loans"]); // string[]
+```
+
+Use a `readonly` array constraint with `const` type parameters — it matches
+what a const-like inference produces. See "Enums, as const & satisfies" for
+`as const` itself.
+
+## `NoInfer`: stopping a parameter from widening inference
+
+Sometimes one argument should **decide** `T` and another should only be
+**checked** against it. Recent TypeScript versions provide the built-in
+`NoInfer` utility for this:
+
+```ts
+function pickDefault<C extends string>(options: C[], fallback: NoInfer<C>) {
+  return fallback;
+}
+
+pickDefault(["UPI", "CARD"], "CARD"); // OK
+pickDefault(["UPI", "CARD"], "CASH");
+// Error: Argument of type '"CASH"' is not assignable to parameter of type '"CARD" | "UPI"'
+```
+
+Without `NoInfer`, TypeScript would infer `C` from both arguments as
+`"UPI" | "CARD" | "CASH"` and the typo would slip through.
+
+### Try it yourself
+
+1. Write `pluck<T, K extends keyof T>(items: T[], key: K): T[K][]` and use
+   it to extract all `amountRupees` values from an array of loans.
+2. Write `merge<A extends object, B extends object>(a: A, b: B): A & B` and
+   check that passing a number is rejected.
+3. Define `type Paginated<T = unknown, Cursor = number>` with `items`,
+   `next` and `total`, then create one value using both defaults and one
+   with `string` cursors.

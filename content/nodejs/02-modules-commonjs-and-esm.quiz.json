@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A project's package.json has \"type\": \"module\". How does Node treat a file named `config.cjs` in that project?",
+      "options": [
+        "As ESM, because the package type wins",
+        "As CommonJS, because the .cjs extension always means CommonJS",
+        "It throws an error until the type field is removed",
+        "As JSON"
+      ],
+      "correctIndex": 1,
+      "explanation": ".mjs is always ESM and .cjs is always CommonJS; the \"type\" field only decides how plain .js files are treated."
+    },
+    {
+      "question": "Why does `console.log(__dirname)` throw a ReferenceError in an ES module?",
+      "options": [
+        "ESM runs in the browser only",
+        "__dirname was removed from Node entirely",
+        "__dirname is injected by the CommonJS module wrapper, which ESM does not use; use import.meta.dirname instead",
+        "It only works after calling require(\"node:path\")"
+      ],
+      "correctIndex": 2,
+      "explanation": "CommonJS wraps each file in a function that supplies __dirname and __filename. ESM has no such wrapper; import.meta.dirname and import.meta.filename (or fileURLToPath(import.meta.url)) replace them."
+    },
+    {
+      "question": "Which statement about ESM versus CommonJS is correct?",
+      "options": [
+        "ESM imports are live bindings and support top-level await; CommonJS require is a synchronous call returning the exports object",
+        "CommonJS supports top-level await but ESM does not",
+        "ESM import statements can be placed inside an if block",
+        "require() loads modules asynchronously"
+      ],
+      "correctIndex": 0,
+      "explanation": "Static import declarations must be at the top level and give live bindings; ESM allows top-level await. require is synchronous and can appear anywhere."
+    },
+    {
+      "question": "Why is `import fs from \"node:fs\"` preferred over `import fs from \"fs\"`?",
+      "options": [
+        "The prefix makes the import faster by skipping the event loop",
+        "Without the prefix, Node downloads the module from npm",
+        "The prefix is required for every built-in module",
+        "It clearly marks a built-in, cannot be confused with an npm package of the same name, and some newer built-ins like node:test only work with it"
+      ],
+      "correctIndex": 3,
+      "explanation": "The node: prefix is explicit and unambiguous; most older built-ins work without it, but prefix-only modules such as node:test require it."
+    }
+  ]
+}

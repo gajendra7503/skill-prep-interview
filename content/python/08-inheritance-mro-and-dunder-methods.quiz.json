@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Given `class B(A)`, `class C(A)` and `class D(B, C)`, what is `D.__mro__` (by class name)?",
+      "options": [
+        "D, B, A, C, object",
+        "D, C, B, A, object",
+        "D, A, B, C, object",
+        "D, B, C, A, object"
+      ],
+      "correctIndex": 3,
+      "explanation": "C3 linearisation puts a subclass before its bases and preserves the listed base order, giving D, B, C, A, object, so A appears once, after both B and C."
+    },
+    {
+      "question": "In that same diamond, what does `super().hello()` inside `B.hello` call when invoked on a D instance?",
+      "options": [
+        "C.hello, because C is next after B in D's MRO",
+        "A.hello, because A is B's parent class",
+        "D.hello, causing infinite recursion",
+        "object.hello, raising AttributeError"
+      ],
+      "correctIndex": 0,
+      "explanation": "super() means the next class in the MRO of the instance's type, not the parent of the class where it appears. For a D instance, C comes after B."
+    },
+    {
+      "question": "What happens if a class defines `__eq__` but not `__hash__`?",
+      "options": [
+        "Python generates a hash from all instance attributes",
+        "Python sets __hash__ to None, so instances become unhashable and cannot be put in sets or used as dict keys",
+        "The default identity-based hash from object is kept",
+        "A SyntaxError is raised"
+      ],
+      "correctIndex": 1,
+      "explanation": "Overriding __eq__ without __hash__ makes __hash__ None, because the inherited identity hash would break the rule that equal objects must have equal hashes."
+    },
+    {
+      "question": "Why should `__add__` return `NotImplemented` instead of raising an error for unsupported operand types?",
+      "options": [
+        "NotImplemented is just a more descriptive error message",
+        "It makes the expression evaluate to None",
+        "It signals Python to try the reflected method (like __radd__) on the other operand before raising TypeError",
+        "It disables the + operator for the class permanently"
+      ],
+      "correctIndex": 2,
+      "explanation": "Returning NotImplemented lets Python try the other operand's reflected method; only if that also fails does it raise TypeError."
+    }
+  ]
+}

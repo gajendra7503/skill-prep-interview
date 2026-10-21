@@ -1,0 +1,155 @@
+---
+title: "React Server Components & Server Functions"
+description: "The server/client boundary, what can cross it, composition patterns, Server Functions, and the security model senior engineers are expected to explain."
+module: "Pro Level"
+level: pro
+order: 24
+---
+
+React Server Components (RSC) change *where* components run, not how you
+write them. They are the default in frameworks such as the Next.js App
+Router, and senior interviews increasingly ask you to reason about the
+boundary they introduce: what runs where, what crosses the network, and what
+that means for bundle size and security.
+
+## Two kinds of component
+
+- **Server Components** render ahead of time on the server (per request or at
+  build time). Their code is **never sent to the browser**. They can be
+  `async`, read databases and secrets directly, and import heavy libraries at
+  zero client cost. They cannot use state, effects, refs or browser APIs.
+- **Client Components** are the React you already know. They are rendered to
+  HTML on the server too (SSR), then hydrated and made interactive in the
+  browser.
+
+```tsx
+// app/funds/page.tsx — a Server Component (the default)
+import { db } from "@/lib/db";
+import { WatchButton } from "./watch-button";
+
+export default async function FundsPage() {
+  const funds = await db.fund.findMany({ orderBy: { aum: "desc" } });
+  return (
+    <ul>
+      {funds.map((f) => (
+        <li key={f.id}>
+          {f.name}: ₹{f.nav.toFixed(2)} <WatchButton fundId={f.id} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## `"use client"` marks a boundary, not a component
+
+```tsx
+// watch-button.tsx
+"use client";
+import { useState } from "react";
+
+export function WatchButton({ fundId }: { fundId: string }) {
+  const [watching, setWatching] = useState(false);
+  return <button onClick={() => setWatching((w) => !w)}>{watching ? "Watching" : "Watch"}</button>;
+}
+```
+
+The directive marks a module as an **entry point** into the client bundle.
+Everything that module imports becomes client code too. So put
+`"use client"` as low in the tree as you can: a small interactive leaf, not
+the page layout.
+
+## What can cross the boundary
+
+Props passed from a Server Component to a Client Component are
+**serialised** and sent over the network in the RSC payload. Allowed:
+primitives, plain objects and arrays, `Date`, `Map`, `Set`, promises, JSX,
+and Server Functions. Not allowed: ordinary functions, class instances,
+and anything holding a closure.
+
+```tsx
+// Fails: event handlers are functions and cannot be serialised
+<WatchButton fundId={f.id} onWatch={() => log(f.id)} />
+
+// Works: pass data; let the client component own its handlers
+<WatchButton fundId={f.id} />
+```
+
+## Composition: server content inside client components
+
+A Client Component **cannot import** a Server Component, but it can
+**render one passed as a prop** (usually `children`). The server renders it
+first and the client only receives the result:
+
+```tsx
+// Collapsible.tsx — client
+"use client";
+export function Collapsible({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section>
+      <button onClick={() => setOpen(!open)}>Details</button>
+      {open && children}
+    </section>
+  );
+}
+
+// page.tsx — server
+<Collapsible>
+  <FundFactsheet id={id} /> {/* still a Server Component */}
+</Collapsible>
+```
+
+This "donut" pattern keeps heavy, data-driven trees on the server while a
+thin interactive shell runs in the browser.
+
+## Server Functions
+
+A function marked with `"use server"` can be called from the client. React
+turns it into a reference; calling it sends a request to the server. When
+used as a form `action` (often called a Server Action), it works even before
+JavaScript has loaded:
+
+```tsx
+// actions.ts
+"use server";
+import { z } from "zod";
+
+const Schema = z.object({ fundId: z.string().min(1), amount: z.coerce.number().min(500) });
+
+export async function startSip(formData: FormData) {
+  const user = await requireUser();               // authenticate EVERY call
+  const { fundId, amount } = Schema.parse(Object.fromEntries(formData));
+  await db.sip.create({ data: { userId: user.id, fundId, amount } });
+}
+
+// In a component: <form action={startSip}>...</form>
+```
+
+## The security model
+
+Treat every Server Function as a **public HTTP endpoint**. Anyone can call it
+with any arguments, regardless of which button your UI shows.
+
+- Authenticate and authorise inside the function, not only in the page.
+- Validate every argument with a schema; types are erased at runtime.
+- Don't close over secrets in inline server functions; captured values are
+  sent to the client (encrypted by some frameworks, but don't rely on it).
+- Mark data-access modules with `import "server-only"` so an accidental
+  client import fails the build instead of leaking code.
+
+## Trade-offs to articulate
+
+| Benefit | Cost |
+|---|---|
+| Less client JavaScript; heavy deps stay on the server | Requires a framework and bundler integration |
+| Direct data access, no separate API for reads | A new mental model; boundary mistakes are common |
+| Streams with Suspense | Each navigation can need a server round trip |
+| Secrets never reach the browser | Server Functions widen the attack surface |
+
+### Try it yourself
+
+Build a page that lists five funds from a hard-coded async function in a
+Server Component. Add a client `CompareToggle` leaf, then a Server Function
+that saves a watchlist entry with Zod validation and an authorisation check.
+Finally, try passing an `onClick` from the server page and read the error.

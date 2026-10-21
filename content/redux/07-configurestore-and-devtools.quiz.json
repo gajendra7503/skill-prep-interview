@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which middleware does getDefaultMiddleware() include in a production build?",
+      "options": [
+        "Thunk, immutability check and serializability check",
+        "No middleware at all",
+        "Only thunk",
+        "Only the serializability check"
+      ],
+      "correctIndex": 2,
+      "explanation": "The action creator, immutability and serializability checks are development-only. In production only the thunk middleware remains."
+    },
+    {
+      "question": "What is the recommended way to add a custom logger middleware while keeping the defaults?",
+      "options": [
+        "`middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(logger)`",
+        "`middleware: [logger]`",
+        "`middleware: [...getDefaultMiddleware(), logger]` at module level",
+        "`enhancers: [logger]`"
+      ],
+      "correctIndex": 0,
+      "explanation": "middleware must be a callback. Using the Tuple's concat keeps the defaults (including thunk) and preserves TypeScript types; passing an array throws an error."
+    },
+    {
+      "question": "You dispatch an action whose payload is a `new Date()`. What happens in development with default settings?",
+      "options": [
+        "The store throws and the action is discarded",
+        "The Date is automatically converted to an ISO string",
+        "Nothing; Dates are allowed in Redux",
+        "The serializability middleware logs a warning about a non-serializable value"
+      ],
+      "correctIndex": 3,
+      "explanation": "The serializability check warns (it does not throw) about non-serializable values in actions and state. The usual fix is to store an ISO string instead."
+    },
+    {
+      "question": "Why might you set `devTools: process.env.NODE_ENV !== \"production\"`?",
+      "options": [
+        "Redux DevTools cannot connect to production builds anyway",
+        "devTools defaults to true, so users with the extension could inspect sensitive production state",
+        "It is required for the thunk middleware to work in production",
+        "It turns off the immutability check"
+      ],
+      "correctIndex": 1,
+      "explanation": "configureStore enables DevTools by default in every environment. Disabling it in production stops anyone with the extension from browsing your app's state."
+    }
+  ]
+}

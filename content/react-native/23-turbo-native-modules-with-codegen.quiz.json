@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the main benefit of defining a Turbo Native Module through a typed TypeScript spec and Codegen?",
+      "options": [
+        "It removes the need to write any native code",
+        "Codegen generates native interfaces from the spec, so JS/native mismatches become build errors instead of runtime crashes",
+        "It makes every method synchronous automatically",
+        "It allows the module to be updated over the air"
+      ],
+      "correctIndex": 1,
+      "explanation": "The spec is the contract. Codegen produces base classes/protocols that native code must implement, catching signature mismatches at build time."
+    },
+    {
+      "question": "A method reads a file from disk and decrypts it. How should it be declared in the spec?",
+      "options": [
+        "As a synchronous method returning string, for simplicity",
+        "With an `any` return type",
+        "As a method returning `Promise<string>`, because synchronous methods block the JS thread",
+        "It cannot be exposed through a TurboModule"
+      ],
+      "correctIndex": 2,
+      "explanation": "Synchronous native calls block the JS thread until they return. Disk, crypto, network or SDK-callback work should be async via Promise."
+    },
+    {
+      "question": "Why use `TurboModuleRegistry.getEnforcing` instead of a lookup that may return null?",
+      "options": [
+        "It throws immediately if the native module isn't linked/registered, instead of failing later with a confusing undefined error",
+        "It makes the module load before the app starts",
+        "It is required for Expo Go",
+        "It disables Codegen"
+      ],
+      "correctIndex": 0,
+      "explanation": "getEnforcing fails fast with a clear error when the module isn't available, which surfaces missing package registration early."
+    },
+    {
+      "question": "In the Kotlin implementation, how does a spec method returning `Promise<boolean>` appear?",
+      "options": [
+        "It returns a Kotlin Boolean directly",
+        "It returns a Kotlin coroutine Flow",
+        "It must be written in C++",
+        "It receives a trailing `promise: Promise` parameter that you resolve or reject"
+      ],
+      "correctIndex": 3,
+      "explanation": "Codegen maps Promise-returning methods to native methods with a trailing Promise argument; you call promise.resolve(...) or promise.reject(code, message)."
+    }
+  ]
+}

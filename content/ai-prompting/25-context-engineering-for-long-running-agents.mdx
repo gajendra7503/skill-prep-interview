@@ -1,0 +1,162 @@
+---
+title: "Context Engineering for Long-Running Agents"
+description: "Keep agents sharp over hundreds of turns: treat context as a budget, load information just in time, trim tool results, use context editing, compaction and external memory, and keep history cache-friendly."
+module: "Pro Level"
+level: "pro"
+order: 25
+---
+
+Prompt engineering asks "what should the instructions say?". **Context
+engineering** asks a broader question: across a session that may run for
+hours and hundreds of tool calls, what exactly should be in the model's
+context at each step? Even with windows of up to a million tokens, an agent
+that keeps every log line, file and search result it has ever seen gets
+slower, costlier and less accurate. This lesson covers the techniques that
+keep long-running agents focused.
+
+## Context is a budget, not a bucket
+
+Every token in context competes for the model's attention and is billed on
+every subsequent call in the loop. A rough audit of a fictional
+reconciliation agent at "Narmada Payments" after 120 turns:
+
+```text
+System prompt + tool definitions     6,000 tokens   (stable, cached)
+Task brief                           1,500 tokens
+Old tool results (raw CSV extracts) 410,000 tokens  <- mostly stale
+Model's own earlier reasoning/text   38,000 tokens
+Current step                          2,500 tokens
+```
+
+Most of the context is stale tool output the agent no longer needs. Good
+context engineering keeps the stable prefix, the task, and what is relevant
+**now** — and moves everything else out.
+
+## Load just in time, not up front
+
+The naive design pastes every possibly relevant document into the first
+message. A better design gives the agent lightweight **references** and
+tools to fetch detail when needed:
+
+| Up-front loading | Just-in-time loading |
+| --- | --- |
+| Paste all 40 policy PDFs into the system prompt | List policy titles; provide a `search_policies` tool |
+| Return a whole 5 MB CSV from a tool | Return row counts, column names and the 20 matching rows |
+| Describe all 60 internal tools in every request | Use tool search so only relevant tool schemas are loaded |
+
+The trade-off is extra round trips. For a short, single-question task,
+up-front loading is fine; for long sessions, just-in-time almost always wins.
+
+## Design tool results for the model
+
+Tool output is the biggest source of context bloat, and you control it
+completely in code:
+
+- **Summarise or paginate** large results: return the first page plus a
+  `next_cursor`, not everything.
+- **Return identifiers, not blobs**: "Saved 3,214 rows to recon_oct.csv"
+  instead of the rows themselves, with a tool to query that file.
+- **Make errors short and actionable**, as covered in the tool-use lesson.
+- **Truncate defensively** with an explicit marker, so the model knows data
+  is missing rather than assuming it saw everything.
+
+```python
+MAX_CHARS = 8_000
+
+def shape_result(text: str) -> str:
+    if len(text) <= MAX_CHARS:
+        return text
+    head = text[:MAX_CHARS]
+    return (head + f"\n[TRUNCATED: {len(text) - MAX_CHARS} more characters. "
+            "Call query_file with a narrower filter to see specific rows.]")
+```
+
+## Context editing: clear what is stale
+
+Once a tool result has been used, the agent rarely needs its raw text again.
+The Claude API offers **context editing** (a beta feature at the time of
+writing) that clears old tool results automatically as the conversation
+grows, without summarising:
+
+```python
+response = client.beta.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=16000,
+    betas=["context-management-2025-06-27"],
+    context_management={"edits": [{"type": "clear_tool_uses_20250919"}]},
+    tools=tools,
+    messages=messages,
+)
+```
+
+Thresholds — when clearing starts and how many recent results to keep — are
+configurable; check the current documentation for the options. Tell the
+agent in the system prompt that old results may be cleared and that it
+should record anything it must remember (see memory, below).
+
+## Compaction: summarise when near the limit
+
+**Compaction** (also beta) summarises earlier parts of the conversation
+server-side when the context approaches a threshold, replacing them with a
+compaction block. The critical implementation detail: append the **full**
+`response.content` to your history on every turn, not just the text, or the
+compaction state is lost.
+
+```python
+response = client.beta.messages.create(
+    betas=["compact-2026-01-12"],
+    model="claude-opus-5-5",
+    max_tokens=16000,
+    messages=messages,
+    context_management={"edits": [{"type": "compact_20260112"}]},
+)
+messages.append({"role": "assistant", "content": response.content})  # keep all blocks
+```
+
+Summaries are lossy. Anything that must survive exactly — account numbers,
+agreed decisions, the user's constraints — belongs in external memory, not
+in the hope that a summary keeps it.
+
+## External memory: state outside the window
+
+For work that spans sessions, or details that must never be lost, give the
+agent a place to write notes outside its context: a progress file, a task
+list, or a dedicated memory tool backed by your storage.
+
+```text
+# progress.md (written and read by the agent)
+Task: reconcile October settlements, Narmada Payments
+Done: banks A-F matched; 3,214 rows; 12 mismatches logged in issues.csv
+Decisions: treat timing differences under 2 days as matched (agreed with ops)
+Next: banks G-K; then draft summary for finance lead
+```
+
+Instruct the agent to update the file after each milestone and to read it
+first when a session starts. This also makes runs auditable: a human can
+open the file and see exactly where the agent is.
+
+## Keep history append-only and cache-friendly
+
+Long loops resend the whole history on every call, so prompt caching is
+essential — and fragile. Rules of thumb:
+
+- Keep the system prompt and tool list **frozen** for the session. Editing
+  them invalidates the cache for everything after.
+- Add new operator instructions as new messages rather than rewriting
+  earlier ones. Recent Claude models support mid-conversation system
+  messages for exactly this purpose.
+- Avoid rewriting or deleting earlier turns yourself. Besides breaking the
+  cache, current models tie their thinking blocks to the conversation that
+  produced them, so edited history can lose that reasoning or be rejected.
+  Let context editing and compaction do the trimming.
+- To use a cheaper model for a sub-task, spawn a sub-agent rather than
+  switching the main loop's model, since caches are model-specific.
+
+### Try it yourself
+
+Take an agent transcript (your own, or the tool-use lesson's example run for
+20 or more turns) and audit its context: estimate tokens by category as in
+the table above. Then make three changes — shape the largest tool result,
+add a `progress.md` the agent must maintain, and move one volatile detail
+(such as today's date) out of the system prompt. Re-run and compare total
+input tokens and whether the agent still finishes the task correctly.

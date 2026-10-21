@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is `{ status: \"loading\" } | { status: \"success\"; data: Fund[] } | { status: \"error\"; error: string }` usually better than `{ isLoading: boolean; error?: string; data?: Fund[] }`?",
+      "options": [
+        "It produces smaller JavaScript bundles",
+        "It makes impossible combinations, such as loading with an error and data, unrepresentable, and data is guaranteed present after checking status",
+        "It avoids the need for any runtime checks",
+        "Booleans are not allowed in strict mode"
+      ],
+      "correctIndex": 1,
+      "explanation": "Independent flags allow every combination, most of them nonsense, and force undefined checks everywhere. A discriminated union allows only the real states and narrows to the right shape after one tag check."
+    },
+    {
+      "question": "In an exhaustive switch, the default branch calls `assertNever(p)` where `assertNever(x: never)`. A new union member is added but not handled. What happens?",
+      "options": [
+        "The code compiles and silently returns undefined",
+        "assertNever is removed by the compiler",
+        "TypeScript reports an error because the unhandled member is not assignable to never",
+        "The new member is automatically handled by the first case"
+      ],
+      "correctIndex": 2,
+      "explanation": "After all handled cases are narrowed away, the remaining type should be never. An unhandled member remains, so passing it to a never parameter is a compile error that names the missing case."
+    },
+    {
+      "question": "What does `Extract<Payment, { status: \"draft\" }>` give you when Payment is a discriminated union?",
+      "options": [
+        "The union member whose status is \"draft\"",
+        "Every member except the draft one",
+        "The string literal \"draft\"",
+        "A boolean indicating whether Payment has a draft state"
+      ],
+      "correctIndex": 0,
+      "explanation": "Extract keeps union members assignable to the given shape, which selects the draft member. You can then write functions such as submit(p: Draft) that reject payments in any other state."
+    },
+    {
+      "question": "Given `type Result<T> = { ok: true; value: T } | { ok: false; error: string }`, when can a caller read `r.value`?",
+      "options": [
+        "Always, because value is declared on the type",
+        "Only inside a try/catch block",
+        "Only after a type assertion",
+        "After checking that r.ok is true, which narrows r to the success member"
+      ],
+      "correctIndex": 3,
+      "explanation": "The boolean literal ok is the discriminant. Checking if (r.ok) narrows r to the member that has value; in the else branch only error is available."
+    }
+  ]
+}

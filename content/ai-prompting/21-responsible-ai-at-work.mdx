@@ -1,0 +1,124 @@
+---
+title: "Responsible AI at Work"
+description: "Protect personal and client data, watch for bias, disclose AI use, stay accountable for output, and route regulated content through compliance."
+module: "Safety & Responsibility"
+level: "intermediate"
+order: 16
+---
+
+Prompting skill is only half the job. The other half is judgement: what you
+may put into an AI tool, what you may do with what comes out, and when not to
+use AI at all. In a regulated Indian business the stakes are concrete —
+client trust, regulatory action and personal accountability. This lesson
+gives practical rules; your company's AI policy and compliance team always
+have the final word.
+
+## Data privacy: what never goes into an unapproved tool
+
+Treat any AI tool your company has not approved like a public website. Do
+not paste:
+
+- **Identity numbers**: PAN, Aadhaar, passport, voter ID, bank account and
+  card numbers.
+- **Client data**: names with contact details, portfolios, transaction
+  history, KYC documents, health or insurance information.
+- **Confidential business data**: unreleased results, deal terms, pricing
+  strategy, source code under NDA, credentials.
+
+Approved enterprise tools may have contracts covering data retention and
+training. Know which tools are approved for which data classes, and when in
+doubt, anonymise first:
+
+```text
+Before:  Rohan Mehta (PAN ABCDE1234F, +91 98xxxxxx10) wants to redeem ₹4,50,000.
+After:   Client A wants to redeem an amount in the ₹4-5 lakh range.
+```
+
+Most drafting, summarising and rewriting tasks work just as well on the
+anonymised version.
+
+## India's DPDP Act, at a high level
+
+The **Digital Personal Data Protection Act, 2023** governs how organisations
+process digital personal data of individuals in India. In broad terms it
+expects a lawful basis (usually consent) for processing, use limited to the
+stated purpose, reasonable security safeguards, and respect for individuals'
+rights such as correction and erasure. The Act provides for significant
+financial penalties for certain failures, up to ₹250 crore per instance.
+
+Pasting a client's details into an external AI service is processing that
+data and may share it with a third party. You are not expected to interpret
+the law yourself — this summary is not legal advice. Follow your company's
+data policy, and consult the compliance or data protection team before using
+personal data in any new AI workflow. Sector regulators may add further
+requirements on top.
+
+## Bias and fairness
+
+Models learn from human text and can reproduce its biases — around gender,
+region, caste, religion, language or age. Risky uses include screening CVs,
+scoring loan or credit eligibility, writing performance reviews, and
+profiling customers.
+
+- Don't let AI make or rank decisions about people without human review and
+  an approved process.
+- Test with counterfactual pairs: same CV, change "Priya" to "Pradeep" or
+  "Lucknow" to "Bengaluru". Different outputs are a red flag.
+- Remove irrelevant attributes (name, photo, age, address) before asking for
+  an assessment.
+- Ask whether the criteria themselves are fair, not just the model.
+
+## Disclose AI use
+
+Be open about where AI helped, following your team's norms. A client-facing
+email drafted with AI and reviewed by you may not need a label, but a report
+whose analysis was largely AI-generated should say so to its reviewers.
+Never present AI output as independent research, a human expert's opinion,
+or a verified fact when it is not.
+
+## You are accountable for the output
+
+"The AI wrote it" is not a defence. Before you send, publish or act:
+
+- **Check facts and numbers** against source systems. Models can invent
+  figures, circulars, section numbers and citations confidently.
+- **Re-run calculations** yourself — returns, tax, interest, totals.
+- **Read every line** of client communication as if you wrote it, because
+  you did.
+- **Review code** for correctness and security like any colleague's pull
+  request.
+
+## Regulated content goes through compliance
+
+Anything resembling financial claims — returns, performance, product
+comparisons, "safe" or "guaranteed" language, tax benefits — is regulated.
+Regulators such as SEBI, RBI and IRDAI have rules on advertisements and
+communications. AI drafts are especially prone to overclaiming:
+
+```text
+AI draft:  "This fund is a safe way to earn 15% returns every year."
+Problems:  "safe" and an assured return figure; no risk disclosure.
+Action:    Do not edit and send. Route through the compliance review process.
+```
+
+A useful prompt habit is to ask the model to flag risky phrasing, but treat
+that as a first pass only. Compliance approval is a human step.
+
+## When not to use AI
+
+- The task needs data you are not allowed to share with the tool.
+- The output will be used without anyone able to verify it.
+- It is a decision about a person's job, credit or claim with no human
+  review.
+- You need guaranteed precision (legal filings, exact regulatory text) and
+  can't check every word.
+- The situation calls for a human relationship — bad news, a grievance, a
+  bereaved client.
+
+### Try it yourself
+
+Pick a task you would like to hand to AI this week. Write three lines:
+which data it involves and whether your approved tool may hold it, how you
+will verify the output, and who must review it before it goes out. Then
+anonymise one real (internal) example and test whether the anonymised
+version still gives a useful result.

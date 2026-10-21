@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In an RTK Query `onCacheEntryAdded` handler, why do you `await cacheDataLoaded` before applying socket messages?",
+      "options": [
+        "So deltas are applied on top of the fetched snapshot instead of to a cache entry that has no data yet",
+        "Because WebSockets cannot open before a query finishes",
+        "To make the socket reconnect automatically",
+        "It is required for TypeScript inference only"
+      ],
+      "correctIndex": 0,
+      "explanation": "The recipe is snapshot first, then deltas. updateCachedData needs existing data to patch, so you wait for the initial query to resolve."
+    },
+    {
+      "question": "Two components both call `useGetNavsQuery()` for a streaming endpoint. How many WebSocket connections are opened?",
+      "options": [
+        "Two, one per component",
+        "One, because onCacheEntryAdded runs once per cache entry, shared by all subscribers",
+        "Zero until one of them calls refetch",
+        "One per render"
+      ],
+      "correctIndex": 1,
+      "explanation": "onCacheEntryAdded runs when the cache entry is created and its cleanup runs when the last subscriber leaves, so all subscribers share one connection."
+    },
+    {
+      "question": "What does marking an action with `prepareAutoBatched()` change?",
+      "options": [
+        "The reducer runs later, at the end of the frame",
+        "The action is sent to the server in a batch",
+        "The state updates immediately, but subscriber notifications are delayed and coalesced",
+        "The action skips all middleware"
+      ],
+      "correctIndex": 2,
+      "explanation": "The autoBatchEnhancer (on by default in configureStore) keeps state current but delays notifying subscribers, so many fast actions cause one notification."
+    },
+    {
+      "question": "Why should each queued offline write carry a unique ID sent to the server?",
+      "options": [
+        "Redux requires every action to have an id",
+        "To sort messages alphabetically",
+        "So the entity adapter can store it",
+        "As an idempotency key, so a retried request after a timeout is not applied twice"
+      ],
+      "correctIndex": 3,
+      "explanation": "A request may succeed on the server even though the client saw a timeout. An idempotency key lets the server ignore the duplicate retry."
+    }
+  ]
+}

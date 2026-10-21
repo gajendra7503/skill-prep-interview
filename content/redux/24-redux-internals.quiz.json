@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Inside a middleware, what is the difference between calling `next(action)` and `api.dispatch(action)`?",
+      "options": [
+        "There is no difference; both call the reducer directly",
+        "`next` passes the action to the next middleware in the chain; `api.dispatch` sends it through the whole chain again from the top",
+        "`api.dispatch` skips all middleware",
+        "`next` notifies subscribers; `api.dispatch` does not"
+      ],
+      "correctIndex": 1,
+      "explanation": "applyMiddleware gives each middleware a dispatch wrapper that calls the final composed dispatch, so it re-enters the chain from the outermost middleware. next only continues to the following middleware."
+    },
+    {
+      "question": "Why does combineReducers return the previous state object when no slice reducer changed its slice?",
+      "options": [
+        "To save memory on the server",
+        "Because reducers are not allowed to create objects",
+        "It is required by the Redux DevTools protocol",
+        "So reference equality checks in useSelector and memoised selectors can skip work"
+      ],
+      "correctIndex": 3,
+      "explanation": "Preserving the root reference when nothing changed lets subscribers and selectors detect 'no change' with a cheap === check."
+    },
+    {
+      "question": "Why does the store throw if a reducer calls `dispatch`?",
+      "options": [
+        "The reducer would re-enter the store while the current state is still being computed, breaking the single, predictable state transition",
+        "Dispatch is asynchronous and reducers are synchronous",
+        "Reducers do not have access to the store",
+        "It would bypass the middleware chain, which is forbidden by TypeScript"
+      ],
+      "correctIndex": 0,
+      "explanation": "The isDispatching guard prevents re-entrant dispatches. Reducers must be pure functions of (state, action) with no side effects."
+    },
+    {
+      "question": "With `applyMiddleware(thunk, logger)`, which middleware sees each action first?",
+      "options": [
+        "logger, because middleware runs right to left",
+        "Whichever was registered most recently at runtime",
+        "thunk, because compose makes the first middleware the outermost wrapper",
+        "Both at the same time"
+      ],
+      "correctIndex": 2,
+      "explanation": "compose(f, g)(x) is f(g(x)), so the first middleware wraps all the others and receives actions first."
+    }
+  ]
+}

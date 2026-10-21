@@ -1,0 +1,151 @@
+---
+title: "Container Queries, :has() & Cascade Layers"
+description: "Component-level responsiveness with @container and container units, practical :has() patterns, and @layer for taming the cascade."
+module: "Modern Layout & Media"
+level: advanced
+order: 21
+---
+
+The "Responsive Design & Media Queries" lesson introduced container queries, and "Pseudo-classes, Pseudo-elements & :has()" introduced `:has()`.
+Interviewers now go a level deeper: *what* does `container-type` actually
+do to layout, what are `cqi` units, how expensive is `:has()`, and how do
+cascade layers change the specificity war. This lesson covers those
+details.
+
+## `container-type`: opting in to containment
+
+```css
+.sidebar,
+.main {
+  container-type: inline-size;   /* query the inline (horizontal) size */
+  container-name: panel;         /* optional, lets @container target it */
+}
+
+/* shorthand: name / type */
+.product-grid {
+  container: grid / inline-size;
+}
+```
+
+- `inline-size` applies **size containment on the inline axis only**: the
+  element's width no longer depends on its children, which is what makes
+  querying it safe (no circular "child changes width, width changes
+  child" loop). Height still grows with content. This is the value you
+  want 95% of the time.
+- `size` contains both axes, so the element needs an explicit height or
+  it collapses to zero. Use it only when you genuinely query height.
+- `normal` (the default) makes it a container for **style queries** only,
+  not size queries.
+
+A common gotcha: an element **cannot query itself**. `@container` rules
+match the *nearest ancestor* container, so put `container-type` on a
+wrapper and style the children.
+
+## Writing `@container` rules
+
+```css
+.card { display: grid; gap: 0.75rem; }
+
+@container panel (min-width: 28rem) {
+  .card { grid-template-columns: 8rem 1fr; }
+}
+
+/* Range syntax works here, as in modern media queries */
+@container (30rem <= width < 50rem) {
+  .card__price { font-size: 1.25rem; }
+}
+```
+
+Without a name, the rule matches the nearest ancestor with any
+`container-type`. Naming avoids surprises when containers are nested.
+
+## Container query units
+
+| Unit | Relative to |
+| --- | --- |
+| `cqw` / `cqh` | 1% of the container's width / height |
+| `cqi` / `cqb` | 1% of the container's inline / block size |
+| `cqmin` / `cqmax` | the smaller / larger of `cqi` and `cqb` |
+
+```css
+.card__title {
+  /* scales with the card's container, clamped to sane limits */
+  font-size: clamp(1rem, 4cqi + 0.5rem, 1.75rem);
+}
+```
+
+Prefer `cqi` over `cqw` so the code still works in vertical writing modes.
+If no ancestor container exists, the units fall back to the small viewport
+units (`svw`, `svh` and so on).
+
+## `:has()` patterns worth knowing
+
+```css
+/* Parent state from a child: highlight a row whose checkbox is ticked */
+tr:has(input[type="checkbox"]:checked) { background: #fff7e6; }
+
+/* Quantity query: switch to two columns once a list has 5+ items */
+.list:has(> li:nth-child(5)) { columns: 2; }
+
+/* Previous-sibling selection: the label BEFORE an invalid input */
+label:has(+ input:user-invalid) { color: #b42318; }
+
+/* Page-level state without JS: lock scroll while a modal is open */
+body:has(dialog[open]) { overflow: hidden; }
+
+/* Theme toggle driven by a form control */
+:root:has(#dark-mode:checked) { color-scheme: dark; }
+```
+
+Rules to remember:
+
+- `:has()` takes an **unforgiving** selector list: one invalid or
+  unsupported selector inside it invalidates the whole rule (unlike
+  `:is()`), so do not mix in experimental pseudo-classes.
+- `:has()` cannot be nested inside another `:has()`, and pseudo-elements
+  are not allowed inside it.
+- Specificity is that of its **most specific argument**, like `:is()`.
+- Performance: the browser must re-check ancestors when descendants
+  change. Anchor it to a specific element (`.list:has(...)`) and use the
+  child combinator `>` where possible rather than `body:has(.x .y)` that
+  watches the whole document.
+
+## Browser support
+
+Size container queries and container units are Baseline since early 2023
+(Chrome/Edge 105, Safari 16, Firefox 110). `:has()` is Baseline since
+December 2023 (Firefox 121 was the last to ship). **Style queries**
+(`@container style(--variant: compact)`) for custom properties are
+supported in Chromium and Safari but were still arriving in Firefox, so
+check caniuse before relying on them. For older browsers, wrap
+enhancements in `@supports (container-type: inline-size)` or
+`@supports selector(:has(a))`.
+
+## `@layer`: ordering the cascade explicitly
+
+```css
+@layer reset, base, components, utilities;   /* order declared up front */
+
+@layer reset      { * { margin: 0; } }
+@layer components { .btn { padding: 0.5rem 1rem; } }
+@layer utilities  { .p-0 { padding: 0; } }
+
+@import url("vendor.css") layer(vendor);     /* put third-party CSS in a layer */
+```
+
+Layer order beats specificity: a single-class rule in `utilities` wins
+over `#app .btn.primary` in `components`, because later layers win
+regardless of selector weight. **Unlayered styles beat all layered
+styles** (for normal declarations), and the order flips for
+`!important` — an important declaration in an *earlier* layer wins. This
+is how frameworks like Tailwind v4 keep utilities overriding components
+without specificity hacks.
+
+### Try it yourself
+
+Build a product card that shows a stacked layout below `28rem` of
+container width and a two-column layout above it, with a title sized in
+`cqi` units. Place it in a 20rem sidebar and a 60rem main column. Then use
+`:has()` to add a "Sale" border when the card contains a `.badge--sale`,
+and put all your styles in `@layer base, components` — confirm an
+unlayered `.card { border: 0 }` overrides them.

@@ -1,0 +1,147 @@
+---
+title: "Startup Time & Memory Profiling in Release Builds"
+description: "Measuring cold start properly, shrinking the work before first render, reading Hermes and native profiles, and hunting memory leaks on low-end Android."
+module: "Pro Level"
+level: pro
+order: 25
+---
+
+On a flagship phone almost any React Native app feels fine. The real test is
+a ₹9,000 Android phone with 3–4 GB of RAM, a dozen apps in the background
+and a patchy 4G connection. Senior engineers don't guess at performance
+there — they measure release builds, find the biggest cost and remove it.
+
+## Rule zero: profile release builds only
+
+Development builds run extra checks, warnings, and (with Hermes) execute JS
+from source rather than precompiled bytecode. Their numbers can be several
+times worse than production and point you at problems users never see.
+
+```bash
+# Android release build on a connected device
+npx expo run:android --variant release     # Expo projects
+npx react-native run-android --mode release # React Native CLI projects
+```
+
+Use a mid- or low-end physical Android device as your benchmark, not an
+emulator on a fast laptop.
+
+## Measuring cold start
+
+A **cold start** means the process wasn't running. Break it into phases so
+you know which side to fix:
+
+```text
+Process start → native init → JS bundle load → first React render → content visible
+|------------- native -------------|---------------- JS ----------------|
+```
+
+On Android, the activity manager reports launch time directly:
+
+```bash
+adb shell am force-stop com.acme.wealth
+adb shell am start -W -n com.acme.wealth/.MainActivity
+# Status: ok
+# TotalTime: 1840      ← ms until the first frame of the activity
+# WaitTime: 1862
+```
+
+On iOS, use the Xcode Instruments **App Launch** template. To time the JS
+side, record timestamps yourself:
+
+```ts
+// index.js — first line that runs
+globalThis.__appStart = performance.now();
+
+// HomeScreen.tsx
+useEffect(() => {
+  const ms = performance.now() - globalThis.__appStart;
+  analytics.track("home_ready", { ms: Math.round(ms) }); // e.g. { ms: 912 }
+}, []);
+```
+
+Track this metric from real users per release, segmented by device class —
+averages from your own phone hide the long tail.
+
+## Cutting work before the first render
+
+Most slow starts come from doing too much at import time:
+
+- **Inline requires.** Metro can defer evaluating a module until it's first
+  used. The default React Native Metro config enables `inlineRequires`;
+  check you haven't disabled it.
+- **Heavy top-level code.** Building large lookup tables, parsing JSON
+  fixtures or initialising five SDKs in `index.js` all run before anything
+  is drawn. Move them behind the first screen.
+- **Lazy screens.** Don't import every screen's dependencies up front;
+  rarely used flows (KYC, settings, charts) can load when navigated to.
+- **Defer non-critical SDKs.** Analytics, chat widgets and remote config can
+  initialise after the first frame:
+
+```ts
+export default function App() {
+  useEffect(() => {
+    const t = setTimeout(() => {
+      initAnalytics();
+      initChatSupport();
+    }, 0); // after first render has been committed
+    return () => clearTimeout(t);
+  }, []);
+  return <RootNavigator />;
+}
+```
+
+To see *what* is in the bundle, use a bundle visualiser — Expo projects can
+use Expo Atlas (`EXPO_ATLAS=1 npx expo start`), and
+`react-native-bundle-visualizer` works for CLI projects. Multi-megabyte
+date, chart or icon libraries are common finds.
+
+## Reading profiles
+
+- **JS CPU:** the Hermes sampling profiler (start it from the dev menu or
+  React Native DevTools in recent versions; `npx react-native profile-hermes`
+  pulls a trace you can open in Chrome's performance tools). Look for wide
+  bars in your own code during startup or a janky interaction.
+- **Native CPU and threads:** Android Studio Profiler or Perfetto system
+  traces; Xcode Instruments Time Profiler. These show main-thread stalls
+  from layout, image decoding or native SDK init that JS profiles can't see.
+- **React renders:** the React DevTools profiler shows which components
+  re-render and why.
+
+## Memory: leaks and spikes
+
+Low-end Android kills background apps aggressively, and an app that keeps
+growing in memory gets killed even in the foreground. Common culprits:
+
+```tsx
+// Leak: subscription never removed — runs forever after unmount
+useEffect(() => {
+  AppState.addEventListener("change", refreshPortfolio);
+}, []);
+
+// Fixed: clean up on unmount
+useEffect(() => {
+  const sub = AppState.addEventListener("change", refreshPortfolio);
+  return () => sub.remove();
+}, []);
+```
+
+- **Listeners and timers** without cleanup keep closures (and everything
+  they reference) alive.
+- **Unbounded caches** — a global store or query cache that keeps every
+  fund's full price history.
+- **Oversized images** — a 4000×3000 photo is decoded to tens of MB of
+  bitmap memory even when shown as a thumbnail; request resized images from
+  your CDN.
+
+Use the Android Studio memory profiler or Xcode Allocations/Leaks: navigate
+into a screen and back ten times — if memory keeps climbing and never
+settles, something isn't being released.
+
+### Try it yourself
+
+Build a release variant of your app, measure `TotalTime` with
+`adb shell am start -W` five times and take the median. Then move one SDK
+initialisation out of `index.js` into a deferred effect, rebuild, and
+measure again. Record the before/after numbers alongside the device model
+and RAM.

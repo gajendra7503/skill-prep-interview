@@ -1,0 +1,161 @@
+---
+title: "Partitioning & Sharding"
+description: "RANGE, LIST, HASH and KEY partitioning, pruning in EXPLAIN, the primary-key rule, partition-based retention, and how sharding differs and how to pick a shard key."
+module: "Practical MySQL"
+level: advanced
+order: 22
+---
+
+When the `orders` table reaches a few hundred million rows, two questions
+come up: "should we partition it?" and "should we shard?". They sound
+similar but solve different problems. **Partitioning** splits one table
+into pieces inside a single MySQL server; **sharding** splits the data
+across many servers. Interviewers want you to know the mechanics and,
+more importantly, when each one does not help.
+
+## Partition types
+
+```sql
+-- RANGE COLUMNS: by date, the most common choice for time-series data
+CREATE TABLE orders_p (
+  id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  customer_id  INT UNSIGNED NOT NULL,
+  status       VARCHAR(20) NOT NULL DEFAULT 'pending',
+  total        DECIMAL(12,2) NOT NULL,
+  created_at   DATETIME NOT NULL,
+  PRIMARY KEY (id, created_at),          -- must include the partition column
+  KEY idx_customer (customer_id, created_at)
+)
+PARTITION BY RANGE COLUMNS (created_at) (
+  PARTITION p2025_01 VALUES LESS THAN ('2025-02-01'),
+  PARTITION p2025_02 VALUES LESS THAN ('2025-03-01'),
+  PARTITION p2025_03 VALUES LESS THAN ('2025-04-01'),
+  PARTITION pmax     VALUES LESS THAN (MAXVALUE)
+);
+```
+
+| Type | Rows go to a partition by | Typical use |
+| --- | --- | --- |
+| `RANGE` / `RANGE COLUMNS` | value falls below a boundary | dates, retention |
+| `LIST` / `LIST COLUMNS` | value is in an explicit set | region or state code |
+| `HASH` | `MOD` of a user integer expression | even spread, no natural range |
+| `KEY` | MySQL's internal hash of one or more columns | like HASH, any column type |
+
+```sql
+PARTITION BY LIST COLUMNS (region) (
+  PARTITION p_north VALUES IN ('DL', 'PB', 'HR'),
+  PARTITION p_west  VALUES IN ('MH', 'GJ', 'RJ')
+);
+PARTITION BY HASH (customer_id) PARTITIONS 16;
+PARTITION BY KEY (id) PARTITIONS 16;
+```
+
+Plain `RANGE` needs an integer expression, e.g.
+`PARTITION BY RANGE (TO_DAYS(created_at))`; `RANGE COLUMNS` accepts
+`DATE`/`DATETIME` and strings directly. In MySQL 8.0 only InnoDB and NDB
+support partitioning, and a table can have at most 8,192 partitions.
+
+## The unique-key rule
+
+**Every unique key on a partitioned table, including the primary key, must
+contain every column used in the partitioning expression.** MySQL can only
+enforce uniqueness within a single partition, so `PRIMARY KEY (id)` alone
+fails with error 1503 when partitioning by `created_at`. That is why the
+example uses `PRIMARY KEY (id, created_at)` — and it means a global unique
+constraint on, say, `email` is impossible unless `email` is the partition
+key. InnoDB partitioned tables also **cannot have foreign keys** in either
+direction, a real cost on a schema like ours.
+
+## Partition pruning
+
+```sql
+EXPLAIN SELECT SUM(total) FROM orders_p
+WHERE created_at >= '2025-02-01' AND created_at < '2025-03-01';
+-- partitions: p2025_02      type: ALL / range ...
+
+EXPLAIN SELECT * FROM orders_p WHERE customer_id = 42;
+-- partitions: p2025_01,p2025_02,p2025_03,pmax   (no pruning)
+```
+
+The `partitions` column of `EXPLAIN` lists the partitions actually
+touched. Pruning works only when the `WHERE` clause constrains the
+partition column directly; wrapping it in a function
+(`WHERE YEAR(created_at) = 2025`) or filtering on other columns forces
+every partition to be checked. For `RANGE` on an expression, pruning is
+optimised for `TO_DAYS()`, `TO_SECONDS()` and `YEAR()`.
+
+## Retention: drop a partition instead of DELETE
+
+```sql
+-- Instant, no row-by-row undo/redo, no purge lag
+ALTER TABLE orders_p DROP PARTITION p2025_01;
+
+-- Add next month by splitting the catch-all partition
+ALTER TABLE orders_p REORGANIZE PARTITION pmax INTO (
+  PARTITION p2025_04 VALUES LESS THAN ('2025-05-01'),
+  PARTITION pmax     VALUES LESS THAN (MAXVALUE)
+);
+
+-- Archive: swap a partition with an empty non-partitioned table of the same shape
+ALTER TABLE orders_p EXCHANGE PARTITION p2025_02 WITH TABLE orders_2025_02;
+```
+
+`DELETE FROM orders WHERE created_at < '2025-02-01'` on 5 crore rows
+generates huge undo logs, replication lag and locks. `DROP PARTITION` is a
+metadata operation that discards the tablespace file. This, not query
+speed, is the single best reason to partition. Automate the monthly
+`REORGANIZE` with an event or a cron job.
+
+## When partitioning does not help
+
+- **Point lookups by primary key** are already O(log n) in a B+tree;
+  partitioning saves maybe one tree level.
+- **Queries that do not filter on the partition key** must probe every
+  partition's local index — often *slower* than one big index.
+- It does not add CPU, memory or disk I/O capacity: it is still one server.
+- Many partitions mean many open files and slower DDL and plan
+  preparation.
+
+Rule of thumb: partition for **data lifecycle management** and for range
+scans aligned with the partition key, not as a general speed-up.
+
+## Sharding
+
+Sharding (horizontal scaling) places subsets of rows on separate MySQL
+servers, each with its own CPU, buffer pool and disks. MySQL has no
+built-in sharding; it is done in the application, a proxy layer
+(ProxySQL rules), or a system such as **Vitess**.
+
+| | Partitioning | Sharding |
+| --- | --- | --- |
+| Scope | one server, one table | many servers |
+| Transparent to SQL | yes | mostly no |
+| Scales writes / capacity | no | yes |
+| Cross-piece joins and transactions | normal | hard (scatter-gather, 2PC or sagas) |
+
+## Choosing a shard key
+
+A good shard key has **high cardinality**, spreads load evenly, and keeps
+the rows a request needs on **one shard**. For our store, `customer_id` is
+the usual choice: a customer's orders and order items live together, so
+"my orders" is a single-shard query. Shard `order_items` by the same key
+(denormalise `customer_id` into it) so joins stay local.
+
+- Avoid `created_at` or auto-increment ids as range shard keys: all new
+  writes hit the last shard (a hotspot).
+- Use a lookup (directory) table or consistent hashing over many logical
+  shards (say 1,024 mapped to 8 servers) so you can rebalance by moving
+  logical shards rather than rehashing everything.
+- Generate globally unique ids (Snowflake-style or UUIDv7) because
+  per-server `AUTO_INCREMENT` collides.
+- Queries without the shard key (admin "all orders today") become
+  scatter-gather; serve them from a replica-fed analytics store instead.
+
+### Try it yourself
+
+Create `orders_p` partitioned monthly for 2025 with a `pmax` partition,
+load a few lakh rows, and compare `EXPLAIN` partitions for a one-month
+revenue query versus a `customer_id` lookup. Then write the monthly
+maintenance: `REORGANIZE` to add next month and `DROP` the partition older
+than 12 months. Finally, explain in three sentences how you would shard
+this table across 4 servers and which queries would become scatter-gather.

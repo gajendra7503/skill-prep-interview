@@ -1,0 +1,123 @@
+---
+title: "Reasoning and Thinking"
+description: "Chain-of-thought prompting, built-in model thinking versus visible reasoning, when reasoning helps or wastes tokens, separating reasoning from answers, and self-checks."
+module: "Core Techniques"
+level: "intermediate"
+order: 8
+---
+
+Some questions can be answered in one step; others need several. A model
+that jumps straight to an answer on a multi-step problem is more likely to
+make an error it never notices. Reasoning techniques give the model room to
+work through a problem, and give you a way to inspect how it got there.
+
+## The chain-of-thought idea
+
+**Chain-of-thought** (CoT) prompting means getting the model to lay out
+intermediate steps before the final answer. Because each token is generated
+from everything before it, a written-out step becomes context for the next
+step. Working through "first compute the monthly figure, then apply the
+cap" is more reliable than predicting the final number in one jump.
+
+The classic phrasing was simply "Think step by step." It became famous
+because it noticeably improved older models on maths and logic problems.
+
+## Built-in thinking vs visible reasoning
+
+Things have changed. Modern models such as current Claude models can
+**reason internally** before responding, and with adaptive thinking they
+decide how much thinking a problem needs. On these models, adding "think
+step by step" is far less necessary than it used to be; the model already
+does that work when the task calls for it.
+
+Asking for reasoning **in the visible output** is still useful when:
+
+- **You want to inspect it**, for example to audit why a claim was flagged.
+- **A reviewer needs the working**, such as a manager checking a
+  calculation before approving it.
+- **You are debugging a prompt** and need to see where the model's logic
+  went wrong.
+- **You are using a setup without built-in thinking**, where written
+  reasoning is the main way to give the model room to work.
+
+In short: rely on built-in thinking for quality, and request visible
+reasoning when you need transparency.
+
+## When reasoning helps, and when it wastes tokens
+
+| Helps | Wastes tokens |
+| --- | --- |
+| Multi-step calculations (EMIs, pro-rata bonuses, tax slabs) | Simple lookups ("What is the capital of Karnataka?") |
+| Analysing a document against several rules | Reformatting a list or fixing typos |
+| Comparing options and making a decision | Classifying obvious, short inputs |
+| Debugging code or tracing logic | Translating a single sentence |
+
+Reasoning costs output tokens and time. For high-volume, simple tasks, a
+direct answer is cheaper and just as accurate.
+
+## Separate reasoning from the final answer
+
+If reasoning is visible, keep it apart from the answer so readers and code
+can find the result easily. Tags work well for this.
+
+```text
+An employee at fictional Vardhan Logistics joined on 1 August 2025 with an
+annual CTC of ₹9,60,000. The company pays a festival bonus of 8.33% of
+annual basic pay, pro-rated by months worked in the financial year ending
+31 March 2026. Basic pay is 40% of CTC.
+
+Work out the bonus. Show your calculation in <working> tags, then give only
+the final amount in rupees in <answer> tags.
+```
+
+The expected working: basic pay is ₹3,84,000; the employee worked 8 months
+(August to March), so pro-rated basic is ₹2,56,000; 8.33% of that is about
+₹21,325. Because exact arithmetic is a known model weakness, verify figures
+like these with a calculator or code before they go into a payroll file.
+
+A weak prompt for the same task:
+
+```text
+How much bonus does this employee get?
+```
+
+It gives no rules, no format, and no way to check the result.
+
+## Self-check prompts
+
+You can ask the model to review its own work before finishing. This catches
+a useful share of slips, especially in long outputs.
+
+```text
+After drafting your answer, check it against these points before
+responding:
+1. Does every figure come from the <report> tags, not from memory?
+2. Do the percentages add up to 100?
+3. Have you answered all three questions asked?
+If any check fails, correct the answer before giving it.
+```
+
+Self-checks work best with **concrete criteria**. "Double-check your work"
+is vague; "verify that each date falls within FY2025-26" is checkable.
+
+For important decisions, a separate review step is stronger still: send the
+first answer to a second prompt whose only job is to critique it against the
+criteria.
+
+## Common mistakes
+
+- Asking for long visible reasoning on every request, including trivial
+  ones, and paying for it.
+- Mixing reasoning and answer in one paragraph, so downstream code cannot
+  extract the result.
+- Trusting the reasoning because it reads well. Visible reasoning is a
+  helpful explanation, not proof; check the facts it relies on.
+
+### Try it yourself
+
+Write a prompt that decides whether a fictional employee's ₹48,000 travel
+claim complies with a short expense policy you paste in `<policy>` tags.
+Ask for the reasoning in `<working>` tags and a COMPLIANT or NOT_COMPLIANT
+verdict in `<answer>` tags, plus a three-point self-check. Then try the
+same claim with a direct-answer prompt and compare accuracy, length and how
+easy each is to audit.

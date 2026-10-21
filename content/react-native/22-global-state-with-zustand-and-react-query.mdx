@@ -1,0 +1,123 @@
+---
+title: "Global State with Zustand & React Query"
+description: "Separating client and server state, Zustand stores with selectors and persistence, and wiring TanStack Query to AppState and NetInfo."
+module: "Building Real Screens"
+level: intermediate
+order: 10
+---
+
+Most "we need Redux" conversations in mobile apps are really two different
+problems mixed together. Naming them separately is the strongest opening
+answer to any RN state-management question.
+
+## Client state vs server state
+
+- **Client state** is owned by the app: theme, onboarding progress, a draft
+  form, the selected tab, an auth token. It's synchronous and always correct.
+- **Server state** lives on a backend and you hold a *cached copy*: the
+  user's portfolio, a list of funds, notifications. It can go stale, needs
+  refetching, and can fail to load.
+
+Put server state in TanStack Query and keep the remaining client state small
+— often a single Zustand store. Copying API responses into a global store
+means re-implementing caching, refetching and invalidation by hand.
+
+## A Zustand store with selectors
+
+```tsx
+import { create } from "zustand";
+
+type CartState = {
+  items: { id: string; name: string; amount: number }[];
+  add: (item: CartState["items"][number]) => void;
+  remove: (id: string) => void;
+};
+
+export const useCart = create<CartState>()((set) => ({
+  items: [],
+  add: (item) => set((s) => ({ items: [...s.items, item] })),
+  remove: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
+}));
+
+// Subscribe only to what you render
+const count = useCart((s) => s.items.length);
+const total = useCart((s) => s.items.reduce((sum, i) => sum + i.amount, 0)); // ₹ total
+const add = useCart((s) => s.add); // actions are stable
+```
+
+No Provider is needed, and a component re-renders only when its selected
+value changes (compared with `Object.is`). The trap: a selector that returns
+a **new object or array** every time, like `(s) => ({ a: s.a, b: s.b })`,
+changes on every check — in Zustand v5 this can cause an infinite render
+loop. Select primitives separately, or wrap the selector with `useShallow`
+from `zustand/react/shallow`. Outside components — in an API interceptor,
+say — use `useCart.getState()`.
+
+## Persisting with AsyncStorage or MMKV
+
+The `persist` middleware saves the store and rehydrates it on launch:
+
+```tsx
+import { persist, createJSONStorage } from "zustand/middleware";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+export const useSettings = create<SettingsState>()(
+  persist(
+    (set) => ({ language: "en", setLanguage: (language) => set({ language }) }),
+    {
+      name: "settings",
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (s) => ({ language: s.language }), // don't persist functions or transient flags
+      version: 1, // bump with a `migrate` function when the shape changes
+    },
+  ),
+);
+```
+
+AsyncStorage is asynchronous, so the first render uses defaults until
+hydration finishes — check `useSettings.persist.hasHydrated()` before routing
+on persisted values. **MMKV** (`react-native-mmkv`) is a synchronous,
+JSI-based store, so hydration is effectively immediate; you plug it in via
+`createJSONStorage` with a small adapter mapping `getItem`, `setItem` and
+`removeItem` to MMKV's `getString`, `set` and `delete`. Neither is
+encrypted by default — tokens belong in Keychain/Keystore, as covered in the
+security lesson.
+
+## TanStack Query in React Native
+
+`useQuery` and `useMutation` work as on the web, but two browser signals
+don't exist on mobile: **window focus** and the **online/offline events**.
+You connect them once at app start:
+
+```tsx
+import { AppState, Platform } from "react-native";
+import NetInfo from "@react-native-community/netinfo";
+import { focusManager, onlineManager } from "@tanstack/react-query";
+
+// Refetch stale queries when the app returns to the foreground
+useEffect(() => {
+  const sub = AppState.addEventListener("change", (status) => {
+    if (Platform.OS !== "web") focusManager.setFocused(status === "active");
+  });
+  return () => sub.remove();
+}, []);
+
+// Pause queries and mutations while offline, resume on reconnect
+onlineManager.setEventListener((setOnline) =>
+  NetInfo.addEventListener((state) => setOnline(!!state.isConnected)),
+);
+```
+
+With `onlineManager` wired up, queries don't burn retries while offline,
+and paused mutations resume when the connection returns. For screens in a
+navigation stack, also consider refetching on screen focus with React
+Navigation's `useFocusEffect`, since a backgrounded tab doesn't trigger
+`AppState`. To keep the cache across app restarts, add
+`@tanstack/query-async-storage-persister` with `PersistQueryClientProvider`.
+
+### Try it yourself
+
+Build a fund watchlist: the list of funds comes from `useQuery`, the user's
+selected sort order lives in a persisted Zustand store. Turn on aeroplane
+mode, background the app, then restore the connection and return — confirm
+the list refetches automatically and the sort order survives an app restart.

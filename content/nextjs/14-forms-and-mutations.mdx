@@ -1,0 +1,181 @@
+---
+title: "Forms & Mutations"
+description: "Production-grade forms with Server Actions: validation with zod, useActionState and useFormStatus, revalidation after a write, and optimistic UI."
+module: "Full-Stack Patterns"
+level: "intermediate"
+order: 9
+---
+
+The Route Handlers & Server Actions lesson showed the basic pattern: a
+`"use server"` function passed to `<form action>`. Real forms need more —
+validation errors shown next to fields, a pending state, fresh data after
+the write, and instant feedback. This lesson builds that, end to end.
+
+## 1. A validated Server Action
+
+Everything arriving at a Server Action is untrusted — it is a public POST
+endpoint, whatever your UI looks like. Validate with a schema and **return**
+errors instead of throwing, so the form can display them:
+
+```ts
+// app/expenses/actions.ts
+"use server";
+
+import { z } from "zod";
+import { updateTag } from "next/cache";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/dal";
+import { insertExpense } from "@/lib/expenses";
+
+const ExpenseSchema = z.object({
+  title: z.string().trim().min(3, "Title must be at least 3 characters"),
+  amount: z.coerce.number().positive("Amount must be more than ₹0").max(10_00_000),
+});
+
+export type ExpenseState = {
+  errors?: { title?: string[]; amount?: string[] };
+  message?: string;
+  values?: { title?: string; amount?: string };
+};
+
+export async function createExpense(prev: ExpenseState, formData: FormData): Promise<ExpenseState> {
+  const user = await getCurrentUser();            // always re-check auth inside the action
+  if (!user) return { message: "Please sign in again." };
+
+  const raw = { title: formData.get("title"), amount: formData.get("amount") };
+  const parsed = ExpenseSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      errors: parsed.error.flatten().fieldErrors,
+      values: { title: String(raw.title ?? ""), amount: String(raw.amount ?? "") },
+    };
+  }
+
+  try {
+    await insertExpense(user.id, parsed.data);
+  } catch {
+    return { message: "Could not save the expense. Try again." };
+  }
+
+  updateTag(`expenses-${user.id}`);   // read-your-own-writes: next read is fresh
+  redirect("/expenses");              // throws — keep it outside try/catch
+}
+```
+
+Two details interviewers probe:
+
+- `redirect()` works by throwing a framework control-flow exception. Call it
+  **after** the `try/catch`, or your `catch` swallows the redirect.
+- Revalidate **before** `redirect()` — code after it never runs.
+
+## 2. Wiring errors and pending state with `useActionState`
+
+```tsx
+// app/expenses/new/expense-form.tsx
+"use client";
+
+import { useActionState } from "react";
+import { createExpense, type ExpenseState } from "../actions";
+import { SubmitButton } from "./submit-button";
+
+export function ExpenseForm() {
+  const [state, formAction, pending] = useActionState(createExpense, {} as ExpenseState);
+
+  return (
+    <form action={formAction}>
+      <input name="title" defaultValue={state.values?.title} aria-describedby="title-error" />
+      <p id="title-error" aria-live="polite">{state.errors?.title?.[0]}</p>
+
+      <input name="amount" inputMode="decimal" defaultValue={state.values?.amount} />
+      <p aria-live="polite">{state.errors?.amount?.[0]}</p>
+
+      {state.message && <p role="alert">{state.message}</p>}
+      <SubmitButton />
+    </form>
+  );
+}
+```
+
+`useActionState` passes the previous state as the action's **first**
+argument (that is why `createExpense` takes `prev`) and returns `[state,
+formAction, pending]`. After a form action completes, React resets
+uncontrolled inputs — returning the submitted `values` and using
+`defaultValue` keeps the user's input when validation fails.
+
+`useFormStatus` (from `react-dom`) reads the status of the **parent**
+form, so it must live in a child component:
+
+```tsx
+"use client";
+import { useFormStatus } from "react-dom";
+
+export function SubmitButton() {
+  const { pending } = useFormStatus();
+  return <button disabled={pending}>{pending ? "Saving..." : "Add expense"}</button>;
+}
+```
+
+## 3. Progressive enhancement
+
+Because `formAction` ultimately points at a Server Action, the form submits
+as a normal HTML POST **before JavaScript has loaded** (or if it fails to
+load). The redirect then arrives as a 303 response instead of a client-side
+navigation. Keep basic HTML validation (`required`, `type`, `min`) as a
+first line of defence — but never as the only one.
+
+## 4. Revalidating after a mutation
+
+| Call | Use it when |
+| --- | --- |
+| `revalidatePath("/expenses")` | a specific page or layout must re-render with fresh data |
+| `updateTag("expenses-42")` | Server Actions only — the user must immediately see their own write |
+| `revalidateTag("expenses", "max")` | stale-while-revalidate is fine (also works in Route Handlers, e.g. webhooks) |
+| `redirect("/expenses")` | send the user elsewhere after the write |
+
+Note the two-argument `revalidateTag(tag, profile)`: in Next.js 16 the
+single-argument form is deprecated. Tags come from `fetch(url, { next: { tags } })`
+or `cacheTag()` inside a `"use cache"` function.
+
+## 5. Optimistic UI with `useOptimistic`
+
+For fast-feeling interactions (likes, toggles, chat), show the result
+before the server confirms. React drops the optimistic value automatically
+once the action settles and real data re-renders:
+
+```tsx
+"use client";
+import { useOptimistic } from "react";
+import { addComment } from "./actions";
+
+type CommentItem = { id: string; text: string; pending?: boolean };
+
+export function Comments({ comments }: { comments: CommentItem[] }) {
+  const [optimistic, addOptimistic] = useOptimistic(
+    comments,
+    (state, text: string) => [...state, { id: "temp", text, pending: true }],
+  );
+
+  async function action(formData: FormData) {
+    const text = String(formData.get("text"));
+    addOptimistic(text);
+    await addComment(text);   // server revalidates; real list replaces the optimistic one
+  }
+
+  return (
+    <form action={action}>
+      {optimistic.map((c) => <p key={c.id} style={{ opacity: c.pending ? 0.5 : 1 }}>{c.text}</p>)}
+      <input name="text" required />
+    </form>
+  );
+}
+```
+
+Here `action` is a client function wrapping the Server Action, so this form
+does **not** work without JavaScript — the trade-off for instant feedback.
+
+### Try it yourself
+
+Build an "Add expense" form for a personal finance tracker: zod validation
+(amount between ₹1 and ₹10,00,000), field-level errors via `useActionState`,
+a `useFormStatus` submit button, and `updateTag` plus `redirect` on success.
+Disable JavaScript in DevTools and confirm the form still submits.

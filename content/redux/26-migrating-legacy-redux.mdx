@@ -1,0 +1,198 @@
+---
+title: "Migrating Legacy Redux (connect, switch reducers) to Redux Toolkit"
+description: "Move a legacy Redux codebase to Redux Toolkit incrementally: swap in configureStore, fix what its checks reveal, convert reducers to slices, and replace connect with hooks safely."
+module: "Pro Level"
+level: "pro"
+order: 26
+---
+
+Many production apps still run 2017-style Redux: `createStore`, action type
+constants, giant `switch` reducers, hand-written thunks and `connect`. A
+rewrite is risky and rarely approved. The good news is that Redux Toolkit is
+designed for **incremental** migration: old and new code can share one store
+for months. This lesson is the playbook.
+
+## Step 0: upgrade packages and know the breaking changes
+
+Install current `@reduxjs/toolkit` (2.x), `react-redux` (9.x) and remove
+direct dependencies on `redux` and `redux-thunk` once nothing imports them.
+Things that commonly break:
+
+| Change | What to do |
+|---|---|
+| `createStore` is marked deprecated in Redux 5 | Move to `configureStore` (or `legacy_createStore` as a stopgap) |
+| Action `type` must be a string | Replace Symbol action types |
+| `extraReducers` / `createReducer` object syntax removed in RTK 2 | Use the `builder` callback |
+| React-Redux 9 needs React 18 or later | Upgrade React first |
+| Middleware option must be a callback | `middleware: (gDM) => gDM().concat(x)` |
+
+## Step 1: replace the store setup, keep every reducer
+
+Before:
+
+```js
+// store.js (legacy)
+import { createStore, applyMiddleware, compose, combineReducers } from "redux";
+import thunk from "redux-thunk";
+const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
+export const store = createStore(
+  combineReducers({ todos: todosReducer, auth: authReducer }),
+  composeEnhancers(applyMiddleware(thunk, sagaMiddleware)),
+);
+```
+
+After:
+
+```js
+// store.js
+import { configureStore } from "@reduxjs/toolkit";
+export const store = configureStore({
+  reducer: { todos: todosReducer, auth: authReducer },   // same old reducers
+  middleware: (gDM) => gDM().concat(sagaMiddleware),      // thunk is already included
+});
+```
+
+DevTools, thunk and the development checks come for free. Nothing else in
+the app needs to change, so this can ship as its own small PR.
+
+## Step 2: fix what the development checks reveal
+
+`configureStore` adds immutability and serializability checks in
+development. Legacy code often has hidden mutations:
+
+```js
+function legacyTodos(state = [], action) {
+  switch (action.type) {
+    case ADD_TODO:
+      return [...state, { id: action.id, text: action.text, done: false }];
+    case TOGGLE_TODO: {
+      const t = state.find((x) => x.id === action.id);
+      t.done = !t.done;            // BUG: mutates existing state
+      return [...state];
+    }
+    default:
+      return state;
+  }
+}
+store.dispatch({ type: ADD_TODO, id: 1, text: "Upload PAN" });
+store.dispatch({ type: TOGGLE_TODO, id: 1 });
+// Error: A state mutation was detected inside a dispatch, in the path: todos.0.done. ...
+```
+
+That bug existed before; it just went unnoticed (a `connect`ed component
+showing that todo might never have re-rendered). The serializability check
+only **logs** (`console.error`) rather than throwing, for example when a
+`Date` is put in an action:
+
+```text
+A non-serializable value was detected in an action, in the path: `text`. Value: 1970-01-01T00:00:00.000Z
+```
+
+Fix these as you find them; do not switch the checks off globally.
+
+## Step 3: convert reducers to slices, one at a time
+
+A slice can handle the **old** action constants through `extraReducers`, so
+existing dispatch sites keep working while new code uses slice actions.
+
+```js
+const addTodo = createAction("ADD_TODO", (id, text) => ({ payload: { id, text } }));
+
+const todosSlice = createSlice({
+  name: "todos",
+  initialState: [],
+  reducers: {
+    todoToggled(state, action) {
+      const t = state.find((x) => x.id === action.payload);
+      if (t) t.done = !t.done;     // safe: Immer draft
+    },
+  },
+  extraReducers: (builder) => {
+    builder.addCase(ADD_TODO, (state, action) => {
+      const { id, text } = action.payload ?? action;   // legacy shape vs new shape
+      state.push({ id, text, done: false });
+    });
+  },
+});
+
+store.dispatch({ type: "ADD_TODO", id: 1, text: "Upload PAN" });   // old call site
+store.dispatch(addTodo(2, "Link Aadhaar"));                        // new call site
+store.dispatch(todosSlice.actions.todoToggled(1));
+// [ { id: 1, text: 'Upload PAN', done: true },
+//   { id: 2, text: 'Link Aadhaar', done: false } ]
+```
+
+Once every call site uses the new action creators, delete the constants
+file and the compatibility branch. Keep the reducer's **state shape**
+unchanged during the conversion; reshape it in a separate PR with selector
+updates.
+
+## Step 4: replace async plumbing
+
+- Hand-written `FETCH_X_REQUEST / SUCCESS / FAILURE` thunks become
+  `createAsyncThunk`, or better, disappear into RTK Query endpoints.
+- Sagas can stay. For new side effects use the listener middleware (see
+  "Side Effects with the Listener Middleware") and migrate sagas
+  opportunistically.
+
+## Step 5: connect to hooks, carefully
+
+Before:
+
+```jsx
+function TodoList({ todos, onToggle }) { /* ... */ }
+const mapState = (state) => ({ todos: state.todos.filter((t) => !t.done) });
+export default connect(mapState, { onToggle: toggleTodo })(TodoList);
+```
+
+After:
+
+```jsx
+const selectOpenTodos = createSelector([(s) => s.todos], (todos) => todos.filter((t) => !t.done));
+
+export default function TodoList() {
+  const todos = useSelector(selectOpenTodos);
+  const dispatch = useDispatch();
+  return todos.map((t) => <Todo key={t.id} todo={t} onToggle={() => dispatch(todoToggled(t.id))} />);
+}
+```
+
+The behaviour differences that cause regressions:
+
+| `connect` | Hooks |
+|---|---|
+| Compares the `mapState` result **shallowly** | `useSelector` compares with `===` by default |
+| Wrapped component skips re-render when its props are shallow-equal | Function component re-renders whenever its parent does, unless wrapped in `React.memo` |
+| Returning a new object from `mapState` is fine | Returning a new object or array from a selector re-renders on every action |
+
+So: memoise derived selectors, call `useSelector` once per value or pass
+`shallowEqual`, and add `React.memo` to list items that used to be connected.
+`connect` is still supported in React-Redux 9, so there is no rush to convert
+stable, rarely touched components.
+
+## Migration order that works
+
+1. Packages and `configureStore` (one PR).
+2. Fix mutation and serializability errors.
+3. Typed hooks and `RootState` (see "Typing Redux: RootState, AppDispatch &
+   Typed Hooks").
+4. Convert reducers, highest-churn first.
+5. Move data fetching to RTK Query, feature by feature.
+6. Convert `connect` components when you touch them.
+
+Interviewers often ask: "How would you migrate a large legacy Redux app
+without a freeze?" Describe the strangler approach: one store, old and new
+code side by side, each step independently shippable, tests around
+reducers before converting them, and measured re-render checks after
+replacing `connect`.
+
+### Try it yourself
+
+1. Take the `legacyTodos` reducer, write three reducer tests (add, toggle,
+   unknown action) **before** converting it, then convert it to a slice and
+   make the same tests pass.
+2. Convert a `connect` component whose `mapState` returns
+   `{ user: state.auth.user, count: state.cart.items.length }` to hooks
+   without adding extra re-renders, and prove it with a render counter.
+3. Replace a `FETCH_FUNDS_REQUEST/SUCCESS/FAILURE` reducer and thunk with a
+   `createAsyncThunk`, keeping the same `status` and `error` fields.

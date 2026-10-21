@@ -1,0 +1,177 @@
+---
+title: "Deploying Express Apps"
+description: "Ship an Express 5 API to production with validated config, PM2 or Docker, graceful shutdown, a reverse proxy with trust proxy, and HTTPS."
+module: "Testing & Deployment"
+level: "pro"
+order: 23
+---
+
+Deployment questions separate people who have only run `npm run dev` from
+people who have operated a service. Expect to be asked how you configure
+environments, how a deploy avoids dropping requests, and why `req.ip` shows
+the load balancer's address. This lesson covers the answers.
+
+## Configuration from the environment
+
+Follow the 12-factor rule: the same build runs everywhere, and only
+environment variables change. Validate them once at startup and crash
+immediately if something is missing, rather than failing on the first
+request an hour later:
+
+```js
+// src/config.js
+import { z } from "zod";
+
+const schema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  PORT: z.coerce.number().int().default(3000),
+  DATABASE_URL: z.string().min(1),
+  JWT_SECRET: z.string().min(32),
+});
+
+const parsed = schema.safeParse(process.env);
+if (!parsed.success) {
+  console.error("Invalid environment:", parsed.error.issues.map((i) => i.path.join(".")));
+  process.exit(1);
+}
+export const config = parsed.data;
+// Invalid environment: [ 'JWT_SECRET' ]
+```
+
+Locally, load a `.env` file with `node --env-file=.env src/server.js`
+(built into modern Node) or the `dotenv` package. In production, inject
+variables from the platform or a secrets manager; never commit `.env` or
+bake secrets into a Docker image. Set `NODE_ENV=production`: Express and
+many libraries enable caching and hide verbose errors in that mode.
+
+## Option 1: PM2 on a VM
+
+PM2 keeps the process alive, restarts it on crash, and can run one worker
+per CPU core using Node's cluster module:
+
+```js
+// ecosystem.config.cjs
+module.exports = {
+  apps: [{
+    name: "expense-api",
+    script: "src/server.js",
+    instances: "max",          // one per CPU core
+    exec_mode: "cluster",
+    env: { NODE_ENV: "production", PORT: 3000 },
+  }],
+};
+```
+
+```bash
+pm2 start ecosystem.config.cjs
+pm2 reload expense-api     # zero-downtime: restarts workers one by one
+pm2 logs expense-api
+pm2 startup && pm2 save    # restart the app list after a server reboot
+```
+
+Running several processes means in-memory state (sessions, caches, rate
+limit counters) is no longer shared. Move it to Redis or the database.
+
+## Option 2: Docker
+
+```dockerfile
+FROM node:24-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+FROM node:24-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+USER node
+EXPOSE 3000
+CMD ["node", "src/server.js"]
+```
+
+Interview points: copy the lockfile and install **before** copying source
+so the dependency layer is cached between builds; use `npm ci` for
+reproducible installs; run as the non-root `node` user; add a
+`.dockerignore` (`node_modules`, `.env`, `.git`). Use the exec form of
+`CMD` (a JSON array) so Node runs as PID 1 and receives `SIGTERM` directly;
+`CMD npm start` wraps it in a shell and npm, and signals may never reach
+your code. One container runs one process; scale by running more
+containers, not with PM2 cluster mode inside the image.
+
+## Graceful shutdown
+
+Deploys, autoscaling and container restarts all send `SIGTERM` and, after a
+grace period (often 10 to 30 seconds), `SIGKILL`. Handle `SIGTERM` so
+in-flight requests finish instead of being cut off:
+
+```js
+// src/server.js
+import { createApp } from "./app.js";
+import { config } from "./config.js";
+import { prisma } from "./db.js";
+
+const app = createApp();
+const server = app.listen(config.PORT, () => console.log(`Listening on ${config.PORT}`));
+
+function shutdown(signal) {
+  console.log(`${signal} received, closing server`);
+  app.locals.shuttingDown = true;              // /ready now returns 503
+  server.close(async (err) => {                // stop accepting, wait for in-flight
+    await prisma.$disconnect();
+    process.exit(err ? 1 : 0);
+  });
+  setTimeout(() => process.exit(1), 10_000).unref();   // hard deadline
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));    // Ctrl+C locally
+// SIGTERM received, closing server
+```
+
+`server.close()` stops new connections and calls back once existing ones
+end. Idle keep-alive connections can hold it open; since Node 19,
+`close()` also closes idle connections, and `server.closeIdleConnections()`
+is available to do it explicitly. Close the database pool last, and keep
+the timeout below the platform's grace period.
+
+## Reverse proxies and trust proxy
+
+In production Express usually sits behind nginx, a cloud load balancer or
+a CDN that terminates TLS and forwards the request. Express then sees the
+proxy's IP and plain HTTP unless you tell it to trust the forwarding
+headers (`X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host`):
+
+```js
+app.set("trust proxy", 1);    // trust exactly one hop: your load balancer
+
+app.get("/whoami", (req, res) => {
+  res.json({ ip: req.ip, protocol: req.protocol, secure: req.secure });
+});
+// without trust proxy: {"ip":"10.0.0.5","protocol":"http","secure":false}
+// with trust proxy 1:  {"ip":"49.36.12.8","protocol":"https","secure":true}
+```
+
+This matters for rate limiting by IP, audit logs, `secure` cookies (which
+`express-session` will not set over what it believes is plain HTTP) and
+building absolute URLs. Set the number of hops (or the proxy's IP/subnet)
+that actually exists. `true` trusts every `X-Forwarded-For` entry, so a
+client can spoof its IP and dodge your rate limiter.
+
+## HTTPS
+
+Terminate TLS at the proxy or load balancer (certificates from Let's
+Encrypt or your cloud provider), and keep Express on plain HTTP inside the
+private network. Redirect HTTP to HTTPS at the proxy, and send
+`Strict-Transport-Security` (helmet does this) so browsers stop trying
+HTTP at all. Use Node's `https.createServer` only when there is no proxy.
+
+### Try it yourself
+
+Containerise an Express app with the Dockerfile above and a `/slow` route
+that waits five seconds before responding. Start a request with `curl`,
+then run `docker stop` on the container while it is in flight: with your
+`SIGTERM` handler the request should still complete with 200 and the
+container should exit soon after. Then change `CMD` to the shell form and
+observe that the handler never logs and `docker stop` waits for its full
+timeout before killing the container.

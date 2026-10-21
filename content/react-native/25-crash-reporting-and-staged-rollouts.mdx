@@ -1,0 +1,144 @@
+---
+title: "Crash Reporting, Symbolication & Staged Rollouts"
+description: "Catching JS and native crashes in production, making stack traces readable with source maps and debug symbols, and releasing safely with phased rollouts and kill switches."
+module: "Pro Level"
+level: pro
+order: 26
+---
+
+Once an app is on lakhs of phones, the question is no longer "does it work
+on my device?" but "how fast do we find out when it breaks for someone, and
+how few users does it hit before we stop it?". This is production operations
+for mobile — and unlike the web, you can't redeploy native code in minutes.
+
+## Three kinds of failure
+
+| Failure | Where it happens | What the user sees |
+|---|---|---|
+| JS exception | Your JavaScript, on the JS thread | Blank/frozen screen or app restart |
+| Native crash | Kotlin/Java, ObjC/Swift, C++ (incl. SDKs) | App closes instantly |
+| ANR / hang | Main thread blocked too long | Android "App isn't responding" dialog; iOS watchdog kill |
+
+Each needs different tooling. A JS-only error tracker misses a crash inside
+a native payment SDK; a native-only tool sees JS errors as one useless
+"JavascriptException" frame.
+
+## Catching errors in JavaScript
+
+React error boundaries catch errors thrown while *rendering*, so one broken
+widget doesn't blank the whole app:
+
+```tsx
+class ScreenBoundary extends React.Component<
+  { children: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: Error) { reportError(error); }
+  render() {
+    return this.state.failed ? <RetryScreen /> : this.props.children;
+  }
+}
+```
+
+Errors in event handlers, timers and async code don't reach boundaries —
+they go to the global handler, which crash reporters hook for you.
+
+## Wiring a crash reporter
+
+Tools such as Sentry, Firebase Crashlytics and Bugsnag provide React Native
+SDKs that capture JS errors and native crashes in one place; some (Sentry,
+for example) also detect ANRs and app hangs. With Sentry, for example:
+
+```tsx
+import * as Sentry from "@sentry/react-native";
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  environment: __DEV__ ? "development" : "production",
+  tracesSampleRate: 0.1, // sample 10% of transactions for performance data
+});
+
+export default Sentry.wrap(App);
+```
+
+Attach context that makes crashes actionable — but never personal data such
+as PAN, Aadhaar or phone numbers:
+
+```ts
+Sentry.setUser({ id: hashedCustomerId });
+Sentry.setTag("kyc_status", "verified");
+Sentry.addBreadcrumb({ category: "nav", message: "Opened SIP checkout" });
+```
+
+## Symbolication: making traces readable
+
+A release bundle is minified and, with Hermes, compiled to bytecode. Without
+symbols, a crash report looks like this:
+
+```text
+TypeError: undefined is not an object
+  at anonymous (index.android.bundle:1:284731)
+```
+
+To turn that back into `CheckoutScreen.tsx:88`, the crash tool needs the
+right artefacts **for that exact build**:
+
+- **JS source maps** — for Hermes builds, a source map that composes the
+  Metro map with the Hermes bytecode map. Crash-reporting SDKs typically add
+  build steps (Gradle/Xcode, or an Expo config plugin) that generate and
+  upload these.
+- **iOS dSYM files** — debug symbols for native frames.
+- **Android R8/ProGuard `mapping.txt`** (and NDK symbols for C++) — to
+  de-obfuscate Kotlin/Java class and method names.
+- **OTA updates** — every JS update is a new bundle, so its source maps must
+  be uploaded per update, keyed to the update ID.
+
+Tag every event with app version, build number and OTA update ID. If source
+maps go missing for one release, that release's JS crashes are essentially
+undebuggable.
+
+## Release health metrics
+
+Watch **crash-free users** and **crash-free sessions** per release, not raw
+crash counts. Google Play's Android vitals also flags apps whose
+user-perceived crash rate or ANR rate exceeds its published "bad behaviour"
+thresholds (around 1.09% and 0.47% of daily users respectively, at the time
+of writing), which can reduce your app's visibility on Play. Check the
+current thresholds in Play Console.
+
+## Staged rollouts
+
+Never ship a native release to 100% of users on day one:
+
+- **Google Play** — staged rollout to a percentage of users; you can
+  increase it, or halt it if crash rates spike.
+- **App Store** — phased release for automatic updates over 7 days
+  (1%, 2%, 5%, 10%, 20%, 50%, 100%), which you can pause.
+- **OTA updates** — EAS Update supports gradual rollouts of an update, and
+  rolling back means republishing the previous known-good update.
+
+```text
+Day 1: 1–5%   → watch crash-free users, ANRs, key funnel (e.g. SIP checkout)
+Day 2: 20%    → compare against previous release on same device classes
+Day 4: 50%    → check support tickets and payment success rate
+Day 7: 100%
+```
+
+## Kill switches and feature flags
+
+Because a native fix takes days to reach users, risky features should ship
+behind remote flags (Firebase Remote Config, LaunchDarkly, or your own
+config endpoint). If the new UPI flow crashes on one OEM's devices, you turn
+it off for those devices in minutes — no build, no review. Fetch flags with a
+timeout and cache the last known values so a slow network can't block
+startup.
+
+### Try it yourself
+
+Add a crash reporter to a sample app, build a release variant, and throw a
+deliberate error from a button. Confirm the dashboard shows the original
+file and line number. Then remove the source-map upload step, rebuild, and
+compare the unreadable trace — that difference is why symbol uploads belong
+in CI, not in someone's memory.

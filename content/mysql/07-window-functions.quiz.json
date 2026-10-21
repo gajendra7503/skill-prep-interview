@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Salaries ordered descending are 300000, 250000, 250000, 200000. What does RANK() assign to the 200000 row?",
+      "options": [
+        "3",
+        "4",
+        "2",
+        "It depends on ROW_NUMBER"
+      ],
+      "correctIndex": 1,
+      "explanation": "RANK leaves a gap after ties (1, 2, 2, 4). DENSE_RANK would assign 3, and ROW_NUMBER would assign 4 but break the tie arbitrarily."
+    },
+    {
+      "question": "Why does `SELECT ... WHERE ROW_NUMBER() OVER (...) <= 3` fail?",
+      "options": [
+        "ROW_NUMBER requires PARTITION BY",
+        "Window functions can only be used with GROUP BY",
+        "Window functions are evaluated after WHERE, so they must be filtered in an outer query via a CTE or derived table",
+        "MySQL does not support ROW_NUMBER before 8.4"
+      ],
+      "correctIndex": 2,
+      "explanation": "Window functions run after WHERE, GROUP BY and HAVING; wrap the ranked query in a CTE and filter on the alias."
+    },
+    {
+      "question": "With `SUM(amount) OVER (ORDER BY created_at)` and no explicit frame, what happens when two orders share the same created_at?",
+      "options": [
+        "Both rows show the same running total, which includes both orders, because the default RANGE frame includes peers",
+        "MySQL raises an error about duplicate ORDER BY values",
+        "The second row is skipped",
+        "Each row gets a strictly increasing total because the default frame is ROWS"
+      ],
+      "correctIndex": 0,
+      "explanation": "With ORDER BY the default frame is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, so all peers are included together. Use ROWS for row-by-row accumulation."
+    },
+    {
+      "question": "Which approach correctly returns the second highest distinct salary even when the top salary is shared by two employees?",
+      "options": [
+        "ROW_NUMBER() OVER (ORDER BY salary DESC) = 2",
+        "RANK() OVER (ORDER BY salary DESC) = 2",
+        "ORDER BY salary DESC LIMIT 1 OFFSET 1 without DISTINCT",
+        "DENSE_RANK() OVER (ORDER BY salary DESC) = 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "DENSE_RANK numbers distinct values without gaps. ROW_NUMBER and LIMIT/OFFSET without DISTINCT would return the tied top salary, and RANK would skip 2 entirely."
+    }
+  ]
+}

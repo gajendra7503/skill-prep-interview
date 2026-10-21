@@ -1,0 +1,198 @@
+---
+title: "Actions, Reducers & the Store"
+description: "How actions describe events, how reducers compute the next state, how combineReducers builds the state tree, and what the store's API really does."
+module: "Core Concepts"
+level: "beginner"
+order: 3
+---
+
+Redux Toolkit generates most of the code in this lesson for you. But every
+RTK feature is built on three simple ideas — **actions**, **reducers** and
+the **store** — and interviewers expect you to explain them without the
+toolkit. So in this lesson we write them by hand, once, and then connect
+them back to RTK.
+
+## Actions: plain objects that describe events
+
+An action is a plain JavaScript object with a `type` string. Extra data
+conventionally goes in `payload`:
+
+```js
+{ type: "wallet/deposited", payload: 5000 }
+{ type: "theme/toggled" }
+```
+
+Conventions worth following (RTK uses all of them):
+
+| Convention | Example | Why |
+|---|---|---|
+| `type` is `"domain/eventName"` | `"wallet/deposited"` | Easy to read in DevTools, avoids clashes |
+| Describe **what happened**, past tense | `deposited`, not `setBalance` | Many reducers can respond to one event |
+| Data goes in `payload` | `payload: 5000` | The "Flux Standard Action" shape; optional `meta` and `error` fields too |
+| Keep actions serialisable | numbers, strings, plain objects | Logging, DevTools and replay depend on it |
+
+Naming actions as events rather than setters is a frequent interview
+point: `order/placed` can be handled by the cart slice (clear the cart), the
+orders slice (add the order) and a notifications slice — a `setCart` action
+could not express that.
+
+## Action creators
+
+Typing object literals everywhere invites typos, so we wrap them in
+functions:
+
+```js
+const deposited = (amount) => ({ type: "wallet/deposited", payload: amount });
+const withdrawn = (amount) => ({ type: "wallet/withdrawn", payload: amount });
+
+console.log(deposited(5000));
+// { type: 'wallet/deposited', payload: 5000 }
+```
+
+RTK's `createAction` and `createSlice` generate these for you, with a
+`.type` property and a `.match()` helper attached.
+
+## Reducers: `(state, action) => newState`
+
+A reducer receives the current state and an action and returns the next
+state. It must not change its arguments or do side effects (the rules are
+covered in "Immutability, Pure Reducers & Immer").
+
+```js
+const initialState = { balance: 0, history: [] };
+
+function walletReducer(state = initialState, action) {
+  switch (action.type) {
+    case "wallet/deposited":
+      return {
+        ...state,
+        balance: state.balance + action.payload,
+        history: [...state.history, `+${action.payload}`],
+      };
+    case "wallet/withdrawn":
+      if (action.payload > state.balance) return state; // ignore: not enough money
+      return {
+        ...state,
+        balance: state.balance - action.payload,
+        history: [...state.history, `-${action.payload}`],
+      };
+    default:
+      return state; // unknown action: return the SAME object
+  }
+}
+
+console.log(walletReducer({ balance: 100, history: [] }, deposited(50)));
+// { balance: 150, history: [ '+50' ] }
+```
+
+Three details matter:
+
+1. **Default parameter** — the first time Redux calls the reducer, `state`
+   is `undefined`, so the default supplies the initial state.
+2. **Default case returns `state` unchanged** — every reducer sees every
+   action, and returning the same reference tells React-Redux "nothing
+   changed here".
+3. **Reducers are just functions** — you can call them directly, which
+   makes them trivial to unit test.
+
+## Combining reducers into one state tree
+
+A store has exactly one root reducer. `combineReducers` builds it from one
+reducer per key, calling each with its own part of the state:
+
+```js
+import { combineReducers } from "redux";
+
+function themeReducer(state = "light", action) {
+  return action.type === "theme/toggled"
+    ? state === "light" ? "dark" : "light"
+    : state;
+}
+
+const rootReducer = combineReducers({ wallet: walletReducer, theme: themeReducer });
+
+console.log(rootReducer(undefined, { type: "@@init" }));
+// { wallet: { balance: 0, history: [] }, theme: 'light' }
+```
+
+When you pass an object to `configureStore({ reducer: { ... } })`, RTK calls
+`combineReducers` for you. If no child reducer's result changed,
+`combineReducers` returns the previous root object, so "nothing changed"
+propagates upwards.
+
+## The store
+
+The store holds the current state and runs the root reducer. To see it
+without any toolkit help, we use the core `legacy_createStore` (in real
+code you would use `configureStore`):
+
+```js
+import { legacy_createStore as createStore } from "redux";
+
+const store = createStore(rootReducer);
+store.subscribe(() => console.log("listener:", store.getState().wallet.balance));
+
+store.dispatch(deposited(5000));    // listener: 5000
+store.dispatch(withdrawn(1200));    // listener: 3800
+store.dispatch(withdrawn(99999));   // listener: 3800  (rejected, but listener still runs)
+store.dispatch({ type: "theme/toggled" }); // listener: 3800
+
+console.log(store.getState());
+// { wallet: { balance: 3800, history: [ '+5000', '-1200' ] }, theme: 'dark' }
+```
+
+| Method | What it does |
+|---|---|
+| `getState()` | Returns the current state object |
+| `dispatch(action)` | Runs `state = rootReducer(state, action)`, then calls every listener; returns the action |
+| `subscribe(listener)` | Registers a callback for after each dispatch; returns an `unsubscribe` function |
+| `replaceReducer(next)` | Swaps the root reducer (used for code splitting) |
+
+Note that listeners run after **every** dispatch, even when nothing
+changed. They are not told what changed — they must compare old and new
+values themselves. React-Redux does exactly this for each `useSelector`,
+which is why returning the same reference for "no change" is so important.
+
+The store also validates actions:
+
+```js
+store.dispatch("deposit");
+// Error: Actions must be plain objects. Instead, the actual type was: 'string'. ...
+store.dispatch({ payload: 1 });
+// Error: Actions may not have an undefined "type" property. ...
+```
+
+Dispatching a function works only because middleware (thunk, included by
+`configureStore`) intercepts it first — see "Async Logic with Thunks &
+createAsyncThunk".
+
+## The same thing with Redux Toolkit
+
+Hand-written reducers work fine inside `configureStore`: pass
+`reducer: { wallet: walletReducer, theme: themeReducer }` and everything
+above behaves identically. In practice you
+will write them with `createSlice` (see "Writing Slices with createSlice"),
+which removes the switch statement, the type strings and the spread
+operators — but the mechanics underneath are exactly what you saw here.
+If you want to build the store itself from scratch, that is the project in
+"Redux Internals: Build a Mini Redux from Scratch".
+
+## Interview angles
+
+- **"What is a reducer?"** A pure function of `(state, action)` returning
+  the next state, with no side effects and no mutation.
+- **"Why must unknown actions return the same state?"** Every reducer
+  receives every action; returning the same reference lets
+  `combineReducers` and React-Redux detect "no change" with a cheap `===`.
+- **"Can two reducers handle one action?"** Yes — that is the point of
+  event-style action names.
+
+### Try it yourself
+
+1. Add a `wallet/reset` action that restores the initial state. Test it by
+   calling `walletReducer` directly — no store needed.
+2. Create a `transactionsCount` reducer that increments on both
+   `wallet/deposited` and `wallet/withdrawn`. Add it to `combineReducers`
+   and confirm one dispatch updates two keys.
+3. Subscribe a listener that logs only when `theme` actually changes, by
+   storing the previous value and comparing with `===`.

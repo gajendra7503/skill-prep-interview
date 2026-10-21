@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why use `collections.deque` instead of a list for a BFS queue?",
+      "options": [
+        "deque keeps items sorted automatically",
+        "deque uses less memory per element than any other container",
+        "deque supports O(1) pops from the left, while list.pop(0) is O(n)",
+        "lists cannot hold more than 2**16 items"
+      ],
+      "correctIndex": 2,
+      "explanation": "deque offers O(1) appends and pops at both ends. list.pop(0) shifts every remaining element, making it O(n)."
+    },
+    {
+      "question": "What must you do before using `itertools.groupby` to group all equal keys together?",
+      "options": [
+        "Sort the data by the same key function",
+        "Convert the data to a set",
+        "Wrap the data in a deque",
+        "Nothing; groupby collects all equal keys automatically"
+      ],
+      "correctIndex": 0,
+      "explanation": "groupby only groups consecutive items with equal keys, so unsorted input produces repeated, fragmented groups."
+    },
+    {
+      "question": "What happens if you call an `@lru_cache`-decorated function with a list argument?",
+      "options": [
+        "The list is converted to a tuple automatically",
+        "The call succeeds but is not cached",
+        "The cache is cleared",
+        "A TypeError is raised because list is unhashable"
+      ],
+      "correctIndex": 3,
+      "explanation": "lru_cache uses arguments as dictionary keys, so every argument must be hashable. Lists are not."
+    },
+    {
+      "question": "What happens when you subtract a timezone-aware datetime from a naive one?",
+      "options": [
+        "The naive value is assumed to be UTC",
+        "A TypeError is raised",
+        "The result is a timedelta in local time",
+        "The naive value is assumed to be local time"
+      ],
+      "correctIndex": 1,
+      "explanation": "Python refuses to mix naive and aware datetimes in arithmetic or comparisons, raising TypeError. Store and compute in aware UTC."
+    }
+  ]
+}

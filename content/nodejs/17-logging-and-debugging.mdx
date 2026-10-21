@@ -1,0 +1,144 @@
+---
+title: "Logging & Debugging"
+description: "Moving from console.log to structured JSON logs with pino, choosing log levels, and debugging Node with --inspect, Chrome DevTools and --watch."
+module: "Production Node"
+level: "advanced"
+order: 19
+---
+
+When production breaks at 2 a.m., logs are all you have. Interviewers ask
+how you log (structured, levelled, with request context), what you never
+log, and how you debug locally without sprinkling `console.log`
+everywhere.
+
+## console: fine for scripts, weak for services
+
+```js
+console.log("info to stdout");
+console.error("errors to stderr");
+console.table([{ id: 1, amount: 499 }, { id: 2, amount: 1299 }]);
+
+console.time("db");
+await db.query("select 1");
+console.timeEnd("db");                     // db: 3.412ms
+
+console.log({ a: { b: { c: { d: 1 } } } });             // { a: { b: { c: [Object] } } }
+console.dir({ a: { b: { c: { d: 1 } } } }, { depth: null }); // full object
+```
+
+Plain text lines like `User 42 paid 1499` are hard to search, filter or
+aggregate across 20 servers. There are no levels to switch off noise, and no
+consistent fields such as request ID or user ID.
+
+## Structured logging with pino
+
+**Structured logs** are one JSON object per line, which tools like
+Elasticsearch, Loki, Datadog or CloudWatch can index. `pino` is the
+fastest popular choice in Node.
+
+```js
+import pino from "pino";
+
+const logger = pino({
+  level: process.env.LOG_LEVEL ?? "info",
+  redact: ["req.headers.authorization", "card.number"],
+});
+
+logger.info({ orderId: "ORD-42", amount: 1499 }, "payment captured");
+// {"level":30,"time":1760428800000,"pid":4102,"hostname":"api-1",
+//  "orderId":"ORD-42","amount":1499,"msg":"payment captured"}
+
+logger.debug("cache miss");               // skipped: debug is below "info"
+
+try {
+  await chargeCard();
+} catch (err) {
+  logger.error({ err }, "charge failed"); // err is serialised with type, message, stack
+}
+```
+
+The pattern is **fields first, message second**. In development, pipe
+output through `pino-pretty` for readable colours: `node app.js |
+npx pino-pretty`. In production keep raw JSON on stdout and let the
+platform ship it — the app should not manage log files itself.
+
+## Log levels
+
+| Level | Use for |
+| --- | --- |
+| `fatal` | The process is about to exit |
+| `error` | A request or job failed and needs attention |
+| `warn` | Something unexpected but handled (retry, fallback) |
+| `info` | Key business events: server started, order placed |
+| `debug` | Detail for diagnosing problems, off in production |
+| `trace` | Very verbose, step-by-step internals |
+
+Setting `LOG_LEVEL=debug` on a single instance lets you investigate without
+a redeploy.
+
+## Request context with child loggers
+
+```js
+import { randomUUID } from "node:crypto";
+
+app.use((req, res, next) => {
+  req.log = logger.child({ requestId: req.headers["x-request-id"] ?? randomUUID() });
+  next();
+});
+
+app.post("/orders", (req, res) => {
+  req.log.info({ items: req.body.items.length }, "order received");
+  // every line from this request carries the same requestId
+});
+```
+
+With a request ID on every line you can follow one user's request across
+services. Never log passwords, tokens, full card numbers or Aadhaar/PAN
+numbers — use `redact` and review what objects you pass to the logger.
+
+## Debugging with --inspect and Chrome DevTools
+
+```bash
+node --inspect server.js
+# Debugger listening on ws://127.0.0.1:9229/...
+node --inspect-brk script.js     # pause on the first line, before your code runs
+```
+
+Open `chrome://inspect` in Chrome and click **inspect** under Remote Target
+to get breakpoints, step-through, the call stack, scope variables, a console
+and the CPU/memory profilers. A `debugger;` statement in your code acts as a
+breakpoint when an inspector is attached. VS Code offers the same through
+its JavaScript Debug Terminal or a launch configuration.
+
+The inspector binds to `127.0.0.1` by default. Never expose it publicly
+(for example `--inspect=0.0.0.0` on a server): anyone who can reach the port
+can run arbitrary code in your process.
+
+For lightweight library-style debug output, `util.debuglog` prints only
+when `NODE_DEBUG` names its section:
+
+```js
+import { debuglog } from "node:util";
+const log = debuglog("payments");
+log("charging %d", 1499);
+// NODE_DEBUG=payments node app.js → PAYMENTS 39852: charging 1499
+```
+
+## --watch: restart on file changes
+
+```bash
+node --watch server.js                  # restarts when imported files change
+node --watch-path=./src server.js       # watch specific paths
+node --watch --env-file=.env server.js
+```
+
+Built-in watch mode replaces `nodemon` for most projects on current Node
+versions.
+
+### Try it yourself
+
+Add pino to a small HTTP server, give each request a child logger with a
+`requestId`, log an `info` line when an order of ₹2,499 is created and an
+`error` line with `{ err }` when it fails. Redact an `authorization` header.
+Then run it with `node --watch --inspect`, set a breakpoint in the handler
+from Chrome DevTools and inspect `req` while paused.

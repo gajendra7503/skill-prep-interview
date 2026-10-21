@@ -1,0 +1,183 @@
+---
+title: "Streaming Responses and Backpressure"
+description: "Stream large files and CSV exports without loading them into memory, respect backpressure with stream.pipeline, handle clients that disconnect mid-stream, and build Server-Sent Events that survive proxies."
+module: "Pro Level"
+level: "pro"
+order: 25
+---
+
+`res.json(rows)` is fine for 50 rows. For a 2 GB statement download or a CSV
+export of a year's transactions, building the whole body in memory first is
+how a healthy API ends up killed by the out-of-memory killer. Node's answer is
+streams, and `res` is already one. The senior-level skill is not "use a
+stream" but handling the two hard parts: backpressure and clients that leave
+halfway.
+
+## `res` is a writable stream
+
+Express's `res` extends Node's `http.ServerResponse`, a `Writable` stream.
+Every `res.write(chunk)` sends a chunk; `res.end()` finishes. When you do not
+set `Content-Length`, Node uses `Transfer-Encoding: chunked` so the client
+reads data as it arrives.
+
+```js
+import express from "express";
+import { createReadStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
+
+const app = express();
+
+app.get("/statements/:id/download", async (req, res) => {
+  const path = await statementPath(req.user.id, req.params.id); // authorise first
+  res.set({
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `attachment; filename="statement-${req.params.id}.pdf"`,
+  });
+  await pipeline(createReadStream(path), res);
+});
+// Memory stays flat (one 64 KB chunk at a time) whether the file is 1 MB or 2 GB
+```
+
+For files on disk, `res.sendFile()` and `res.download()` already stream and
+also handle `Range` requests and caching headers. Reach for `pipeline` when
+the data is generated or comes from another stream, such as a database
+cursor, object storage or a zip being built on the fly.
+
+## What backpressure means
+
+A fast producer (your database) and a slow consumer (a user on a weak mobile
+connection) run at different speeds. If you keep calling `res.write()`
+regardless, Node buffers the excess in memory. `write()` signals this by
+returning `false`; a well-behaved producer then waits for the `drain` event.
+
+```js
+import { once } from "node:events";
+
+// The manual version, so you can see the mechanism
+for await (const row of cursor) {
+  const ok = res.write(toCsvLine(row));
+  if (!ok) await once(res, "drain");   // pause until the socket catches up
+}
+res.end();
+```
+
+`pipeline()` from `node:stream/promises` does exactly this for you, plus it
+destroys every stream in the chain if any one fails, so file descriptors and
+database cursors are not leaked. Prefer it over `.pipe()`, which does not
+forward errors or clean up.
+
+## Streaming a CSV export from the database
+
+An async generator is the cleanest way to turn rows into a stream. Fetch in
+batches with keyset pagination so you never hold more than one batch:
+
+```js
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+
+async function* expenseRows(userId) {
+  let cursor = 0;
+  while (true) {
+    const batch = await prisma.expense.findMany({
+      where: { userId, id: { gt: cursor } },
+      orderBy: { id: "asc" },
+      take: 500,
+    });
+    if (batch.length === 0) return;
+    yield* batch;
+    cursor = batch.at(-1).id;
+  }
+}
+
+const cell = (v) => `"${String(v).replaceAll('"', '""')}"`;   // CSV-escape
+
+async function* toCsv(rows) {
+  yield "id,title,amount_inr\n";
+  for await (const r of rows) {
+    yield `${r.id},${cell(r.title)},${(r.amountPaise / 100).toFixed(2)}\n`;
+  }
+}
+
+app.get("/expenses/export.csv", async (req, res) => {
+  res.set("Content-Type", "text/csv; charset=utf-8");
+  res.set("Content-Disposition", 'attachment; filename="expenses.csv"');
+  await pipeline(Readable.from(toCsv(expenseRows(req.user.id))), res);
+});
+// id,title,amount_inr
+// 1,"Groceries",1250.50
+// 2,"Rent",18000.00
+```
+
+Because the generator only advances when `pipeline` asks for more, a slow
+client automatically slows the database reads too. That is backpressure
+working end to end.
+
+## Clients that disconnect
+
+Users close tabs mid-download. When the socket closes, `pipeline` destroys
+the source (stopping the generator, so no more queries run) and rejects with
+`ERR_STREAM_PREMATURE_CLOSE`. In Express 5 that rejection is forwarded to
+your error handler. It is not a server bug, so filter it out of error logs:
+
+```js
+app.get("/expenses/export.csv", async (req, res) => {
+  try {
+    await pipeline(Readable.from(toCsv(expenseRows(req.user.id))), res);
+  } catch (err) {
+    if (err.code === "ERR_STREAM_PREMATURE_CLOSE") return; // client left: fine
+    throw err;                                             // real failure
+  }
+});
+```
+
+If the failure is real (the database dies after 10,000 rows), headers and
+a 200 status are already sent. You cannot switch to a 500 JSON body; the
+error handler's `res.headersSent` check delegates to Express, which destroys
+the connection, so the client sees a truncated download rather than a
+"successful" partial file. For exports that must be all-or-nothing, generate
+the file in a background job and let the user download the finished result.
+
+## Server-Sent Events
+
+SSE is a long-lived streaming response in a simple text format, ideal for
+one-way live updates such as order status or price ticks. It runs over
+plain HTTP and the browser's `EventSource` reconnects automatically.
+
+```js
+app.get("/orders/:id/events", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "X-Accel-Buffering": "no",          // tell Nginx not to buffer
+  });
+  res.flushHeaders();                   // send headers now, not with the first event
+
+  const send = (event, data, id) =>
+    res.write(`id: ${id}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+
+  const unsubscribe = orderEvents.subscribe(req.params.id, (e) => send("status", e, e.seq));
+  const heartbeat = setInterval(() => res.write(": ping\n\n"), 25_000); // comment line
+
+  req.on("close", () => {               // always clean up
+    clearInterval(heartbeat);
+    unsubscribe();
+  });
+});
+// id: 1
+// event: status
+// data: {"status":"PACKED","amountInr":"₹2,450"}
+```
+
+Production gotchas: the `compression` middleware and reverse proxies buffer
+responses, so events arrive in bursts unless you disable buffering for the
+route; idle connections get cut by load balancers, hence the heartbeat; and
+on reconnect the browser sends a `Last-Event-ID` header you can use to replay
+missed events.
+
+### Try it yourself
+
+Build `GET /report.csv` that streams one million generated rows. Watch
+`process.memoryUsage().rss` while downloading it with
+`curl --limit-rate 100k`, then compare with a version that builds one big
+string and calls `res.send()`. Finally, cancel the curl halfway and confirm
+your generator stops and the premature-close error is not logged as a 500.

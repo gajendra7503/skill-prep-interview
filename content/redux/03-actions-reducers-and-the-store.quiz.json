@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which action type follows Redux naming conventions best?",
+      "options": [
+        "SET_CART_ITEMS",
+        "setOrders",
+        "order/placed",
+        "updateStateNow"
+      ],
+      "correctIndex": 2,
+      "explanation": "The recommended style is \"domain/eventName\" describing something that happened, so several reducers can respond to the same event."
+    },
+    {
+      "question": "What should a reducer return when it receives an action it does not handle?",
+      "options": [
+        "The existing state object, unchanged",
+        "undefined, so Redux skips it",
+        "A shallow copy of the state",
+        "The initial state"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every reducer sees every action. Returning the same reference signals \"no change\", which combineReducers and React-Redux detect with ===."
+    },
+    {
+      "question": "A store listener is registered with subscribe(). A dispatched action is rejected by the reducer, which returns the same state. What happens to the listener?",
+      "options": [
+        "It is not called because state did not change",
+        "It is called with the action as its argument",
+        "It is unsubscribed automatically",
+        "It is still called, with no arguments, and must compare values itself"
+      ],
+      "correctIndex": 3,
+      "explanation": "Listeners run after every dispatch and receive no arguments. They must read getState() and compare old and new values themselves."
+    },
+    {
+      "question": "Why does `store.dispatch(\"deposit\")` throw an error in a store with no middleware?",
+      "options": [
+        "Action types must be in upper case",
+        "Actions must be plain objects with a type property",
+        "Strings must be wrapped in a payload field",
+        "dispatch only accepts action creator functions"
+      ],
+      "correctIndex": 1,
+      "explanation": "The core store only accepts plain objects with a defined type. Other values, like functions, work only if middleware such as thunk intercepts them first."
+    }
+  ]
+}

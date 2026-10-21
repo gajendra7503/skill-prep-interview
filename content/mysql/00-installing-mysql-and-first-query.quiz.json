@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which MySQL version should a new installation choose, according to the lesson?",
+      "options": [
+        "MySQL 8.0, because it is the most widely used",
+        "A 9.x Innovation release, for the newest features",
+        "Any version, since support periods are the same",
+        "MySQL 8.4 LTS, because 8.0 reached end of life in April 2026"
+      ],
+      "correctIndex": 3,
+      "explanation": "LTS releases such as 8.4 get fixes for years, and 8.0 is end of life, so new installs should use 8.4."
+    },
+    {
+      "question": "What is the role of the mysql command-line program?",
+      "options": [
+        "A client that connects to the server and sends SQL",
+        "The server process that stores the data",
+        "A backup tool for data files",
+        "A Windows service installer"
+      ],
+      "correctIndex": 0,
+      "explanation": "The server is mysqld; mysql is a client, like Workbench or your application code."
+    },
+    {
+      "question": "You typed a statement and pressed Enter, but the prompt changed to `->`. What does this mean?",
+      "options": [
+        "The server has crashed",
+        "The statement succeeded",
+        "The client is waiting for the rest because the statement has no terminating semicolon",
+        "You are now connected as root"
+      ],
+      "correctIndex": 2,
+      "explanation": "Statements end with a semicolon; without one the client waits for more input and shows the -> prompt."
+    },
+    {
+      "question": "You get `Unknown database 'shop'`. What is the usual cause?",
+      "options": [
+        "The password is wrong",
+        "The server is not running",
+        "The mysql client is not on your PATH",
+        "A typo, or the database was never created"
+      ],
+      "correctIndex": 3,
+      "explanation": "That error means the named database does not exist on the server; check the spelling or run CREATE DATABASE."
+    }
+  ]
+}

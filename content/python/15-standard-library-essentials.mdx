@@ -1,0 +1,125 @@
+---
+title: "Standard Library Essentials"
+description: "The collections, itertools, functools, pathlib and datetime tools that turn ten-line solutions into one-liners."
+module: "Modern Python"
+level: "intermediate"
+order: 15
+---
+
+Knowing the standard library is the fastest way to look senior in a coding
+interview. Reaching for `Counter` instead of a hand-rolled frequency loop,
+or `deque` instead of `list.pop(0)`, signals that you know both the
+idioms and the complexity costs behind them.
+
+## `collections`: better containers
+
+```python
+from collections import Counter, defaultdict, deque
+
+words = "the cat and the hat and the bat".split()
+counts = Counter(words)
+print(counts.most_common(2))   # [('the', 3), ('and', 2)]
+print(counts["dog"])           # 0 — missing keys count as zero
+
+groups = defaultdict(list)
+for w in words:
+    groups[len(w)].append(w)   # no KeyError, list created on demand
+print(groups[3])               # ['the', 'cat', 'and', 'the', ...]
+```
+
+`defaultdict` calls its factory **only on missing-key lookup with
+`[]`**; `.get()` does not trigger it. Beware that merely reading
+`groups[99]` inserts an empty list.
+
+`deque` is a double-ended queue with O(1) appends and pops at both ends,
+whereas `list.pop(0)` and `list.insert(0, x)` are O(n):
+
+```python
+queue = deque([1, 2, 3])
+queue.appendleft(0)
+queue.popleft()                  # 0
+recent = deque(maxlen=3)         # sliding window: old items fall off
+for i in range(5):
+    recent.append(i)
+print(recent)                    # deque([2, 3, 4], maxlen=3)
+```
+
+Use it for BFS queues and fixed-size windows.
+
+## `itertools`: lazy iteration building blocks
+
+```python
+from itertools import chain, groupby, islice, combinations, pairwise
+
+list(chain([1, 2], [3]))            # [1, 2, 3]
+list(islice(range(10**9), 3))       # [0, 1, 2] — lazy, no huge list
+list(combinations("abc", 2))        # [('a','b'), ('a','c'), ('b','c')]
+list(pairwise([1, 4, 9]))           # [(1, 4), (4, 9)]  (3.10+)
+
+for key, grp in groupby(sorted(words, key=len), key=len):
+    print(key, list(grp))
+```
+
+The classic trap: `groupby` only groups **consecutive** equal keys, so you
+must sort by the same key first. Python 3.12 also added `batched(it, n)`
+for chunking.
+
+## `functools`: caching and partial application
+
+```python
+from functools import lru_cache, cache, partial
+
+@lru_cache(maxsize=None)        # same as @cache (3.9+)
+def fib(n):
+    return n if n < 2 else fib(n - 1) + fib(n - 2)
+
+fib(100)                        # instant; exponential without the cache
+print(fib.cache_info())
+
+int_from_binary = partial(int, base=2)
+int_from_binary("1011")         # 11
+```
+
+Cached arguments must be **hashable** (a list argument raises
+`TypeError`). On methods, `lru_cache` holds a reference to `self`, keeping
+instances alive; prefer `functools.cached_property` for per-instance
+values. `functools.reduce` and `wraps` (for decorators) round out the
+module.
+
+## `pathlib`: paths as objects
+
+```python
+from pathlib import Path
+
+base = Path.home() / "projects" / "app"   # / joins portably
+config = base / "config.toml"
+print(config.suffix, config.stem)          # .toml config
+if config.exists():
+    text = config.read_text(encoding="utf-8")
+for py in base.rglob("*.py"):
+    print(py.relative_to(base))
+```
+
+Prefer it over `os.path` string juggling; it handles Windows separators.
+
+## `datetime` pitfalls
+
+```python
+from datetime import datetime, timezone, timedelta
+
+naive = datetime.now()                  # no tzinfo — ambiguous
+aware = datetime.now(timezone.utc)      # explicit UTC
+# naive - aware -> TypeError: can't subtract offset-naive and offset-aware
+```
+
+Store and compute in **aware UTC**, converting to local time (via
+`zoneinfo.ZoneInfo("Asia/Kolkata")`) only for display. `datetime.utcnow()`
+returns a *naive* value and is deprecated since 3.12. A `timedelta` has
+no month unit, because months vary in length.
+
+### Try it yourself
+
+Given a log file of lines like `2026-01-05T10:00:00Z ERROR db`, use
+`pathlib` to read it, `Counter` to find the three most common levels, and
+`defaultdict(list)` to group messages by service. Parse timestamps into
+aware UTC datetimes and report the time span between first and last.

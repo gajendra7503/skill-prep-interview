@@ -1,0 +1,182 @@
+---
+title: "Union & Literal Types"
+description: "Combining types with unions, exact-value literal types, nullable values, literal widening, and a first look at discriminated unions."
+module: "Fundamentals"
+level: "beginner"
+order: 6
+---
+
+Real values are often "one of several things": an ID that may be a number
+or a string, a payment that is pending, paid or failed, a field that may
+be `null`. **Union types** and **literal types** let you describe these
+exactly, and they are the building blocks of most well-typed TypeScript.
+
+## Union types
+
+A union `A | B` means "a value of type A **or** type B":
+
+```ts
+function formatId(id: number | string): string {
+  return `ID-${id}`;
+}
+
+formatId(101);       // "ID-101"
+formatId("A7X");     // "ID-A7X"
+formatId(true);
+// Error: Argument of type 'boolean' is not assignable to parameter of type 'string | number'.
+```
+
+## You can only use what all members share
+
+With a union, TypeScript only allows operations that are valid for
+**every** member:
+
+```ts
+function shout(value: string | number) {
+  return value.toUpperCase();
+  // Error: Property 'toUpperCase' does not exist on type 'string | number'.
+  //   Property 'toUpperCase' does not exist on type 'number'.
+}
+```
+
+To use string-only methods, you first check which member you have:
+
+```ts
+function shout(value: string | number): string {
+  if (typeof value === "string") {
+    return value.toUpperCase();   // value: string here
+  }
+  return value.toFixed(2);        // value: number here
+}
+```
+
+This checking is called **narrowing**. Here we use only `typeof`; the full
+toolkit is in "Narrowing & Type Guards".
+
+## Literal types
+
+A literal type is a type with exactly one value:
+
+```ts
+let direction: "up" = "up";
+direction = "down";
+// Error: Type '"down"' is not assignable to type '"up"'.
+```
+
+On its own that is not useful, but a **union of literals** is extremely
+useful — it restricts a value to a fixed set of choices:
+
+```ts
+type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
+
+function badgeColour(status: PaymentStatus): string {
+  if (status === "paid") return "green";
+  if (status === "failed") return "red";
+  return "grey";
+}
+
+badgeColour("paid");     // "green"
+badgeColour("cancelled");
+// Error: Argument of type '"cancelled"' is not assignable to parameter of type 'PaymentStatus'.
+```
+
+Your editor also autocompletes the allowed values. Number and boolean
+literals work the same way:
+
+```ts
+type DiceRoll = 1 | 2 | 3 | 4 | 5 | 6;
+type HttpOk = 200 | 201 | 204;
+```
+
+Interviewers often ask how you would type a "status" field. A union of
+string literals is the usual answer; enums are an alternative compared in
+"Enums, as const & satisfies".
+
+## Literal widening
+
+Recall from "Basic Types & Type Inference" that `const` keeps the literal
+type and `let` widens it. This matters when you pass values around:
+
+```ts
+const s1 = "paid";          // type: "paid"
+let s2 = "paid";            // type: string
+
+badgeColour(s1);            // fine
+badgeColour(s2);
+// Error: Argument of type 'string' is not assignable to parameter of type 'PaymentStatus'.
+```
+
+The same widening happens to object properties, because properties can
+be reassigned:
+
+```ts
+const payment = { id: "P1", status: "paid" };   // status: string
+badgeColour(payment.status);                     // Error, as above
+```
+
+Fixes: annotate the variable (`const payment: { id: string; status:
+PaymentStatus } = ...`) or use `as const`, which is explained in "Enums,
+as const & satisfies".
+
+## Nullable values
+
+With strict mode on, `null` and `undefined` must be included explicitly
+with a union:
+
+```ts
+function findUserName(id: number): string | null {
+  return id === 1 ? "Divya" : null;
+}
+
+const name = findUserName(2);
+name.length;
+// Error: 'name' is possibly 'null'.
+
+console.log(name?.length ?? 0);   // 0 — optional chaining and ?? handle null
+```
+
+This single rule eliminates a whole class of "Cannot read properties of
+null" crashes.
+
+## Unions of object types
+
+Unions work with objects too. The most important pattern gives each
+member a shared property with a different literal value — a
+**discriminant**:
+
+```ts
+type UpiPayment = { method: "upi"; upiId: string };
+type CardPayment = { method: "card"; last4: string };
+type Payment = UpiPayment | CardPayment;
+
+function describe(p: Payment): string {
+  if (p.method === "upi") {
+    return `UPI ${p.upiId}`;        // p: UpiPayment
+  }
+  return `Card ending ${p.last4}`;  // p: CardPayment
+}
+
+console.log(describe({ method: "card", last4: "4321" })); // "Card ending 4321"
+```
+
+Checking `p.method` tells TypeScript which member you have. This is a
+**discriminated union**; exhaustive handling is shown in "Narrowing &
+Type Guards" and modelling whole application state this way is covered in
+"Modelling State with Discriminated Unions".
+
+## Union vs intersection
+
+| | Union (`A \| B`) | Intersection (`A & B`) |
+|---|---|---|
+| Value must be | One of the members | All members at once |
+| Members you can use directly | Only shared ones | All of them |
+| Typical use | Alternatives, statuses, nullable | Combining object shapes |
+
+### Try it yourself
+
+1. Define `type Size = "S" | "M" | "L" | "XL"` and a function
+   `priceFor(size: Size): number`. Try calling it with `"XXL"`.
+2. Write `function lengthOf(value: string | string[] | null): number` that
+   returns the string length, the array length, or `0` for `null`.
+3. Create a discriminated union `Shape` with `circle` (radius) and
+   `rectangle` (width, height) members and write `area(s: Shape)`.

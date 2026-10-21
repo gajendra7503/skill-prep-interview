@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the recommended way to test a createAsyncThunk such as fetchCart?",
+      "options": [
+        "Mock dispatch and assert the exact list of actions it was called with",
+        "Mock useSelector so the component receives fake data",
+        "Dispatch it into a real store from setupStore(), stub only the network, and assert on the resulting state",
+        "Call the payload creator directly and skip the store entirely"
+      ],
+      "correctIndex": 2,
+      "explanation": "Redux's testing guidance favours integration-style tests: a real store, the real reducers, and only the network mocked. You then check what ended up in state."
+    },
+    {
+      "question": "Why should the app export a setupStore() factory instead of only a single store instance for tests?",
+      "options": [
+        "So every test gets a fresh, isolated store and can pass preloadedState",
+        "Because configureStore can only be called once per process",
+        "Because singleton stores do not support middleware",
+        "So that the DevTools extension is disabled in tests"
+      ],
+      "correctIndex": 0,
+      "explanation": "A factory avoids state leaking between tests and lets each test start from a known preloadedState."
+    },
+    {
+      "question": "A component uses an RTK Query hook. What must the test store include for the hook to fetch?",
+      "options": [
+        "Only the API slice reducer",
+        "The API slice reducer and the API slice middleware",
+        "Only the API middleware; the reducer is optional",
+        "Nothing extra; RTK Query hooks work without a store"
+      ],
+      "correctIndex": 1,
+      "explanation": "RTK Query keeps its cache in the reducer and drives fetching, polling and cache lifetimes through its middleware. Both must be added, in tests just as in the app."
+    },
+    {
+      "question": "In a reducer unit test, why use the slice's generated action creators instead of hand-written action objects?",
+      "options": [
+        "Hand-written action objects are rejected by createSlice reducers at runtime",
+        "Action creators make the test run asynchronously",
+        "Action creators are required for Immer to work",
+        "It avoids duplicating action type strings, so renaming a reducer does not silently break tests"
+      ],
+      "correctIndex": 3,
+      "explanation": "Using itemAdded(...) keeps tests tied to the real API of the slice. Hard-coded type strings duplicate knowledge and drift out of date."
+    }
+  ]
+}

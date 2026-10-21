@@ -1,0 +1,164 @@
+---
+title: "Middleware Deep Dive"
+description: "How the middleware pipeline works, next() and its variants, why order matters, app-level vs router-level middleware, and writing your own logger and timer."
+module: "Core Concepts"
+level: "beginner"
+order: 6
+---
+
+Almost everything in Express is middleware: body parsing, logging, auth,
+CORS, even your route handlers. If you can explain the pipeline clearly,
+most Express interview questions become easy.
+
+## What middleware is
+
+A middleware is a function `(req, res, next)` that runs during the request.
+It can do one of three things:
+
+1. Read or modify `req` and `res` (attach `req.user`, set a header).
+2. **End the cycle** by sending a response.
+3. Call `next()` to hand over to the next matching middleware or route.
+
+If a middleware does neither 2 nor 3, the request hangs until the client
+times out. That is the most common middleware bug.
+
+```js
+import express from "express";
+
+const app = express();
+
+app.use((req, res, next) => {
+  req.requestTime = new Date().toISOString();
+  next(); // continue down the stack
+});
+
+app.get("/time", (req, res) => {
+  res.json({ receivedAt: req.requestTime });
+});
+```
+
+## Order matters
+
+Express runs middleware in the order you register it, and only those whose
+path matches.
+
+```js
+app.get("/public", (req, res) => res.send("anyone can see this"));
+
+app.use(requireAuth);          // everything registered BELOW needs auth
+
+app.get("/portfolio", (req, res) => res.json({ value: 1250000 }));
+
+function requireAuth(req, res, next) {
+  if (req.get("authorization") !== "Bearer demo-token") {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+}
+```
+
+```bash
+curl localhost:3000/public       # anyone can see this
+curl localhost:3000/portfolio    # {"error":"Unauthorized"}
+```
+
+Typical order in a real app: security headers and CORS, request logging,
+body parsers, routes, a 404 handler, then the error handler last.
+
+## Scoping middleware
+
+```js
+// App-level, every request
+app.use(express.json());
+
+// App-level, only paths starting with /admin
+app.use("/admin", requireAuth);
+
+// Route-level, only this route (pass one or many)
+app.post("/transfers", requireAuth, checkLimit, (req, res) => {
+  res.status(201).json({ ok: true });
+});
+
+// Router-level, only requests handled by this router
+const reports = express.Router();
+reports.use(requireAuth);
+reports.get("/monthly", (req, res) => res.json({ month: "2025-04" }));
+app.use("/reports", reports);
+```
+
+`app.use("/admin", fn)` matches `/admin`, `/admin/users` and so on, and
+inside `fn` the mount prefix is stripped from `req.path`.
+
+## The forms of `next()`
+
+- `next()` moves to the next matching middleware or route.
+- `next(err)` with any value other than `"route"` or `"router"` skips all
+  normal middleware and jumps to error-handling middleware.
+- `next("route")` skips the remaining handlers of the current route (only
+  in route-level handlers added with `app.get()` and friends).
+- `next("router")` exits the current router entirely.
+
+In Express 5 an `async` middleware that throws or rejects is treated like
+`next(err)` automatically, so you do not need try/catch just to forward
+errors.
+
+```js
+app.use(async (req, res, next) => {
+  req.user = await loadUser(req.get("authorization")); // a rejection goes to the error handler
+  next();
+});
+```
+
+## Third-party middleware
+
+```bash
+npm install morgan helmet cors cookie-parser
+```
+
+```js
+import morgan from "morgan";
+import helmet from "helmet";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+
+app.use(helmet());                                   // security headers
+app.use(cors({ origin: "https://app.example.in" })); // CORS policy
+app.use(morgan("dev"));                              // request logging
+app.use(cookieParser());                             // populates req.cookies
+```
+
+Built-in middleware that ships with Express includes `express.json()`,
+`express.urlencoded()`, `express.text()`, `express.raw()` and
+`express.static()`.
+
+## Writing your own: logger and timer
+
+```js
+function requestTimer(req, res, next) {
+  const start = process.hrtime.bigint();
+  res.on("finish", () => {
+    const ms = Number(process.hrtime.bigint() - start) / 1e6;
+    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${ms.toFixed(1)}ms`);
+  });
+  next();
+}
+
+app.use(requestTimer); // register before your routes
+// GET /portfolio 401 0.8ms
+// GET /time 200 0.4ms
+```
+
+The trick is listening for the response's `finish` event: the middleware
+runs before the handler, but the log line is written after the response is
+sent, so it knows the final status code and duration. Middleware factories
+(functions that return middleware) make it configurable, for example
+`requestTimer({ slowMs: 500 })`.
+
+### Try it yourself
+
+Write a `requireRole(role)` middleware factory that reads an `x-role`
+header and returns 403 unless it matches. Apply it at three levels: app
+level for `/admin`, router level on a `/reports` router, and route level on
+`POST /transfers`. Add the timer above, log a warning for requests slower
+than 200 ms, and register one middleware that forgets to call `next()` to
+see the request hang.

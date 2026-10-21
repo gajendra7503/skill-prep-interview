@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "With cacheComponents enabled, a component awaits an uncached database query and is NOT wrapped in Suspense or \"use cache\". What happens?",
+      "options": [
+        "The whole route silently becomes dynamic, as in the previous model",
+        "The query result is cached forever by default",
+        "Next.js flags it during development and the prerender fails until you cache it or wrap it in Suspense",
+        "The component is skipped and renders nothing"
+      ],
+      "correctIndex": 2,
+      "explanation": "Cache Components requires every uncached or runtime access to be either cached with \"use cache\" or placed behind a Suspense boundary, so each route still produces a static shell."
+    },
+    {
+      "question": "Why can't a \"use cache\" function call cookies() directly?",
+      "options": [
+        "Cached output may be shared across users, so request-specific APIs are forbidden; read the cookie outside and pass the value as an argument",
+        "cookies() only works in Client Components",
+        "cookies() is deprecated in Next.js 16",
+        "Cached functions cannot be async"
+      ],
+      "correctIndex": 0,
+      "explanation": "Request-time APIs are not allowed inside cached scopes (even via helpers). Passing the extracted value as an argument makes it part of the cache key."
+    },
+    {
+      "question": "A Server Action edits a fund's details and the editor must see the change on the very next render. Which call fits best?",
+      "options": [
+        "revalidateTag(\"fund-42\", \"max\")",
+        "cacheLife(\"seconds\")",
+        "Nothing; Cache Components invalidates automatically",
+        "updateTag(\"fund-42\")"
+      ],
+      "correctIndex": 3,
+      "explanation": "updateTag is Server-Action-only and expires the tag immediately, so the next request waits for fresh data (read-your-own-writes). revalidateTag with \"max\" serves stale data while refreshing."
+    },
+    {
+      "question": "In a cacheLife profile, what does the `stale` value control?",
+      "options": [
+        "How often the server regenerates the entry in the background",
+        "How long the browser's client router reuses the cached output without checking the server",
+        "When the entry is deleted with no traffic",
+        "How many instances share the entry"
+      ],
+      "correctIndex": 1,
+      "explanation": "stale is client-side; revalidate triggers a background refresh on the server; expire forces the next request to wait for fresh content after a period with no traffic."
+    }
+  ]
+}

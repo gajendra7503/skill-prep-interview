@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Memory in a Node service grows steadily under load. What is the most effective way to find what is leaking?",
+      "options": [
+        "Increase --max-old-space-size until it stops crashing",
+        "Take two heap snapshots before and after load and compare which objects grew, then inspect their retainers",
+        "Switch every function to async/await",
+        "Restart the process every hour"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Comparison view in Chrome DevTools shows which object types increased between snapshots, and the Retainers panel shows the reference chain keeping them alive. A bigger heap only delays the crash."
+    },
+    {
+      "question": "Which of these operations does NOT use the libuv thread pool?",
+      "options": [
+        "fs.readFile",
+        "crypto.pbkdf2",
+        "Reading from a TCP socket",
+        "dns.lookup"
+      ],
+      "correctIndex": 2,
+      "explanation": "Network sockets use the OS's non-blocking I/O mechanisms (epoll, kqueue, IOCP). Most fs operations, dns.lookup, async crypto like pbkdf2/scrypt, and zlib run on the thread pool, which has 4 threads by default."
+    },
+    {
+      "question": "An SSE route does `bus.on(\"tick\", (t) => res.write(t))` for every request and never removes the listener. What is the consequence?",
+      "options": [
+        "Listeners and the response objects they close over accumulate, leaking memory; Node may warn with MaxListenersExceededWarning",
+        "Nothing, because the garbage collector removes listeners when the request ends",
+        "The server crashes on the first request",
+        "Node automatically limits the emitter to 10 listeners and drops the rest"
+      ],
+      "correctIndex": 0,
+      "explanation": "The emitter holds a reference to each listener, and each listener's closure holds res. Remove the listener on req 'close'. The default limit of 10 only triggers a warning, it does not drop listeners."
+    },
+    {
+      "question": "What does `node --cpu-prof server.js` produce?",
+      "options": [
+        "A heap snapshot when the process exits",
+        "A live dashboard on port 9229",
+        "A log of every synchronous I/O call",
+        "A .cpuprofile file that can be opened as a flame graph in Chrome DevTools or VS Code"
+      ],
+      "correctIndex": 3,
+      "explanation": "--cpu-prof starts the V8 CPU profiler at startup and writes a .cpuprofile file when the process exits, showing where CPU time was spent."
+    }
+  ]
+}

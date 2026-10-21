@@ -1,0 +1,179 @@
+---
+title: "Inside Express: How Routing and Middleware Work"
+description: "How Express 5 really dispatches a request: app as a listener function, the layer stack, how next() walks it, error mode, async forwarding, mounting and req.url rewriting, and a 40-line mini Express to prove it."
+module: "Pro Level"
+level: "pro"
+order: 24
+---
+
+Senior interviews rarely ask "what does `app.use` do?". They ask why an error
+handler with three parameters is ignored, why a router mounted at `/api`
+sees `req.url` as `/users`, or why a request with no matching route returns
+404 instead of hanging. All of these fall out of one simple data structure:
+an ordered list of layers walked by `next()`. Once you can rebuild it, you
+can debug any middleware ordering problem from first principles.
+
+## `app` is just a function
+
+`express()` returns a function with the signature `(req, res)` plus a lot of
+methods attached to it. That is why both of these work:
+
+```js
+import http from "node:http";
+import express from "express";
+
+const app = express();
+http.createServer(app).listen(3000); // what app.listen() does internally
+```
+
+When a request arrives, Node calls `app(req, res)`. Express decorates `req`
+and `res` with its helpers (`res.json`, `req.query` and friends, via
+prototype swapping) and hands them to its router.
+
+## The stack of layers
+
+Every `app.use()`, `app.get()` or `router.post()` call pushes a **layer**
+onto an array. A layer stores:
+
+- a path matcher compiled by `path-to-regexp` (v8 in Express 5),
+- a handler function,
+- whether it is a prefix match (`use`) or an exact route (`get`, `post`).
+
+Route layers point to a `Route` object, which has its own small stack of
+handlers filtered by HTTP method. Express 5 gets all of this from the
+standalone `router` package (v2), which you can also use without Express.
+
+```js
+// Debug only: internal detail, may change between versions
+console.log(app.router.stack.map((layer) => layer.name));
+// [ 'router', '<anonymous>', 'handle', '<anonymous>' ]
+```
+
+In Express 4 the same array lived at `app._router.stack`; in Express 5 it is
+reachable through `app.router`. Never depend on it in production code.
+
+## How `next()` walks the stack
+
+Dispatch is a loop with an index. `next()` advances the index to the next
+layer whose path matches and whose type fits the current mode:
+
+- **Normal mode**: skip error handlers (functions with four parameters).
+- **Error mode**, entered by `next(err)` or a throw: skip everything except
+  error handlers.
+- **End of stack**: in normal mode respond 404 ("Cannot GET /x"); in error
+  mode run the default error handler (500).
+
+Express decides "error handler or not" from `fn.length`, the declared
+parameter count. That is why `(err, req, res)` silently never runs, and why
+default parameters or rest parameters (which change `fn.length`) can break
+an error handler in surprising ways.
+
+## A 40-line mini Express
+
+Building it is the best proof that the model above is complete:
+
+```js
+// mini-express.js
+import http from "node:http";
+
+export function createApp() {
+  const stack = [];
+
+  function app(req, res) {
+    let i = 0;
+    const next = (err) => {
+      const layer = stack[i++];
+      if (!layer) {                                     // fell off the end
+        res.statusCode = err ? 500 : 404;
+        return res.end(err ? "Internal error" : `Cannot ${req.method} ${req.url}`);
+      }
+      if (!layer.matches(req)) return next(err);
+      const isErrorHandler = layer.fn.length === 4;
+      if (err && !isErrorHandler) return next(err);     // error mode
+      if (!err && isErrorHandler) return next();        // normal mode
+      try {
+        const result = err ? layer.fn(err, req, res, next) : layer.fn(req, res, next);
+        if (result && typeof result.then === "function") result.then(undefined, next);
+      } catch (e) {
+        next(e);                                        // sync throws
+      }
+    };
+    next();
+  }
+
+  app.use = (fn) => stack.push({ fn, matches: () => true });
+  app.get = (path, fn) =>
+    stack.push({ fn, matches: (req) => req.method === "GET" && req.url === path });
+  app.listen = (...args) => http.createServer(app).listen(...args);
+  return app;
+}
+```
+
+```js
+const app = createApp();
+app.use((req, res, next) => { console.log(req.method, req.url); next(); });
+app.get("/ok", (req, res) => res.end("ok"));
+app.get("/boom", async () => { throw new Error("db down"); });
+app.use((err, req, res, next) => { res.statusCode = 500; res.end(`handled: ${err.message}`); });
+app.listen(3456);
+// GET /ok    -> 200 ok
+// GET /boom  -> 500 handled: db down
+// GET /nope  -> 404 Cannot GET /nope
+```
+
+The line `result.then(undefined, next)` is the whole of Express 5's
+celebrated async error support: if a handler returns a promise that rejects,
+the rejection becomes `next(err)`. Express 4 simply ignored the return value.
+
+## Mounting rewrites `req.url`
+
+When a prefix layer (`app.use("/api/expenses", router)`) matches, Express
+strips the prefix before calling the router and restores it afterwards:
+
+```js
+router.use((req, res, next) => {
+  console.log(req.url, req.baseUrl, req.originalUrl);
+  next();
+});
+app.use("/api/expenses", router);
+// GET /api/expenses/7?x=1  ->  /7?x=1  /api/expenses  /api/expenses/7?x=1
+```
+
+This is what makes routers reusable at any mount point. Use `req.originalUrl`
+for logging and redirects, never `req.url`. Prefix matching respects path
+segments: `/api` matches `/api` and `/api/users` but not `/apix`. Matching is
+case-insensitive and ignores a trailing slash by default; turn those off with
+`express.Router({ caseSensitive: true, strict: true })`.
+
+## The special `next` values
+
+- `next("route")` skips the remaining handlers of the current route and
+  continues with the next matching layer.
+- `next("router")` exits the current router entirely and resumes in the
+  parent stack.
+
+```js
+r.get("/:id", (req, res, next) => (req.params.id === "skip" ? next("router") : next("route")));
+r.get("/:id", (req, res) => res.send(`second route ${req.params.id}`));
+app.use("/api/expenses", r);
+app.use("/api/expenses", (req, res) => res.send("after router"));
+// GET /api/expenses/7     -> second route 7
+// GET /api/expenses/skip  -> after router
+```
+
+## Performance implications
+
+Dispatch is a linear scan. Each request tests layers in order until one
+responds, so a global middleware that does I/O (a session lookup, a database
+call) costs every request, including health checks and static files. Mount
+expensive middleware on the routers that need it, and put cheap, high-traffic
+routes such as `/health` before it. Route count is rarely the bottleneck;
+work done in middleware almost always is.
+
+### Try it yourself
+
+Extend the mini Express with `app.use(prefix, fn)` that strips the prefix
+from `req.url`, sets `req.baseUrl`, and restores both when the sub-handler
+calls `next()`. Then add support for `next("route")`. Finally, in a real
+Express 5 app, write an error handler as `(err, req, res, next = () => {})`,
+log its `fn.length`, and explain why it never receives errors.

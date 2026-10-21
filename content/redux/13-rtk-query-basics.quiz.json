@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "You added `fundsApi.reducer` to configureStore but not `fundsApi.middleware`. What is the likely result?",
+      "options": [
+        "Nothing changes; the middleware is optional",
+        "Caching features such as subscriptions, refetching and cache expiry do not work correctly",
+        "The app fails to compile",
+        "Requests are sent twice"
+      ],
+      "correctIndex": 1,
+      "explanation": "The API middleware manages subscriptions, cache lifetimes and refetching. Without it, RTK Query's core caching behaviour breaks, so it must be concatenated to getDefaultMiddleware()."
+    },
+    {
+      "question": "A list has already loaded once. The user clicks Refresh. What are isLoading and isFetching while the refetch is in flight?",
+      "options": [
+        "isLoading: true, isFetching: true",
+        "isLoading: true, isFetching: false",
+        "isLoading: false, isFetching: true",
+        "isLoading: false, isFetching: false"
+      ],
+      "correctIndex": 2,
+      "explanation": "isLoading is only true for the first load when there is no data. isFetching is true for any in-flight request, including refetches, while the old data stays available."
+    },
+    {
+      "question": "Two components on the same page both call `useGetFundQuery(1)`. How many network requests does RTK Query send?",
+      "options": [
+        "One, because both subscribe to the same cache entry",
+        "Two, one per component",
+        "Zero until one of them calls refetch",
+        "It depends on whether React StrictMode is enabled"
+      ],
+      "correctIndex": 0,
+      "explanation": "Cache entries are keyed by endpoint and argument. Both components subscribe to getFund(1), and RTK Query de-duplicates the request."
+    },
+    {
+      "question": "What does keepUnusedDataFor control?",
+      "options": [
+        "How long a request may take before it times out",
+        "How often a query is polled",
+        "How many cache entries an endpoint can hold",
+        "How many seconds cached data is kept after its last subscriber unsubscribes (default 60)"
+      ],
+      "correctIndex": 3,
+      "explanation": "When no component is subscribed to an entry, RTK Query waits keepUnusedDataFor seconds (60 by default) before removing it, so a quick remount is served from cache."
+    }
+  ]
+}

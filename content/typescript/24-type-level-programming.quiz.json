@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `DeepReadonly<T>` check `T extends (...args: any[]) => any` before mapping objects?",
+      "options": [
+        "Functions cannot be made readonly at all",
+        "Without it, functions would be mapped like objects and lose their call signatures",
+        "It is required for the type to compile",
+        "It makes arrays readonly"
+      ],
+      "correctIndex": 1,
+      "explanation": "Functions are objects, so a mapped type would turn them into plain property bags. The check leaves them untouched."
+    },
+    {
+      "question": "Why is the parameter in `function concat<A extends unknown[]>(a: [...A])` written as `[...A]` rather than `A`?",
+      "options": [
+        "It makes the function variadic at runtime",
+        "It is required syntax for generic arrays",
+        "It hints the compiler to infer a tuple type such as [number, string] instead of an array type",
+        "It prevents empty arrays from being passed"
+      ],
+      "correctIndex": 2,
+      "explanation": "A variadic tuple parameter makes inference produce precise tuple types, which `[...A, ...B]` then preserves."
+    },
+    {
+      "question": "Which change usually lets a recursive conditional type go much deeper before hitting TS2589?",
+      "options": [
+        "Wrapping the recursive call in a template literal",
+        "Returning a union of the recursive call and never",
+        "Adding `any` to the constraint",
+        "Making the recursive call tail-position by carrying results in an accumulator parameter"
+      ],
+      "correctIndex": 3,
+      "explanation": "When the branch is directly the recursive call, the compiler evaluates it iteratively (about 1000 steps in the lesson's test) instead of nesting (about 50)."
+    },
+    {
+      "question": "Given `type Settings = { theme: { mode: string }; locale: string }`, which union does the lesson's `Paths<Settings>` produce?",
+      "options": [
+        "\"theme\" | \"theme.mode\" | \"locale\"",
+        "\"theme.mode\" | \"locale\"",
+        "\"theme\" | \"locale\"",
+        "string"
+      ],
+      "correctIndex": 0,
+      "explanation": "For object-valued keys, Paths yields both the key itself and the key joined with every sub-path; leaf keys yield just themselves."
+    }
+  ]
+}

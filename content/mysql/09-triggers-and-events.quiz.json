@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In which kind of trigger can you modify the incoming row with `SET NEW.col = ...`?",
+      "options": [
+        "AFTER INSERT",
+        "AFTER UPDATE",
+        "BEFORE INSERT or BEFORE UPDATE",
+        "BEFORE DELETE"
+      ],
+      "correctIndex": 2,
+      "explanation": "NEW is writable only in BEFORE triggers; AFTER triggers see final values, and DELETE has no NEW row at all."
+    },
+    {
+      "question": "An UPDATE statement changes 10,000 rows in a table with an AFTER UPDATE trigger. How many times does the trigger body run?",
+      "options": [
+        "10,000 times, because MySQL triggers are row-level only",
+        "Once, as a statement-level trigger",
+        "Once per transaction",
+        "It depends on the ALGORITHM setting"
+      ],
+      "correctIndex": 0,
+      "explanation": "MySQL supports only FOR EACH ROW triggers, which is why heavy triggers make bulk operations slow."
+    },
+    {
+      "question": "A parent row is deleted and `ON DELETE CASCADE` removes 5 child rows. Does a DELETE trigger on the child table fire?",
+      "options": [
+        "Yes, once per child row",
+        "Yes, once for the whole cascade",
+        "Only if the trigger is declared AFTER",
+        "No, foreign-key cascade actions do not fire triggers"
+      ],
+      "correctIndex": 3,
+      "explanation": "Cascaded foreign-key actions in InnoDB do not activate triggers, a classic reason audit triggers miss changes."
+    },
+    {
+      "question": "What happens to a one-time event created with `ON SCHEDULE AT ...` after it runs, by default?",
+      "options": [
+        "It is disabled but kept",
+        "It is dropped, unless declared ON COMPLETION PRESERVE",
+        "It repeats daily",
+        "It moves to the replica"
+      ],
+      "correctIndex": 1,
+      "explanation": "The default is ON COMPLETION NOT PRESERVE, so a finished one-time event is dropped automatically."
+    }
+  ]
+}

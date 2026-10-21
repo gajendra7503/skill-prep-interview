@@ -1,0 +1,136 @@
+---
+title: "Strings, Numbers & Truthiness"
+description: "Immutable strings, f-strings, arbitrary-precision ints, float pitfalls with Decimal, and how Python decides what is true."
+module: "Fundamentals"
+level: "beginner"
+order: 4
+---
+
+Strings and numbers are the first types every Python program touches, and
+they hide several classic interview traps: string concatenation in a loop,
+`0.1 + 0.2`, and the difference between `if x:` and `if x is not None:`.
+This lesson covers the behaviour you need to explain precisely.
+
+## Strings are immutable sequences
+
+A `str` is an immutable sequence of Unicode code points. Indexing and
+slicing return new strings; nothing modifies the original.
+
+```python
+s = "python"
+print(s[0], s[-1], s[1:4])   # p n yth
+s[0] = "P"                   # TypeError: 'str' object does not support item assignment
+s = "P" + s[1:]              # build a new string instead
+```
+
+Because every `+` creates a new object, building a string with `+=` inside a
+loop can be quadratic in the worst case. The idiomatic, linear approach is
+to collect parts and join once:
+
+```python
+parts = [str(n) for n in range(5)]
+print(",".join(parts))       # 0,1,2,3,4
+```
+
+## f-strings
+
+f-strings (formatted string literals) evaluate expressions at runtime and
+support the format mini-language after a colon. The `=` specifier, added in
+3.8, prints the expression alongside its value — handy for debugging.
+
+```python
+name, price = "Widget", 1234.5
+print(f"{name} costs {price:,.2f}")   # Widget costs 1,234.50
+print(f"{price=}")                    # price=1234.5
+print(f"{name!r:>10}")                #   'Widget'  (repr, right-aligned to 10)
+```
+
+Since Python 3.12 (PEP 701), f-strings can reuse the same quote type inside
+their expressions and contain backslashes and comments, e.g.
+`f"{", ".join(items)}"` is now legal.
+
+## Integers have arbitrary precision
+
+Python `int` never overflows; it grows to whatever size memory allows. Note
+that `/` always returns a float, while `//` is floor division and `%` takes
+the sign of the divisor.
+
+```python
+print(2 ** 100)     # 1267650600228229401496703205376
+print(7 / 2)        # 3.5
+print(7 // 2)       # 3
+print(-7 // 2)      # -4  (floors toward negative infinity)
+print(-7 % 3)       # 2
+```
+
+## Float pitfalls and `Decimal`
+
+`float` is an IEEE 754 double. Most decimal fractions cannot be represented
+exactly in binary, so small errors appear:
+
+```python
+print(0.1 + 0.2)            # 0.30000000000000004
+print(0.1 + 0.2 == 0.3)     # False
+
+import math
+print(math.isclose(0.1 + 0.2, 0.3))  # True
+```
+
+For money and other exact decimal arithmetic, use `decimal.Decimal` — and
+construct it from a **string**, because constructing it from a float copies
+the float's binary error.
+
+```python
+from decimal import Decimal, ROUND_HALF_UP
+
+print(Decimal("0.1") + Decimal("0.2"))   # 0.3
+print(Decimal(0.1))   # 0.1000000000000000055511151231257827...
+amount = Decimal("2.675").quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+print(amount)          # 2.68
+print(round(2.675, 2)) # 2.67 — float can't store 2.675 exactly
+```
+
+Also remember the built-in `round()` uses banker's rounding:
+`round(2.5)` is `2` and `round(3.5)` is `4`.
+
+## Truthiness and `None`
+
+Every object has a truth value. These are **falsy**: `None`, `False`, zero
+of any numeric type (`0`, `0.0`, `0j`, `Decimal(0)`), and empty containers
+(`""`, `[]`, `()`, `dict()`, `set()`, `range(0)`). Almost everything else is
+truthy. Custom classes control this via `__bool__`, falling back to
+`__len__`.
+
+`and` / `or` short-circuit and return one of their **operands**, not
+necessarily a bool:
+
+```python
+print([] or "default")    # default
+print("a" and "b")        # b
+print(0 or None)          # None
+```
+
+`None` is the single instance of `NoneType` and represents "no value". Test
+it with `is None`, and do not rely on truthiness when `0` or `""` are valid
+values:
+
+```python
+def set_timeout(seconds=None):
+    if not seconds:            # bug: treats 0 as "missing"
+        seconds = 30
+    return seconds
+
+def set_timeout_fixed(seconds=None):
+    if seconds is None:
+        seconds = 30
+    return seconds
+
+print(set_timeout(0), set_timeout_fixed(0))   # 30 0
+```
+
+### Try it yourself
+
+Write `format_inr(amount: str)` that takes an amount as a string, converts
+it to `Decimal`, rounds it to two places with `ROUND_HALF_UP`, and returns
+it in an f-string with a thousands separator. Then show with `0.1 * 3` why
+the same function would be unreliable if it accepted a `float`.

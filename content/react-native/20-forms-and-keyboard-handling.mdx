@@ -1,0 +1,145 @@
+---
+title: "Forms & Keyboard Handling"
+description: "Controlled vs uncontrolled TextInput, KeyboardAvoidingView per platform, focus chaining with refs, and validated forms with react-hook-form and zod."
+module: "Building Real Screens"
+level: intermediate
+order: 11
+---
+
+On the web, the browser handles most form behaviour for you. On mobile, the
+on-screen keyboard covers half the screen, there's no `form` element and no
+Tab key — you wire up every one of those behaviours yourself.
+
+## Controlled vs uncontrolled `TextInput`
+
+```tsx
+// Controlled: React state is the source of truth
+const [mobile, setMobile] = useState("");
+<TextInput value={mobile} onChangeText={setMobile} keyboardType="phone-pad" maxLength={10} />;
+
+// Uncontrolled: native view holds the text; read it on submit
+const nameRef = useRef("");
+<TextInput defaultValue="" onChangeText={(t) => (nameRef.current = t)} />;
+```
+
+Controlled inputs make live validation and formatting easy, but every
+keystroke round-trips through a React render. Under the New Architecture,
+Fabric's synchronous updates make this far smoother than on the old Bridge,
+but uncontrolled inputs are still lighter for long forms or low-end Android
+devices. Note `onChangeText` gives you the string directly; `onChange` gives
+a native event.
+
+Pick the right keyboard and autofill hints — they're a big part of mobile
+form UX: `keyboardType` (`"email-address"`, `"number-pad"`,
+`"decimal-pad"`), `autoComplete` (`"email"`, `"tel"`, `"sms-otp"`),
+`textContentType` on iOS (`"oneTimeCode"`), `secureTextEntry` for
+passwords, and `autoCapitalize="none"` for emails.
+
+## `KeyboardAvoidingView`: different per platform
+
+```tsx
+<KeyboardAvoidingView
+  style={{ flex: 1 }}
+  behavior={Platform.OS === "ios" ? "padding" : undefined}
+  keyboardVerticalOffset={headerHeight} // e.g. from useHeaderHeight()
+>
+  <ScrollView keyboardShouldPersistTaps="handled">{/* fields */}</ScrollView>
+</KeyboardAvoidingView>
+```
+
+- **iOS** does nothing by default — the keyboard simply overlays content, so
+  `behavior="padding"` is the usual choice.
+- **Android** resizes the window itself when the activity uses
+  `windowSoftInputMode="adjustResize"` (the React Native template default),
+  so adding `"height"` or `"padding"` on top often double-adjusts. Start
+  with `undefined` and test on a real device — edge-to-edge layouts on newer
+  Android versions can change this.
+- `keyboardVerticalOffset` compensates for anything above the view, like a
+  navigation header; forgetting it is why the last field still hides.
+
+For complex screens, `react-native-keyboard-controller` provides
+consistent cross-platform behaviour and keyboard-synced animations.
+
+## Focus chaining with `returnKeyType` and refs
+
+Users expect "Next" to jump to the following field and "Done" to submit:
+
+```tsx
+const emailRef = useRef<TextInput>(null);
+const passwordRef = useRef<TextInput>(null);
+
+<TextInput
+  placeholder="Email"
+  returnKeyType="next"
+  submitBehavior="submit" // keep keyboard open while moving focus
+  onSubmitEditing={() => passwordRef.current?.focus()}
+  ref={emailRef}
+/>
+<TextInput
+  placeholder="Password"
+  secureTextEntry
+  returnKeyType="done"
+  onSubmitEditing={handleSubmit(onSubmit)}
+  ref={passwordRef}
+/>
+```
+
+`submitBehavior` replaced the older `blurOnSubmit` prop. Call
+`Keyboard.dismiss()` to close the keyboard programmatically.
+
+## `keyboardShouldPersistTaps`
+
+By default, a tap inside a `ScrollView` while the keyboard is open only
+dismisses the keyboard — the button underneath doesn't fire. Users tap
+"Submit" twice and think the app is broken. Set
+`keyboardShouldPersistTaps="handled"`: taps on touchables are delivered,
+taps on empty space still dismiss. Nested scroll views and `FlatList` need
+the prop too.
+
+## react-hook-form + zod
+
+react-hook-form keeps field values in refs, so typing doesn't re-render the
+whole form. RN has no native `input` to register, so you use `Controller`:
+
+```tsx
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+const schema = z.object({
+  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, "Enter a valid PAN"),
+  amount: z.coerce.number().min(500, "Minimum SIP is ₹500"),
+});
+type FormValues = z.infer<typeof schema>;
+
+function SipForm() {
+  const { control, handleSubmit, formState: { errors, isSubmitting } } =
+    useForm<FormValues>({ resolver: zodResolver(schema) });
+
+  return (
+    <>
+      <Controller
+        control={control}
+        name="pan"
+        render={({ field: { onChange, onBlur, value, ref } }) => (
+          <TextInput ref={ref} value={value} onChangeText={onChange} onBlur={onBlur} autoCapitalize="characters" />
+        )}
+      />
+      {errors.pan && <Text accessibilityRole="alert">{errors.pan.message}</Text>}
+      <Button title="Start SIP" disabled={isSubmitting} onPress={handleSubmit(save)} />
+    </>
+  );
+}
+```
+
+The zod schema is the single source of truth for validation *and* the
+TypeScript type, and the same schema can validate the request on your
+server. Passing `field.ref` lets `setFocus("pan")` focus the first invalid
+field.
+
+### Try it yourself
+
+Build a three-field KYC form (name, mobile, PAN) inside a `ScrollView`.
+Chain focus with "Next", submit on "Done", show zod errors under each field,
+and confirm on both an iOS simulator and an Android device that the last
+field stays visible above the keyboard.

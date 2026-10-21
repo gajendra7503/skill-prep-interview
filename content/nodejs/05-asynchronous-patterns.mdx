@@ -1,0 +1,152 @@
+---
+title: "Asynchronous Patterns"
+description: "From error-first callbacks to promises and async/await, plus combinators, fs/promises and cancelling work with AbortController."
+module: "Core Concepts"
+level: "intermediate"
+order: 8
+---
+
+Node's APIs have evolved from callbacks to promises, and real codebases
+contain both. Interviewers test whether you can read old-style code,
+convert it, run operations in parallel safely, and cancel work that takes
+too long.
+
+## Error-first callbacks
+
+The classic Node convention: the **last argument** is a callback, and its
+**first parameter** is an error (or `null` on success).
+
+```js
+import fs from "node:fs";
+
+fs.readFile("config.json", "utf8", (err, data) => {
+  if (err) {
+    console.error("Failed:", err.code); // Failed: ENOENT
+    return; // always return after handling the error
+  }
+  console.log(JSON.parse(data));
+});
+```
+
+Problems with callbacks: deeply nested "callback hell", easy-to-forget
+error checks, and `try/catch` does not catch errors thrown later inside the
+callback.
+
+## util.promisify
+
+`util.promisify` converts any function following the error-first convention
+into one that returns a promise:
+
+```js
+import { promisify } from "node:util";
+import { exec } from "node:child_process";
+
+const execAsync = promisify(exec);
+const { stdout } = await execAsync("node --version");
+console.log(stdout.trim()); // v24.x.x
+```
+
+Most core modules already ship promise versions, so reach for those first:
+`node:fs/promises`, `node:timers/promises`, `node:dns/promises` and
+`node:stream/promises`.
+
+## Promises and async/await
+
+```js
+import { readFile, writeFile } from "node:fs/promises";
+
+async function bumpVersion(file) {
+  try {
+    const pkg = JSON.parse(await readFile(file, "utf8"));
+    const [major, minor, patch] = pkg.version.split(".").map(Number);
+    pkg.version = `${major}.${minor}.${patch + 1}`;
+    await writeFile(file, JSON.stringify(pkg, null, 2));
+    return pkg.version;
+  } catch (err) {
+    throw new Error(`Could not bump ${file}`, { cause: err });
+  }
+}
+```
+
+An `async` function always returns a promise. `await` pauses only that
+function — the event loop keeps serving other work. Wrap the underlying
+error with `cause` so the original stack is not lost.
+
+## Sequential vs parallel
+
+A very common performance bug is awaiting independent operations one by
+one:
+
+```js
+// Slow: about 300ms + 300ms
+const user = await getUser(id);
+const orders = await getOrders(id);
+
+// Fast: about 300ms, both start immediately
+const [user2, orders2] = await Promise.all([getUser(id), getOrders(id)]);
+```
+
+## The combinators
+
+| Method | Resolves when | Rejects when |
+|---|---|---|
+| `Promise.all` | all fulfil (array of values) | the **first** rejection |
+| `Promise.allSettled` | all settle (array of status objects) | never |
+| `Promise.race` | the first settles, either way | the first settles with an error |
+| `Promise.any` | the first fulfils | all reject (`AggregateError`) |
+
+```js
+const results = await Promise.allSettled([
+  chargeCard({ amount: 49900, currency: "INR" }), // ₹499 in paise
+  sendEmail(),
+]);
+// [ { status: 'fulfilled', value: ... },
+//   { status: 'rejected', reason: Error: SMTP timeout } ]
+```
+
+`Promise.all` does not cancel the other operations when one fails — they
+keep running; you just stop waiting for them. Use `allSettled` when you
+want every outcome, such as a batch of notifications.
+
+## Cancellation with AbortController
+
+Many Node APIs accept an `AbortSignal`: `fetch`, `fs/promises.readFile`,
+`timers/promises`, `events.once`, child processes and streams.
+
+```js
+import { setTimeout as sleep } from "node:timers/promises";
+
+const controller = new AbortController();
+setTimeout(() => controller.abort(), 100);
+
+try {
+  await sleep(5000, "done", { signal: controller.signal });
+} catch (err) {
+  console.log(err.name); // AbortError
+}
+
+// Built-in timeout signal, no manual timer needed
+const res = await fetch("https://api.example.com/rates", {
+  signal: AbortSignal.timeout(3000),
+});
+```
+
+`AbortSignal.any([a, b])` combines signals, for example a user-cancel
+signal together with a timeout.
+
+## Unhandled rejections
+
+A rejected promise with no `catch` handler is an **unhandled rejection**.
+In current Node versions this crashes the process by default, which is
+safer than silently ignoring the error. Always `await` or `.catch()` every
+promise you create, and avoid "fire and forget" calls.
+
+### Try it yourself
+
+1. Write a callback-based `wait(ms, cb)` function, then use
+   `util.promisify` to make an awaitable version.
+2. Write `getUser` and `getOrders` functions that each wait 300ms, and time
+   the sequential and `Promise.all` versions with `console.time`.
+3. Build a `withTimeout(promiseFn, ms)` helper that passes
+   `AbortSignal.timeout(ms)` to a `fetch` call and returns a clear error
+   message when the request is too slow.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What type does TypeScript infer for `const gst = 0.18;`?",
+      "options": [
+        "number",
+        "any",
+        "float",
+        "The literal type 0.18"
+      ],
+      "correctIndex": 3,
+      "explanation": "A const can never be reassigned, so TypeScript keeps the exact literal type. With let, the type would widen to number."
+    },
+    {
+      "question": "What is the key difference between `any` and `unknown`?",
+      "options": [
+        "Both accept any value, but unknown must be narrowed before you can use it",
+        "unknown accepts only primitives, any accepts objects too",
+        "any is checked at runtime, unknown is not",
+        "There is no difference; unknown is just an alias"
+      ],
+      "correctIndex": 0,
+      "explanation": "any disables checking entirely. unknown is the type-safe counterpart: you must check the value with typeof or another guard before using it."
+    },
+    {
+      "question": "Where are type annotations generally most necessary?",
+      "options": [
+        "On every local variable",
+        "On function parameters, because TypeScript cannot infer what callers will pass",
+        "Only on const declarations",
+        "On return statements inside functions"
+      ],
+      "correctIndex": 1,
+      "explanation": "Initialised variables and many return types are inferred. Parameters need annotations; otherwise strict mode reports an implicit any."
+    },
+    {
+      "question": "What is the appropriate return type for a function that always throws an error?",
+      "options": [
+        "void",
+        "undefined",
+        "never",
+        "null"
+      ],
+      "correctIndex": 2,
+      "explanation": "never represents a value that can never exist. A function that always throws never returns normally, so its return type is never."
+    }
+  ]
+}

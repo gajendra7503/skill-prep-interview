@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In a Prisma 7 project, where is the database connection URL configured for the Prisma CLI?",
+      "options": [
+        "In prisma.config.ts, under datasource.url",
+        "In the url field of the datasource block in schema.prisma",
+        "In package.json under a prisma key",
+        "It is read from the generator block's output path"
+      ],
+      "correctIndex": 0,
+      "explanation": "Prisma 7 moves CLI configuration into prisma.config.ts. The datasource block in the schema only names the provider, and the config imports dotenv itself because .env is not loaded automatically."
+    },
+    {
+      "question": "Why should an Express app create a single PrismaClient and import it everywhere, rather than creating one per request?",
+      "options": [
+        "PrismaClient can only be constructed once per process or it throws",
+        "Each client owns a connection pool, so one per request would quickly exhaust the database's connection limit",
+        "A new client would skip migrations",
+        "Multiple clients cannot share the same generated types"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every PrismaClient opens its own pool of connections. One shared client per process, closed with $disconnect on shutdown, keeps connection usage bounded."
+    },
+    {
+      "question": "Which command should run in CI or production to apply committed migrations?",
+      "options": [
+        "npx prisma migrate dev",
+        "npx prisma migrate reset",
+        "npx prisma db push --force-reset",
+        "npx prisma migrate deploy"
+      ],
+      "correctIndex": 3,
+      "explanation": "migrate deploy only applies pending migrations from prisma/migrations. migrate dev generates new migrations and migrate reset drops the database, so both are for development."
+    },
+    {
+      "question": "An expense insert fails with a PrismaClientKnownRequestError whose code is P2002. What does it mean and how should the API respond?",
+      "options": [
+        "The record was not found; respond 404",
+        "The database is down; respond 503",
+        "A unique constraint was violated (for example a duplicate invoice number); respond 409 Conflict",
+        "The JSON body was malformed; respond 400"
+      ],
+      "correctIndex": 2,
+      "explanation": "P2002 is Prisma's unique-constraint error, which maps naturally to 409. P2025 is the record-not-found error for update and delete."
+    }
+  ]
+}

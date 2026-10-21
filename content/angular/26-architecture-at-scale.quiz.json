@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In a layered library structure, which dependency should be forbidden?",
+      "options": [
+        "A feature library importing a ui library",
+        "A ui library importing a data-access library that calls HttpClient",
+        "A data-access library importing a util library",
+        "A feature library importing a util library"
+      ],
+      "correctIndex": 1,
+      "explanation": "UI libraries should stay presentational; letting them depend on data-access couples visual components to APIs and state."
+    },
+    {
+      "question": "What is the main reason to adopt micro frontends?",
+      "options": [
+        "They always make the app load faster",
+        "They remove the need for shared dependencies",
+        "They let teams that cannot coordinate releases build and deploy independently",
+        "They are required for lazy loading in Angular"
+      ],
+      "correctIndex": 2,
+      "explanation": "Micro frontends solve an organisational problem (independent deployment) and add runtime costs such as shared-version skew."
+    },
+    {
+      "question": "How do you send every uncaught Angular error to a telemetry service?",
+      "options": [
+        "Provide a custom class for the ErrorHandler token",
+        "Wrap every component in try/catch",
+        "Add window.onerror in each component",
+        "Use an impure pipe"
+      ],
+      "correctIndex": 0,
+      "explanation": "Angular routes uncaught errors to ErrorHandler; providing your own implementation centralises reporting."
+    },
+    {
+      "question": "What does the `@nx/enforce-module-boundaries` ESLint rule do?",
+      "options": [
+        "Splits the bundle into lazy chunks",
+        "Upgrades Angular versions automatically",
+        "Generates index.ts files for each library",
+        "Fails linting when an import crosses a dependency constraint defined by project tags"
+      ],
+      "correctIndex": 3,
+      "explanation": "It checks imports against depConstraints (for example type:ui may only depend on type:ui and type:util) and reports violations as lint errors."
+    }
+  ]
+}

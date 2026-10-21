@@ -1,0 +1,163 @@
+---
+title: "Logging, Monitoring and Health Checks"
+description: "Make an Express API observable with structured request logs, request IDs, liveness and readiness endpoints, and Prometheus metrics."
+module: "Testing & Deployment"
+level: "advanced"
+order: 22
+---
+
+When production breaks at 2 a.m., logs, metrics and health checks are how
+you find out what happened. Interviewers ask "how would you debug a slow
+endpoint in production?" to see whether you think in these terms: a request
+ID to trace one call, structured logs to search, metrics to spot trends,
+and health endpoints so the platform can route around a sick instance.
+
+## Request logging: morgan vs pino-http
+
+**morgan** prints one line per request, in classic access-log formats:
+
+```js
+import morgan from "morgan";
+app.use(morgan("dev"));
+// GET /api/expenses 200 12.345 ms - 512
+```
+
+**pino-http** writes structured JSON, which log platforms (Loki, ELK,
+CloudWatch, Datadog) can index and filter by field. It also attaches a
+child logger to every request as `req.log`:
+
+```js
+import pino from "pino";
+import pinoHttp from "pino-http";
+
+const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
+app.use(pinoHttp({ logger }));
+
+app.get("/api/expenses", async (req, res) => {
+  req.log.info({ userId: 42 }, "listing expenses");
+  res.json([]);
+});
+// {"level":30,"time":1760420000000,"req":{"id":1,"method":"GET","url":"/api/expenses"},
+//  "userId":42,"msg":"listing expenses"}
+// {"level":30,"req":{...},"res":{"statusCode":200},"responseTime":4,"msg":"request completed"}
+```
+
+Rules worth stating in an interview: log JSON in production (use
+`pino-pretty` only locally), use levels (`debug`, `info`, `warn`, `error`)
+and set them by environment, and **never** log passwords, tokens, full card
+numbers or Aadhaar/PAN values. pino supports a `redact` option for paths
+such as `req.headers.authorization`.
+
+## Request IDs: following one request everywhere
+
+A request ID ties together every log line for one call, across services.
+Accept an incoming ID from the load balancer or caller if present,
+otherwise generate one, and echo it back in the response:
+
+```js
+import { randomUUID } from "node:crypto";
+
+app.use(
+  pinoHttp({
+    logger,
+    genReqId(req, res) {
+      const id = req.headers["x-request-id"] ?? randomUUID();
+      res.setHeader("X-Request-Id", id);
+      return id;
+    },
+  }),
+);
+```
+
+In production, only reuse an incoming ID that your own proxy sets, or at
+least check its length and format, so clients cannot inject junk into your
+logs. Return the ID in error responses too (for example
+`{ "error": "Internal error", "requestId": "..." }`) so a user's support
+ticket leads straight to the right logs. Forward the header on outgoing
+calls to other services. To read the ID deep inside services without
+passing `req` around, use `AsyncLocalStorage` from `node:async_hooks`.
+
+## Health checks: liveness vs readiness
+
+Orchestrators (Kubernetes, ECS, load balancers) poll health endpoints.
+They answer two different questions:
+
+- **Liveness** (`/health` or `/livez`): is the process alive and able to
+  respond? If not, restart it. Keep it cheap and dependency-free; if it
+  checked the database, a DB outage would restart every instance for no gain.
+- **Readiness** (`/ready` or `/readyz`): can it serve traffic right now?
+  Check critical dependencies. If not, stop sending it requests, but do
+  not restart it.
+
+```js
+let shuttingDown = false;   // set to true when SIGTERM arrives (next lesson)
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", uptime: Math.round(process.uptime()) });
+});
+
+app.get("/ready", async (req, res) => {
+  if (shuttingDown) return res.status(503).json({ status: "shutting down" });
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: "ready" });
+  } catch {
+    res.status(503).json({ status: "unavailable", db: "down" });
+  }
+});
+// curl -i localhost:3000/ready  ->  HTTP/1.1 503 ... {"status":"unavailable","db":"down"}
+```
+
+Register health routes **before** auth, rate limiting and request logging
+(or exclude them), so probes do not need tokens or flood your logs. Never
+expose versions of internal components or connection strings in the
+response.
+
+## Metrics with Prometheus
+
+Logs tell you about one request; metrics tell you about all of them. The
+usual starting set is the "RED" method: **R**ate, **E**rrors and
+**D**uration per route. `prom-client` exposes them for Prometheus to scrape:
+
+```js
+import client from "prom-client";
+
+client.collectDefaultMetrics();   // memory, CPU, event-loop lag, GC
+
+const httpDuration = new client.Histogram({
+  name: "http_request_duration_seconds",
+  help: "HTTP request duration in seconds",
+  labelNames: ["method", "route", "status"],
+  buckets: [0.01, 0.05, 0.1, 0.3, 1, 3],
+});
+
+app.use((req, res, next) => {
+  const end = httpDuration.startTimer();
+  res.on("finish", () => {
+    const route = req.route ? req.baseUrl + req.route.path : "unmatched";
+    end({ method: req.method, route, status: res.statusCode });
+  });
+  next();
+});
+
+app.get("/metrics", async (req, res) => {
+  res.set("Content-Type", client.register.contentType);
+  res.send(await client.register.metrics());
+});
+// http_request_duration_seconds_bucket{le="0.1",method="GET",route="/api/expenses/:id",status="200"} 118
+```
+
+Label by the **route pattern** (`/api/expenses/:id`), never the raw URL:
+`/api/expenses/1`, `/api/expenses/2` and so on would create unbounded label
+values and blow up Prometheus memory. Protect `/metrics` from the public
+internet. Alert on symptoms users feel (error rate, p95 latency) rather
+than on every CPU spike, and send unexpected exceptions to an error tracker
+such as Sentry alongside your logs.
+
+### Try it yourself
+
+Add pino-http with request IDs to an Express app, then call an endpoint
+with `curl -H "X-Request-Id: test-123"` and confirm the ID appears in both
+the response header and the log line. Add `/health` and `/ready` (stop your
+database and watch `/ready` return 503 while `/health` stays 200), and a
+`/metrics` endpoint whose histogram is labelled by route pattern.

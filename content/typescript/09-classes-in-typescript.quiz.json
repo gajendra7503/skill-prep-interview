@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A class has `private secret = \"x\"`. What does `JSON.stringify(new MyClass())` produce at runtime?",
+      "options": [
+        "{}",
+        "{\"secret\":\"x\"}",
+        "It throws a TypeError",
+        "A compile error stops the code from being emitted"
+      ],
+      "correctIndex": 1,
+      "explanation": "TypeScript's private is a compile-time check only. The emitted JavaScript is an ordinary property, so it is serialised. A JavaScript #private field would not appear."
+    },
+    {
+      "question": "Why does Node's built-in type stripping reject `constructor(private email: string) {}`?",
+      "options": [
+        "Parameter properties generate assignment code, so they are not erasable syntax",
+        "Node does not support classes in .ts files",
+        "The private keyword is reserved in JavaScript",
+        "Constructors cannot have typed parameters"
+      ],
+      "correctIndex": 0,
+      "explanation": "A parameter property expands into a field plus this.email = email. Type stripping can only remove types, so it reports this syntax as unsupported; erasableSyntaxOnly flags it too."
+    },
+    {
+      "question": "Which statement about abstract classes and interfaces is correct?",
+      "options": [
+        "Both exist at runtime and support instanceof",
+        "An interface can contain method implementations",
+        "A class can extend several abstract classes",
+        "An abstract class can contain implemented methods and exists at runtime; an interface is erased"
+      ],
+      "correctIndex": 3,
+      "explanation": "Abstract classes compile to real JavaScript classes and may mix concrete and abstract members. Interfaces are type-only and erased, but a class can implement several of them."
+    },
+    {
+      "question": "With `noImplicitOverride` enabled, what happens if a subclass redefines a base-class method without the `override` keyword?",
+      "options": [
+        "Nothing; the flag only affects abstract methods",
+        "The base method is called instead",
+        "The compiler reports an error asking for the override modifier",
+        "The method becomes private"
+      ],
+      "correctIndex": 2,
+      "explanation": "noImplicitOverride requires override on every method that replaces a base-class member, which makes accidental overrides and stale overrides after renames visible."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does FastAPI return when a query parameter declared as `Annotated[int, Query(le=100)]` receives the value 500?",
+      "options": [
+        "500 Internal Server Error",
+        "400 Bad Request with no body",
+        "200 OK with the value clamped to 100",
+        "422 Unprocessable Entity with a detailed validation error"
+      ],
+      "correctIndex": 3,
+      "explanation": "FastAPI validates parameters from their type hints and constraints, returning 422 with a description of which field failed and why."
+    },
+    {
+      "question": "In Pydantic v2, which method replaces v1's `.dict()`?",
+      "options": [
+        "model_dump()",
+        "to_dict()",
+        "model_validate()",
+        "serialize()"
+      ],
+      "correctIndex": 0,
+      "explanation": "Pydantic v2 renamed it to model_dump(); model_validate() replaces parse_obj() and model_dump_json() replaces .json()."
+    },
+    {
+      "question": "An endpoint declared with `async def` calls `requests.get(...)` (a blocking library). What is the effect?",
+      "options": [
+        "FastAPI automatically moves it to a threadpool",
+        "It blocks the event loop, stalling every other request until it returns",
+        "It raises a RuntimeError at startup",
+        "Nothing; async def makes any call non-blocking"
+      ],
+      "correctIndex": 1,
+      "explanation": "async def endpoints run on the event loop, so blocking calls freeze it. Plain def endpoints run in a threadpool, which is the right choice for blocking code."
+    },
+    {
+      "question": "How do you replace a dependency such as `current_user` in tests?",
+      "options": [
+        "Monkeypatch the Depends function",
+        "Restart the app with an environment variable",
+        "Assign a replacement in app.dependency_overrides[current_user]",
+        "Dependencies cannot be replaced in tests"
+      ],
+      "correctIndex": 2,
+      "explanation": "app.dependency_overrides maps the original dependency callable to a replacement for the duration of the test; clear it afterwards."
+    }
+  ]
+}

@@ -1,0 +1,240 @@
+---
+title: "Real Project: Log Analyzer CLI"
+description: "Build a CLI that streams a large log file, parses lines, aggregates them with worker threads, writes a JSON or CSV report and is covered by node:test tests."
+module: "Real-World Project"
+level: "pro"
+order: 28
+---
+
+Time to combine the course into one tool: a CLI that reads a log file of
+any size, aggregates request statistics in parallel and writes a report.
+It touches streams, backpressure, worker threads, structured cloning,
+`util.parseArgs` and `node:test` — exactly what a Node take-home tests.
+Log lines look like `2026-10-14T10:00:00Z INFO GET /api/orders 200 52ms`,
+and every file is an ES module (`"type": "module"` in `package.json`).
+
+## 1. Parsing and mergeable statistics
+
+```js
+// stats.js — anchored regex without nested quantifiers, so no ReDoS
+const LINE = /^(\S+) (DEBUG|INFO|WARN|ERROR) ([A-Z]+) (\S+) (\d{3}) (\d+)ms$/;
+
+export function parseLine(line) {
+  const m = LINE.exec(line.trim());
+  return m && { level: m[2], path: m[4], status: Number(m[5]), ms: Number(m[6]) };
+}
+
+// Maps, not objects: a "__proto__" path in a log line cannot pollute anything
+export const createStats = () => ({ total: 0, malformed: 0, byLevel: new Map(), paths: new Map() });
+
+const bump = (map, key, by) => map.set(key, (map.get(key) ?? 0) + by);
+
+function addPath(stats, path, { count, totalMs, errors }) {
+  const p = stats.paths.get(path) ?? { count: 0, totalMs: 0, errors: 0 };
+  p.count += count; p.totalMs += totalMs; p.errors += errors;
+  stats.paths.set(path, p);
+}
+
+export function addEntry(stats, e) {
+  if (!e) return void stats.malformed++;
+  stats.total++;
+  bump(stats.byLevel, e.level, 1);
+  addPath(stats, e.path, { count: 1, totalMs: e.ms, errors: e.status >= 500 ? 1 : 0 });
+}
+
+export function mergeStats(into, from) {
+  into.total += from.total;
+  into.malformed += from.malformed;
+  for (const [level, n] of from.byLevel) bump(into.byLevel, level, n);
+  for (const [path, s] of from.paths) addPath(into, path, s);
+  return into;
+}
+```
+
+Workers keep sums and counts, never averages: partial results then merge
+exactly, and the average is computed once at the end.
+
+## 2. The worker and a small pool
+
+```js
+// worker.js
+import { parentPort } from "node:worker_threads";
+import { parseLine, createStats, addEntry } from "./stats.js";
+
+parentPort.on("message", (lines) => {
+  const stats = createStats();
+  for (const line of lines) addEntry(stats, parseLine(line));
+  parentPort.postMessage(stats); // Maps survive the structured clone
+});
+```
+
+```js
+// pool.js — each worker handles one batch at a time
+import { Worker } from "node:worker_threads";
+
+export class WorkerPool {
+  #idle = [];
+  #waiting = [];
+  constructor(file, size) {
+    this.workers = Array.from({ length: size }, () => new Worker(file));
+    this.#idle.push(...this.workers);
+  }
+  async run(data) {
+    const w = this.#idle.pop() ?? (await new Promise((r) => this.#waiting.push(r)));
+    try {
+      return await new Promise((resolve, reject) => {
+        // remove the unused listener, or long runs hit MaxListenersExceededWarning
+        const onMessage = (msg) => { w.off("error", onError); resolve(msg); };
+        const onError = (err) => { w.off("message", onMessage); reject(err); };
+        w.once("message", onMessage).once("error", onError).postMessage(data);
+      });
+    } finally {
+      const next = this.#waiting.shift();
+      next ? next(w) : this.#idle.push(w);
+    }
+  }
+  close() { return Promise.all(this.workers.map((w) => w.terminate())); }
+}
+```
+
+## 3. Streaming the file with backpressure
+
+```js
+// analyze.js
+import { createReadStream } from "node:fs";
+import { createInterface } from "node:readline";
+import { availableParallelism } from "node:os";
+import { WorkerPool } from "./pool.js";
+import { createStats, mergeStats } from "./stats.js";
+
+export async function analyzeFile(file, { chunkSize = 20_000, threads = availableParallelism() } = {}) {
+  const pool = new WorkerPool(new URL("./worker.js", import.meta.url), threads);
+  const rl = createInterface({ input: createReadStream(file), crlfDelay: Infinity });
+  const total = createStats();
+  const pending = new Set();
+  let failure, batch = [];
+  const submit = (lines) => {
+    const p = pool.run(lines).then((s) => mergeStats(total, s))
+      .catch((err) => { failure ??= err; }) // never an unhandled rejection
+      .finally(() => pending.delete(p));
+    pending.add(p);
+  };
+  try {
+    for await (const line of rl) {
+      batch.push(line);
+      if (batch.length < chunkSize) continue;
+      submit(batch);
+      batch = [];
+      if (pending.size >= threads * 2) await Promise.race(pending); // backpressure: memory stays flat
+    }
+    if (batch.length) submit(batch);
+    await Promise.all(pending);
+    if (failure) throw failure;
+    return total;
+  } finally {
+    await pool.close(); // live workers would keep the process running
+  }
+}
+```
+
+## 4. Report and CLI
+
+```js
+// report.js
+export function buildReport(stats, top = 5) {
+  const slowestPaths = [...stats.paths]
+    .map(([path, p]) => ({ path, count: p.count, avgMs: Math.round(p.totalMs / p.count), errors: p.errors }))
+    .sort((a, b) => b.avgMs - a.avgMs).slice(0, top);
+  return { total: stats.total, malformed: stats.malformed, byLevel: Object.fromEntries(stats.byLevel), slowestPaths };
+}
+
+const cell = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replaceAll('"', '""')}"` : String(v));
+export const toCsv = (rows) => rows.length === 0 ? "" :
+  [Object.keys(rows[0]), ...rows.map(Object.values)].map((r) => r.map(cell).join(",")).join("\n") + "\n";
+```
+
+```js
+// cli.js
+import { parseArgs } from "node:util";
+import { writeFile } from "node:fs/promises";
+import { analyzeFile } from "./analyze.js";
+import { buildReport, toCsv } from "./report.js";
+
+const { values, positionals } = parseArgs({ allowPositionals: true, options: {
+  out: { type: "string", short: "o", default: "report.json" },
+  top: { type: "string", default: "5" },
+  threads: { type: "string" },
+} });
+if (positionals.length !== 1) {
+  console.error("usage: node cli.js <file.log> [-o report.json|report.csv] [--top 5] [--threads 4]");
+  process.exit(2);
+}
+const started = performance.now();
+const opts = values.threads ? { threads: Number(values.threads) } : {};
+const report = buildReport(await analyzeFile(positionals[0], opts), Number(values.top));
+await writeFile(values.out, values.out.endsWith(".csv") ? toCsv(report.slowestPaths) : JSON.stringify(report, null, 2));
+console.log(`${report.total} lines (${report.malformed} malformed) in ${Math.round(performance.now() - started)} ms`);
+```
+
+```bash
+node cli.js app.log -o report.csv
+# 1000000 lines (0 malformed) in 649 ms     (timing varies by machine)
+cat report.csv
+# path,count,avgMs,errors
+# /api/payments,250000,130,10000
+# /api/orders,250000,90,0
+```
+
+## 5. Tests with node:test
+
+```js
+// loga.test.js
+import { it } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { parseLine, createStats, addEntry, mergeStats } from "./stats.js";
+import { analyzeFile } from "./analyze.js";
+import { buildReport, toCsv } from "./report.js";
+
+it("merges partial results from two workers", () => {
+  const a = createStats(), b = createStats();
+  addEntry(a, parseLine("t INFO GET /x 200 10ms"));
+  addEntry(b, parseLine("t ERROR GET /x 500 30ms"));
+  addEntry(b, parseLine("not a log line"));
+  const r = buildReport(mergeStats(a, b));
+  assert.deepEqual(r.byLevel, { INFO: 1, ERROR: 1 });
+  assert.deepEqual(r.slowestPaths, [{ path: "/x", count: 2, avgMs: 20, errors: 1 }]);
+  assert.equal(r.malformed, 1);
+  assert.equal(toCsv([{ path: '/a,"b"' }]), 'path\n"/a,""b"""\n');
+});
+
+// a small chunkSize forces many batches through both workers, where merge bugs hide
+it("aggregates a file across chunks and workers", async () => {
+  const file = join(await mkdtemp(join(tmpdir(), "loga-")), "app.log");
+  const lines = Array.from({ length: 1000 }, (_, i) => `t INFO GET /p${i % 2} 200 10ms`);
+  await writeFile(file, lines.join("\n") + "\nbroken line\n");
+  const stats = await analyzeFile(file, { chunkSize: 100, threads: 2 });
+  assert.equal(stats.total, 1000);
+  assert.equal(stats.malformed, 1);
+});
+```
+
+## What this project demonstrates
+
+- **Streams with backpressure**: readline plus a bounded set of in-flight batches.
+- **Worker threads**: a reusable pool, structured cloning of `Map`s, `terminate()` on exit.
+- **Map-reduce design**: mergeable partial results make parallelism safe.
+- **Honest performance**: with cheap regex parsing, `--threads 1` can be just as
+  fast, because copying batches costs as much as parsing them. Workers pay off
+  when per-line work is CPU-heavy — always measure.
+
+### Try it yourself
+
+- Write `gen-log.js` to stream 1,000,000 sample lines with `createWriteStream`,
+  awaiting the `drain` event whenever `write()` returns `false`.
+- Benchmark `--threads 1` against the default and explain the result.
+- Add a `--level ERROR` filter and p95 latency (per-path histograms merge
+  cleanly; raw arrays of timings do not).
+- Accept gzipped logs by piping the read stream through `zlib.createGunzip()`.

@@ -1,0 +1,139 @@
+---
+title: "Setting Up React"
+description: "Install Node.js, scaffold a React project with Vite, run the dev server, and understand every file it creates."
+module: "Getting Started"
+level: beginner
+order: 1
+---
+
+Before writing a single component you need three things: **Node.js** (to run
+the tooling), a **build tool** (to turn JSX into JavaScript the browser
+understands), and an **editor**. This lesson gets all three working and walks
+through the files of a brand-new project so nothing feels like magic.
+
+## Install Node.js
+
+React itself runs in the browser, but every modern React toolchain runs on
+Node.js. Install the current **LTS** (long-term support) release from
+nodejs.org, or use a version manager such as `nvm` or `fnm` so you can switch
+versions per project. Then check it worked:
+
+```bash
+node --version   # v24.x.x (any recent LTS is fine)
+npm --version    # 11.x.x
+```
+
+`npm` ships with Node. It downloads packages (React, the build tool, test
+libraries) into a `node_modules` folder and records them in `package.json`.
+
+## Create a project with Vite
+
+**Vite** is a fast build tool and dev server. It is the most common way to
+start a plain client-side React app:
+
+```bash
+npm create vite@latest fund-tracker -- --template react-ts
+cd fund-tracker
+npm install
+npm run dev
+# VITE ready
+#   Local:   http://localhost:5173/
+```
+
+Open the URL and you will see the starter page. The `--template react-ts`
+flag gives you React with TypeScript; use `react` for plain JavaScript. The
+extra `--` passes the flag through `npm` to Vite's create script.
+
+A note on older tutorials: **Create React App** (`create-react-app`) is
+deprecated. Don't start new projects with it.
+
+## What the files do
+
+```text
+fund-tracker/
+├── index.html        # the single HTML page; has a div with id="root"
+├── package.json      # dependencies and scripts (dev, build, preview)
+├── vite.config.ts    # Vite configuration (the React plugin lives here)
+├── public/           # static files copied as-is
+└── src/
+    ├── main.tsx      # entry point: mounts React into #root
+    ├── App.tsx       # your first component
+    └── index.css     # global styles
+```
+
+The most important file is `src/main.tsx`:
+
+```tsx
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./index.css";
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
+```
+
+- `createRoot` connects React to one real DOM element.
+- `render` tells React what to show inside it.
+- `StrictMode` is a development-only helper. It deliberately renders
+  components and runs effects twice to surface bugs. It does nothing in
+  production builds, so seeing a `console.log` print twice in development is
+  expected.
+
+## Your first edit
+
+Replace the contents of `src/App.tsx`:
+
+```tsx
+export default function App() {
+  const balance = 125000;
+  return (
+    <main>
+      <h1>My Fund Tracker</h1>
+      <p>Portfolio value: ₹{balance.toLocaleString("en-IN")}</p>
+    </main>
+  );
+}
+// Browser shows:
+// My Fund Tracker
+// Portfolio value: ₹1,25,000
+```
+
+Save the file and the page updates instantly without a full reload. That is
+**Hot Module Replacement (HMR)**, and it keeps component state where it can.
+
+## The scripts you'll use
+
+```bash
+npm run dev      # start the dev server with HMR
+npm run build    # type-check and produce an optimised bundle in dist/
+npm run preview  # serve the dist/ folder locally to test the production build
+```
+
+`dist/` contains plain HTML, JS and CSS that any static host can serve.
+
+## Vite or a framework?
+
+Vite gives you a client-side app: one HTML page, and React renders everything
+in the browser. The official React docs recommend starting with a
+**framework** such as Next.js or React Router (framework mode) when you need
+routing, server rendering or data loading built in. The React you write is
+the same either way, which is why this course teaches React itself first.
+
+## Two tools worth installing now
+
+- **React Developer Tools**, a browser extension for Chrome, Firefox and
+  Edge. It adds a Components tab to inspect props and state, and a Profiler
+  tab you'll use later in the course.
+- **An editor with TypeScript support**, such as VS Code. It gives you
+  autocomplete for props and catches typos in JSX before you even save.
+
+### Try it yourself
+
+Scaffold a new Vite project, change `App.tsx` to show your name and today's
+date (use `new Date().toLocaleDateString("en-IN")`), then run `npm run build`
+followed by `npm run preview` and confirm the production build shows the
+same page. Open React DevTools and find the `App` component in the tree.

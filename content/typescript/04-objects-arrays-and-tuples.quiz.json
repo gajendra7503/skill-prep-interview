@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Given `type Order = { id: string; amount: number }`, which code compiles?",
+      "options": [
+        "`const o: Order = { id: \"1\", amount: 5, coupon: \"X\" };`",
+        "`const d = { id: \"1\", amount: 5, coupon: \"X\" }; const o: Order = d;`",
+        "`const o: Order = { id: \"1\" };`",
+        "`const o: Order = { id: 1, amount: 5 };`"
+      ],
+      "correctIndex": 1,
+      "explanation": "Excess property checks apply only to fresh object literals. Assigning from a variable uses structural assignability, which allows extra properties."
+    },
+    {
+      "question": "What does `readonly` on an object property do?",
+      "options": [
+        "Freezes the object at runtime like Object.freeze",
+        "Makes the property optional",
+        "Deep-freezes all nested objects",
+        "Prevents reassignment of that property at compile time only"
+      ],
+      "correctIndex": 3,
+      "explanation": "readonly is a compile-time check and is shallow. It does not change runtime behaviour."
+    },
+    {
+      "question": "What type does TypeScript infer for `const pair = [\"Rent\", 25000];`?",
+      "options": [
+        "(string | number)[]",
+        "[string, number]",
+        "readonly [\"Rent\", 25000]",
+        "any[]"
+      ],
+      "correctIndex": 0,
+      "explanation": "Array literals are inferred as arrays, not tuples. To get a tuple you must annotate it, for example `[string, number]`."
+    },
+    {
+      "question": "With default compiler settings, what is the type of `stock[\"Kolkata\"]` when `stock` is typed `{ [city: string]: number }`?",
+      "options": [
+        "number | undefined",
+        "undefined",
+        "number",
+        "unknown"
+      ],
+      "correctIndex": 2,
+      "explanation": "Index signature reads are typed as the value type even for missing keys. The noUncheckedIndexedAccess option changes this to number | undefined."
+    }
+  ]
+}

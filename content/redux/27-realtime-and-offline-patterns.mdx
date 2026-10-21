@@ -1,0 +1,191 @@
+---
+title: "Real-Time & Offline Patterns: WebSockets and Streaming Updates"
+description: "Stream WebSocket updates into the RTK Query cache, handle ordering and duplicates, batch high-frequency ticks, and queue writes while offline with the listener middleware."
+module: "Pro Level"
+level: "pro"
+order: 27
+---
+
+Dashboards for trading, logistics or support queues cannot wait for the
+next poll. This lesson covers the Redux patterns for **push** data (a
+WebSocket or server-sent events feeding the store) and for the opposite
+problem, users who go **offline** and keep working. Polling and optimistic
+updates are covered in "Advanced RTK Query: Optimistic Updates, Polling &
+Code Splitting".
+
+## Where should the socket live?
+
+| Pattern | Use when | Lifetime |
+|---|---|---|
+| `onCacheEntryAdded` in an RTK Query endpoint | the stream updates data you also fetch (prices, task list) | opened by the first subscriber, closed when the last one leaves |
+| Listener middleware effect | one app-wide channel (notifications, presence) feeding several slices | started and stopped by actions such as `socket/connect` |
+| Custom middleware | you need to intercept outgoing actions and `send` them | whole store lifetime |
+
+Never open sockets inside reducers (they must be pure) or directly in
+components (each mount would open another connection).
+
+## Streaming into the RTK Query cache
+
+The standard recipe: fetch a **snapshot** with the query, then apply
+**deltas** from the socket with `updateCachedData`. Normalising with an
+entity adapter makes each delta an `O(1)` upsert.
+
+```js
+const navAdapter = createEntityAdapter({ selectId: (q) => q.fund });
+
+const navApi = createApi({
+  reducerPath: "navApi",
+  baseQuery: fakeBaseQuery(),
+  endpoints: (build) => ({
+    getNavs: build.query({
+      queryFn: async () => ({ data: navAdapter.setAll(navAdapter.getInitialState(), await fetchSnapshot()) }),
+      async onCacheEntryAdded(_arg, { updateCachedData, cacheDataLoaded, cacheEntryRemoved }) {
+        const ws = new WebSocket("wss://navs.example.invalid/stream");
+        try {
+          await cacheDataLoaded;                       // snapshot first, then apply deltas
+          ws.addEventListener("message", (event) => {
+            const tick = JSON.parse(event.data);
+            updateCachedData((draft) => {
+              const current = draft.entities[tick.fund];
+              if (current && tick.seq <= current.seq) return;   // stale or duplicate
+              navAdapter.upsertOne(draft, tick);
+            });
+          });
+        } catch {
+          // cacheEntryRemoved resolved before the first load finished
+        }
+        await cacheEntryRemoved;                        // last subscriber left
+        ws.close();
+      },
+    }),
+  }),
+});
+```
+
+Run in Node 24 with a stand-in `WebSocket` class (an `EventTarget` that the
+script pushes `MessageEvent`s into):
+
+```text
+socket open wss://navs.example.invalid/stream
+snapshot   FLEXI=101.2 MIDCAP=88.4
+streamed   FLEXI=101.9 MIDCAP=88.4 GILT=23.1
+socket closed
+```
+
+The late `seq: 1` tick for FLEXI (value 100.0) was dropped, a new fund was
+inserted, and the socket closed when the subscription ended and the cache
+entry was removed. In a component it is simply `useGetNavsQuery()`; every
+component sharing the entry shares **one** socket.
+
+## Ordering, gaps and reconnects
+
+Real networks reorder, duplicate and drop messages. Make the protocol carry
+what you need to cope:
+
+- **Sequence numbers or versions** per entity, so stale updates are ignored
+  (as above). Timestamps from different servers are not reliable for this.
+- **Gap detection:** if `tick.seq` jumps by more than one, the client missed
+  something. Refetch the snapshot rather than guessing.
+- **Reconnect with backoff** (for example 1s, 2s, 4s, capped, with jitter),
+  then **refetch** the snapshot because deltas were missed while
+  disconnected. `setupListeners(store.dispatch)` plus `refetchOnReconnect`
+  handles the browser going offline and online; a socket dropping while the
+  browser stays online needs your own retry logic.
+- **Subscribe messages after open:** send `ws.send(...)` only after the
+  `open` event, and re-send them after each reconnect.
+
+## High-frequency updates: batch the notifications
+
+Every dispatch normally notifies every subscriber. At 50 ticks per second
+that is a lot of `useSelector` work. `configureStore` includes the
+`autoBatchEnhancer` by default; actions marked with `prepareAutoBatched`
+delay subscriber notification until the end of the frame (RTK Query marks
+several of its internal actions this way).
+
+```js
+const ticks = createSlice({
+  name: "ticks",
+  initialState: { last: 0 },
+  reducers: {
+    tickReceived: { reducer: (s, a) => { s.last = a.payload; }, prepare: prepareAutoBatched() },
+    plainTick: (s, a) => { s.last = a.payload; },
+  },
+});
+// 100 x plainTick       -> notifications = 100
+// 100 x tickReceived    -> notifications = 0 immediately (state = 100), 1 after the timer
+// tickReceived(1)       -> { type: 'ticks/tickReceived', payload: 1, meta: { RTK_autoBatch: true } }
+```
+
+Those numbers are real output from Node, where the enhancer falls back to a
+timer because there is no `requestAnimationFrame`. State is always up to
+date; only the notifications are coalesced. For extreme rates, also buffer
+on the socket side and dispatch one `ticksReceived([...])` action every
+100-250 ms.
+
+## Offline writes: the outbox pattern
+
+When the user approves something on a flaky mobile connection, do not lose
+it. Queue the write in a slice, show it as pending, and flush when the
+connection returns.
+
+```js
+const outbox = createSlice({
+  name: "outbox",
+  initialState: { pending: [] },
+  reducers: {
+    queued: { reducer: (s, a) => { s.pending.push(a.payload); },
+              prepare: (body) => ({ payload: { id: nanoid(), body, attempts: 0 } }) },
+    sent: (s, a) => { s.pending = s.pending.filter((m) => m.id !== a.payload); },
+    failed: (s, a) => { const m = s.pending.find((x) => x.id === a.payload); if (m) m.attempts++; },
+  },
+});
+
+listener.startListening({
+  actionCreator: cameOnline,              // dispatched from window "online" events
+  effect: async (_action, api) => {
+    api.cancelActiveListeners();          // only one flush at a time
+    for (const msg of api.getState().outbox.pending) {
+      try { await postComment(msg.body); api.dispatch(sent(msg.id)); console.log("flushed:", msg.body); }
+      catch (e) { api.dispatch(failed(msg.id)); console.log("still failing:", msg.body, e.message); break; }
+    }
+  },
+});
+```
+
+Queue two messages offline, reconnect once while the server is still down,
+then again when it is up:
+
+```text
+still failing: Approve ₹5,00,000 limit ECONNREFUSED
+flushed: Approve ₹5,00,000 limit
+flushed: Ping compliance
+{ pending: [] }
+```
+
+Production details that matter:
+
+- **Idempotency:** send the `nanoid` as an idempotency key so a retry after
+  a timeout does not approve ₹5 lakh twice.
+- **Order:** flush in order and stop at the first failure (the `break`), so
+  dependent writes do not overtake each other.
+- **Persistence:** persist the `outbox` slice so a closed tab does not lose
+  queued work (see "Persisting & Hydrating State").
+- **Conflicts:** the server may reject a stale write (HTTP 409). Decide per
+  domain: last write wins, reject and ask the user, or merge.
+
+Interviewers often ask: "How would you show live prices in a Redux app
+without re-rendering the whole page 50 times a second?" Cover snapshot plus
+deltas in `onCacheEntryAdded`, normalised state with per-row selectors,
+sequence numbers, auto-batching or buffering, and refetch on reconnect.
+
+### Try it yourself
+
+1. Add gap detection to the NAV stream: if a tick's `seq` is more than one
+   ahead of the stored value, dispatch
+   `navApi.util.invalidateTags(...)` (add tags first) or call `refetch`.
+2. Build a listener-middleware socket manager that opens on `socket/connect`,
+   closes on `socket/disconnect`, and reconnects with exponential backoff
+   capped at 30 seconds. Log each attempt.
+3. Extend the outbox so a message is dropped and shown as "failed" after
+   five attempts, and add a selector that counts pending messages for a
+   badge.

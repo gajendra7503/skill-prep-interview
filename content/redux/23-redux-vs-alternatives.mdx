@@ -1,0 +1,174 @@
+---
+title: "Redux vs Context, Zustand & TanStack Query"
+description: "Compare Redux Toolkit with React Context, Zustand and TanStack Query by the kind of state each handles, and learn how to justify the choice in a design review or interview."
+module: "Advanced Redux"
+level: "advanced"
+order: 23
+---
+
+"Why would you still use Redux?" is one of the most common questions in a
+React interview. A good answer does not pick a winner. It starts by
+splitting state into kinds, then matches each tool to the kind it handles
+best.
+
+## First, classify the state
+
+| Kind of state | Examples | Who should own it |
+|---|---|---|
+| **Local UI state** | is this dropdown open, input text | `useState` / `useReducer` |
+| **Shared client state** | logged-in user, theme, cart, multi-step wizard | Context, Zustand or Redux |
+| **Server state** (a cache of remote data) | fund list, task list, user profile | TanStack Query or RTK Query |
+| **URL state** | filters, page number, selected tab | the router (search params) |
+
+Server state has problems that client state does not: caching, de-duplicating
+requests, refetching when stale, and invalidation after a mutation. Much of
+the "Redux boilerplate" people complained about in older apps was
+hand-written server caching. Today that job belongs to a data-fetching
+library, and the remaining global client state is often small.
+
+## React Context: dependency injection, not a store
+
+Context passes a value down the tree without prop drilling. It has no
+selectors: every component that calls `useContext(Ctx)` re-renders when the
+provider's `value` changes, even if it only uses one field.
+
+```tsx
+const AppCtx = createContext(null);
+
+function AppProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [cartCount, setCartCount] = useState(0);
+  // New object every render: all consumers re-render on any change
+  return <AppCtx.Provider value={{ user, setUser, cartCount, setCartCount }}>{children}</AppCtx.Provider>;
+}
+
+function Avatar() {
+  const { user } = useContext(AppCtx);   // re-renders when cartCount changes too
+  return <img src={user?.photo} alt="" />;
+}
+```
+
+Context is great for values that rarely change (theme, locale, an injected
+API client, the Redux store itself, which is exactly what `Provider` does).
+For frequently changing shared state, you end up splitting contexts and
+memoising values, which is reinventing a store.
+
+## Zustand: a small hook-based store
+
+Zustand (version 5 at the time of writing) keeps state and the functions
+that change it in one object. No provider, no actions, no reducers.
+
+```js
+import { createStore } from "zustand/vanilla";   // in React: import { create } from "zustand"
+
+const cartStore = createStore((set, get) => ({
+  items: [],
+  add: (sku, price) => set((s) => ({ items: [...s.items, { sku, price }] })),
+  total: () => get().items.reduce((sum, i) => sum + i.price, 0),
+}));
+cartStore.subscribe((s) => console.log("zustand items:", s.items.length));
+cartStore.getState().add("SIP-START", 500);
+cartStore.getState().add("TAX-SAVER", 1500);
+console.log("zustand total: ₹" + cartStore.getState().total());
+
+// zustand items: 1
+// zustand items: 2
+// zustand total: ₹2000
+```
+
+In React you call `const total = useCart((s) => s.total())` and the component
+re-renders only when the selected value changes. Zustand offers `devtools`,
+`persist` and even a `redux` middleware, so it can talk to Redux DevTools.
+
+## The same thing in Redux Toolkit
+
+```js
+const cart = createSlice({
+  name: "cart",
+  initialState: { items: [] },
+  reducers: { added: (s, a) => { s.items.push(a.payload); } },
+});
+const store = configureStore({ reducer: { cart: cart.reducer } });
+store.dispatch(cart.actions.added({ sku: "SIP-START", price: 500 }));
+console.log(cart.actions.added({ sku: "x", price: 1 }));
+
+// { type: 'cart/added', payload: { sku: 'x', price: 1 } }
+```
+
+The extra ceremony buys something specific: every change is a **named,
+serialisable event**. That is what powers DevTools time travel, action logs
+in bug reports, middleware such as the listener middleware, and the ability
+for many features to react to one event (for example a `session/ended`
+action that resets five slices).
+
+## TanStack Query: server state only
+
+TanStack Query (v5) is a cache keyed by `queryKey`. It is not a general
+store; it replaces the "fetch in a thunk, store in a slice" pattern.
+
+```js
+import { QueryClient } from "@tanstack/query-core";   // React apps use @tanstack/react-query
+
+const qc = new QueryClient();
+let calls = 0;
+const fetchFunds = async () => { calls++; return [{ id: 1, name: "Flexi Cap" }]; };
+await qc.fetchQuery({ queryKey: ["funds"], queryFn: fetchFunds, staleTime: 60_000 });
+await qc.fetchQuery({ queryKey: ["funds"], queryFn: fetchFunds, staleTime: 60_000 });
+console.log("network calls:", calls);
+await qc.invalidateQueries({ queryKey: ["funds"] });
+console.log("invalidated:", qc.getQueryState(["funds"]).isInvalidated);
+
+// network calls: 1
+// invalidated: true
+```
+
+## RTK Query vs TanStack Query
+
+| | RTK Query | TanStack Query |
+|---|---|---|
+| Lives in | your Redux store (`reducerPath`) | its own `QueryClient` |
+| API style | endpoints defined up front in `createApi` | `useQuery` with a key and a function at the call site |
+| Invalidation | declarative tags (`providesTags` / `invalidatesTags`) | by query key prefix |
+| Visible in Redux DevTools | yes, as actions and state | no (has its own devtools) |
+| Best fit | app already uses Redux; want one store and one devtools | no Redux, or framework-agnostic data layer |
+
+Both handle caching, de-duplication, polling, optimistic updates and
+refetch on focus. Choosing between them is mostly about whether Redux is
+already in the app.
+
+## A decision guide
+
+| Situation | Reasonable choice |
+|---|---|
+| Small app, little shared state, mostly API data | `useState` + TanStack Query (or RTK Query) |
+| Medium app, some shared client state, small team | Zustand + TanStack Query |
+| Large app, many teams, complex workflows, audit trail of events | Redux Toolkit + RTK Query |
+| Existing Redux codebase | stay on Redux; modernise to RTK (see "Migrating Legacy Redux (connect, switch reducers) to Redux Toolkit") |
+| Theme, locale, injected services | Context |
+
+Mixing is normal. Redux Toolkit with TanStack Query works fine; so does
+Zustand with RTK Query's standalone `ApiProvider`. What hurts is storing the
+same data in two places.
+
+## What to say in an interview
+
+- Lead with the **state categories**, not the library names.
+- Context is a transport, not a state manager: no selectors, broad re-renders.
+- Zustand trades conventions for simplicity: less code, fewer guard rails.
+- Redux's strengths are **predictability and tooling**: events, middleware,
+  time-travel debugging, strict data flow that scales across teams.
+- Server state belongs in a cache library, whichever one you pick.
+- Mention costs honestly: Redux adds concepts to learn and some bundle
+  weight; Zustand stores can sprawl without agreed patterns.
+
+### Try it yourself
+
+1. Take a small app with a `UserContext` holding `{ user, notifications }`.
+   Add a `console.log` in a component that reads only `user`, then update
+   `notifications` and count the re-renders. Fix it once with a split
+   context and once with Zustand.
+2. Port the Zustand cart above to a Redux slice plus a `selectTotal`
+   selector, and list three things you gained and two you lost.
+3. Write a one-page recommendation for a fictional fintech, "Paisa Ledger",
+   whose dashboard is 80% API data and 20% UI state. Justify your choice
+   using the decision guide.

@@ -1,0 +1,143 @@
+---
+title: "INSERT, UPDATE & DELETE"
+description: "Multi-row inserts, upserts with ON DUPLICATE KEY UPDATE, why REPLACE bites, multi-table UPDATE and DELETE, and DELETE vs TRUNCATE vs DROP."
+module: "Fundamentals"
+level: beginner
+order: 5
+---
+
+Writing data looks trivial until an interviewer asks how you would upsert
+safely, why `REPLACE` lost a row's history, or which of `DELETE`,
+`TRUNCATE` and `DROP` can be rolled back. This lesson covers the DML
+statements and their MySQL-specific behaviour on InnoDB.
+
+## Multi-row INSERT
+
+```sql
+INSERT INTO products (name, category, price) VALUES
+  ('Basmati Rice 5 kg', 'Grocery',     649.00),
+  ('Steel Tiffin',      'Kitchen',     399.00),
+  ('Wireless Earbuds',  'Electronics', 1999.00);
+-- Query OK, 3 rows affected
+```
+
+One statement with many rows is far faster than many single-row inserts:
+fewer network round trips, one parse, and one commit (with autocommit on).
+Batches of a few hundred to a few thousand rows are typical; keep each
+statement under `max_allowed_packet`. `LAST_INSERT_ID()` returns the id of
+the **first** row inserted by the statement, not the last.
+
+`INSERT IGNORE` downgrades errors such as duplicate keys to warnings and
+skips the offending rows. It also silently truncates or coerces invalid
+data, so use it deliberately.
+
+## Upsert: INSERT ... ON DUPLICATE KEY UPDATE
+
+Suppose `cart_items` has a unique key on `(customer_id, product_id)`.
+Adding the same product again should increase the quantity:
+
+```sql
+INSERT INTO cart_items (customer_id, product_id, quantity)
+VALUES (42, 7, 2) AS new
+ON DUPLICATE KEY UPDATE quantity = cart_items.quantity + new.quantity;
+```
+
+The `AS new` row alias was added in MySQL 8.0.19; the older `VALUES(col)`
+function in the update clause still works but is deprecated since 8.0.20.
+Key facts:
+
+- The update fires on a conflict with **any** unique index, including the
+  primary key. If a table has several unique keys, the row that gets
+  updated may not be the one you expected.
+- Affected-rows count: **1** for an insert, **2** for an update of an
+  existing row, **0** if the update left values unchanged.
+- On InnoDB the attempted insert can still consume an `AUTO_INCREMENT`
+  value, leaving gaps in ids. Gaps are normal; never rely on ids being
+  contiguous.
+
+## REPLACE pitfalls
+
+`REPLACE` looks like an upsert but is really **delete then insert** when a
+unique key conflicts:
+
+```sql
+REPLACE INTO customers (id, name, email)
+VALUES (42, 'Asha Rao', 'asha@example.in');
+-- Query OK, 2 rows affected   (1 delete + 1 insert)
+```
+
+- Columns you did not list (`city`, `created_at`) are reset to their
+  defaults — the old values are gone.
+- If the conflict is on a secondary unique key (e.g. `email`) and you omit
+  `id`, the old row is deleted and the new one gets a **new**
+  `AUTO_INCREMENT` id, orphaning references.
+- `DELETE` triggers fire, and foreign keys with `ON DELETE CASCADE` delete
+  child rows — a `REPLACE` on `orders` could wipe its `order_items`.
+
+Prefer `INSERT ... ON DUPLICATE KEY UPDATE` in almost every case.
+
+## UPDATE and DELETE with JOIN
+
+MySQL supports multi-table syntax for both statements:
+
+```sql
+-- Mark orders of blocked customers as cancelled
+UPDATE orders o
+JOIN customers c ON c.id = o.customer_id
+SET o.status = 'cancelled'
+WHERE c.is_blocked = 1 AND o.status = 'pending';
+
+-- Delete cart rows for products that were discontinued
+DELETE ci
+FROM cart_items ci
+JOIN products p ON p.id = ci.product_id
+WHERE p.discontinued = 1;
+```
+
+In the `DELETE` form, the table names listed after `DELETE` are the ones
+rows are removed from; the others are only used for matching. Multi-table
+`UPDATE` and `DELETE` do not allow `ORDER BY` or `LIMIT`.
+
+## Safe updates
+
+A missing `WHERE` clause updates every row. Defences:
+
+```sql
+SET SESSION sql_safe_updates = 1;
+UPDATE products SET price = price * 1.1;
+-- ERROR 1175: You are using safe update mode and you tried to update
+-- a table without a WHERE that uses a KEY column.
+
+START TRANSACTION;
+UPDATE products SET price = price * 1.1 WHERE category = 'Kitchen';
+SELECT ROW_COUNT();       -- check how many rows changed
+ROLLBACK;                 -- or COMMIT once verified
+```
+
+The `mysql` client enables this mode with `--safe-updates` (alias
+`--i-am-a-dummy`). Running a `SELECT COUNT(*)` with the same `WHERE` first
+is a cheap sanity check.
+
+## DELETE vs TRUNCATE vs DROP
+
+| | `DELETE` | `TRUNCATE TABLE` | `DROP TABLE` |
+| --- | --- | --- | --- |
+| Type | DML | DDL | DDL |
+| Removes | chosen rows (`WHERE`) | all rows | table and definition |
+| Rollback | yes, in a transaction | no (implicit commit) | no (implicit commit) |
+| Triggers | fire | do not fire | do not fire |
+| `AUTO_INCREMENT` | kept | reset | gone |
+| Speed on big tables | slow, row by row, logs undo | fast (drops and recreates) | fast |
+
+`TRUNCATE` fails on an InnoDB table that is referenced by a foreign key
+from another table. Deleting millions of rows with one `DELETE` creates a
+huge transaction and long lock times; delete in batches such as
+`DELETE ... WHERE created_at < '2023-01-01' LIMIT 10000` in a loop.
+
+### Try it yourself
+
+Create a `daily_sales (sale_date, product_id, units, revenue)` table with
+the right unique key. Write one upsert that adds today's sale of 3 units
+at ₹649 each, accumulating into an existing row. Then explain what would
+happen to the row's other columns if you used `REPLACE` instead, and write
+a batched purge of rows older than one year.

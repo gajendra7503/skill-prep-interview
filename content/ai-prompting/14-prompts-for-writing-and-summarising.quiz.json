@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does the improved refund email prompt explicitly say not to promise a specific credit date?",
+      "options": [
+        "Because models cannot write dates",
+        "Because models tend to be helpful and may invent a reassuring commitment unless told not to",
+        "Because dates make emails too long",
+        "Because the customer already knows the date"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without an explicit constraint and reason, a model may add plausible but unauthorised promises."
+    },
+    {
+      "question": "In a meeting-summary prompt, what is the best instruction for action items with no stated deadline?",
+      "options": [
+        "Assign a deadline one week from the meeting",
+        "Drop those action items",
+        "Write \"date not agreed\" rather than guessing",
+        "Ask the model to estimate a realistic deadline"
+      ],
+      "correctIndex": 2,
+      "explanation": "Telling the model how to handle missing information prevents it from inventing deadlines."
+    },
+    {
+      "question": "You ask a model to shorten a policy paragraph. What is the most reliable way to protect the facts?",
+      "options": [
+        "Tell it not to change amounts, dates, names or conditions, ask it to list the numbers, and verify them yourself",
+        "Use ALL-CAPS warnings so it takes the task seriously",
+        "Trust the output because editing never changes facts",
+        "Ask it to rewrite the paragraph in a completely new way"
+      ],
+      "correctIndex": 0,
+      "explanation": "An explicit preservation rule plus a human check against the original catches rounded numbers or dropped conditions."
+    },
+    {
+      "question": "When translating a customer notice into Hindi, which instruction is most useful?",
+      "options": [
+        "Translate everything, including product names and reference numbers",
+        "Leave the register and script for the model to choose",
+        "Always reply in English regardless of the customer's language",
+        "Specify the register and script, and keep terms like KYC, EMI, dates and amounts unchanged"
+      ],
+      "correctIndex": 3,
+      "explanation": "Register (formal vs conversational) and script (Devanagari vs romanised) change the output a lot, and certain terms should stay as they are."
+    }
+  ]
+}

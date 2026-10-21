@@ -1,0 +1,164 @@
+---
+title: "Major Upgrades & the Release Lifecycle"
+description: "LTS vs Innovation releases, supported upgrade paths, the 8.0 to 8.4 breaking changes, the upgrade checker, and a low-risk replica-first upgrade with a rollback plan."
+module: "Pro Level"
+level: pro
+order: 27
+---
+
+MySQL 8.0 reached end of life in April 2026, so many teams are running, or
+have just finished, their biggest database project in years: moving
+production to 8.4. Upgrading a database is not like bumping an npm
+package. You cannot easily downgrade, defaults change under you, and a
+query plan that shifts on your hottest query can take the site down. This
+lesson is the playbook a senior engineer is expected to own.
+
+## The release model
+
+Since 2023 Oracle ships two tracks:
+
+| Track | Examples | Changes | Support |
+| --- | --- | --- | --- |
+| **LTS** | 8.4 | Bug and security fixes only in patch releases (8.4.x) | Several years |
+| **Innovation** | 9.x | New features and removals every few months | Until the next Innovation release |
+
+Production systems almost always run LTS. Innovation releases are for
+trying features early. Managed services (RDS, Cloud SQL, Azure) follow
+their own schedules for which versions they offer and when they force
+upgrades, so track those dates as well.
+
+## Supported upgrade paths
+
+- **Within an LTS series** (8.4.3 to 8.4.6): in-place upgrade, and
+  downgrade to an earlier 8.4.x is also supported.
+- **LTS to the next LTS** (8.0 to 8.4): supported directly. Skipping an LTS
+  is not; go through each one.
+- **Downgrade across major versions**: not supported. Once 8.4 has
+  started on your data directory, the data dictionary is upgraded and 8.0
+  cannot open it. Your rollback plan is a backup or an old-version replica,
+  never "reinstall the old binaries".
+
+Since 8.0.16 the server upgrades its data dictionary and system tables
+itself at startup; the separate `mysql_upgrade` step is gone.
+
+## What breaks between 8.0 and 8.4
+
+**Authentication.** The `mysql_native_password` plugin is disabled by
+default in 8.4 and removed in 9.x. Accounts still using it cannot log in.
+Find them before upgrading:
+
+```sql
+SELECT user, host, plugin FROM mysql.user
+WHERE plugin = 'mysql_native_password';
+-- app_legacy  %  mysql_native_password   <- must be migrated
+
+ALTER USER 'app_legacy'@'%' IDENTIFIED WITH caching_sha2_password BY 'new-secret';
+```
+
+Old client libraries and drivers that lack `caching_sha2_password` support
+must be upgraded first. `default_authentication_plugin` is also removed;
+use `authentication_policy`.
+
+**Replication syntax.** The old terminology is removed, so scripts,
+monitoring checks and runbooks that use it fail:
+
+| Removed in 8.4 | Use instead |
+| --- | --- |
+| `CHANGE MASTER TO` | `CHANGE REPLICATION SOURCE TO` |
+| `START SLAVE` / `STOP SLAVE` | `START REPLICA` / `STOP REPLICA` |
+| `SHOW SLAVE STATUS` | `SHOW REPLICA STATUS` |
+| `SHOW MASTER STATUS` | `SHOW BINARY LOG STATUS` |
+
+The replacements for the first three already exist in late 8.0 releases,
+so switch tooling before upgrading. `SHOW BINARY LOG STATUS` does not
+exist in 8.0, so monitoring must handle both versions during the
+migration.
+
+**Changed defaults.** 8.4 retuned several InnoDB defaults for modern
+hardware, for example `innodb_adaptive_hash_index` is now OFF,
+`innodb_change_buffering` is `none` and `innodb_io_capacity` is 10000.
+Foreign keys referencing non-unique or partial keys are rejected by
+default (`restrict_fk_on_non_standard_key`). Diff `SHOW GLOBAL VARIABLES`
+between versions and decide explicitly what to pin in `my.cnf`.
+
+## Run the upgrade checker
+
+MySQL Shell's checker inspects a live server for removed features,
+incompatible SQL modes, reserved-word clashes, deprecated authentication
+and much more:
+
+```bash
+# Use the newest MySQL Shell; it checks against its own version by default
+mysqlsh -- util check-for-server-upgrade root@db1:3306 --output-format=JSON
+# Errors:   1  <- must fix before upgrading
+# Warnings: 7  <- review each
+# Notices:  3
+```
+
+Errors block the upgrade; warnings usually mean "this will behave
+differently". Run it early in the project and again just before the
+change window.
+
+## Testing beyond "it starts"
+
+The dangerous failures are silent: different results or slower plans.
+
+1. Restore a recent production backup on the new version.
+2. Replay real traffic. Capture top statements from
+   `performance_schema.events_statements_summary_by_digest`, then compare
+   results and timing on both versions (Percona's `pt-upgrade` automates
+   this for a captured query log).
+3. Compare `EXPLAIN` for the top 50 digests by total latency. Plans that
+   change get a closer look; refresh statistics with `ANALYZE TABLE` and
+   re-test before reaching for optimizer hints.
+4. Load test at peak traffic plus headroom.
+
+## Replica-first rolling upgrade
+
+Replication from an older source to a newer replica is supported; the
+reverse is not. That gives a low-downtime path:
+
+```text
+Before:  [8.0 primary] --> [8.0 replica A] [8.0 replica B]
+
+1. Upgrade replica B in place to 8.4; let it serve some read traffic
+2. Upgrade replica A; watch errors and latency for days
+3. Planned switchover: stop writes briefly, promote replica A (8.4)
+4. Old 8.0 primary is now retired, not repointed under an 8.4 source
+
+After:   [8.4 primary A] --> [8.4 replica B] ...
+```
+
+```sql
+-- On the 8.4 replica, before promotion: is it caught up?
+SHOW REPLICA STATUS\G
+-- Replica_IO_Running: Yes   Replica_SQL_Running: Yes
+-- Seconds_Behind_Source: 0
+```
+
+Rollback window: some teams keep an 8.0 server replicating **from** the
+new 8.4 primary as a fast way back. Newer-to-older replication is not
+officially supported and breaks once 8.4-only syntax or features appear,
+so treat it as best effort. Without it, rollback means restoring a backup
+and losing writes made since. Decide and document this before the change,
+along with who can call it.
+
+## The upgrade checklist
+
+- Fresh, tested physical backup; binary logs retained for point-in-time
+  recovery.
+- Checker clean; legacy auth accounts migrated; drivers upgraded.
+- Scripts and monitoring using new replication syntax.
+- Changed defaults reviewed; deliberate values pinned in config.
+- Top query plans compared; load test passed.
+- Switchover rehearsed on staging, with measured downtime.
+
+### Try it yourself
+
+Start an 8.0 container and an 8.4 container with Docker. On 8.0 create a
+user with `mysql_native_password`, a table with a foreign key to a
+non-unique index, and a script using `SHOW SLAVE STATUS`. Run the upgrade
+checker from a recent MySQL Shell against it and fix every error. Then set
+the 8.4 container up as a replica of the 8.0 one, promote it, and write a
+one-page runbook including your rollback decision and the downtime you
+measured.

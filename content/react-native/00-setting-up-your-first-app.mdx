@@ -1,0 +1,142 @@
+---
+title: "Setting Up & Running Your First App"
+description: "Installing the tools, creating a project with Expo, and seeing your code run on a real phone in minutes."
+module: "Getting Started"
+level: beginner
+order: 1
+---
+
+React Native lets you write one JavaScript (or TypeScript) codebase that runs
+as a real native app on Android and iOS. Before learning any components, the
+first goal is simple: get a project running on a phone in front of you, and
+see your own change appear on screen. This lesson gets you there with the
+fewest moving parts.
+
+## What you need to install
+
+You need surprisingly little to start:
+
+- **Node.js (an LTS version)** — React Native's tooling (the bundler, the
+  CLI, package installs) runs on Node. Check it with `node -v`.
+- **A code editor** — VS Code is the most common choice.
+- **A phone** with the free **Expo Go** app from the Play Store or App Store,
+  on the same Wi-Fi network as your computer.
+
+```bash
+node -v
+# v24.x.x  (any current LTS version is fine)
+npm -v
+# 11.x.x
+```
+
+You do **not** need Android Studio or Xcode on day one. You'll install them
+later when you want an emulator/simulator or a custom native build. Note that
+building and running the iOS Simulator requires a Mac with Xcode — on Windows
+or Linux you can still run your app on a physical iPhone through Expo Go.
+
+## Why start with Expo?
+
+The official React Native documentation recommends starting new apps with a
+**framework**, and Expo is the one it points to first. Expo gives you a
+project template, a dev server, a large set of ready-made native modules, and
+cloud builds — so you can focus on learning React Native rather than wiring
+up Gradle and CocoaPods. Everything you learn in this course applies whether
+or not you use Expo; a later lesson compares Expo with the bare workflow.
+
+## Create a project
+
+```bash
+npx create-expo-app@latest my-first-app
+cd my-first-app
+npx expo start
+```
+
+`create-expo-app` downloads a TypeScript starter project and installs its
+dependencies. `npx expo start` launches the development server (called
+**Metro**) and prints a QR code in the terminal:
+
+```text
+› Metro waiting on exp://192.168.1.12:8081
+› Scan the QR code above with Expo Go (Android) or the Camera app (iOS)
+
+› Press a │ open Android
+› Press i │ open iOS simulator
+› Press r │ reload app
+```
+
+Scan the QR code with Expo Go (Android) or the Camera app (iOS). The phone
+downloads your JavaScript from your computer and runs it. Pressing `a` opens
+an Android emulator and `i` opens the iOS Simulator, if you've installed
+them.
+
+## Look around the project
+
+The default template uses **Expo Router**, which turns files inside the
+`app` folder into screens. You'll see something like:
+
+```text
+my-first-app/
+├── app/            # screens — each file becomes a route
+├── assets/         # images and fonts
+├── components/     # reusable UI pieces
+├── app.json        # app name, icon, splash screen, etc.
+└── package.json
+```
+
+The exact files vary between template versions — and the template includes
+a `reset-project` script if you want a blank `app` folder to start from.
+
+## Make your first change
+
+Replace the content of the home screen file (for example `app/index.tsx`
+after resetting the project) with this:
+
+```tsx
+import { Text, View } from "react-native";
+
+export default function Home() {
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <Text style={{ fontSize: 24 }}>Namaste from React Native!</Text>
+      <Text>Your first SIP could start at just ₹500 a month.</Text>
+    </View>
+  );
+}
+// Phone shows two centred lines of text
+```
+
+Save the file. Within a second or two the phone updates **without a full
+restart** — that's **Fast Refresh**. If you introduce a typo, a red error
+screen appears with the file and line number; fix it, save, and it goes
+away.
+
+## When things don't connect
+
+- **Phone can't reach the server** — both devices must be on the same
+  network. Office or public Wi-Fi often blocks this; try
+  `npx expo start --tunnel`, which routes through the internet instead.
+- **"Project is incompatible with this version of Expo Go"** — Expo Go
+  supports only the latest Expo SDK. Create the project with
+  `create-expo-app@latest` or update the Expo Go app.
+- **Weird stale errors** — restart with a cleared cache:
+  `npx expo start -c`.
+
+## What you just used
+
+| Piece | What it does |
+|---|---|
+| Node.js | Runs the tooling on your computer |
+| Metro | Bundles your JS and serves it to the phone |
+| Expo Go | A ready-made app that loads and runs your bundle |
+| Fast Refresh | Swaps changed code into the running app instantly |
+
+As your app grows you'll move from Expo Go to a **development build** — your
+own version of the app that can include any native library — but the edit,
+save, see-it-on-the-phone loop stays exactly the same.
+
+### Try it yourself
+
+Create a new project, run it on your phone, and change the home screen to
+show your name and today's date (use `new Date().toDateString()`). Then
+deliberately break the code by deleting a closing tag, read the red error
+screen, and fix it — all without restarting the dev server.

@@ -1,0 +1,144 @@
+---
+title: "Relational Basics & Data Types"
+description: "Tables, rows and keys, then the data type choices interviewers probe: integer sizes, money, strings, time zones and utf8mb4."
+module: "Fundamentals"
+level: beginner
+order: 3
+---
+
+A relational database stores data in **tables** made of **rows** and
+**columns**, and links tables together through **keys**. Interviewers rarely
+ask you to define a table, but they constantly ask _why_ you picked a given
+column type — because the wrong choice causes rounding bugs, broken emoji,
+or a 2038 outage. This lesson sets up the schema used throughout the course.
+
+## Tables, rows and keys
+
+- A **primary key** uniquely identifies each row and cannot be NULL. In
+  InnoDB the table is physically stored as a B+tree ordered by the primary
+  key (the _clustered index_), so a short, ever-increasing key is ideal.
+- A **unique key** also enforces uniqueness but, unlike the primary key,
+  allows multiple NULLs.
+- A **foreign key** references a key in another table and lets InnoDB
+  enforce referential integrity (`ON DELETE CASCADE`, `RESTRICT`, ...).
+- A **natural key** comes from the data (email, PAN); a **surrogate key**
+  is an artificial id such as `AUTO_INCREMENT`. Surrogate keys are usually
+  preferred because natural values change.
+
+Our running example is a small Indian e-commerce store:
+
+```sql
+CREATE TABLE customers (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(100) NOT NULL,
+  email       VARCHAR(255) NOT NULL UNIQUE,
+  city        VARCHAR(50),
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE products (
+  id        INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name      VARCHAR(150) NOT NULL,
+  category  VARCHAR(50) NOT NULL,
+  price     DECIMAL(10,2) NOT NULL          -- INR, e.g. 1499.00
+);
+
+CREATE TABLE orders (
+  id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  customer_id  INT UNSIGNED NOT NULL,
+  status       VARCHAR(20) NOT NULL DEFAULT 'pending',
+  total        DECIMAL(12,2) NOT NULL,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (customer_id) REFERENCES customers (id)
+);
+
+CREATE TABLE order_items (
+  order_id    BIGINT UNSIGNED NOT NULL,
+  product_id  INT UNSIGNED NOT NULL,
+  quantity    INT UNSIGNED NOT NULL,
+  unit_price  DECIMAL(10,2) NOT NULL,
+  PRIMARY KEY (order_id, product_id),     -- composite key
+  FOREIGN KEY (order_id) REFERENCES orders (id),
+  FOREIGN KEY (product_id) REFERENCES products (id)
+);
+```
+
+## INT vs BIGINT
+
+| Type | Bytes | Signed max | Unsigned max |
+| --- | --- | --- | --- |
+| `INT` | 4 | 2,147,483,647 | 4,294,967,295 |
+| `BIGINT` | 8 | about 9.2 x 10^18 | about 1.8 x 10^19 |
+
+A high-volume table (orders, events, logs) can exhaust a signed `INT`
+`AUTO_INCREMENT` — inserts then fail with a duplicate-key error. Use
+`BIGINT UNSIGNED` when growth is unbounded; widening later means an
+expensive `ALTER TABLE` on a huge table. Note that `INT(11)` does **not**
+limit the value: the display width is deprecated as of MySQL 8.0.17 and
+has no effect on range or storage.
+
+## DECIMAL vs FLOAT for money
+
+`FLOAT` and `DOUBLE` are binary floating point and cannot represent most
+decimal fractions exactly. `DECIMAL(p,s)` stores exact fixed-point values.
+
+```sql
+SELECT CAST(0.1 AS DOUBLE) + CAST(0.2 AS DOUBLE) = 0.3;  -- 0 (false)
+SELECT CAST(0.1 AS DECIMAL(5,2)) + 0.2 = 0.3;            -- 1 (true)
+```
+
+Always store money as `DECIMAL` (e.g. `DECIMAL(12,2)` holds up to
+₹9,99,99,99,999.99) or as an integer number of paise. Rounding errors in
+`FLOAT` compound across `SUM()` and break reconciliation.
+
+## VARCHAR vs CHAR vs TEXT
+
+- `CHAR(n)` is fixed length: values are right-padded with spaces, and
+  trailing spaces are stripped on retrieval. Good for fixed codes such as
+  `CHAR(2)` state codes or `CHAR(36)` UUID strings.
+- `VARCHAR(n)` is variable length with a 1- or 2-byte length prefix; `n`
+  counts **characters**, not bytes. Row size is capped at 65,535 bytes
+  across all columns, so `VARCHAR(20000)` in utf8mb4 (up to 4 bytes per
+  character) will not fit.
+- `TEXT` (up to 64 KB) and its siblings can be stored off-page, cannot be
+  fully indexed (you must give a prefix length, e.g. `INDEX (bio(100))`),
+  and can force on-disk temporary tables in some queries. Prefer `VARCHAR`
+  when a sensible maximum exists.
+
+## DATETIME vs TIMESTAMP
+
+| | `DATETIME` | `TIMESTAMP` |
+| --- | --- | --- |
+| Range | 1000-01-01 to 9999-12-31 | 1970-01-01 to 2038-01-19 03:14:07 UTC |
+| Storage | 5 bytes (+ fractional) | 4 bytes (+ fractional) |
+| Time zone | stored as given, no conversion | converted to UTC on write, back to session `time_zone` on read |
+
+```sql
+SET time_zone = '+05:30';
+INSERT INTO t (dt, ts) VALUES ('2025-04-01 10:00:00', '2025-04-01 10:00:00');
+SET time_zone = '+00:00';
+SELECT dt, ts FROM t;
+-- dt: 2025-04-01 10:00:00   ts: 2025-04-01 04:30:00
+```
+
+`TIMESTAMP` hits the **Year 2038 problem** because it is a 32-bit count of
+seconds since the Unix epoch. A common, robust convention is `DATETIME`
+storing UTC, with conversion to IST done in the application.
+
+## utf8mb4 vs utf8mb3
+
+MySQL's old `utf8` is an alias for `utf8mb3`: at most 3 bytes per
+character, so it cannot store emoji or some rare CJK characters (inserts
+fail or are truncated depending on SQL mode). `utf8mb4` is real UTF-8, the
+default character set since MySQL 8.0, with default collation
+`utf8mb4_0900_ai_ci` (accent- and case-insensitive). `utf8mb3` is
+deprecated. One side effect: InnoDB index keys are limited to 3,072 bytes,
+so an indexed utf8mb4 `VARCHAR` can be at most 768 characters.
+
+### Try it yourself
+
+Add a `payments` table with a surrogate key, a foreign key to `orders`, an
+exact `amount` in INR, a `CHAR(3)` currency code, a `paid_at` column that
+must survive past 2038, and a `note` that may contain emoji. Insert a row
+with `'Paid ✅'` as the note, then justify every type choice in one
+sentence each.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "You are in /home/asha/projects/payroll/src. Where does `cd ../..` take you?",
+      "options": [
+        "/home/asha/projects/payroll",
+        "/home/asha",
+        "/home/asha/projects",
+        "/"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each .. moves up one level: src to payroll, then payroll to projects, giving /home/asha/projects."
+    },
+    {
+      "question": "Why does `ls` not show a file named `.env` that `ls -a` does show?",
+      "options": [
+        "Files whose names start with a dot are hidden from ls by default",
+        "The file has a special hidden attribute set with chmod",
+        ".env files are only visible to root",
+        "ls only shows files with extensions like .txt"
+      ],
+      "correctIndex": 0,
+      "explanation": "Linux has no hidden attribute; any name beginning with a dot is simply skipped by ls unless you pass -a."
+    },
+    {
+      "question": "On a typical Linux server, where would you first look for system configuration files and logs?",
+      "options": [
+        "/usr for configuration and /tmp for logs",
+        "/root for configuration and /proc for logs",
+        "/home for configuration and /opt for logs",
+        "/etc for configuration and /var/log for logs"
+      ],
+      "correctIndex": 3,
+      "explanation": "/etc holds system configuration files, and /var/log holds logs, which is why they are the usual starting points when debugging a server."
+    },
+    {
+      "question": "What does `cd -` do?",
+      "options": [
+        "Goes up one directory, like cd ..",
+        "Returns to the previous directory you were in and prints its path",
+        "Goes to the root directory /",
+        "Shows an error because - is not a directory"
+      ],
+      "correctIndex": 1,
+      "explanation": "cd - switches back to the previous working directory (stored in $OLDPWD) and prints it, which is handy for bouncing between two locations."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In a zoneless app, a component assigns `this.rate = 84` inside a `setInterval` callback. What happens on screen?",
+      "options": [
+        "The view updates immediately",
+        "Angular throws an ExpressionChangedAfterItHasBeenChecked error",
+        "The view stays stale because nothing notified Angular to schedule a render",
+        "The app falls back to Zone.js automatically"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without Zone.js, plain property assignments in timers do not schedule change detection. Use a signal or markForCheck()."
+    },
+    {
+      "question": "Which of these does NOT schedule change detection in zoneless mode?",
+      "options": [
+        "A signal read in the template changing",
+        "A `(click)` listener bound in the template firing",
+        "The async pipe receiving a new value",
+        "A WebSocket `onmessage` callback assigning a plain class property"
+      ],
+      "correctIndex": 3,
+      "explanation": "Signals, template event listeners and markForCheck (used by the async pipe) all notify Angular; arbitrary callbacks writing plain properties do not."
+    },
+    {
+      "question": "Why is converting components to `OnPush` a good first step before going zoneless?",
+      "options": [
+        "OnPush components rely on the same explicit notification paths that zoneless mode requires",
+        "OnPush disables Zone.js for that component",
+        "OnPush is required for signals to compile",
+        "Zoneless mode only supports OnPush components"
+      ],
+      "correctIndex": 0,
+      "explanation": "A component that renders correctly under OnPush already updates via inputs, signals, events or markForCheck, which is exactly what zoneless needs."
+    },
+    {
+      "question": "During zoneless SSR, how do you make the server wait for a custom async data load before serialising HTML?",
+      "options": [
+        "Wrap the load in NgZone.run()",
+        "Register it with the PendingTasks service and call the returned cleanup when done",
+        "Use fakeAsync() in the component",
+        "Set changeDetection to Default"
+      ],
+      "correctIndex": 1,
+      "explanation": "PendingTasks.add() marks the app as not yet stable; calling the returned function signals the work is complete. HttpClient and the router do this automatically."
+    }
+  ]
+}

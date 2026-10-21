@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does a React Native `View` become on Android?",
+      "options": [
+        "An HTML div inside a WebView",
+        "A canvas drawing",
+        "A real native Android view",
+        "Nothing until the app is published"
+      ],
+      "correctIndex": 2,
+      "explanation": "React Native creates real platform views (android.view.View on Android, UIView on iOS) rather than rendering HTML."
+    },
+    {
+      "question": "Your component runs a long, heavy calculation in JavaScript. What is the likely visible effect?",
+      "options": [
+        "The app ignores taps and UI updates until the JS thread is free",
+        "Nothing, because JavaScript runs on the GPU",
+        "The app automatically moves the work to a server",
+        "Only the Android version is affected"
+      ],
+      "correctIndex": 0,
+      "explanation": "Your React code runs on the single JS thread; while it is busy it can't handle events or tell the native side about UI changes."
+    },
+    {
+      "question": "What is the difference between props and state?",
+      "options": [
+        "Props are only for styling; state is only for text",
+        "There is no difference",
+        "State is passed in by a parent; props are owned by the component",
+        "Props are read-only inputs from a parent; state is data the component owns and can change, triggering a re-render"
+      ],
+      "correctIndex": 3,
+      "explanation": "Props flow down from the parent and are read-only. State belongs to the component; updating it re-renders that component."
+    },
+    {
+      "question": "Why should you never judge an app's performance in a development build?",
+      "options": [
+        "Development builds can't display images",
+        "Development builds include debugging tooling and run noticeably slower than optimised release builds",
+        "Development builds use a different programming language",
+        "Release builds don't use JavaScript at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "Dev builds add checks, warnings and debugging support. Release builds are optimised (and Hermes precompiles the bundle), so measure performance there."
+    }
+  ]
+}

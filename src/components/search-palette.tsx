@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { SearchableLesson } from "@/lib/content/types";
 import { rankLessons } from "@/lib/search";
+import { CourseIcon } from "@/components/course-icon";
 
 function SearchIcon({ className }: { className?: string }) {
   return (
@@ -86,47 +87,48 @@ export function SearchPalette({ lessons }: { lessons: SearchableLesson[] }) {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-200"
+        className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700 dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-200"
       >
         <SearchIcon className="h-4 w-4 shrink-0" />
         <span className="hidden sm:inline">Search lessons…</span>
-        <kbd className="hidden shrink-0 rounded border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-400 sm:inline dark:border-zinc-700">
+        <kbd className="hidden shrink-0 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-400 sm:inline dark:border-slate-700">
           Ctrl K
         </kbd>
       </button>
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-24"
+          className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/50 px-4 pt-24 backdrop-blur-sm"
           onClick={close}
         >
           <div
-            className="w-full max-w-xl rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
+            className="animate-scale-in relative w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-brand-900/20 dark:border-slate-800 dark:bg-slate-900"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-              <SearchIcon className="h-4 w-4 shrink-0 text-zinc-400" />
+            <span aria-hidden="true" className="bg-brand-gradient absolute inset-x-0 top-0 h-1" />
+            <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3.5 dark:border-slate-800">
+              <SearchIcon className="h-5 w-5 shrink-0 text-brand-500" />
               <input
                 ref={inputRef}
                 value={query}
                 onChange={(e) => updateQuery(e.target.value)}
                 onKeyDown={handleInputKeyDown}
-                placeholder="Search lessons across React, Angular, and Next.js…"
-                className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400"
+                placeholder="Search lessons across every course…"
+                className="w-full bg-transparent text-base outline-none placeholder:text-slate-400"
               />
-              <kbd className="shrink-0 rounded border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-400 dark:border-zinc-700">
+              <kbd className="shrink-0 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-400 dark:border-slate-700">
                 Esc
               </kbd>
             </div>
 
             <div className="max-h-80 overflow-y-auto p-2">
               {query.trim() === "" && (
-                <p className="px-3 py-6 text-center text-sm text-zinc-500">
-                  Type to search {lessons.length} lessons across all three courses.
+                <p className="px-3 py-6 text-center text-sm text-slate-500">
+                  Type to search {lessons.length} lessons across every course.
                 </p>
               )}
               {query.trim() !== "" && results.length === 0 && (
-                <p className="px-3 py-6 text-center text-sm text-zinc-500">No lessons found.</p>
+                <p className="px-3 py-6 text-center text-sm text-slate-500">No lessons found.</p>
               )}
               {results.map((item, index) => (
                 <Link
@@ -134,25 +136,25 @@ export function SearchPalette({ lessons }: { lessons: SearchableLesson[] }) {
                   href={`/courses/${item.courseSlug}/${item.slug}`}
                   onClick={close}
                   onMouseEnter={() => setActiveIndex(index)}
-                  className={`block rounded-lg px-3 py-2 transition ${
+                  className={`block rounded-xl border-l-4 px-3 py-2.5 transition ${
                     index === activeIndex
-                      ? "bg-indigo-50 dark:bg-indigo-950/40"
-                      : "hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                      ? "border-brand-500 bg-gradient-to-r from-brand-50 to-transparent dark:from-brand-950/60"
+                      : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/60"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium">
-                      <span className="mr-1.5">{item.courseIcon}</span>
+                      <CourseIcon icon={item.courseIcon} className="mr-1.5 align-[-0.125em]" />
                       {item.title}
                     </p>
-                    <span className="shrink-0 text-xs text-zinc-500">{item.courseTitle}</span>
+                    <span className="shrink-0 text-xs text-slate-500">{item.courseTitle}</span>
                   </div>
-                  <p className="truncate text-xs text-zinc-500">{item.description}</p>
+                  <p className="truncate text-xs text-slate-500">{item.description}</p>
                 </Link>
               ))}
             </div>
 
-            <div className="flex items-center gap-4 border-t border-zinc-200 px-4 py-2 text-xs text-zinc-400 dark:border-zinc-800">
+            <div className="flex items-center gap-4 border-t border-slate-200 px-4 py-2 text-xs text-slate-400 dark:border-slate-800">
               <span>↑↓ Navigate</span>
               <span>↵ Open</span>
               <span>Esc Close</span>

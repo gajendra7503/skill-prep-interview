@@ -1,0 +1,173 @@
+---
+title: "What DSA Is & How to Practise"
+description: "What data structures and algorithms are, why interviews test them, a repeatable problem-solving routine, and a JavaScript setup for practising on Node."
+module: "Getting Started"
+level: "beginner"
+order: 1
+---
+
+A **data structure** is a way of organising data in memory so that certain
+operations are cheap. An **algorithm** is a step-by-step procedure that
+solves a problem. The two always travel together: the structure you pick
+decides which algorithms are fast, and the algorithm you need decides which
+structure to pick.
+
+This course uses JavaScript on Node, because that is what most web
+developers already write. You only need comfort with variables, loops,
+functions, arrays and objects.
+
+## Why the choice of structure matters
+
+Suppose a payments team at the fictional NimbusPay needs to check whether a
+batch of transaction IDs contains a duplicate. Two correct solutions:
+
+```js
+// Compare every pair of IDs
+function hasDuplicateSlow(ids) {
+  for (let i = 0; i < ids.length; i++)
+    for (let j = i + 1; j < ids.length; j++)
+      if (ids[i] === ids[j]) return true;
+  return false;
+}
+
+// Remember what we've seen in a Set
+function hasDuplicateFast(ids) {
+  const seen = new Set();
+  for (const id of ids) {
+    if (seen.has(id)) return true;
+    seen.add(id);
+  }
+  return false;
+}
+
+const ids = Array.from({ length: 20000 }, (_, i) => i); // no duplicates
+// hasDuplicateSlow(ids) -> false, about 220 ms on a laptop
+// hasDuplicateFast(ids) -> false, about 4 ms
+```
+
+Both give the same answer. The first does roughly 20 crore comparisons for
+20,000 IDs; the second does 20,000 lookups. With 10 lakh IDs the slow
+version would take minutes. Learning DSA is mostly learning to *see* that
+difference before you write the code. The next lesson, "Big-O & Complexity
+Analysis", gives you the vocabulary for it.
+
+## Why interviews test DSA
+
+Interviewers often say they are not checking whether you have memorised
+algorithms. They are checking whether you can:
+
+- turn a vague problem into precise inputs, outputs and edge cases;
+- pick a sensible approach and explain its cost;
+- write correct, readable code under mild pressure;
+- test your own code and fix bugs calmly;
+- talk through trade-offs ("faster, but uses more memory").
+
+Product companies and many service companies in India run one or more
+coding rounds of 45-60 minutes. Most problems reuse a small set of
+**patterns** — hashing, two pointers, sliding window, binary search, BFS/DFS,
+recursion and DP. This course is organised around those patterns.
+
+## A repeatable routine for any problem
+
+Use the same six steps every time, in practice and in interviews:
+
+| Step | What you do | What to say aloud |
+|---|---|---|
+| 1. Understand | Restate the problem; ask about input size, duplicates, negatives, empty input | "Can the array be empty? Are values sorted?" |
+| 2. Examples | Work 2-3 small examples by hand, including an edge case | "For `[3, 3]` the answer is true." |
+| 3. Brute force | State the simplest correct idea and its cost | "Checking every pair is O(n²)." |
+| 4. Optimise | Look for repeated work; ask which structure removes it | "A Set lets me check 'seen before' in O(1)." |
+| 5. Code | Write clean code with clear names | Narrate the main loop, not every character |
+| 6. Test | Trace your examples; then edge cases | "Empty input returns false." |
+
+Skipping step 1 is the most common reason candidates solve the wrong
+problem. Skipping step 6 is the most common reason correct ideas fail.
+
+## Setting up for practice
+
+Create a folder outside any project, one file per problem, and run it with
+`node`. Use the built-in `node:assert` module so every solution carries its
+own tests:
+
+```js
+// max-price.js — find the highest price in a list
+const assert = require("node:assert/strict");
+
+function maxPrice(prices) {
+  if (prices.length === 0) return null;
+  let best = prices[0];
+  for (const p of prices) if (p > best) best = p;
+  return best;
+}
+
+const cases = [
+  [[499, 1299, 799], 1299],
+  [[250], 250],
+  [[], null],
+  [[-5, -2, -9], -2],
+];
+for (const [input, expected] of cases) {
+  assert.deepEqual(maxPrice(input), expected);
+}
+console.log(`all ${cases.length} cases passed`);
+// all 4 cases passed
+```
+
+```bash
+node max-price.js
+```
+
+Notice the edge cases: one element, empty input, all negatives. Starting
+`best` at `0` instead of `prices[0]` would fail the last case — a classic bug.
+
+## JavaScript gotchas that bite in DSA problems
+
+```js
+console.log([10, 9, 1, 100].sort());                // [ 1, 10, 100, 9 ]  (sorts as strings!)
+console.log([10, 9, 1, 100].sort((a, b) => a - b)); // [ 1, 9, 10, 100 ]
+console.log(7 / 2, Math.floor(7 / 2));              // 3.5 3  (no integer division)
+console.log(Math.trunc(-7 / 2), Math.floor(-7 / 2)); // -3 -4
+console.log(-7 % 3);                                 // -1  (remainder keeps the sign)
+console.log(2 ** 53 + 1);                            // 9007199254740992  (precision lost)
+console.log(0.1 + 0.2 === 0.3);                      // false
+console.log(Math.max());                             // -Infinity  (max of nothing)
+
+const bad = Array(2).fill([]);  bad[0].push(1);
+console.log(bad);                                    // [ [ 1 ], [ 1 ] ]  (same array twice)
+const good = Array.from({ length: 2 }, () => []); good[0].push(1);
+console.log(good);                                   // [ [ 1 ], [] ]
+```
+
+Also remember: JavaScript has no built-in heap, deque or balanced tree. You
+will build the ones you need in later lessons. For amounts that must not
+lose precision, work in paise as integers, or use `BigInt` for very large
+whole numbers.
+
+## A realistic practice plan
+
+| Weeks | Focus | Target |
+|---|---|---|
+| 1-2 | Big-O, arrays, strings, hash maps | 20-25 easy problems |
+| 3-4 | Recursion, linked lists, stacks, queues, two pointers, sliding window | 25 easy/medium |
+| 5-6 | Sorting, binary search, trees, heaps | 25 medium |
+| 7-8 | Graphs, backtracking, DP, greedy | 25 medium, a few hard |
+| Ongoing | Mixed timed sets, mock interviews | 3-4 problems a week |
+
+Habits that matter more than the count:
+
+- **Time-box**: 25-30 minutes stuck, then read a hint, not the full answer.
+- **Re-solve**: redo a problem from scratch 3 days later without notes.
+- **Keep a log**: problem, pattern, the key insight in one line, your mistake.
+- **Explain aloud**: practise narrating, because interviews are spoken.
+
+Interviewers often ask "What is the time and space complexity?" after every
+solution. Make answering it part of step 6 from day one.
+
+### Try it yourself
+
+1. Write `countVowels(str)` with at least five `assert` cases, including an
+   empty string and uppercase letters.
+2. Write `secondLargest(nums)` that returns `null` when no second distinct
+   value exists. Test `[5, 5, 5]`, `[1]` and `[3, -1, 3, 2]`.
+3. Pick any problem you solved before and walk through the six-step routine
+   aloud, timing yourself to 20 minutes.

@@ -1,0 +1,182 @@
+---
+title: "Prefix Sums & Difference Arrays"
+description: "Precompute running totals to answer range-sum queries in O(1), count subarrays with a target sum, and apply range updates in bulk."
+module: "Core Patterns"
+level: "intermediate"
+order: 10
+---
+
+Suppose a fintech app stores daily UPI spends for a year and the dashboard
+asks, again and again, "how much was spent between day 40 and day 75?"
+Summing the range each time is O(n) per query. With **prefix sums** you pay
+O(n) once, and every later range query is O(1).
+
+The reverse trick, a **difference array**, handles the opposite workload:
+many "add x to every element from l to r" updates, applied in O(1) each.
+
+## The idea
+
+`prefix[i]` is the sum of the first `i` elements. Using one extra slot at the
+front (`prefix[0] = 0`) removes all the edge cases.
+
+```text
+index:         0    1    2    3    4
+nums:        [ 3,   1,   4,   1,   5 ]
+prefix:   [ 0, 3,   4,   8,   9,  14 ]
+             ^ prefix[0] = 0 (empty sum)
+
+sum(nums[l..r]) = prefix[r + 1] - prefix[l]
+sum(nums[1..3]) = prefix[4] - prefix[1] = 9 - 3 = 6   (1 + 4 + 1)
+```
+
+```js
+function buildPrefix(nums) {
+  const prefix = new Array(nums.length + 1).fill(0);
+  for (let i = 0; i < nums.length; i++) prefix[i + 1] = prefix[i] + nums[i];
+  return prefix;
+}
+
+const rangeSum = (prefix, l, r) => prefix[r + 1] - prefix[l]; // inclusive l..r
+
+const spends = [3, 1, 4, 1, 5];
+const prefix = buildPrefix(spends);
+console.log(prefix);                 // [ 0, 3, 4, 8, 9, 14 ]
+console.log(rangeSum(prefix, 1, 3)); // 6
+console.log(rangeSum(prefix, 0, 4)); // 14
+```
+
+| Operation | Naive | With prefix sums |
+|---|---|---|
+| Build | — | O(n) time, O(n) space |
+| One range-sum query | O(n) | O(1) |
+| q queries | O(n·q) | O(n + q) |
+| Update one element | O(1) | O(n) — must rebuild |
+
+That last row is the catch: prefix sums suit **static** data. If values
+change between queries, you need a Fenwick or segment tree (see "Segment
+Trees & Fenwick Trees").
+
+## Interview problem: subarray sum equals k
+
+**Pattern:** prefix sum + hash map. Count the contiguous subarrays whose sum
+is exactly `k`. The array may contain negatives (refunds), so the sliding
+window from "Sliding Window" does not work.
+
+Step by step:
+
+1. A subarray `(j, i]` sums to `k` exactly when `prefix[i] - prefix[j] = k`,
+   that is, when `prefix[j] = prefix[i] - k`.
+2. Walk left to right, keeping a running sum and a map from "prefix value"
+   to "how many times seen so far".
+3. At each step, add `count.get(sum - k)` to the answer, then record `sum`.
+4. Seed the map with `0 → 1` so subarrays that start at index 0 are counted.
+
+```js
+function subarraySum(nums, k) {
+  const count = new Map([[0, 1]]); // empty prefix seen once
+  let sum = 0, total = 0;
+  for (const x of nums) {
+    sum += x;
+    total += count.get(sum - k) ?? 0;
+    count.set(sum, (count.get(sum) ?? 0) + 1);
+  }
+  return total;
+}
+
+console.log(subarraySum([1, 1, 1], 2));          // 2
+console.log(subarraySum([3, 4, -7, 3, 1, 3], 7)); // 3
+console.log(subarraySum([500, -500, 500], 0));   // 2
+```
+
+O(n) time, O(n) space, versus O(n²) for checking every pair of ends.
+Interviewers often follow up with "longest subarray with sum k" — store the
+**first** index of each prefix value instead of a count — or "subarray sum
+divisible by k" — key the map on `((sum % k) + k) % k`, because `%` can
+return negatives in JavaScript.
+
+## 2D prefix sums
+
+For a grid (say, a heat-map of orders across city blocks), `P[r][c]` stores
+the sum of the rectangle from `(0, 0)` up to but not including `(r, c)`.
+Any sub-rectangle then costs four lookups (inclusion–exclusion).
+
+```js
+function build2D(grid) {
+  const R = grid.length, C = grid[0].length;
+  const P = Array.from({ length: R + 1 }, () => new Array(C + 1).fill(0));
+  for (let r = 0; r < R; r++)
+    for (let c = 0; c < C; c++)
+      P[r + 1][c + 1] = grid[r][c] + P[r][c + 1] + P[r + 1][c] - P[r][c];
+  return P;
+}
+
+// sum of rows r1..r2 and columns c1..c2, inclusive
+const rect = (P, r1, c1, r2, c2) =>
+  P[r2 + 1][c2 + 1] - P[r1][c2 + 1] - P[r2 + 1][c1] + P[r1][c1];
+
+const orders = [
+  [3, 0, 1, 4],
+  [5, 6, 3, 2],
+  [1, 2, 0, 1],
+];
+const P = build2D(orders);
+console.log(rect(P, 1, 1, 2, 2)); // 11  (6 + 3 + 2 + 0)
+console.log(rect(P, 0, 0, 2, 3)); // 28  (whole grid)
+```
+
+Build is O(R·C); each query is O(1).
+
+## Difference arrays: many range updates
+
+A train has 6 segments between stations. Each booking adds `seats` to every
+segment from `l` to `r`. Updating each segment directly is O(length) per
+booking. Instead, store only the **changes**: `+seats` at `l` and `-seats`
+at `r + 1`. One prefix-sum pass at the end rebuilds the real values.
+
+```text
+booking (1..3, +10):   diff = [ 0, 10,  0,  0, -10, 0, 0 ]
+booking (2..5, +20):   diff = [ 0, 10, 20,  0, -10, 0, -20 ]
+prefix of diff:               [ 0, 10, 30, 30,  20, 20 ]   (drop the extra slot)
+```
+
+```js
+function applyBookings(n, bookings) {
+  const diff = new Array(n + 1).fill(0);
+  for (const [l, r, seats] of bookings) {
+    diff[l] += seats;
+    diff[r + 1] -= seats;
+  }
+  const load = new Array(n);
+  let running = 0;
+  for (let i = 0; i < n; i++) load[i] = running += diff[i];
+  return load;
+}
+
+console.log(applyBookings(6, [[1, 3, 10], [2, 5, 20]]));
+// [ 0, 10, 30, 30, 20, 20 ]
+```
+
+With `m` bookings this is O(n + m) instead of O(n·m). The extra slot at
+`n` absorbs `r + 1` when `r` is the last index.
+
+## Common mistakes
+
+- **Off-by-one between `prefix[i]` and `nums[i]`.** With the leading zero,
+  the range `l..r` is `prefix[r + 1] - prefix[l]`. Draw the table.
+- **Forgetting to seed the map with `0 → 1`**, which misses subarrays that
+  start at index 0.
+- **Recording `sum` before looking up `sum - k`.** With `k = 0` that counts
+  an empty subarray.
+- **Using prefix sums on data that changes** between queries.
+- **Overflow in other languages.** JavaScript numbers are exact up to
+  `Number.MAX_SAFE_INTEGER` (about 9 × 10^15); totals beyond that, such as
+  paise across crores of transactions, need `BigInt`.
+
+### Try it yourself
+
+1. Write `productExceptSelf(nums)` without division, using a prefix product
+   pass from the left and a suffix product pass from the right.
+2. Find the longest subarray with an equal number of 0s and 1s. Hint: treat 0
+   as -1, then look for two equal prefix sums that are furthest apart.
+3. Given flight bookings `[first, last, seats]` for flights 1..n, return the
+   total seats on each flight using a difference array.

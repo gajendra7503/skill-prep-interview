@@ -1,0 +1,185 @@
+---
+title: "Interfaces vs Type Aliases"
+description: "How interface and type differ — extending, intersections, declaration merging, implements — and a practical rule for choosing between them."
+module: "Fundamentals"
+level: "beginner"
+order: 5
+---
+
+TypeScript gives you two ways to name an object shape: `interface` and
+`type`. For everyday objects they are nearly interchangeable, which is
+exactly why "What is the difference between an interface and a type
+alias?" is one of the most common TypeScript interview questions.
+
+## Same shape, two syntaxes
+
+```ts
+interface Employee {
+  id: number;
+  name: string;
+  department?: string;
+}
+
+type EmployeeT = {
+  id: number;
+  name: string;
+  department?: string;
+};
+
+const e1: Employee = { id: 1, name: "Arjun" };
+const e2: EmployeeT = e1;   // fine — types are compared by structure, not name
+```
+
+Optional properties, `readonly`, methods and index signatures (all from
+"Objects, Arrays & Tuples") work the same way in both.
+
+## Type aliases can name anything
+
+An `interface` can only describe an object shape (including functions and
+classes, which are objects). A `type` alias can give a name to **any**
+type:
+
+```ts
+type Rupees = number;
+type Status = "active" | "suspended" | "closed";   // a union
+type Coordinates = [lat: number, lng: number];      // a tuple
+type Formatter = (amount: number) => string;         // a function type
+```
+
+There is no way to write `Status` as an interface. Unions are covered in
+"Union & Literal Types".
+
+## Extending
+
+Interfaces use `extends`:
+
+```ts
+interface Person {
+  name: string;
+}
+
+interface Manager extends Person {
+  reports: number;
+}
+
+const m: Manager = { name: "Sneha", reports: 6 };
+```
+
+Type aliases combine shapes with an **intersection** (`&`), meaning "has
+all the properties of both":
+
+```ts
+type PersonT = { name: string };
+type ManagerT = PersonT & { reports: number };
+```
+
+Either can build on the other: an interface can extend a type alias of an
+object type, and a type alias can intersect an interface.
+
+One practical difference shows up on conflicts. `extends` reports an
+error immediately, while `&` silently produces an impossible type:
+
+```ts
+interface Base { id: string }
+
+interface Child extends Base { id: number }
+// Error: Interface 'Child' incorrectly extends interface 'Base'.
+//   Types of property 'id' are incompatible.
+
+type ChildT = Base & { id: number };
+// No error here — but id becomes string & number, which is never
+const c: ChildT = { id: 1 };
+// Error: Type 'number' is not assignable to type 'never'.
+```
+
+The TypeScript team also notes that interface hierarchies are generally
+cheaper for the compiler to check than large intersections — rarely
+noticeable in small projects.
+
+## Declaration merging
+
+Declaring the same interface name twice **merges** the declarations:
+
+```ts
+interface AppConfig {
+  apiUrl: string;
+}
+
+interface AppConfig {
+  timeoutMs: number;
+}
+
+const config: AppConfig = { apiUrl: "/api", timeoutMs: 5000 }; // needs both
+```
+
+The same with `type` is an error:
+
+```ts
+type Settings = { theme: string };
+type Settings = { lang: string };
+// Error: Duplicate identifier 'Settings'.
+```
+
+Merging is how libraries let you add properties to existing types — for
+example adding a custom property to `Window`, or a `user` field to an
+Express request object. The details of augmenting library types are in
+"Modules, Declaration Files & @types". The downside: an accidental
+duplicate name in the same scope merges silently instead of erroring.
+
+## implements
+
+A class can promise to satisfy either an interface or an object type
+alias:
+
+```ts
+interface Notifier {
+  send(to: string, message: string): boolean;
+}
+
+class SmsNotifier implements Notifier {
+  send(to: string, message: string): boolean {
+    console.log(`SMS to ${to}: ${message}`);
+    return true;
+  }
+}
+```
+
+`implements` only checks the class; it does not add any types to it.
+Classes are covered in depth in "Classes, Access Modifiers & Abstract
+Classes".
+
+## Side-by-side summary
+
+| Feature | `interface` | `type` |
+|---|---|---|
+| Object shapes | Yes | Yes |
+| Unions, tuples, primitives, function types | No (functions only via call signatures) | Yes |
+| Extend | `extends` (conflicts are errors) | `&` (conflicts become `never`) |
+| Declaration merging | Yes | No — duplicate identifier |
+| Used with `implements` | Yes | Yes, if it is an object type |
+| Mapped and conditional types | No | Yes (advanced lessons) |
+
+## Which should you use?
+
+Both are fine; consistency within a codebase matters more than the choice.
+A common, defensible rule:
+
+- Use `interface` for object shapes, especially public ones that others
+  may extend or augment.
+- Use `type` for everything else — unions, tuples, function types, and
+  types computed from other types.
+
+Many teams simply use `type` everywhere except where merging is needed.
+In an interview, list the concrete differences (unions, merging,
+`extends` versus `&`) rather than just stating a preference.
+
+### Try it yourself
+
+1. Model a `BankAccount` interface (`accountNo`, `holder`, `balance`) and
+   a `SavingsAccount` that extends it with `interestRate`. Then rewrite
+   both as type aliases using `&`.
+2. Declare `interface Theme { primary: string }` twice in the same file,
+   adding `secondary` in the second declaration, and check which object
+   literals now compile.
+3. Try to write `type PaymentMode = "UPI" | "Card" | "NetBanking"` as an
+   interface. Explain in one sentence why you cannot.

@@ -1,0 +1,6 @@
+{
+  "title": "MySQL",
+  "description": "Queries to internals — joins, window functions, indexing, EXPLAIN, transactions, and locking, the way interviewers actually ask them.",
+  "icon": "mysql",
+  "accent": "#00758f"
+}

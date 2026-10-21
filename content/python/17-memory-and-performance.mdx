@@ -1,0 +1,139 @@
+---
+title: "Memory Management & Performance"
+description: "Reference counting, the cyclic garbage collector, profiling with timeit and cProfile, and practical ways to write faster, leaner Python."
+module: "Concurrency & Performance"
+level: "advanced"
+order: 21
+---
+
+Interviewers ask about memory and performance to see whether you can reason
+about what the interpreter is actually doing — and whether you measure
+before you optimise. This lesson covers how CPython frees memory, how to
+profile, and the handful of techniques that genuinely matter.
+
+## Reference counting: the primary mechanism
+
+Every CPython object carries a **reference count** — the number of names,
+containers and other objects pointing at it. When the count drops to zero,
+the object is freed immediately and deterministically.
+
+```python
+import sys
+
+data = [1, 2, 3]
+alias = data
+print(sys.getrefcount(data))   # 3 — data, alias, plus the temporary argument
+
+del alias                      # removes a name, not the object
+print(sys.getrefcount(data))   # 2
+```
+
+Treat the exact numbers as illustrative: newer CPython versions skip some
+temporary references, so `getrefcount` can report lower values (especially
+inside functions). The trend — fewer references, lower count — is what
+matters.
+
+`del` deletes a *name binding*, decrementing the count; it never forces an
+object to be destroyed while other references exist.
+
+## The cyclic garbage collector
+
+Reference counting alone cannot free **cycles** — objects that refer to
+each other keep each other's count above zero even when nothing else can
+reach them.
+
+```python
+import gc
+
+class Node:
+    def __init__(self) -> None:
+        self.other = None
+
+a, b = Node(), Node()
+a.other, b.other = b, a        # a reference cycle
+del a, b                       # counts never reach zero on their own
+
+print(gc.collect())            # e.g. 2 — the cycle detector reclaims them
+```
+
+The `gc` module runs a **generational** collector: new container objects
+start in the youngest generation, which is scanned most often, and objects
+that survive are promoted to older, less frequently scanned generations.
+For back-references you do not want to own (parent pointers, caches), use
+`weakref` so no cycle is created in the first place.
+
+## Measure first: timeit and cProfile
+
+Use `timeit` for micro-benchmarks — it runs the snippet many times and
+disables the GC during timing to reduce noise:
+
+```bash
+python -m timeit "sum(range(1000))"
+# 20000 loops, best of 5: 11.2 usec per loop   (numbers vary by machine)
+```
+
+```python
+import timeit
+print(timeit.timeit("[x * 2 for x in range(1000)]", number=10_000))
+```
+
+Use `cProfile` to find *where* a real program spends its time:
+
+```bash
+python -m cProfile -s cumulative my_script.py
+```
+
+The output lists call counts, total time inside each function (`tottime`)
+and time including sub-calls (`cumtime`). Optimise the top entries — not
+whatever looks slow in the source.
+
+## Built-ins and idioms that are genuinely faster
+
+Built-ins like `sum`, `min`, `max`, `sorted`, `any` and `str.join` are
+implemented in C, so they avoid per-iteration bytecode overhead.
+
+```python
+total = sum(prices)                 # faster than a manual for-loop
+csv_line = ",".join(fields)         # O(n); repeated += on str can be O(n^2)
+squares = [n * n for n in nums]     # comprehension beats append in a loop
+```
+
+Choose the right data structure too: membership tests are O(1) on average
+for `set` and `dict` but O(n) for `list`. Local variable lookups are also
+faster than global or attribute lookups inside hot loops.
+
+## Generators for memory efficiency
+
+A list materialises every element at once; a generator produces one value
+at a time on demand.
+
+```python
+squares_list = [n * n for n in range(10_000_000)]   # hundreds of MB
+squares_gen = (n * n for n in range(10_000_000))    # a few hundred bytes
+
+total = sum(n * n for n in range(10_000_000))       # constant memory
+```
+
+The trade-off: a generator can be iterated only once and does not support
+`len()` or indexing.
+
+## The sys.getsizeof caveat
+
+`sys.getsizeof` reports only the object's **own** memory — not the objects
+it references.
+
+```python
+import sys
+print(sys.getsizeof([1, 2, 3]))            # ~88 bytes: the list's pointer array
+print(sys.getsizeof(["a" * 10_000]))       # ~64 bytes — the big string isn't counted
+```
+
+For a container's true footprint you must walk its contents recursively,
+or use `tracemalloc` (standard library) to track allocations over time.
+
+### Try it yourself
+
+Write two functions that read a large text file and count lines containing
+"ERROR" — one using `f.readlines()` and one iterating over the file object
+directly. Compare them with `timeit`, then use `tracemalloc` to compare
+peak memory, and explain the result in interview terms.

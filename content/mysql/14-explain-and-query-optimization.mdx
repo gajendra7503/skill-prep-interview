@@ -1,0 +1,142 @@
+---
+title: "EXPLAIN & Query Optimization"
+description: "Reading EXPLAIN and EXPLAIN ANALYZE, finding slow queries, keyset pagination, and rewriting OR conditions and subqueries."
+module: "Performance"
+level: advanced
+order: 17
+---
+
+Knowing index theory is half the job; the other half is proving what the
+optimizer actually does. In interviews you may be handed an `EXPLAIN` plan
+and asked what is wrong. This lesson walks through the columns that matter,
+how to find slow queries in the first place, and the rewrites that fix the
+most common problems.
+
+## Reading EXPLAIN
+
+```sql
+EXPLAIN SELECT o.id, o.total_inr
+FROM orders o JOIN customers c ON c.id = o.customer_id
+WHERE c.city = 'Pune' AND o.status = 'PAID';
+```
+
+| id | table | type | key | rows | filtered | Extra |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | c | ALL | NULL | 50000 | 10.00 | Using where |
+| 1 | o | ref | idx_customer | 12 | 25.00 | Using where |
+
+- **table / id**: rows run in join order; the first table drives the join.
+- **key**: the index chosen (`possible_keys` lists the candidates).
+- **rows**: estimated rows examined per lookup, from statistics.
+- **filtered**: estimated percentage left after the remaining WHERE
+  conditions. `rows x filtered / 100` is what flows to the next table: here
+  about 5,000 customers drive the `orders` lookups.
+
+Here `customers` is fully scanned; an index on `city` would fix it.
+
+## The type column, best to worst
+
+| type | Meaning |
+| --- | --- |
+| `const` / `system` | At most one row via PK or unique key equality; read once |
+| `eq_ref` | One row per row of the previous table, via PK/unique join |
+| `ref` | Non-unique index equality; several rows may match |
+| `range` | Index range: `BETWEEN`, `>`, `IN (...)`, `LIKE 'abc%'` |
+| `index` | Full scan of an index (cheaper than the table, still all entries) |
+| `ALL` | Full table scan |
+
+`ALL` on a large table, or `index` where you expected `ref`, is the usual
+red flag. Small lookup tables scanned with `ALL` are fine.
+
+## The Extra column
+
+- **Using index**: covering index; no clustered-index lookups. Good.
+- **Using where**: rows are filtered after being read. Normal, but costly
+  combined with `ALL`.
+- **Using index condition**: index condition pushdown filters inside the
+  storage engine before the row lookup.
+- **Using filesort**: `ORDER BY` could not use index order, so rows are
+  sorted (in memory or on disk). Not necessarily a file.
+- **Using temporary**: an internal temp table was needed, typically for
+  `GROUP BY`, `DISTINCT` or `UNION` that no index satisfies.
+
+## EXPLAIN ANALYZE
+
+`EXPLAIN` shows estimates. `EXPLAIN ANALYZE` (8.0.18+) **runs** the query
+and prints the tree plan with actual timings and row counts. Because it
+executes the statement, it costs as much as the query itself; use it on
+SELECTs and be careful on a busy production primary.
+
+```sql
+EXPLAIN ANALYZE SELECT id FROM orders
+WHERE customer_id = 1001 ORDER BY created_at DESC LIMIT 20;
+-- -> Limit: 20 row(s)  (cost=9.1 rows=20)
+--      (actual time=0.041..0.083 rows=20 loops=1)
+--    -> Index lookup on orders using idx_cust_created (customer_id=1001)
+--       (reverse)  (cost=9.1 rows=34) (actual time=0.039..0.079 rows=20 loops=1)
+```
+
+A big gap between estimated `rows` and actual rows points to stale
+statistics (`ANALYZE TABLE`) or skewed data (consider histograms).
+`loops` tells you how many times a node ran inside a nested loop.
+
+## Finding slow queries
+
+```sql
+SET GLOBAL slow_query_log = ON;
+SET GLOBAL long_query_time = 0.5;      -- seconds; default is 10
+SET GLOBAL log_queries_not_using_indexes = ON;  -- optional, noisy
+```
+
+Summarise the log with `mysqldumpslow` or Percona's `pt-query-digest`, or
+query `performance_schema.events_statements_summary_by_digest` (also via
+`sys.statement_analysis`) to rank statements by total latency.
+
+## Keyset pagination instead of OFFSET
+
+`LIMIT 20 OFFSET 200000` still reads and discards 2,00,000 rows, so deep
+pages get slower and slower. Keyset (seek) pagination remembers the last
+row seen and seeks past it using an index:
+
+```sql
+-- Page 1
+SELECT id, created_at, total_inr FROM orders
+ORDER BY created_at DESC, id DESC LIMIT 20;
+
+-- Next page: pass the last row's (created_at, id)
+SELECT id, created_at, total_inr FROM orders
+WHERE (created_at, id) < ('2025-03-15 10:22:00', 98231)
+ORDER BY created_at DESC, id DESC LIMIT 20;
+```
+
+With an index on `(created_at, id)` every page costs the same. The `id`
+tie-breaker keeps ordering stable. The trade-off: no "jump to page 500".
+
+## Rewriting OR and subqueries
+
+An `OR` across different columns often defeats a single index. MySQL may
+use an `index_merge` union; if not, rewrite as a `UNION` with each branch
+using its own index:
+
+```sql
+-- Before: WHERE customer_id = 1001 OR status = 'CANCELLED'
+SELECT id FROM orders WHERE customer_id = 1001
+UNION
+SELECT id FROM orders WHERE status = 'CANCELLED';
+```
+
+`UNION` removes the duplicates that matched both branches; `UNION ALL` is
+cheaper but only correct if the branches cannot overlap.
+
+MySQL 8.0 transforms most `IN (subquery)` and `EXISTS` into semijoins, so
+the old "always rewrite as a JOIN" advice is outdated: check `EXPLAIN`.
+Do watch `NOT IN (subquery)`: if the subquery returns any NULL, the result
+is empty. Prefer `NOT EXISTS` or a `LEFT JOIN ... IS NULL` anti-join.
+
+### Try it yourself
+
+Take `SELECT * FROM orders WHERE YEAR(created_at) = 2025 ORDER BY
+created_at LIMIT 20 OFFSET 50000`. Run `EXPLAIN` and note the `type` and
+Extra values. Rewrite it with a sargable date range and keyset pagination,
+add a suitable index, and compare the two with `EXPLAIN ANALYZE`, noting
+actual rows read.

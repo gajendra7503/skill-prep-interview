@@ -1,0 +1,153 @@
+---
+title: "Locking & Deadlocks"
+description: "Row lock modes, FOR UPDATE / FOR SHARE, NOWAIT and SKIP LOCKED, record, gap and next-key locks, metadata locks and how to diagnose and prevent deadlocks."
+module: "Transactions & Concurrency"
+level: advanced
+order: 19
+---
+
+MVCC lets plain reads run without locks, but every write — and every
+locking read — takes row locks in InnoDB. Interviewers probe whether you
+know *what* gets locked, why a missing index can lock a whole table, and
+what you do when MySQL reports a deadlock.
+
+## Shared and exclusive row locks
+
+| | S (shared) held | X (exclusive) held |
+| --- | --- | --- |
+| request S | granted | waits |
+| request X | waits | waits |
+
+`UPDATE`, `DELETE` and `INSERT` take **X** locks automatically. You request
+them explicitly with locking reads:
+
+```sql
+SELECT balance FROM accounts WHERE account_id = 1 FOR UPDATE; -- X lock
+SELECT * FROM products WHERE product_id = 7 FOR SHARE;        -- S lock
+```
+
+`FOR SHARE` (MySQL 8.0 syntax for the older `LOCK IN SHARE MODE`) lets
+others read-lock the row but blocks writers — useful to guarantee a parent
+row still exists while you insert children. Locks are held until `COMMIT`
+or `ROLLBACK`; a locking read outside a transaction (autocommit on)
+releases its locks immediately and is almost always a bug.
+
+A blocked request waits up to `innodb_lock_wait_timeout` (default 50
+seconds), then fails with `ERROR 1205 Lock wait timeout exceeded`. By
+default only that statement is rolled back, not the transaction.
+
+## NOWAIT and SKIP LOCKED
+
+MySQL 8.0 added two modifiers for locking reads:
+
+- `NOWAIT` fails immediately (`ERROR 3572`) if any row is locked.
+- `SKIP LOCKED` silently skips locked rows — perfect for a job queue where
+  several workers must never pick the same job.
+
+```sql
+START TRANSACTION;
+SELECT job_id, payload FROM jobs
+ WHERE status = 'pending'
+ ORDER BY job_id
+ LIMIT 1
+ FOR UPDATE SKIP LOCKED;          -- worker 1 gets job 101, worker 2 gets 102
+UPDATE jobs SET status = 'running' WHERE job_id = 101;
+COMMIT;
+```
+
+Because `SKIP LOCKED` returns an inconsistent view by design, use it only
+for queue-like workloads, never for reports. Index `(status, job_id)` so
+the scan touches few rows.
+
+## Record, gap and next-key locks
+
+InnoDB locks **index records**, not abstract rows:
+
+- **Record lock**: locks one index entry.
+- **Gap lock**: locks the gap *between* entries, preventing inserts there.
+  Gap locks never conflict with each other — they only block inserts.
+- **Next-key lock**: a record lock plus the gap before it. This is the
+  default for scans under REPEATABLE READ and is what stops phantoms.
+
+```sql
+-- orders has a secondary index on customer_id; values 10, 20, 30 exist
+START TRANSACTION;
+SELECT * FROM orders WHERE customer_id BETWEEN 15 AND 25 FOR UPDATE;
+-- locks the entry 20, the gaps around it and the next entry (30),
+-- so another session's INSERT with customer_id = 18 or 22 now waits
+```
+
+An equality search on a **unique** index that finds a row needs only a
+record lock, no gap. Under READ COMMITTED, InnoDB mostly disables gap
+locking, which reduces contention but allows phantoms.
+
+## Why an unindexed WHERE locks so much
+
+```sql
+UPDATE orders SET status = 'cancelled' WHERE coupon_code = 'DIWALI50';
+```
+
+If `coupon_code` has no index, InnoDB scans the whole clustered index and,
+under REPEATABLE READ, sets next-key locks on **every row it examines**,
+not just the matches — effectively locking the table against concurrent
+writes (InnoDB never escalates row locks to a table lock; it simply locks
+everything it scanned). Adding an index on `coupon_code` shrinks the
+locked set to the matching entries. Inspect what is held with:
+
+```sql
+SELECT object_name, index_name, lock_type, lock_mode, lock_data
+  FROM performance_schema.data_locks;
+-- orders  PRIMARY  RECORD  X              1
+-- orders  PRIMARY  RECORD  X,REC_NOT_GAP  5
+SELECT * FROM sys.innodb_lock_waits\G      -- who blocks whom
+```
+
+## Metadata locks
+
+Any statement that touches a table takes a **metadata lock (MDL)** held
+until the transaction ends. `ALTER TABLE` needs an exclusive MDL, so it
+waits behind a long-running transaction that merely read the table — and
+then every new query queues behind the `ALTER`. `SHOW PROCESSLIST` shows
+`Waiting for table metadata lock`. Keep transactions short, and inspect
+`performance_schema.metadata_locks` to find the blocker.
+
+## Deadlocks
+
+```sql
+-- Both sessions have run START TRANSACTION
+-- step 1, T1: locks account 1
+UPDATE accounts SET balance = balance - 500 WHERE account_id = 1;
+-- step 2, T2: locks account 2
+UPDATE accounts SET balance = balance - 700 WHERE account_id = 2;
+-- step 3, T1: waits for T2's lock on account 2
+UPDATE accounts SET balance = balance + 500 WHERE account_id = 2;
+-- step 4, T2: waits for T1's lock on account 1, closing the cycle
+UPDATE accounts SET balance = balance + 700 WHERE account_id = 1;
+-- one of them receives:
+-- ERROR 1213 (40001): Deadlock found when trying to get lock;
+-- try restarting transaction
+```
+
+With `innodb_deadlock_detect = ON` (default), InnoDB detects the cycle at
+once and rolls back the **smaller** transaction (fewest rows changed). The
+victim's whole transaction is undone. `SHOW ENGINE INNODB STATUS\G` shows
+the `LATEST DETECTED DEADLOCK` section with both statements and the locks
+involved; set `innodb_print_all_deadlocks = ON` to log every one.
+
+Prevention and handling:
+
+1. **Consistent lock ordering** — always lock accounts in ascending
+   `account_id` order, e.g. `SELECT ... WHERE account_id IN (1, 2)
+   ORDER BY account_id FOR UPDATE` before updating.
+2. **Short transactions** with proper indexes, so fewer locks are held.
+3. **Retry**: deadlocks are normal under concurrency. Catch error 1213,
+   back off briefly, and rerun the *entire* transaction a bounded number
+   of times (say three).
+
+### Try it yourself
+
+Create a `jobs` table with 10 pending rows. In two sessions run the
+`SKIP LOCKED` query above without committing and confirm each gets a
+different job; repeat with `NOWAIT` and note the error. Then reproduce the
+transfer deadlock, read `LATEST DETECTED DEADLOCK`, and rewrite both
+transactions with ascending lock ordering so it can no longer occur.

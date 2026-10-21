@@ -1,0 +1,190 @@
+---
+title: "Bit Manipulation & Bitmask DP"
+description: "Bitwise operators and their JavaScript 32-bit quirks, classic bit tricks, subset enumeration with masks, and bitmask DP for travelling-salesman style problems."
+module: "Pro Level"
+level: "pro"
+order: 26
+---
+
+Bit manipulation turns sets, flags and parity questions into single CPU
+instructions. In interviews it shows up as "do it in `O(1)` extra space"
+puzzles and, at senior level, as **bitmask DP** — dynamic programming where
+the state includes "which items have I used so far?" encoded as an integer.
+
+## The operators and JavaScript's quirks
+
+| Operator | Meaning | Example (`x = 44`, binary `101100`) |
+|---|---|---|
+| `x & y` | AND | `x & 1` is `0` (even) |
+| `x \| y` | OR | set bits |
+| `x ^ y` | XOR | toggle; `a ^ a` is `0` |
+| `~x` | NOT | `~x` equals `-x - 1` |
+| `x << k` | shift left | multiply by `2^k` |
+| `x >> k` | arithmetic shift right | keeps the sign |
+| `x >>> k` | logical shift right | fills with zeros, result is unsigned |
+
+**JavaScript gotcha:** numbers are 64-bit floats, but bitwise operators
+convert operands to **32-bit signed integers** first. Bit 31 is the sign:
+
+```js
+console.log(1 << 31, (1 << 31) >>> 0, 2 ** 31 | 0, -8 >> 1, -8 >>> 28);
+// -2147483648 2147483648 -2147483648 -4 15
+```
+
+So masks work cleanly up to about 30 items. For wider bitsets use `BigInt`
+(`1n << 40n`, operators work on arbitrary width) or an array of 32-bit
+words. Interviewers like to ask why `x | 0` truncates large numbers — this
+conversion is the reason.
+
+## Essential tricks
+
+```js
+const x = 44; // 101100
+console.log(x.toString(2), x & 1, (x >> 2).toString(2), (x & (x - 1)).toString(2), x & -x);
+// 101100 0 1011 101000 4
+//   x & (x - 1) clears the lowest set bit; x & -x isolates it
+
+const isPow2 = (n) => n > 0 && (n & (n - 1)) === 0;
+console.log(isPow2(64), isPow2(96)); // true false
+
+function popcount(n) { let c = 0; while (n) { n &= n - 1; c++; } return c; } // Kernighan
+console.log(popcount(44), popcount(255)); // 3 8
+```
+
+Kernighan's loop runs once per **set** bit, not once per bit.
+
+Bit flags are a compact way to store permissions:
+
+```js
+const READ = 1, WRITE = 2, APPROVE = 4;
+let perms = READ | APPROVE;
+console.log(Boolean(perms & WRITE), Boolean(perms & APPROVE)); // false true
+perms |= WRITE;  // grant
+perms &= ~READ;  // revoke
+console.log(perms); // 6
+```
+
+## Interview problem: single number
+
+Every element appears twice except one. Find it in `O(n)` time, `O(1)`
+space. **Pattern: XOR cancellation** — `a ^ a = 0` and XOR is commutative,
+so pairs vanish.
+
+```js
+const singleNumber = (nums) => nums.reduce((a, b) => a ^ b, 0);
+console.log(singleNumber([4, 1, 2, 1, 2])); // 4
+```
+
+### Counting bits for 0..n with DP
+
+`bits(i) = bits(i >> 1) + (i & 1)`: dropping the last bit gives a smaller
+number already computed.
+
+```js
+function countBitsUpTo(n) {
+  const dp = new Array(n + 1).fill(0);
+  for (let i = 1; i <= n; i++) dp[i] = dp[i >> 1] + (i & 1);
+  return dp;
+}
+console.log(countBitsUpTo(8)); // [ 0, 1, 1, 2, 1, 2, 2, 3, 1 ]
+```
+
+## Masks as subsets
+
+With `n` items, each integer `0` to `2^n - 1` is a subset: bit `i` set
+means item `i` is in. This is an iterative alternative to backtracking (see
+"Backtracking").
+
+```js
+function subsets(items) {
+  const n = items.length, out = [];
+  for (let mask = 0; mask < (1 << n); mask++) {
+    const s = [];
+    for (let i = 0; i < n; i++) if (mask & (1 << i)) s.push(items[i]);
+    out.push(s);
+  }
+  return out;
+}
+console.log(subsets(["paneer", "dal", "roti"]).map((s) => s.join("+") || "(none)"));
+// [ '(none)', 'paneer', 'dal', 'paneer+dal', 'roti', 'paneer+roti', 'dal+roti', 'paneer+dal+roti' ]
+```
+
+`O(n * 2^n)` time. To iterate every **submask** of a mask `m`, use
+`s = (s - 1) & m`; over all masks this totals `O(3^n)`, the core of many
+"partition into groups" DPs.
+
+## Bitmask DP: travelling salesman
+
+A sales rep starts in Delhi, must visit every city once and return. Brute
+force tries `(n - 1)!` orders. Bitmask DP notices that the future only
+depends on **which cities are visited** and **where you are now**.
+
+`dp[mask][last]` = shortest path that starts at city 0, visits exactly the
+cities in `mask`, and ends at `last`.
+
+```text
+dp[0001][0] = 0                         (only Delhi, standing in Delhi)
+dp[mask | 1<<next][next] = min( dp[mask][last] + dist[last][next] )
+answer = min over last of dp[1111][last] + dist[last][0]
+```
+
+```js
+function tsp(dist) {
+  const n = dist.length, FULL = 1 << n;
+  const dp = Array.from({ length: FULL }, () => new Array(n).fill(Infinity));
+  dp[1][0] = 0;
+  for (let mask = 1; mask < FULL; mask++) {
+    if (!(mask & 1)) continue; // every route includes the start city
+    for (let last = 0; last < n; last++) {
+      const cur = dp[mask][last];
+      if (cur === Infinity || !(mask & (1 << last))) continue;
+      for (let next = 0; next < n; next++) {
+        if (mask & (1 << next)) continue;
+        const nm = mask | (1 << next);
+        if (cur + dist[last][next] < dp[nm][next]) dp[nm][next] = cur + dist[last][next];
+      }
+    }
+  }
+  let best = Infinity;
+  for (let last = 1; last < n; last++) best = Math.min(best, dp[FULL - 1][last] + dist[last][0]);
+  return best;
+}
+// Delhi, Agra, Jaipur, Chandigarh — illustrative road distances in km
+const D = [
+  [0, 230, 280, 250],
+  [230, 0, 240, 470],
+  [280, 240, 0, 510],
+  [250, 470, 510, 0],
+];
+console.log(tsp(D)); // 1230  (Delhi -> Agra -> Jaipur -> Chandigarh -> Delhi)
+```
+
+**Complexity:** `O(2^n * n^2)` time and `O(2^n * n)` space. For `n = 20`
+that is about 40 crore transitions — feasible; `n!` would be astronomically
+larger. The signal for bitmask DP in a problem statement is a **small `n`
+(roughly 20 or fewer)** combined with "visit all", "assign each", or
+"choose a subset".
+
+Other problems with the same shape: assigning `n` tasks to `n` workers at
+minimum cost (`dp[mask]` = cost of assigning the first `popcount(mask)`
+workers), and splitting items into `k` equal-sum groups.
+
+## Common mistakes
+
+- Operator precedence: `mask & 1 << i` works, but `x & 1 === 0` parses as
+  `x & (1 === 0)`. Always parenthesise: `(x & 1) === 0`.
+- Using `>>` on values that should be unsigned; use `>>> 0` to view as
+  unsigned.
+- Masks beyond 31 bits with plain numbers — silently wrong; switch to
+  `BigInt`.
+- Allocating `dp` as `2^n * n` for `n` near 25 — about 84 crore cells will
+  exhaust memory. Check the limits before choosing bitmask DP.
+
+### Try it yourself
+
+1. Every number appears **three** times except one. Find it in `O(1)`
+   extra space (hint: count each bit position modulo 3).
+2. Extend `tsp` to also return the route, by storing the predecessor for
+   each `dp[mask][last]`.
+3. Given 12 delivery tasks and 12 riders with a cost matrix in ₹, find the
+   minimum-cost one-to-one assignment with `dp[mask]`.

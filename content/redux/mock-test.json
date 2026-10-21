@@ -1,0 +1,785 @@
+{
+  "title": "Redux Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "redux-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-what-is-redux-and-when-to-use-it",
+      "question": "Which of these is NOT one of the three core principles of Redux?",
+      "options": [
+        "Single source of truth: global state lives in one store",
+        "State is read-only: you change it only by dispatching actions",
+        "Changes are made by pure functions called reducers",
+        "Each component owns and updates its own copy of global state"
+      ],
+      "correctIndex": 3,
+      "explanation": "The three principles are a single source of truth, read-only state changed only through dispatched actions, and pure reducers that compute the next state. Components keeping their own copies of global state is exactly the problem Redux is designed to remove."
+    },
+    {
+      "id": "redux-02",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "01-what-is-redux-and-when-to-use-it",
+      "question": "A Redux store has a very small API: `getState`, `dispatch` and one more method that registers a callback to run after every dispatch. What is that method called?",
+      "answerHint": "Type the method name",
+      "acceptedAnswers": [
+        "subscribe",
+        "store.subscribe",
+        "subscribe()",
+        "store.subscribe()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`store.subscribe(listener)` registers a callback that runs after each dispatch and returns an `unsubscribe` function. `getState` reads the state and `dispatch` sends actions."
+    },
+    {
+      "id": "redux-03",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-setting-up-redux-toolkit",
+      "question": "A component that calls `useSelector` throws \"could not find react-redux context value\". What is the most likely cause?",
+      "options": [
+        "The component is rendered outside the `<Provider store={store}>` tree",
+        "The slice reducer was not added to the `reducer` object in configureStore",
+        "The action creator was dispatched without calling it",
+        "The store was created with configureStore instead of createStore"
+      ],
+      "correctIndex": 0,
+      "explanation": "The hooks read the store from React context, which `Provider` supplies. Without a `Provider` above the component there is no context value. A missing slice reducer only makes that state key `undefined`; it does not cause this error."
+    },
+    {
+      "id": "redux-04",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-setting-up-redux-toolkit",
+      "question": "What does the last line print?",
+      "code": "import { configureStore, createSlice } from '@reduxjs/toolkit';\n\nconst counterSlice = createSlice({\n  name: 'counter',\n  initialState: { value: 0 },\n  reducers: {\n    incremented(state) { state.value += 1; },\n    incrementedBy(state, action) { state.value += action.payload; },\n  },\n});\nconst { incremented, incrementedBy } = counterSlice.actions;\nconst store = configureStore({ reducer: { counter: counterSlice.reducer } });\n\nstore.dispatch(incrementedBy(5));\nstore.dispatch(incremented());\nstore.dispatch(incrementedBy(5));\nconsole.log(store.getState().counter.value);",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "11"
+      ],
+      "caseSensitive": false,
+      "explanation": "The counter starts at 0, `incrementedBy(5)` adds 5, `incremented()` adds 1 and the second `incrementedBy(5)` adds 5 more: 0 + 5 + 1 + 5 = 11. The state lives under the `counter` key because that is the key used in the `reducer` object."
+    },
+    {
+      "id": "redux-05",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "03-actions-reducers-and-the-store",
+      "question": "In a hand-written reducer, what should the `default` branch of the `switch (action.type)` return?",
+      "options": [
+        "`undefined`, so Redux knows the action was ignored",
+        "The same `state` object it received, unchanged",
+        "A shallow copy, `{ ...state }`",
+        "The reducer's initial state"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every reducer sees every action. Returning the same reference tells `combineReducers` and React-Redux, through a cheap `===` check, that nothing changed. A copy such as `{ ...state }` is a new reference, so it would look like a change and cause needless re-renders; returning the initial state would wipe the data."
+    },
+    {
+      "id": "redux-06",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "03-actions-reducers-and-the-store",
+      "question": "What does the last line print?",
+      "code": "import { legacy_createStore, combineReducers } from 'redux';\n\nconst wallet = (state = { balance: 0 }, action) => {\n  switch (action.type) {\n    case 'wallet/deposited':\n      return { balance: state.balance + action.payload };\n    case 'wallet/withdrawn':\n      return action.payload > state.balance\n        ? state\n        : { balance: state.balance - action.payload };\n    default:\n      return state;\n  }\n};\n\nconst store = legacy_createStore(combineReducers({ wallet }));\nlet calls = 0;\nstore.subscribe(() => calls++);\n\nstore.dispatch({ type: 'wallet/deposited', payload: 500 });\nstore.dispatch({ type: 'wallet/withdrawn', payload: 9999 });\nstore.dispatch({ type: 'unknown/event' });\nconsole.log(calls, store.getState().wallet.balance);",
+      "codeLanguage": "js",
+      "answerHint": "Type the two values printed, separated by a space",
+      "acceptedAnswers": [
+        "3 500",
+        "3, 500",
+        "3,500"
+      ],
+      "caseSensitive": false,
+      "explanation": "Listeners run after every dispatch, even when no state changed, so `calls` is 3. The withdrawal of 9999 is rejected (the reducer returns the same state) and the unknown action changes nothing, leaving the balance at 500."
+    },
+    {
+      "id": "redux-07",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "04-immutability-and-pure-reducers",
+      "question": "Which of these is allowed inside a Redux reducer?",
+      "options": [
+        "Calling `Date.now()` to stamp the new item",
+        "Saving the new state to `localStorage`",
+        "Computing a new value from the current `state` and the `action`",
+        "Dispatching a follow-up action"
+      ],
+      "correctIndex": 2,
+      "explanation": "A reducer must be pure: it may only read `state` and `action` and compute the next state from them. `Date.now()` makes the result non-deterministic (generate timestamps in a `prepare` callback instead), and `localStorage` writes and dispatching are side effects."
+    },
+    {
+      "id": "redux-08",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "04-immutability-and-pure-reducers",
+      "question": "The slice state is `{ items: ['a'] }`. What is the slice state after `wrongReset()` is dispatched?",
+      "code": "const listSlice = createSlice({\n  name: 'list',\n  initialState: { items: ['a'] },\n  reducers: {\n    wrongReset(state) {\n      state = { items: [] };\n    },\n  },\n});",
+      "codeLanguage": "js",
+      "options": [
+        "`{ items: ['a'] }`, unchanged",
+        "`{ items: [] }`",
+        "`undefined`",
+        "It throws an Immer error about returning and modifying the draft"
+      ],
+      "correctIndex": 0,
+      "explanation": "`state = ...` only rebinds the local parameter; the Immer draft itself is never modified and nothing is returned, so the state stays `{ items: ['a'] }`. To replace the whole slice state you must `return { items: [] }`. The Immer error only appears when you both modify the draft and return a value."
+    },
+    {
+      "id": "redux-09",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "05-createslice",
+      "question": "What does the last line print?",
+      "code": "import { createSlice } from '@reduxjs/toolkit';\n\nconst todosSlice = createSlice({\n  name: 'todos',\n  initialState: [],\n  reducers: {\n    todoAdded: {\n      reducer(state, action) { state.push(action.payload); },\n      prepare(text) { return { payload: { text, done: false } }; },\n    },\n  },\n});\n\nconsole.log(todosSlice.actions.todoAdded('Pay electricity bill').type);",
+      "codeLanguage": "js",
+      "answerHint": "Type the action type string",
+      "acceptedAnswers": [
+        "todos/todoAdded",
+        "'todos/todoAdded'",
+        "\"todos/todoAdded\""
+      ],
+      "caseSensitive": false,
+      "explanation": "createSlice builds every action type as `name + '/' + key`, so the type is `todos/todoAdded`. Using the `reducer` + `prepare` object form changes how the payload is built, not the type."
+    },
+    {
+      "id": "redux-10",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-createslice",
+      "question": "Each new to-do needs a unique `id` and a `createdAt` timestamp. Where should these values be generated in a createSlice-based slice?",
+      "options": [
+        "Inside the case reducer, with `nanoid()` and `new Date().toISOString()`",
+        "In a `prepare` callback, which runs inside the action creator before dispatch",
+        "In `extraReducers`, using `addDefaultCase`",
+        "In the slice's `selectors` field"
+      ],
+      "correctIndex": 1,
+      "explanation": "`prepare` runs when the action creator is called, before dispatch, so the random id and timestamp end up in the payload and the reducer stays pure and replayable. Generating them inside the reducer breaks purity: replaying the same action would produce different state."
+    },
+    {
+      "id": "redux-11",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "05-createslice",
+      "question": "What happens when this slice's reducer is used to create a store?",
+      "code": "const reset = createAction('app/reset');\n\nconst slice = createSlice({\n  name: 'x',\n  initialState: 0,\n  reducers: {},\n  extraReducers: (builder) => {\n    builder\n      .addMatcher((a) => a.type.endsWith('/reset'), () => 1)\n      .addCase(reset, () => 0);\n  },\n});\n\nconfigureStore({ reducer: { x: slice.reducer } });",
+      "codeLanguage": "js",
+      "options": [
+        "It works; dispatching `reset()` sets the state to 0 because `addCase` wins",
+        "It works; dispatching `reset()` sets the state to 1 because the matcher was added first",
+        "It works, but `addCase` is silently ignored",
+        "It throws an error saying `builder.addCase` should only be called before `builder.addMatcher`"
+      ],
+      "correctIndex": 3,
+      "explanation": "The builder enforces an order: all `addCase` calls first, then `addMatcher`, then `addDefaultCase`. Calling `addCase` after `addMatcher` throws \"`builder.addCase` should only be called before calling `builder.addMatcher`\" when the reducer is built (here, as soon as configureStore runs it). It does not silently pick a winner."
+    },
+    {
+      "id": "redux-12",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "06-react-redux-hooks",
+      "question": "Why does `<Provider store={store}>` not re-render the whole app every time the state changes?",
+      "options": [
+        "Provider wraps every child in `React.memo` automatically",
+        "Provider only re-renders when an action's type starts with the slice name",
+        "Provider passes down the store object, which never changes, and each `useSelector` subscribes on its own",
+        "Provider batches all state changes into one render per second"
+      ],
+      "correctIndex": 2,
+      "explanation": "The context value is the store object itself, not the state, so it never changes. Each component subscribes through `useSelector` and re-renders only when its own selected value changes. Provider does not add `React.memo` or time-based batching."
+    },
+    {
+      "id": "redux-13",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "06-react-redux-hooks",
+      "question": "`useSelector((s) => ({ count: s.cart.items.length, theme: s.ui.theme }))` returns a new object every time, so the component re-renders after every state change. Which function exported by react-redux can you pass as the second argument to compare the object's top-level fields instead of its reference?",
+      "answerHint": "Type the function name",
+      "acceptedAnswers": [
+        "shallowEqual",
+        "shallowEqual()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`useSelector(selector, shallowEqual)` compares each top-level field with `===` instead of comparing the object reference, so an equal `{ count, theme }` no longer triggers a re-render. Splitting it into two `useSelector` calls is the other common fix."
+    },
+    {
+      "id": "redux-14",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "07-configurestore-and-devtools",
+      "question": "This file is run with plain `node store.mjs` (NODE_ENV is not set, so this is a development build). What number is printed?",
+      "code": "import { configureStore } from '@reduxjs/toolkit';\n\nconfigureStore({\n  reducer: { a: (state = 0) => state },\n  middleware: (getDefaultMiddleware) => {\n    console.log(getDefaultMiddleware().length);\n    return getDefaultMiddleware();\n  },\n});",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "4"
+      ],
+      "caseSensitive": false,
+      "explanation": "In development getDefaultMiddleware returns four middleware: the action creator check, the immutability check, thunk and the serializability check. With NODE_ENV=production only thunk remains, so the length would be 1."
+    },
+    {
+      "id": "redux-15",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "07-configurestore-and-devtools",
+      "question": "What happens when the last line runs?",
+      "code": "import { configureStore, Tuple } from '@reduxjs/toolkit';\n\nconst logger = () => (next) => (action) => next(action);\n\nconst store = configureStore({\n  reducer: { a: (state = 0) => state },\n  middleware: () => new Tuple(logger),\n});\n\nstore.dispatch((dispatch) => dispatch({ type: 'x' }));",
+      "codeLanguage": "js",
+      "options": [
+        "It throws \"Actions must be plain objects\" because returning a new Tuple dropped the thunk middleware",
+        "The thunk runs and dispatches `{ type: 'x' }`",
+        "It throws \"`middleware` field must be a callback\"",
+        "It logs a serializability warning but still runs the function"
+      ],
+      "correctIndex": 0,
+      "explanation": "Returning `new Tuple(logger)` replaces the defaults entirely, including thunk. The function passes through `logger` to the store's real dispatch, which rejects anything that is not a plain object. The \"must be a callback\" error is for passing an array instead of a function, which this code does not do."
+    },
+    {
+      "id": "redux-16",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-typescript-with-redux",
+      "question": "With React-Redux 9, what is the recommended way to create a `useAppSelector` hook that already knows the `RootState` type?",
+      "options": [
+        "`const useAppSelector = useSelector as RootState;`",
+        "`const useAppSelector = (fn) => useSelector<RootState>(fn) as any;`",
+        "Install `@types/react-redux` and add a global `RootState` declaration",
+        "`export const useAppSelector = useSelector.withTypes<RootState>();`"
+      ],
+      "correctIndex": 3,
+      "explanation": "React-Redux 9 adds `.withTypes()` to `useSelector`, `useDispatch` and `useStore`, so you define pre-typed hooks once. `TypedUseSelectorHook` still works but is the older style. `@types/react-redux` must not be installed because React-Redux 9 ships its own types, and casts throw away type safety."
+    },
+    {
+      "id": "redux-17",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "08-typescript-with-redux",
+      "question": "This file is checked with `tsc --noEmit --strict`. What happens?",
+      "code": "import { configureStore, createSlice } from '@reduxjs/toolkit';\nimport { useSelector } from 'react-redux';\n\nconst cart = createSlice({\n  name: 'cart',\n  initialState: { items: [] as string[] },\n  reducers: {},\n});\nexport const store = configureStore({ reducer: { cart: cart.reducer } });\n\nexport function useItems() {\n  return useSelector((state) => state.cart.items);\n}",
+      "codeLanguage": "ts",
+      "options": [
+        "It compiles, and `state` is inferred from the store created in the same file",
+        "Error TS18046: 'state' is of type 'unknown'",
+        "Error TS2345: the selector is not assignable to `UnknownAction`",
+        "It compiles, but `state` is typed as `any`"
+      ],
+      "correctIndex": 1,
+      "explanation": "The raw `useSelector` has no idea which store you mean, so `state` is `unknown` and accessing `.cart` fails with TS18046. The fix is a pre-typed `useAppSelector = useSelector.withTypes<RootState>()`. TS2345 about `UnknownAction` is the error you get when dispatching a thunk with an untyped dispatch, not when selecting."
+    },
+    {
+      "id": "redux-18",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "09-selectors-and-memoization",
+      "question": "With Redux Toolkit 2 (Reselect 5 defaults), what does the last line print?",
+      "code": "import { createSelector } from '@reduxjs/toolkit';\n\nconst selectItems = (state) => state.items;\nconst selectByCategory = createSelector(\n  [selectItems, (state, category) => category],\n  (items, category) => items.filter((p) => p.category === category),\n);\n\nconst state = { items: [{ category: 'grocery' }, { category: 'kitchen' }] };\nselectByCategory(state, 'grocery');\nselectByCategory(state, 'kitchen');\nselectByCategory(state, 'grocery');\nconsole.log(selectByCategory.recomputations());",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "2"
+      ],
+      "caseSensitive": false,
+      "explanation": "Reselect 5 memoizes with `weakMapMemoize` by default, which keeps one cache entry per distinct set of arguments. The third call (`'grocery'` again) hits the cache, so the result function ran only twice. The older `lruMemoize` with cache size 1 would have recomputed 3 times."
+    },
+    {
+      "id": "redux-19",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "09-selectors-and-memoization",
+      "question": "In development, this selector logs \"An input selector returned a different result when passed same arguments\". What is the right fix?",
+      "code": "const selectProductCount = createSelector(\n  [(state) => state.products.items.map((p) => p.id)],\n  (ids) => ids.length,\n);",
+      "codeLanguage": "js",
+      "options": [
+        "Switch the memoizer to `lruMemoize` with a larger cache size",
+        "Wrap the component that uses it in `React.memo`",
+        "Make the input selector return `state.products.items` and do the mapping in the result function",
+        "Turn off the check with `devModeChecks: { inputStabilityCheck: 'never' }`"
+      ],
+      "correctIndex": 2,
+      "explanation": "Input selectors should only extract existing values; transformations such as `.map()` belong in the result function. Here the input selector builds a new array on every call, so memoization can never hit. Changing the memoizer, adding `React.memo` or silencing the check leaves the real bug in place."
+    },
+    {
+      "id": "redux-20",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "10-async-logic-with-thunks",
+      "question": "`api.getOrders('nobody')` resolves with `{ ok: false, status: 404 }`. What does the last line print?",
+      "code": "const fetchOrders = createAsyncThunk(\n  'orders/fetch',\n  async (userId, { extra, rejectWithValue }) => {\n    const res = await extra.api.getOrders(userId);\n    if (!res.ok) return rejectWithValue({ status: res.status });\n    return res.data;\n  },\n);\n\n// store created with thunk: { extraArgument: { api } }\nconst r = await store.dispatch(fetchOrders('nobody'));\nconsole.log(r.payload.status, r.error.message);",
+      "codeLanguage": "js",
+      "answerHint": "Type the two values printed, separated by a space",
+      "acceptedAnswers": [
+        "404 Rejected",
+        "404, Rejected",
+        "404,Rejected"
+      ],
+      "caseSensitive": false,
+      "explanation": "Returning `rejectWithValue(...)` dispatches the `orders/fetch/rejected` action with your value as `payload`, so `r.payload.status` is 404. RTK still fills in `error`, and for a rejectWithValue rejection its message is the generic \"Rejected\". A thrown error would instead put its own message in `error.message` and leave `payload` undefined."
+    },
+    {
+      "id": "redux-21",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-async-logic-with-thunks",
+      "question": "`fetchOrders` has a `condition` option that returns `false` while `state.orders.status === 'loading'`. The code below dispatches it twice in a row. What happens to the second dispatch?",
+      "code": "const p1 = store.dispatch(fetchOrders('u1'));\nconst p2 = store.dispatch(fetchOrders('u1')); // status is now 'loading'\nconst r2 = await p2;",
+      "codeLanguage": "js",
+      "options": [
+        "No actions are dispatched for it; `r2` is a rejected action with `meta.condition === true`",
+        "It dispatches `orders/fetch/pending` and then `orders/fetch/rejected`",
+        "`p2` rejects, so `await p2` throws",
+        "It waits for the first request and resolves with the same fulfilled action"
+      ],
+      "correctIndex": 0,
+      "explanation": "When `condition` returns false the thunk bails out before doing anything: no pending, fulfilled or rejected action reaches the store. The promise still resolves (thunk promises never reject on their own) with a rejected action marked `meta.condition: true`. It does not share the first request's result."
+    },
+    {
+      "id": "redux-22",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "11-normalizing-state-and-entity-adapter",
+      "question": "An entity adapter already holds `{ empCode: 'E101', name: 'Anita Desai' }`. A reducer wired to `employeesAdapter.addOne` receives `{ empCode: 'E101', name: 'Dup' }`. What is E101's name afterwards?",
+      "options": [
+        "`'Dup'`, because addOne replaces the entity",
+        "`'Dup'`, because addOne shallow-merges the fields",
+        "It throws a duplicate-id error",
+        "`'Anita Desai'`, because addOne ignores ids that already exist"
+      ],
+      "correctIndex": 3,
+      "explanation": "`addOne`/`addMany` only insert new ids and ignore existing ones. To replace an existing entity use `setOne`; to shallow-merge new fields into it use `upsertOne` (or `updateOne` with `{ id, changes }`)."
+    },
+    {
+      "id": "redux-23",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "11-normalizing-state-and-entity-adapter",
+      "question": "What does the last line print?",
+      "code": "const employeesAdapter = createEntityAdapter({\n  selectId: (e) => e.empCode,\n  sortComparer: (a, b) => a.name.localeCompare(b.name),\n});\n// employeeAdded is wired to employeesAdapter.addOne\nstore.dispatch(employeeAdded({ empCode: 'E104', name: 'Zoya Khan' }));\nstore.dispatch(employeeAdded({ empCode: 'E102', name: 'Ravi Kumar' }));\nstore.dispatch(employeeAdded({ empCode: 'E101', name: 'Anita Desai' }));\n\nconst sel = employeesAdapter.getSelectors((state) => state.employees);\nconsole.log(sel.selectIds(store.getState()).join(','));",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "E101,E102,E104",
+        "E101, E102, E104"
+      ],
+      "caseSensitive": false,
+      "explanation": "`selectId` makes `empCode` the id, and `sortComparer` keeps the `ids` array sorted by name, not by insertion order: Anita (E101), Ravi (E102), Zoya (E104)."
+    },
+    {
+      "id": "redux-24",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "12-structuring-a-redux-app",
+      "question": "Which of these should be kept OUT of the Redux store?",
+      "options": [
+        "The logged-in user",
+        "A live WebSocket connection object",
+        "Feature flags",
+        "The saved steps of a multi-step application wizard"
+      ],
+      "correctIndex": 1,
+      "explanation": "Redux state must be serializable, and a socket is a live, non-serializable object (configureStore's serializable check would warn). Keep the socket elsewhere and store only plain data such as its status. The logged-in user, feature flags and saved wizard steps are classic global client state."
+    },
+    {
+      "id": "redux-25",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "12-structuring-a-redux-app",
+      "question": "Placing an order must clear the cart and add the order to the history. Which approach does the Redux style guide recommend?",
+      "options": [
+        "The component dispatches `setCartItems([])` and then `addOrderToHistory(order)`",
+        "The cart slice imports the orders slice reducer and calls it directly",
+        "Dispatch one past-tense event such as `orderPlaced`, and let both slices handle it in `extraReducers`",
+        "Create a second store for orders so the two do not interfere"
+      ],
+      "correctIndex": 2,
+      "explanation": "Actions should describe what happened. One `checkout/orderPlaced` event can be handled by the cart slice and the orders slice independently. The setter pair couples the component to two slices, shows two actions in DevTools for one user event and can leave state inconsistent if one call is forgotten. An app should have one store."
+    },
+    {
+      "id": "redux-26",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "13-rtk-query-basics",
+      "question": "A query already has data, and the user clicks a Refresh button that calls `refetch()`. While that request is in flight, what are the flags?",
+      "options": [
+        "`isLoading: false`, `isFetching: true`",
+        "`isLoading: true`, `isFetching: true`",
+        "`isLoading: true`, `isFetching: false`",
+        "`isLoading: false`, `isFetching: false`"
+      ],
+      "correctIndex": 0,
+      "explanation": "`isLoading` is true only for the first load, when there is no data yet. `isFetching` is true for any request in flight, including refetches, while the old `data` stays available, so you can dim the list instead of showing a spinner."
+    },
+    {
+      "id": "redux-27",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "13-rtk-query-basics",
+      "question": "An API slice created with `createApi` from `@reduxjs/toolkit/query/react` defines a query endpoint named `getFunds`. What is the name of the auto-generated React hook you call in a component to fetch it?",
+      "answerHint": "Type the hook name",
+      "acceptedAnswers": [
+        "useGetFundsQuery",
+        "useGetFundsQuery()"
+      ],
+      "caseSensitive": false,
+      "explanation": "Hook names follow the endpoint name: `use` + capitalised endpoint name + `Query` for queries, giving `useGetFundsQuery` (and `useLazyGetFundsQuery` for the lazy version). Mutations get a `Mutation` suffix."
+    },
+    {
+      "id": "redux-28",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "14-rtk-query-mutations-and-cache-tags",
+      "question": "`getFunds` provides a tag per fund plus `{ type: 'Fund', id: 'LIST' }`, and `getFund(id)` provides `{ type: 'Fund', id }`. With `getFunds`, `getFund(1)` and `getFund(2)` all subscribed, `addFund` (which invalidates `{ type: 'Fund', id: 'LIST' }`) succeeds. What is refetched?",
+      "options": [
+        "All three queries",
+        "Nothing; the new fund is written into the cache directly",
+        "Only `getFund(1)` and `getFund(2)`",
+        "Only `getFunds`"
+      ],
+      "correctIndex": 3,
+      "explanation": "Only `getFunds` provides the `Fund/LIST` tag, so only the list refetches. The detail queries provide per-id tags, which `addFund` did not touch. A brand-new fund cannot already have a detail query, which is why the `LIST` tag exists."
+    },
+    {
+      "id": "redux-29",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "14-rtk-query-mutations-and-cache-tags",
+      "question": "A detail page is still subscribed to `getFund(1)` when `deleteFund(1)` succeeds. `deleteFund` invalidates `{ type: 'Fund', id: 1 }`. What happens next?",
+      "options": [
+        "The `getFund(1)` cache entry is removed automatically and no request is sent",
+        "`getFund(1)` refetches because it is still subscribed, and the server responds 404",
+        "Only the list refetches; detail queries are never invalidated by a delete",
+        "RTK Query throws because an invalidated tag still has subscribers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every query that provides `Fund/1` and has an active subscription refetches immediately, so the detail query asks for a fund that no longer exists and gets a 404. The fix is to navigate away from (or skip) the detail query after a successful delete. Invalidation never deletes cache entries or throws."
+    },
+    {
+      "id": "redux-30",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-testing-redux",
+      "question": "According to the official Redux testing guidance, how should you test a component that reads from the store?",
+      "options": [
+        "Mock `useSelector` and `useDispatch` with `vi.mock` and assert on the calls",
+        "Test only the reducers and skip component tests",
+        "Render it inside a Provider with a fresh real store (for example via `renderWithProviders` and `preloadedState`) and assert on what the user sees",
+        "Export the app's singleton store and reset it with `store.replaceReducer` in `afterEach`"
+      ],
+      "correctIndex": 2,
+      "explanation": "The guidance prefers integration tests: render with a real store built by a `setupStore` factory, preload the state you need, and interact as a user would. Mocking the hooks couples tests to implementation details, and a shared singleton store leaks state between tests."
+    },
+    {
+      "id": "redux-31",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "15-testing-redux",
+      "question": "Why should tests use a `setupStore(preloadedState)` factory instead of importing the app's single `store` instance?",
+      "options": [
+        "So every test gets a new store and tests cannot leak state into each other",
+        "Because configureStore cannot be called at module level in a test file",
+        "Because a factory store skips the reducers and is faster",
+        "So the thunk middleware is removed during tests"
+      ],
+      "correctIndex": 0,
+      "explanation": "A factory builds a brand-new store for each test, optionally with `preloadedState`, so one test's dispatches can never affect another. It is a normal configureStore store with the same reducers and middleware, so the thunk middleware still works."
+    },
+    {
+      "id": "redux-32",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "16-middleware-fundamentals",
+      "question": "What does the last line print?",
+      "code": "const log = [];\nconst tag = (name) => () => (next) => (action) => {\n  log.push(name + '>');\n  const result = next(action);\n  log.push(name + '<');\n  return result;\n};\n\nconst store = configureStore({\n  reducer: { c: (s = 0, a) => (a.type === 'inc' ? s + 1 : s) },\n  middleware: (getDefaultMiddleware) =>\n    getDefaultMiddleware().concat(tag('A')).prepend(tag('B')),\n});\n\nstore.dispatch({ type: 'inc' });\nconsole.log(log.join(' '));",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "B> A> A< B<",
+        "B>A>A<B<",
+        "B>, A>, A<, B<"
+      ],
+      "caseSensitive": false,
+      "explanation": "`.prepend(tag('B'))` puts B at the front of the chain and `.concat(tag('A'))` puts A at the end, so B is the outermost layer. Code before `next()` runs outer-to-inner (B then A), the reducer runs in the middle, and code after `next()` runs inner-to-outer (A then B)."
+    },
+    {
+      "id": "redux-33",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "16-middleware-fundamentals",
+      "question": "A middleware returns early without calling `next(action)` for actions of type `payments/send`. What happens when `payments/send` is dispatched?",
+      "code": "const blockInDemo = () => (next) => (action) => {\n  if (isAction(action) && action.type === 'payments/send') return undefined;\n  return next(action);\n};",
+      "codeLanguage": "js",
+      "options": [
+        "Redux throws because every middleware must call `next`",
+        "The action skips the remaining middleware but still reaches the reducers",
+        "The action is re-dispatched from the top of the chain",
+        "The action is swallowed: later middleware and the reducers never see it"
+      ],
+      "correctIndex": 3,
+      "explanation": "Middleware sits between `dispatch` and the reducers. If it never calls `next`, the action goes no further, so nothing downstream, including the reducers, sees it, and `dispatch` returns `undefined`. Redux does not require `next` to be called, and re-entering the chain only happens if you call `store.dispatch`."
+    },
+    {
+      "id": "redux-34",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "17-listener-middleware",
+      "question": "A search box dispatches `queryChanged` on every keystroke. Using the listener middleware, which effect body debounces the search so only the last query in a burst runs?",
+      "options": [
+        "`api.unsubscribe(); await search(action.payload);`",
+        "`api.cancelActiveListeners(); await api.delay(300); await search(action.payload);`",
+        "`await api.take(queryChanged.match); await search(action.payload);`",
+        "`await api.delay(300); api.cancelActiveListeners(); await search(action.payload);`"
+      ],
+      "correctIndex": 1,
+      "explanation": "`cancelActiveListeners()` cancels earlier runs of the same listener that are still waiting, and those runs throw at their `api.delay`. Cancelling first and then delaying means only the last keystroke survives the 300 ms wait. Cancelling after the delay gets it backwards: the first run wakes up first and cancels the later ones, so the stale query `'l'` is searched instead of the latest. `unsubscribe()` would stop the listener for good."
+    },
+    {
+      "id": "redux-35",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "17-listener-middleware",
+      "question": "Why is the listener middleware usually added with `getDefaultMiddleware().prepend(listenerMiddleware.middleware)` rather than `.concat(...)`?",
+      "options": [
+        "Because effects must run before the reducers process the action",
+        "Because the thunk middleware would otherwise swallow every listener",
+        "Because `addListener` actions carry functions, and the listener middleware must handle them before the serializability check sees them",
+        "Because `concat` is not available on the Tuple returned by getDefaultMiddleware"
+      ],
+      "correctIndex": 2,
+      "explanation": "Components can dispatch `addListener(...)`, an action whose payload contains functions. Prepending makes the listener middleware intercept it before the dev-only serializability check would warn. Listener effects still run after the reducers (`api.getState()` is already the new state), and Tuple supports both `concat` and `prepend`."
+    },
+    {
+      "id": "redux-36",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "18-rtk-query-advanced",
+      "question": "In an optimistic update, `api.util.updateQueryData('getTodos', ???, recipe)` should patch the list a component loaded with `useGetTodosQuery()` (no argument). What must the second argument be?",
+      "options": [
+        "`undefined`, matching the argument the hook was called with",
+        "The mutation's argument, `{ id, done }`",
+        "The tag `'Todo'`",
+        "The string `'getTodos(undefined)'`"
+      ],
+      "correctIndex": 0,
+      "explanation": "The second argument is the cache key argument and must match what the component passed to the hook. `useGetTodosQuery()` has no argument, so the key is `undefined`. Passing the mutation's argument targets a cache entry that does not exist, so nothing changes on screen."
+    },
+    {
+      "id": "redux-37",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "18-rtk-query-advanced",
+      "question": "What does the last line print?",
+      "code": "import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query';\n\nconst api = createApi({\n  baseQuery: fetchBaseQuery({ baseUrl: '/api' }),\n  endpoints: () => ({}),\n});\n\nconst reportsApi = api.injectEndpoints({\n  endpoints: (build) => ({\n    getReport: build.query({ query: () => 'reports/summary' }),\n  }),\n});\n\nconsole.log(reportsApi === api, 'getReport' in api.endpoints);",
+      "codeLanguage": "js",
+      "answerHint": "Type the two values printed, separated by a space",
+      "acceptedAnswers": [
+        "true true",
+        "true, true",
+        "true,true"
+      ],
+      "caseSensitive": false,
+      "explanation": "`injectEndpoints` mutates the original API object and returns that same object (with better types for the new endpoints). That is why a lazily loaded chunk can add endpoints without any store change: the reducer and middleware already belong to the base `api`."
+    },
+    {
+      "id": "redux-38",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "19-redux-with-nextjs",
+      "question": "Why must a Next.js App Router app not use a module-level `export const store = configureStore(...)`?",
+      "options": [
+        "Because Server Components cannot import any file that calls configureStore",
+        "Because Next.js clears module state after every navigation",
+        "Because configureStore only works inside a `'use client'` file",
+        "Because the server process handles many requests concurrently, so one shared store can leak one user's state into another user's render"
+      ],
+      "correctIndex": 3,
+      "explanation": "On the server a module is evaluated once and shared by every request. A singleton store lets concurrent requests mutate the same object, so one user can see another's data. The fix is a `makeStore` factory called once per request inside a client `StoreProvider` (using a ref)."
+    },
+    {
+      "id": "redux-39",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "20-persisting-and-hydrating-state",
+      "question": "Which piece of state is the best candidate to persist to `localStorage`?",
+      "options": [
+        "The user's auth token",
+        "The user's theme and language preferences",
+        "A `status: 'loading'` flag",
+        "The RTK Query cache of fund NAVs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Small user preferences such as theme and language are ideal to persist. Tokens should not sit in `localStorage`, where any script on the page can read them (XSS risk); loading flags restore a stuck UI; and an API cache refetches anyway, while stale financial data is worse than a spinner."
+    },
+    {
+      "id": "redux-40",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "20-persisting-and-hydrating-state",
+      "question": "In a server-rendered app, a Client Component reads saved preferences from `localStorage` during its first render, and React reports a hydration mismatch. What is the recommended fix?",
+      "options": [
+        "Read `localStorage` at module level so the value exists before React renders",
+        "Pass the `localStorage` value as `preloadedState` from the Server Component",
+        "Render the default state first, then load the saved state in a `useEffect` after mount and dispatch it into the store",
+        "Disable `serializableCheck` in getDefaultMiddleware"
+      ],
+      "correctIndex": 2,
+      "explanation": "The server has no `localStorage`, so its HTML uses default state. If the client's first render differs, hydration fails. Loading after mount (a `PrefsHydrator` effect that dispatches a rehydrate action) keeps the first client render identical to the server's. A Server Component cannot read the browser's `localStorage` at all, and the serializability check is unrelated."
+    },
+    {
+      "id": "redux-41",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "21-performance-and-rerenders",
+      "question": "A component uses `useSelector((s) => ({ a: s.a, b: s.b }))`. Neither `a` nor `b` changes, but the component re-renders after unrelated actions that change other parts of the state. Why?",
+      "options": [
+        "The object literal is a new reference on every run, and useSelector compares results with `===` by default",
+        "useSelector always re-renders when any reducer runs",
+        "Provider re-renders all of its children whenever the state changes",
+        "Selectors that read two slices are never memoized by React-Redux"
+      ],
+      "correctIndex": 0,
+      "explanation": "After a state change React-Redux re-runs the selector and compares the result with `===`. A fresh object always fails that check, so the component re-renders even though `a` and `b` are equal. Split it into two selectors or pass `shallowEqual`. Provider passes the store, not the state, so it is not the cause."
+    },
+    {
+      "id": "redux-42",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "22-lazy-loading-slices",
+      "question": "What does the last line print? (No action has been dispatched since the slice was injected.)",
+      "code": "const authSlice = createSlice({ name: 'auth', initialState: { user: null }, reducers: {} });\nconst rootReducer = combineSlices(authSlice).withLazyLoadedSlices();\nconst store = configureStore({ reducer: rootReducer });\n\nconst reportsSlice = createSlice({\n  name: 'reports',\n  initialState: { range: '30d' },\n  reducers: {},\n  selectors: { selectRange: (state) => state.range },\n});\nconst injected = reportsSlice.injectInto(rootReducer);\n\nconsole.log(\n  Object.keys(store.getState()).join(','),\n  injected.selectors.selectRange(store.getState()),\n);",
+      "codeLanguage": "js",
+      "answerHint": "Type the two values printed, separated by a space",
+      "acceptedAnswers": [
+        "auth 30d",
+        "auth, 30d",
+        "auth,30d"
+      ],
+      "caseSensitive": false,
+      "explanation": "Injection does not dispatch anything, so the `reports` key does not appear in state until the next action passes through the root reducer; the keys are just `auth`. The injected slice's selectors fall back to the slice's initial state when its state is missing, so `selectRange` returns `'30d'`. The original `reportsSlice.selectors.selectRange` would throw instead."
+    },
+    {
+      "id": "redux-43",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "22-lazy-loading-slices",
+      "question": "What does `combineSlices(authSlice).withLazyLoadedSlices<LazyLoadedSlices>()` do at runtime?",
+      "options": [
+        "It pre-loads every slice listed in `LazyLoadedSlices` with its initial state",
+        "It dispatches an init action for each lazy slice",
+        "It creates a second store for lazy slices",
+        "Nothing: it returns the same reducer and only tells TypeScript that those keys may appear in state, typed as optional"
+      ],
+      "correctIndex": 3,
+      "explanation": "`withLazyLoadedSlices` is a type-level helper. It returns the same reducer and marks the `LazyLoadedSlices` keys as optional in the state type, because they may not be injected yet. The actual injection happens later with `slice.injectInto(rootReducer)` or `rootReducer.inject(slice)`."
+    },
+    {
+      "id": "redux-44",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "23-redux-vs-alternatives",
+      "question": "A context provider passes `value={{ user, cartCount }}`. A component reads only `user` with `useContext`. What happens when `cartCount` changes?",
+      "options": [
+        "Nothing; useContext only re-renders when the fields you destructure change",
+        "The component re-renders, because Context has no selectors and every consumer re-renders when the provider's value changes",
+        "React throws because context values must be primitives",
+        "Only the provider re-renders, never its consumers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Context is a transport mechanism, not a store: it has no selectors. When the provider's `value` changes (and an inline object is new on every render), every consumer re-renders even if it uses only one field. Redux and Zustand use selectors so components re-render only when their selected value changes."
+    },
+    {
+      "id": "redux-45",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "23-redux-vs-alternatives",
+      "question": "Which statement about RTK Query versus TanStack Query is correct?",
+      "options": [
+        "Only TanStack Query de-duplicates requests and supports polling",
+        "RTK Query invalidates by query-key prefix, while TanStack Query uses tags",
+        "RTK Query keeps its cache in your Redux store (visible in Redux DevTools), while TanStack Query keeps it in its own QueryClient",
+        "TanStack Query requires Redux to be installed"
+      ],
+      "correctIndex": 2,
+      "explanation": "RTK Query stores its cache under `reducerPath` in the Redux store, so its actions and state appear in Redux DevTools. TanStack Query uses its own `QueryClient` and devtools. The invalidation styles are the other way round (RTK Query uses tags, TanStack uses query keys), and both handle de-duplication and polling."
+    },
+    {
+      "id": "redux-46",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "24-redux-internals",
+      "question": "`compose` is the same helper `applyMiddleware` uses to chain middleware. What does the last line print?",
+      "code": "import { compose } from 'redux';\n\nconst f = (x) => x + 1;\nconst g = (x) => x * 2;\nconst h = (x) => x - 3;\n\nconsole.log(compose(f, g, h)(2));",
+      "codeLanguage": "js",
+      "answerHint": "Type the number printed",
+      "acceptedAnswers": [
+        "-1"
+      ],
+      "caseSensitive": false,
+      "explanation": "`compose(f, g, h)(x)` is `f(g(h(x)))`; it applies the functions right to left. h(2) = -1, g(-1) = -2, f(-2) = -1. This is why the first middleware in the list ends up outermost and sees each action first."
+    },
+    {
+      "id": "redux-47",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "25-large-scale-redux-architecture",
+      "question": "In a layered large-scale Redux codebase, the `cart` feature needs to reset itself when the `auth` feature logs the user out. What is the recommended approach?",
+      "options": [
+        "Define a shared `session/ended` event in `shared/` and let the cart slice handle it in `extraReducers`",
+        "Have the auth feature import the cart slice and dispatch `cart/cleared` directly",
+        "Have the cart feature import auth's internal state shape and watch it with a `useEffect`",
+        "Give each feature its own store so logout can recreate the cart store"
+      ],
+      "correctIndex": 0,
+      "explanation": "Features never import other features. A shared, past-tense event lives in a lower layer, and every feature that cares responds to it, so auth does not need to know the cart exists. Direct imports between features break the dependency rule, and separate stores lose Redux's single-store benefits."
+    },
+    {
+      "id": "redux-48",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "26-migrating-legacy-redux",
+      "question": "After converting a `connect`ed component to hooks, it suddenly re-renders after every action. Its `mapState` used to return `{ todos: state.todos.filter((t) => !t.done) }`. What is the cause?",
+      "options": [
+        "Hooks do not support filtering inside selectors",
+        "`useDispatch` returns a new function on every render",
+        "connect is deprecated in React-Redux 9 and slows down the app",
+        "connect compared the mapState result shallowly, but `useSelector` compares with `===`, so a newly filtered array fails every time"
+      ],
+      "correctIndex": 3,
+      "explanation": "connect shallow-compares the object returned by mapState, while `useSelector` uses reference equality by default. A `.filter()` result is a new array on every run, so the hook version re-renders after any state change. Fix it with a memoized `createSelector`. `useDispatch` is stable, and connect is still supported in React-Redux 9."
+    },
+    {
+      "id": "redux-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "27-realtime-and-offline-patterns",
+      "question": "High-frequency socket ticks use `prepareAutoBatched()` so the default `autoBatchEnhancer` can coalesce subscriber notifications. Which property does it add to the action's `meta` object?",
+      "code": "const ticks = createSlice({\n  name: 'ticks',\n  initialState: { last: 0 },\n  reducers: {\n    tickReceived: {\n      reducer: (state, action) => { state.last = action.payload; },\n      prepare: prepareAutoBatched(),\n    },\n  },\n});\n\nconsole.log(ticks.actions.tickReceived(1).meta);",
+      "codeLanguage": "js",
+      "answerHint": "Type the meta property name",
+      "acceptedAnswers": [
+        "RTK_autoBatch",
+        "meta.RTK_autoBatch",
+        "RTK_autoBatch: true",
+        "{ RTK_autoBatch: true }"
+      ],
+      "caseSensitive": false,
+      "explanation": "The action is `{ type: 'ticks/tickReceived', payload: 1, meta: { RTK_autoBatch: true } }`. The enhancer sees that flag and delays notifying subscribers until the end of the frame (a timer in Node). The state is still updated immediately; only the notifications are batched."
+    },
+    {
+      "id": "redux-50",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "28-project-team-task-board",
+      "question": "In the task board's memoized board selector, why is `r.data ?? EMPTY` (with `const EMPTY: Task[] = []` defined once at module level) used instead of `r.data ?? []`?",
+      "options": [
+        "Because `??` cannot be used with array literals in TypeScript",
+        "Because RTK Query returns `null`, not `undefined`, while loading",
+        "Because `[]` creates a new array on every call while data is loading, which would defeat the memoization of the selectors built on it",
+        "Because a module-level constant is required by `createAppSelector`"
+      ],
+      "correctIndex": 2,
+      "explanation": "While `data` is undefined, `?? []` would return a fresh array each time, so downstream memoized selectors would see a changed input and recompute (and components would re-render). A single stable `EMPTY` array keeps the reference the same. `??` works fine with array literals; the issue is reference stability."
+    }
+  ]
+}

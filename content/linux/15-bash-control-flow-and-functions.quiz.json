@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `if` actually check in Bash?",
+      "options": [
+        "Whether the expression after it evaluates to the string \"true\"",
+        "The exit status of the command after it, where 0 means true",
+        "Whether the command printed any output",
+        "Whether the variable after it is non-empty"
+      ],
+      "correctIndex": 1,
+      "explanation": "if runs a command and branches on its exit status: 0 is success (true) and any non-zero status is false. That is why `if grep -q ERROR file` works."
+    },
+    {
+      "question": "What does `[[ 10 > 9 ]] && echo true || echo false` print?",
+      "options": [
+        "true, because 10 is greater than 9",
+        "A syntax error",
+        "Nothing",
+        "false, because > compares strings and \"1\" sorts before \"9\""
+      ],
+      "correctIndex": 3,
+      "explanation": "Inside [[ ]], > and < are string comparisons. Use -gt or arithmetic (( 10 > 9 )) for numbers."
+    },
+    {
+      "question": "A script runs `printf '1\\n2\\n' | while read -r l; do ((count++)); done` with count=0 beforehand. Why is count still 0 afterwards?",
+      "options": [
+        "The while loop ran in a subshell because it was part of a pipeline, so its changes were lost",
+        "read -r skips every line",
+        "((count++)) does not work on variables set outside the loop",
+        "printf output cannot be piped into a loop"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each part of a pipeline runs in a subshell. Feed the loop with a redirect or process substitution, `done < <(cmd)`, to keep it in the current shell."
+    },
+    {
+      "question": "How should a Bash function hand back a computed string such as a total?",
+      "options": [
+        "return \"$total\"",
+        "Assign it to $0",
+        "echo it and capture it with $(...)",
+        "export it from inside the function"
+      ],
+      "correctIndex": 2,
+      "explanation": "return only sets an exit status from 0 to 255. Data is passed back by printing it and capturing with command substitution, e.g. total=$(add 2 3)."
+    }
+  ]
+}

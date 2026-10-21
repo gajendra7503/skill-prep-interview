@@ -1,0 +1,159 @@
+---
+title: "How HTML & CSS Work Together"
+description: "The core mental model and vocabulary: elements, tags and attributes, the DOM tree, CSS rules, block vs inline, and the units you will meet everywhere."
+module: "Getting Started"
+level: beginner
+order: 2
+---
+
+Before learning individual elements and properties, it helps to know what
+the browser is actually doing with your files and the handful of words
+every tutorial, interviewer and error message assumes you know.
+
+## Two languages, two jobs
+
+- **HTML** (HyperText Markup Language) describes **what things are**:
+  this is a heading, this is a list, this is a button, this is a link.
+- **CSS** (Cascading Style Sheets) describes **how things look**: colour,
+  size, spacing, and where each thing sits on the screen.
+
+Keeping them separate means you can restyle a whole site without touching
+its content, and assistive technology such as screen readers can still
+understand the content when styles are ignored.
+
+## Anatomy of an element
+
+```html
+<a href="/plans" class="btn primary">See plans</a>
+<!--
+  <a ...>            opening tag  (element name: a)
+  href="/plans"      attribute: name="value"
+  class="btn primary" attribute holding two class names
+  See plans          content
+  </a>               closing tag
+-->
+```
+
+- An **element** is the whole thing: opening tag, content and closing tag.
+- **Attributes** go in the opening tag and add information. Common ones:
+  `id` (unique name), `class` (reusable label for styling), `href`, `src`,
+  `alt`.
+- Some elements are **void** and have no content or closing tag:
+  `<img>`, `<br>`, `<input>`, `<meta>`, `<link>`.
+
+## Nesting and the DOM tree
+
+Elements nest inside each other, and must close in the reverse order they
+opened:
+
+```html
+<ul>
+  <li>Savings account <strong>4%</strong></li>
+  <li>Fixed deposit</li>
+</ul>
+```
+
+When the browser reads HTML it builds an in-memory tree called the **DOM**
+(Document Object Model):
+
+```text
+ul
+├── li
+│   ├── "Savings account "
+│   └── strong
+│       └── "4%"
+└── li
+    └── "Fixed deposit"
+```
+
+Family words describe positions in that tree: the `ul` is the **parent**
+of each `li`, the two `li` elements are **siblings**, and `strong` is a
+**descendant** (but not a child) of `ul`. CSS selectors and JavaScript both
+work on this tree, not on the raw text of your file.
+
+## Anatomy of a CSS rule
+
+```css
+/* selector    { property: value; } */
+.price.highlight {
+  color: #15803d;        /* declaration 1 */
+  font-weight: 700;      /* declaration 2 */
+}
+```
+
+- The **selector** picks elements (here: anything with both classes
+  `price` and `highlight`).
+- Inside the braces is a **declaration block**; each **declaration** is a
+  **property**, a colon, a **value**, and a semicolon.
+- A misspelled property or invalid value is silently ignored — the browser
+  skips that one declaration and carries on. DevTools shows it with a
+  warning icon.
+
+The three selectors you need on day one:
+
+```css
+p        { }   /* type selector: every <p> */
+.card    { }   /* class selector: every element with class="card" */
+#signup  { }   /* id selector: the one element with id="signup" */
+```
+
+## Three places CSS can live
+
+```html
+<!-- 1. External file (preferred): reusable and cached -->
+<link rel="stylesheet" href="style.css">
+
+<!-- 2. A style element in the head: fine for small demos -->
+<style>
+  h1 { color: navy; }
+</style>
+
+<!-- 3. Inline style attribute: hardest to override and reuse -->
+<p style="color: gray">Fine print</p>
+```
+
+When several rules target the same element, the **cascade** decides which
+wins (more specific selectors and later rules generally win). You will
+study that in detail in the selectors lesson.
+
+## Block vs inline
+
+Every element has a default display type:
+
+| Type | Examples | Behaviour |
+| --- | --- | --- |
+| Block | `div`, `p`, `h1`, `section`, `ul` | Starts on a new line, stretches to full width |
+| Inline | `span`, `a`, `strong`, `em` | Flows inside a line of text, only as wide as its content |
+
+```css
+a { display: block; }   /* make a link fill the width like a paragraph */
+```
+
+Width, height and vertical margins have no effect on plain inline
+elements — a classic beginner surprise.
+
+## Units you will see everywhere
+
+| Unit | Means | Typical use |
+| --- | --- | --- |
+| `px` | CSS pixel | Borders, small fixed details |
+| `rem` | Multiple of the root font size (16px by default) | Font sizes, spacing |
+| `em` | Multiple of the element's own font size | Padding that scales with text |
+| `%` | Percentage of the parent | Fluid widths |
+| `vw` / `vh` | 1% of viewport width / height | Full-screen sections |
+
+```css
+h1 { font-size: 2rem; }   /* 32px when the root size is 16px */
+```
+
+Prefer `rem` for text so users who increase their browser's default font
+size get larger text everywhere.
+
+### Try it yourself
+
+Write a small HTML page with a heading, a paragraph containing a
+`<strong>` word and a link, and a list of three items. Sketch its DOM tree
+on paper and label one parent, one child and one pair of siblings. Then
+style it with one type selector, one class selector and one id selector,
+using `rem` for every font size. Finally, give the link `display: block`
+and a `width` and compare it with the inline version.

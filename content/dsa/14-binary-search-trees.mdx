@@ -1,0 +1,190 @@
+---
+title: "Binary Search Trees"
+description: "The BST ordering property, search, insert and delete, why balance matters, and classic BST interview problems like validation and k-th smallest."
+module: "Trees & Heaps"
+level: "intermediate"
+order: 14
+---
+
+A **binary search tree (BST)** is a binary tree with one extra rule: for every
+node, all values in its **left** subtree are smaller and all values in its
+**right** subtree are larger. That rule turns the tree into a structure you
+can binary search — each comparison discards a whole subtree. (This builds
+on "Binary Trees & Traversals".)
+
+```text
+              50
+            /    \
+          30      70           every value left of 50 is < 50,
+         /  \    /  \          every value right of 50 is > 50,
+       20   40  60   80        and the same holds at every node
+
+inorder: 20 30 40 50 60 70 80   <- always sorted: the key interview fact
+```
+
+## Why BSTs exist
+
+| Operation | Sorted array | Hash map | Balanced BST |
+|---|---|---|---|
+| Search | O(log n) | O(1) average | O(log n) |
+| Insert / delete | O(n) (shifting) | O(1) average | O(log n) |
+| Iterate in sorted order | O(n) | O(n log n) (must sort) | O(n) |
+| Floor / ceiling / range query | O(log n) | not supported | O(log n) |
+
+A BST gives fast updates **and** order, which is why Java's `TreeMap` and
+C++'s `std::map` are balanced BSTs (red-black trees). JavaScript has no
+sorted map (`Map` keeps insertion order), so you implement a BST or use a
+sorted array with binary search.
+
+## Search and insert
+
+```js
+class TreeNode {
+  constructor(val) { this.val = val; this.left = null; this.right = null; }
+}
+
+function search(node, target) {
+  while (node && node.val !== target) {
+    node = target < node.val ? node.left : node.right;
+  }
+  return node; // the node, or null
+}
+
+function insert(root, val) {
+  if (!root) return new TreeNode(val);
+  if (val < root.val) root.left = insert(root.left, val);
+  else if (val > root.val) root.right = insert(root.right, val);
+  return root;                     // duplicates ignored here
+}
+
+const inorder = (n, out = []) =>
+  n ? (inorder(n.left, out), out.push(n.val), inorder(n.right, out), out) : out;
+
+let root = null;
+for (const v of [50, 30, 70, 20, 40, 60, 80]) root = insert(root, v);
+console.log(inorder(root).join(" "));  // 20 30 40 50 60 70 80
+console.log(search(root, 60)?.val);    // 60
+console.log(search(root, 65));         // null
+```
+
+Both walk one root-to-leaf path: **O(h)** time, where h is the height.
+
+## Balance: the O(h) catch
+
+Insert values that are already sorted and every node goes to the right:
+
+```js
+const height = (n) => (n ? 1 + Math.max(height(n.left), height(n.right)) : 0);
+
+let skewed = null;
+for (let v = 1; v <= 1000; v++) skewed = insert(skewed, v);
+let balanced = null;
+for (const v of [4, 2, 6, 1, 3, 5, 7]) balanced = insert(balanced, v);
+
+console.log(height(skewed));   // 1000  (height in nodes: a linked list in disguise)
+console.log(height(balanced)); // 3     (7 nodes, perfectly balanced)
+```
+
+So a plain BST is O(log n) only **on average** (random insertion order) and
+O(n) in the worst case. **Self-balancing** BSTs — AVL and red-black trees —
+rotate nodes after updates to guarantee O(log n) height. You are rarely
+asked to code rotations, but should name them and explain why they exist.
+
+## Delete: three cases
+
+1. **Leaf:** remove it.
+2. **One child:** replace the node with its child.
+3. **Two children:** copy in the **inorder successor** (smallest value in the
+   right subtree), then delete the successor — it has no left child, so that
+   is case 1 or 2.
+
+```js
+function remove(root, val) {
+  if (!root) return null;
+  if (val < root.val) root.left = remove(root.left, val);
+  else if (val > root.val) root.right = remove(root.right, val);
+  else {
+    if (!root.left) return root.right;   // cases 1 and 2
+    if (!root.right) return root.left;
+    let succ = root.right;               // case 3
+    while (succ.left) succ = succ.left;
+    root.val = succ.val;
+    root.right = remove(root.right, succ.val);
+  }
+  return root;
+}
+
+root = remove(root, 20);  // leaf
+root = remove(root, 30);  // one child (40)
+root = remove(root, 50);  // two children: successor 60 moves up
+console.log(inorder(root).join(" ")); // 40 60 70 80
+console.log(root.val);                // 60
+```
+
+## Interview problem: validate a BST
+
+**Pattern:** pass down an allowed range. The classic wrong answer only checks
+each node against its direct children:
+
+```text
+        10
+       /  \
+      5    15
+          /  \
+         6    20     6 < 15 locally fine, but 6 is in 10's RIGHT subtree -> invalid
+```
+
+Each node must fit a range `(low, high)` inherited from all ancestors:
+going left tightens `high`, going right tightens `low`.
+
+```js
+function isValidBST(node, low = -Infinity, high = Infinity) {
+  if (!node) return true;
+  if (node.val <= low || node.val >= high) return false;
+  return isValidBST(node.left, low, node.val) && isValidBST(node.right, node.val, high);
+}
+
+const N = (v, left = null, right = null) => Object.assign(new TreeNode(v), { left, right });
+const bad = N(10, N(5), N(15, N(6), N(20)));   // the tree drawn above
+console.log(isValidBST(bad));  // false
+console.log(isValidBST(root)); // true
+```
+
+O(n) time, O(h) space. An equally good answer: do an inorder traversal and
+check that each value is strictly greater than the previous one.
+
+## Interview problem: k-th smallest element
+
+**Pattern:** inorder with early exit — the k-th node visited is the answer.
+Stopping there makes it O(h + k) instead of O(n).
+
+```js
+function kthSmallest(root, k) {
+  const stack = [];
+  let cur = root;
+  while (cur || stack.length) {
+    while (cur) { stack.push(cur); cur = cur.left; }
+    cur = stack.pop();
+    if (--k === 0) return cur.val;
+    cur = cur.right;
+  }
+  return null;
+}
+console.log(kthSmallest(balanced, 3), kthSmallest(balanced, 7)); // 3 7
+```
+
+**Lowest common ancestor in a BST** uses the ordering directly: walk down;
+if both values are smaller go left, if both larger go right, otherwise the
+current node is the split point — O(h).
+
+**Common mistakes:** validating only parent–child pairs; quoting O(log n)
+for a plain BST without "if balanced"; forgetting to reassign the returned
+subtree (`root.left = insert(...)`), so updates silently do nothing; and not
+deciding how duplicates are handled (ignore, count, or always go right).
+
+### Try it yourself
+
+1. Write `floor(root, x)`: the largest value at most `x` (for example, the
+   costliest plan within a ₹500 budget from a BST of plan prices).
+2. Build a balanced BST from a sorted array by always choosing the middle
+   element as the root. Check its height with `height()`.

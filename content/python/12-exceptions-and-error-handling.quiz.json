@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "When does the `else` clause of a `try` statement run?",
+      "options": [
+        "Always, after the finally clause",
+        "Only when an exception was caught by an except clause",
+        "Only when the try body completed without raising an exception",
+        "Only when no except clause matched"
+      ],
+      "correctIndex": 2,
+      "explanation": "else runs only if the try body raised nothing. It lets you keep the try body minimal so you don't accidentally catch errors from unrelated code."
+    },
+    {
+      "question": "Why is a bare `except:` considered harmful?",
+      "options": [
+        "It also catches SystemExit and KeyboardInterrupt, so things like Ctrl+C stop working",
+        "It is a syntax error in Python 3.12",
+        "It only catches exceptions derived from ValueError",
+        "It disables the finally clause"
+      ],
+      "correctIndex": 0,
+      "explanation": "A bare except catches BaseException, which includes SystemExit and KeyboardInterrupt. Catch Exception at most, ideally something narrower."
+    },
+    {
+      "question": "What does `raise UserNotFound(uid) from exc` do differently from raising without `from`?",
+      "options": [
+        "It discards the original exception entirely",
+        "It explicitly sets the original as the direct cause (`__cause__`), shown in the traceback as the direct cause",
+        "It converts the new exception into an ExceptionGroup",
+        "It suppresses the traceback of the new exception"
+      ],
+      "correctIndex": 1,
+      "explanation": "raise ... from sets __cause__ and the traceback says the original was the direct cause. Without from, chaining is implicit via __context__ and reads like an accidental error during handling."
+    },
+    {
+      "question": "Given an ExceptionGroup containing a ValueError and an OSError, with separate `except* ValueError` and `except* OSError` clauses, what happens?",
+      "options": [
+        "Only the first matching clause runs, like plain except",
+        "A TypeError is raised because except* cannot mix types",
+        "Neither runs; ExceptionGroup must be caught by name",
+        "Both clauses run, each receiving a group with its matching exceptions"
+      ],
+      "correctIndex": 3,
+      "explanation": "Unlike plain except, every matching except* clause runs, each receiving a sub-group of the exceptions that match its type."
+    }
+  ]
+}

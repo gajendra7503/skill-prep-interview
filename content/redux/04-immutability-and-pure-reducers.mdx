@@ -1,0 +1,197 @@
+---
+title: "Immutability, Pure Reducers & Immer"
+description: "Why Redux reducers must be pure and never mutate state, how to update nested data immutably, and how Immer lets RTK reducers safely use mutating syntax."
+module: "Core Concepts"
+level: "beginner"
+order: 4
+---
+
+Two rules sit underneath every Redux reducer: it must be **pure**, and it
+must update state **immutably**. Redux Toolkit makes the second rule much
+easier to follow thanks to a library called **Immer** — but you still need
+to understand the rule, because Immer has a few sharp edges and interviewers
+love asking why "mutating" code in `createSlice` is allowed.
+
+## What "pure" means for a reducer
+
+A pure function returns the same output for the same input and has no side
+effects. For reducers that means:
+
+| Allowed in a reducer | Not allowed in a reducer |
+|---|---|
+| Reading `state` and `action` | API calls, `localStorage`, timers |
+| Computing new values from them | `Math.random()`, `Date.now()`, `crypto.randomUUID()` |
+| Returning new objects and arrays | Dispatching other actions |
+| Throwing on truly impossible input | Mutating `state`, `action` or anything outside |
+
+Why so strict? Redux DevTools can replay a list of actions to rebuild any
+past state ("time travel"), tests can call reducers with fixed input, and
+the same action always produces the same result. A reducer that calls
+`Date.now()` breaks all of that.
+
+Need a random ID or a timestamp? Generate it **before** the action reaches
+the reducer — in the action creator. `createSlice` supports this with a
+`prepare` callback, shown in "Writing Slices with createSlice". Async work
+belongs in thunks or RTK Query.
+
+## Why mutation breaks Redux
+
+React-Redux decides whether a component should re-render by comparing the
+old and new selected values with `===`. `combineReducers` does the same to
+decide whether the root state changed. Mutation keeps the same reference, so
+those checks say "nothing changed":
+
+```js
+const state = { user: { name: "Asha", city: "Pune" }, tags: ["new"] };
+
+const badReducer = (s) => {
+  s.user.city = "Mumbai"; // mutates the existing object
+  return s;
+};
+
+const result = badReducer(state);
+console.log(result === state, result.user === state.user);
+// true true   -> to Redux, nothing changed; the UI will not update
+```
+
+Mutation also destroys history: the "previous" state in DevTools now shows
+Mumbai too, because it is the same object.
+
+## Immutable updates by hand
+
+The fix is to copy every level you change, and reuse every level you do
+not:
+
+```js
+const next = { ...state, user: { ...state.user, city: "Mumbai" } };
+
+console.log(next === state);           // false  (root changed)
+console.log(next.user === state.user); // false  (user changed)
+console.log(next.tags === state.tags); // true   (untouched, shared)
+```
+
+Common patterns:
+
+| Goal | Immutable version |
+|---|---|
+| Add to array | `[...items, newItem]` |
+| Remove from array | `items.filter((i) => i.id !== id)` |
+| Update one item | `items.map((i) => (i.id === id ? { ...i, done: true } : i))` |
+| Update a key in an object map | `{ ...byId, [id]: { ...byId[id], qty: 2 } }` |
+
+With the `map` pattern, only the changed item is a new object; the others
+keep their references. Methods such as `push`, `splice`, `sort`, `reverse` and direct assignment
+mutate. Newer methods like `toSorted()` and `with()` return copies. Deeply
+nested state quickly makes spread code unreadable — which is where Immer
+comes in.
+
+## Immer: write mutations, get immutable updates
+
+Immer gives you a temporary **draft** — a Proxy wrapping your state. You
+"mutate" the draft; Immer records the changes and produces a brand-new
+state, copying only the paths you touched.
+
+```js
+import { produce } from "immer";
+
+const base = { user: { name: "Asha", city: "Pune" }, tags: ["new"] };
+const next = produce(base, (draft) => {
+  draft.user.city = "Mumbai";
+  draft.tags.push("verified");
+});
+
+console.log(base.user.city, next.user.city, next.tags);
+// Pune Mumbai [ 'new', 'verified' ]
+console.log(next === base, next.user === base.user); // false false
+
+const same = produce(base, (draft) => { draft.user.city = "Pune"; });
+console.log(same === base); // true  (no real change -> same reference)
+
+console.log(Object.isFrozen(next)); // true
+```
+
+RTK's `createSlice` and `createReducer` wrap every case reducer in Immer
+automatically, which is why this is correct Redux code:
+
+```js
+itemAdded(state, action) {
+  state.items.push(action.payload); // safe: `state` is an Immer draft
+}
+```
+
+Immer also **freezes** the state it produces, so an accidental mutation
+outside a reducer throws (in strict-mode code such as ES modules):
+
+```js
+next.user.city = "Delhi";
+// TypeError: Cannot assign to read only property 'city' of object '#<Object>'
+```
+
+## Immer's sharp edges
+
+**1. Mutate the draft or return a new value — never both.**
+
+```js
+// Arrow function with no braces RETURNS the result of push (a number)
+todoAdded: (state, action) => state.items.push(action.payload),
+// Error: [Immer] An immer producer returned a new value *and* modified its draft.
+```
+
+Use braces so nothing is returned: `(state, action) => { state.items.push(action.payload); }`.
+
+**2. Reassigning `state` does nothing.**
+
+```js
+wrongReset(state) { state = { items: [] }; }   // state unchanged: { items: [ 'a' ] }
+rightReset()      { return { items: [] }; }    // replaced: { items: [] }
+```
+
+`state = ...` only rebinds a local variable. To replace the whole slice
+state, **return** the new value.
+
+**3. Primitive state must be returned.** If a slice's state is a number,
+there is nothing to mutate: `(state) => state + 1`.
+
+**4. Logging a draft is unreadable.** `console.log(state)` prints a Proxy
+(in Node you even see Immer internals). Use `current` from RTK:
+
+```js
+import { current } from "@reduxjs/toolkit";
+
+itemAdded(state, action) {
+  state.items.push(action.payload);
+  console.log(current(state)); // { items: [ 'a' ] }  -- a plain snapshot
+}
+```
+
+**5. Immer only works inside RTK reducers.** Mutating code in a component,
+thunk or hand-written reducer is still a real mutation.
+
+## The safety net in development
+
+`configureStore` adds a middleware that detects mutations in development
+builds, so a hand-written reducer that mutates fails loudly with "A state
+mutation was detected inside a dispatch, in the path: ...". More on this in
+"configureStore, Middleware Defaults & Redux DevTools".
+
+## Interview angles
+
+Interviewers often ask:
+
+- **"Why can I mutate state in createSlice?"** Because RTK passes an Immer
+  draft; Immer turns the mutations into an immutable update.
+- **"Why does Redux need immutability?"** Change detection uses cheap
+  reference checks (`===`), and history/time travel needs old states to stay
+  untouched.
+- **"Is Immer slow?"** It adds some overhead compared with hand-written
+  spreads, but it is negligible for typical reducers.
+
+### Try it yourself
+
+1. Without Immer, write a reducer that sets `qty` of the item with a given
+   `id` inside `{ cart: { items: [...] } }`. Assert that untouched items keep
+   their references.
+2. Rewrite the same update with `produce` and confirm the results are
+   deep-equal.
+3. In a `createSlice` reducer, write the arrow-function `push` bug on
+   purpose, dispatch it, and read Immer's error. Then fix it two ways.

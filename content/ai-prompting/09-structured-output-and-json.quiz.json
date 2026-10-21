@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does API-enforced structured output (schema-constrained generation) guarantee?",
+      "options": [
+        "That every extracted value is factually correct",
+        "That the model will never return null",
+        "That the response parses and matches the supplied JSON Schema",
+        "That the model reads the whole input document"
+      ],
+      "correctIndex": 2,
+      "explanation": "Schema enforcement guarantees shape (valid JSON, correct keys and types). It does not guarantee the values are correct, which is why you still validate content."
+    },
+    {
+      "question": "With current Claude models, what should you use instead of prefilling the assistant reply with \"{\" to force JSON?",
+      "options": [
+        "Structured outputs with a JSON Schema, plus clear format instructions",
+        "Writing the instruction in all capital letters",
+        "Prefilling with \"[\" instead",
+        "Asking the model to apologise if it does not return JSON"
+      ],
+      "correctIndex": 0,
+      "explanation": "Assistant-message prefill is a legacy technique not supported by current Claude models. Structured outputs and explicit format instructions are the modern approach."
+    },
+    {
+      "question": "An email does not mention the applicant's city. What should a well-designed extraction prompt make the model output for \"city\"?",
+      "options": [
+        "The most likely city based on the phone number's area code",
+        "The company's head office city",
+        "An empty string so the schema always has text",
+        "null, because the value is not stated"
+      ],
+      "correctIndex": 3,
+      "explanation": "Instruct the model to use null for missing values and not to infer from indirect clues; nullable fields give it a legitimate way to say \"not present\"."
+    },
+    {
+      "question": "Why use an enum such as [\"home_loan\", \"personal_loan\", \"business_loan\", \"other\"] for a product field?",
+      "options": [
+        "Enums make the response shorter, which reduces cost",
+        "It prevents inconsistent labels like \"Home Loan\" and \"housing finance\" for the same category",
+        "Enums let the model skip reading the email",
+        "Enums are required for all JSON Schema fields"
+      ],
+      "correctIndex": 1,
+      "explanation": "An enum restricts the field to a fixed set of labels, making classification consistent and easy to route; an \"other\" option avoids forcing wrong buckets."
+    }
+  ]
+}

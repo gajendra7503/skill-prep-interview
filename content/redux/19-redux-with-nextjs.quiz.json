@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why should a Next.js App Router project use a makeStore() factory instead of exporting a single store instance from a module?",
+      "options": [
+        "configureStore cannot run on the server",
+        "A module-level store is shared by all concurrent requests on the server, so one user's state can leak into another user's render",
+        "Next.js forbids module-level variables",
+        "A singleton store disables Redux DevTools"
+      ],
+      "correctIndex": 1,
+      "explanation": "The server process is long-lived and handles many requests. A shared store is mutated by all of them, which leaks data between users. A per-request store avoids that."
+    },
+    {
+      "question": "Inside the client StoreProvider, why is the store created inside `if (storeRef.current === null)` with useRef?",
+      "options": [
+        "So the store is created once per component instance and not replaced on every re-render",
+        "Because useRef makes the store serialisable",
+        "So that the store is shared between all users on the server",
+        "Because Provider only accepts refs"
+      ],
+      "correctIndex": 0,
+      "explanation": "Calling makeStore() directly in the component body would create a new store, and lose all state, on every render. The ref keeps the first store for the component's lifetime."
+    },
+    {
+      "question": "A Server Component calls useSelector from react-redux. What happens?",
+      "options": [
+        "It reads the server-side store created for the request",
+        "It returns undefined silently",
+        "Next.js converts it to a Client Component automatically",
+        "It throws an error saying the function is not supported in React Server Components"
+      ],
+      "correctIndex": 3,
+      "explanation": "React-Redux ships a react-server build whose hooks throw 'This function is not supported in React Server Components. Please only use this export in a Client Component.'"
+    },
+    {
+      "question": "A root layout (a Server Component) fetches the user's cart and renders <StoreProvider initialCart={cart}>. Which requirement applies to initialCart?",
+      "options": [
+        "It must be wrapped in a Promise",
+        "It must be an Immer draft",
+        "It must be serialisable, such as plain objects, arrays, strings and numbers",
+        "It must be created with createEntityAdapter"
+      ],
+      "correctIndex": 2,
+      "explanation": "Props passed from a Server Component to a Client Component cross a network boundary and must be serialisable by React. Class instances and functions are not allowed."
+    }
+  ]
+}

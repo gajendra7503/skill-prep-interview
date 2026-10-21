@@ -1,0 +1,126 @@
+---
+title: "What Is Node.js?"
+description: "How V8 and libuv combine to run JavaScript outside the browser, and how to install, run and version Node in practice."
+module: "Fundamentals"
+level: "beginner"
+order: 3
+---
+
+Node.js is a **runtime** that lets you run JavaScript outside the browser —
+on servers, in CLIs and in build tools. Interviewers rarely want a
+marketing definition; they want to hear that you understand *how* a
+single-threaded language serves thousands of concurrent connections.
+
+## The two engines inside Node
+
+- **V8** — Google's JavaScript engine (the same one in Chrome). It parses,
+  compiles (JIT) and executes your JavaScript and manages the heap and
+  garbage collection. V8 knows nothing about files, sockets or timers.
+- **libuv** — a C library that provides the **event loop** and
+  cross-platform asynchronous I/O. It uses the operating system's
+  non-blocking mechanisms (epoll on Linux, kqueue on macOS, IOCP on
+  Windows) for network I/O, and a small **thread pool** for work that
+  cannot be done non-blockingly.
+- **Node's bindings and standard library** — modules such as `node:fs`,
+  `node:http` and `node:crypto` that glue JavaScript to libuv and the OS.
+
+There is no DOM, no `window` and no `document`. Instead you get
+`globalThis`, `process`, `Buffer` and modules for files, networking and
+processes. Many web APIs exist too: `fetch`, `URL`, `AbortController`,
+`structuredClone` and Web Streams.
+
+## "Single-threaded" — what it really means
+
+Your JavaScript runs on **one main thread**: only one callback executes at
+a time, so you never need locks around ordinary variables. But Node as a
+process is *not* single-threaded:
+
+- Network sockets are handled by the OS without extra threads.
+- File system calls, DNS lookups (`dns.lookup`), some `crypto` functions
+  (such as `pbkdf2` and `scrypt`) and `zlib` compression run on the
+  **libuv thread pool**, which defaults to **4 threads** and can be tuned
+  with the `UV_THREADPOOL_SIZE` environment variable.
+- V8 itself uses background threads for garbage collection and compilation.
+
+```js
+import { pbkdf2 } from "node:crypto";
+
+const start = Date.now();
+for (let i = 1; i <= 5; i++) {
+  pbkdf2("secret", "salt", 200_000, 64, "sha512", () => {
+    console.log(`hash ${i} done at ${Date.now() - start}ms`);
+  });
+}
+// With the default pool of 4 threads, hashes 1-4 finish together
+// and hash 5 finishes roughly one "round" later.
+```
+
+The interview takeaway: Node is excellent for **I/O-bound** work (APIs,
+proxies, real-time apps) because waiting costs almost nothing. It is weak
+at **CPU-bound** work on the main thread, because a long calculation blocks
+every other request — that is what `worker_threads` are for (covered later).
+
+## The REPL and running scripts
+
+```bash
+node                 # start the REPL (Read-Eval-Print Loop)
+> 2 ** 10
+1024
+> .help              # REPL commands: .exit, .editor, .load, .save
+> .exit
+
+node app.js          # run a file
+node --watch app.js  # restart automatically when files change
+node -e "console.log(process.version)"   # one-liner, prints v24.x.x
+node -p "1 + 1"      # evaluate and print: 2
+```
+
+Useful globals when exploring: `process.version`, `process.versions` (shows
+the V8 and libuv versions bundled), `process.platform` and `process.argv`.
+
+```js
+console.log(process.versions.v8, process.versions.uv);
+// e.g. 13.x.x  1.x.x (exact numbers depend on your Node version)
+```
+
+## Release cycle and LTS
+
+Node ships a new **major** version roughly every six months. Historically,
+**even-numbered** majors (20, 22, 24) are promoted to **Long-Term Support**
+in October and receive fixes for about 30 months; odd-numbered majors are
+short-lived "Current" releases for trying new features.
+
+- **Current** — newest features, not recommended for production.
+- **Active LTS** — the safe default for production.
+- **Maintenance LTS** — critical and security fixes only; plan to upgrade.
+
+The project has discussed changes to this schedule, so always check the
+official release table on nodejs.org before quoting dates. In production,
+pin a specific LTS major and upgrade deliberately before it reaches
+end-of-life.
+
+## Managing versions with nvm or fnm
+
+Different projects need different Node versions, so install a **version
+manager** instead of a single global Node:
+
+```bash
+nvm install --lts    # nvm: macOS/Linux (nvm-windows is a separate project)
+nvm use 22
+
+fnm install --lts    # fnm: fast, cross-platform, written in Rust
+fnm use 24
+
+echo "24" > .nvmrc   # pin the version for a project
+```
+
+Add an `engines` field to `package.json` (for example `"node": ">=22"`) to
+document the supported range for your team and CI.
+
+### Try it yourself
+
+1. Run `node -p "process.versions"` and find the V8 and libuv versions.
+2. Run the `pbkdf2` example, then run it again with
+   `UV_THREADPOOL_SIZE=8` set and compare the timings.
+3. In the REPL, check whether `window` and `globalThis` exist and explain
+   the result in one sentence.

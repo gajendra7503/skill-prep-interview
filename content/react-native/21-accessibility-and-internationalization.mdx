@@ -1,0 +1,149 @@
+---
+title: "Accessibility & Internationalization"
+description: "Accessibility props for TalkBack and VoiceOver, touch targets, font scaling, i18next, RTL layouts and Intl currency formatting."
+module: "Building Real Screens"
+level: intermediate
+order: 12
+---
+
+India alone means a dozen scripts, users on large system font sizes, and
+people relying on TalkBack — accessibility and i18n are product
+requirements, not polish. Interviewers expect you to know the RN-specific
+APIs, because there's no HTML semantics to fall back on.
+
+## Accessibility props
+
+A `View` has no implicit meaning, so you describe it to the screen reader:
+
+```tsx
+<Pressable
+  accessible
+  accessibilityRole="button"
+  accessibilityLabel="Add to watchlist"
+  accessibilityHint="Saves this fund so you can track its NAV"
+  accessibilityState={{ selected: isWatched, disabled: loading }}
+  onPress={toggle}
+>
+  <StarIcon filled={isWatched} />
+</Pressable>
+```
+
+- **Role** — what it is: `"button"`, `"link"`, `"header"`, `"switch"`,
+  `"checkbox"`, `"image"`, `"alert"`.
+- **Label** — what is read; essential for icon-only buttons.
+- **Hint** — what happens on activation; keep it short and optional.
+- **State** — `selected`, `checked`, `disabled`, `busy`, `expanded`.
+
+Since RN 0.71, web-style equivalents (`role`, `aria-label`,
+`aria-disabled`, `aria-checked`) also work. `accessible` groups children
+into one focusable element, so a card is read as one sentence rather than
+five fragments. For values like sliders, use `accessibilityValue` with
+`min`, `max` and `now` or `text`.
+
+## Screen readers: TalkBack and VoiceOver
+
+Test on real devices — TalkBack on Android, VoiceOver on iOS. Swipe through
+the screen and check every control has a sensible label, role and order.
+
+```tsx
+const [srOn, setSrOn] = useState(false);
+useEffect(() => {
+  AccessibilityInfo.isScreenReaderEnabled().then(setSrOn);
+  const sub = AccessibilityInfo.addEventListener("screenReaderChanged", setSrOn);
+  return () => sub.remove();
+}, []);
+
+AccessibilityInfo.announceForAccessibility("Payment of ₹2,500 successful");
+```
+
+Use `srOn` to, for example, pause auto-advancing carousels. Hide decorative
+elements with `accessibilityElementsHidden` (iOS) and
+`importantForAccessibility="no-hide-descendants"` (Android).
+
+## Touch targets and font scaling
+
+Minimum target sizes: **44×44 pt** (Apple HIG) and **48×48 dp** (Material).
+A small icon can keep its visual size and grow its touchable area with
+`hitSlop`:
+
+```tsx
+<Pressable hitSlop={12} accessibilityLabel="Close" onPress={onClose}>
+  <CloseIcon size={20} />
+</Pressable>
+```
+
+`Text` scales with the system font size by default (`allowFontScaling` is
+`true`). Don't turn it off; instead design layouts that wrap, avoid fixed
+heights around text, and cap extreme sizes with `maxFontSizeMultiplier` on
+dense UI. `useWindowDimensions().fontScale` tells you the current
+multiplier if a layout must switch from a row to a column.
+
+## i18n with i18next
+
+```tsx
+import i18n from "i18next";
+import { initReactI18next, useTranslation } from "react-i18next";
+import { getLocales } from "expo-localization";
+
+i18n.use(initReactI18next).init({
+  resources: {
+    en: { translation: { greeting: "Hello, {{name}}", funds_one: "{{count}} fund", funds_other: "{{count}} funds" } },
+    hi: { translation: { greeting: "नमस्ते, {{name}}", funds_one: "{{count}} फंड", funds_other: "{{count}} फंड" } },
+  },
+  lng: getLocales()[0]?.languageCode ?? "en",
+  fallbackLng: "en",
+  interpolation: { escapeValue: false }, // React already escapes
+});
+
+function Header() {
+  const { t } = useTranslation();
+  return <Text>{t("greeting", { name: "Asha" })} · {t("funds", { count: 3 })}</Text>;
+}
+```
+
+Plurals use suffixes like `_one` and `_other`, resolved via
+`Intl.PluralRules`; if your JS engine lacks it, add a polyfill. Never build
+sentences by concatenating translated fragments — word order differs
+between languages.
+
+## RTL with `I18nManager`
+
+For Arabic or Urdu, RN mirrors layouts: `flexDirection: "row"` flows right
+to left, and `marginStart`/`paddingEnd` follow reading direction (prefer them
+over `Left`/`Right`).
+
+```tsx
+import { I18nManager } from "react-native";
+
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(isRtlLanguage); // takes effect only after an app reload
+```
+
+Because the direction is read at startup, switching language requires a
+reload (for example `Updates.reloadAsync()` in Expo). Directional icons like
+back arrows should flip; check `I18nManager.isRTL`.
+
+## Numbers and currency with `Intl`
+
+Hermes ships core `Intl` support (`NumberFormat`, `DateTimeFormat`), so you
+rarely need hand-written formatters. Coverage of newer options such as
+compact notation varies by React Native version — test on a real device
+and add a polyfill (e.g. FormatJS) if an option is missing:
+
+```tsx
+const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
+inr.format(1234567.5); // "₹12,34,567.50" — lakh/crore grouping
+
+new Intl.NumberFormat("en-IN", { notation: "compact" }).format(25000000); // "2.5Cr"
+new Intl.DateTimeFormat("hi-IN", { dateStyle: "medium" }).format(new Date());
+```
+
+Cache formatter instances outside render — constructing them repeatedly is
+comparatively expensive in long lists.
+
+### Try it yourself
+
+Take a portfolio summary card and make it fully accessible: a single
+grouped label read as "Portfolio value ₹12,34,567, up 3.2 percent", a
+48 dp refresh button with a label, and Hindi translations via i18next. Test
+with TalkBack and with the system font size set to the maximum.

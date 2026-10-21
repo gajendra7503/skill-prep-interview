@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In React 19, how does a function component receive a ref from its parent?",
+      "options": [
+        "It must be wrapped in forwardRef",
+        "As a regular `ref` prop — forwardRef is no longer needed",
+        "Refs cannot be passed to function components",
+        "Through useContext"
+      ],
+      "correctIndex": 1,
+      "explanation": "React 19 makes ref an ordinary prop for function components. forwardRef still works but is expected to be deprecated."
+    },
+    {
+      "question": "What does returning a function from a callback ref do in React 19?",
+      "options": [
+        "Nothing — the return value is ignored",
+        "It replaces the DOM node",
+        "It forces a re-render",
+        "React calls it as cleanup when the node detaches, instead of calling the ref with null"
+      ],
+      "correctIndex": 3,
+      "explanation": "Callback refs can return a cleanup function, which is useful for disconnecting observers or removing listeners set up for that node."
+    },
+    {
+      "question": "Why use `useImperativeHandle` instead of exposing the child's DOM node directly?",
+      "options": [
+        "To expose a small, deliberate API (like focus or clear) rather than the whole DOM node",
+        "It is required for any ref to work",
+        "It makes the component render faster",
+        "It turns the component into a class component"
+      ],
+      "correctIndex": 0,
+      "explanation": "useImperativeHandle customises what the parent's ref receives, keeping the child's internals private. Prefer props where state can express the behaviour."
+    },
+    {
+      "question": "A modal is rendered via `createPortal` into `document.body`. A click inside it — where does the event bubble?",
+      "options": [
+        "Only to document.body, because that's its DOM parent",
+        "Nowhere — portals stop propagation",
+        "Up the React component tree, reaching handlers on the component that rendered the portal",
+        "Only to the window object"
+      ],
+      "correctIndex": 2,
+      "explanation": "React propagates events through the React tree regardless of where the portal's DOM lives, and Context flows through portals too."
+    }
+  ]
+}

@@ -1,0 +1,159 @@
+---
+title: "Caching and Performance"
+description: "Speed up Express APIs with compression, ETags and Cache-Control, application caching in memory or Redis, and by eliminating N+1 queries."
+module: "Advanced Express"
+level: "advanced"
+order: 20
+---
+
+Most slow APIs are slow for boring reasons: oversized responses, repeated
+work, and too many database round trips. This lesson covers the fixes that
+come up most in interviews, roughly in order of how cheap they are to add.
+
+## Compression
+
+The `compression` middleware gzips (or Brotli/deflate-compresses, depending
+on the version and what the client accepts) response bodies. JSON compresses
+extremely well.
+
+```js
+import express from "express";
+import compression from "compression";
+
+const app = express();
+app.use(compression()); // skips tiny bodies (roughly under 1 KB) by default
+```
+
+```bash
+curl -s -H "Accept-Encoding: gzip" -o /dev/null -w "%{size_download}\n" localhost:3000/products
+  # 2911   (the same JSON is about 18342 bytes without gzip)
+```
+
+In production, compression is often done by the reverse proxy or CDN
+(Nginx, Cloudflare) instead — doing it in both places just wastes CPU.
+
+## ETags and conditional requests
+
+Express automatically adds a weak `ETag` header to responses sent with
+`res.send` and `res.json`. When the client repeats the request with
+`If-None-Match`, Express compares the tags and replies `304 Not Modified`
+with no body.
+
+```bash
+curl -i localhost:3000/products/7
+  # HTTP/1.1 200 OK
+  # ETag: W/"8f-Yx3k..."
+
+curl -i -H 'If-None-Match: W/"8f-Yx3k..."' localhost:3000/products/7
+  # HTTP/1.1 304 Not Modified   (no body sent)
+```
+
+Note the server still ran the handler and the database query — an ETag
+saves **bandwidth**, not server work. You can switch modes with
+`app.set("etag", "strong")` or disable it with `app.set("etag", false)`.
+
+## Cache-Control
+
+`Cache-Control` tells browsers and CDNs whether and how long they may reuse
+a response without asking again — which saves server work entirely.
+
+```js
+// Public catalogue data: shared caches (CDN) may store it for 5 minutes
+app.get("/products", async (req, res) => {
+  res.set("Cache-Control", "public, max-age=300");
+  res.json(await listProducts());
+});
+
+// Per-user data: only the user's browser may cache it, and must revalidate
+app.get("/me/portfolio", requireAuth, async (req, res) => {
+  res.set("Cache-Control", "private, no-cache");
+  res.json(await getPortfolio(req.user.id)); // e.g. { "value": "₹4,52,300" }
+});
+
+// Sensitive: never store anywhere
+app.get("/me/bank-details", requireAuth, (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json(maskedBankDetails(req.user.id));
+});
+```
+
+The classic mistake is marking authenticated responses `public` — a CDN can
+then serve one user's data to another. `no-cache` means "revalidate before
+use" (pairs well with ETags); `no-store` means "don't keep it at all".
+
+## Application caching: in-memory vs Redis
+
+When the expensive part is computing the data, cache the result in your app.
+
+- **In-memory** (a `Map` or an LRU cache library): fastest, zero
+  infrastructure, but per process — each instance has its own copy, it's lost
+  on restart, and an unbounded `Map` is a memory leak.
+- **Redis**: shared by every instance, survives app restarts, supports
+  expiry natively, at the cost of a network hop and another service to run.
+
+```js
+import { createClient } from "redis";
+
+const redis = createClient({ url: process.env.REDIS_URL });
+await redis.connect();
+
+app.get("/products/:id", async (req, res) => {
+  const key = `product:${req.params.id}`;
+  const cached = await redis.get(key);
+  if (cached) return res.json(JSON.parse(cached)); // cache hit
+
+  const product = await prisma.product.findUnique({ where: { id: Number(req.params.id) } });
+  if (!product) return res.status(404).json({ error: "Not found" });
+
+  await redis.set(key, JSON.stringify(product), { EX: 60 }); // expire in 60 s
+  res.json(product);
+});
+
+// On update, invalidate so readers don't see stale data
+app.patch("/products/:id", async (req, res) => {
+  const product = await prisma.product.update({ where: { id: Number(req.params.id) }, data: req.body }); // validate with zod first
+  await redis.del(`product:${product.id}`);
+  res.json(product);
+});
+```
+
+This is the **cache-aside** pattern. Always set a TTL, and decide how stale
+data is allowed to be — cache invalidation is the hard part.
+
+## Avoiding N+1 queries
+
+An N+1 problem is one query for a list followed by one extra query **per
+item**. Twenty orders becomes twenty-one database round trips.
+
+```js
+// N+1: 1 query for orders + 1 query per order for its customer
+const orders = await prisma.order.findMany({ take: 20 });
+for (const order of orders) {
+  order.customer = await prisma.customer.findUnique({ where: { id: order.customerId } });
+}
+
+// Fixed: let Prisma load the relation in a batched query
+const ordersWithCustomer = await prisma.order.findMany({
+  take: 20,
+  include: { customer: { select: { id: true, name: true } } },
+});
+```
+
+Other fixes: fetch related rows with a single `where: { id: { in: ids } }`
+query and join them in memory, and use `select` so you don't pull columns
+you never send. Turn on query logging in development to spot N+1 patterns
+early.
+
+## Measure first
+
+Before optimising, measure: log response times, profile slow endpoints and
+load-test with a tool such as autocannon. Also keep the event loop free —
+synchronous CPU work (huge `JSON.stringify` calls, sync crypto, big loops)
+blocks every other request in the process.
+
+### Try it yourself
+
+Take a list endpoint that returns 50 items with a related record. Log the
+SQL queries, count them, then fix the N+1 with `include`. Add a 60-second
+Redis cache-aside layer, and compare response times for a cold and a warm
+request.

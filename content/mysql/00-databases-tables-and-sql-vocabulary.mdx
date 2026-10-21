@@ -1,0 +1,149 @@
+---
+title: "Databases, Tables & SQL Vocabulary"
+description: "The mental model behind MySQL — server, database, table, row, column, key and NULL — plus the four families of SQL statements and the syntax rules every query follows."
+module: "Getting Started"
+level: beginner
+order: 2
+---
+
+SQL documentation and interviews assume a shared vocabulary: schema, row,
+primary key, DDL, NULL, transaction. This lesson builds that mental model
+once, with small examples, so the rest of the course reads easily. If you
+have used a spreadsheet you already know half of it.
+
+## The hierarchy: server, database, table
+
+Think of MySQL as a set of nested containers:
+
+```text
+MySQL server (one mysqld process)
+ └── database  "shop"             (also called a schema)
+      ├── table  "customers"
+      │     ├── columns: id, name, city
+      │     └── rows:    (1, 'Asha', 'Pune'), (2, 'Ravi', 'Delhi') ...
+      └── table  "orders"
+ └── database  "hr"
+```
+
+- A **database** (MySQL treats "database" and "schema" as synonyms) groups
+  related tables, much like a folder.
+- A **table** stores one kind of thing: customers, orders, products.
+- A **column** is a named attribute with a fixed **data type**, such as
+  `INT`, `VARCHAR(100)` or `DATE`. Every value in a column has that type.
+- A **row** (or record) is one instance: one customer, one order.
+
+Unlike a spreadsheet, a table has no built-in row order. If you need
+sorted results you must ask for them with `ORDER BY`.
+
+## Keys link tables together
+
+```sql
+CREATE TABLE customers (
+  id    INT AUTO_INCREMENT PRIMARY KEY,
+  name  VARCHAR(100) NOT NULL,
+  city  VARCHAR(50)
+);
+
+CREATE TABLE orders (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  customer_id  INT NOT NULL,
+  amount_inr   DECIMAL(10,2) NOT NULL,
+  FOREIGN KEY (customer_id) REFERENCES customers (id)
+);
+```
+
+- The **primary key** (`id`) uniquely identifies each row and can never be
+  NULL or repeated.
+- A **foreign key** (`orders.customer_id`) points at a primary key in
+  another table. MySQL refuses an order for a customer that does not exist.
+
+Storing the customer's id in each order, instead of copying their name and
+city, is the core idea of a **relational** database: each fact lives in
+one place, and queries **join** tables back together when needed.
+
+## NULL means "unknown"
+
+`NULL` is not zero and not an empty string; it means the value is missing
+or unknown. That has a surprising consequence: any comparison with NULL is
+itself unknown, so `=` never matches it.
+
+```sql
+INSERT INTO customers (name, city) VALUES ('Asha', 'Pune'), ('Kiran', NULL);
+
+SELECT name FROM customers WHERE city = NULL;    -- no rows!
+SELECT name FROM customers WHERE city IS NULL;   -- Kiran
+SELECT NULL = NULL;                               -- NULL (not 1)
+```
+
+Always test with `IS NULL` / `IS NOT NULL`, and mark columns that must have
+a value as `NOT NULL`.
+
+## The four families of SQL statements
+
+| Family | Stands for | Statements | What it does |
+| --- | --- | --- | --- |
+| DDL | Data Definition Language | `CREATE`, `ALTER`, `DROP`, `TRUNCATE` | Defines structure |
+| DML | Data Manipulation Language | `SELECT`, `INSERT`, `UPDATE`, `DELETE` | Reads and changes rows |
+| DCL | Data Control Language | `GRANT`, `REVOKE` | Controls who may do what |
+| TCL | Transaction Control Language | `START TRANSACTION`, `COMMIT`, `ROLLBACK` | Groups changes into all-or-nothing units |
+
+Some books put `SELECT` in its own family (DQL, data query language). The
+distinction matters in practice: in MySQL most DDL statements cannot be
+rolled back and silently commit any open transaction.
+
+## Transactions in one sentence
+
+A **transaction** is a group of statements that succeed or fail together.
+Moving ₹500 between two accounts must debit one and credit the other, or
+do neither:
+
+```sql
+START TRANSACTION;
+UPDATE accounts SET balance = balance - 500 WHERE id = 1;
+UPDATE accounts SET balance = balance + 500 WHERE id = 2;
+COMMIT;            -- or ROLLBACK; to undo both
+```
+
+By default MySQL runs in **autocommit** mode: each statement on its own is
+a transaction that commits immediately. You will study this properly later.
+
+## Syntax rules every query follows
+
+```sql
+-- A single-line comment
+/* A multi-line
+   comment */
+SELECT name, city            -- keywords are case-insensitive
+FROM   customers
+WHERE  city = 'Pune'         -- strings in single quotes
+  AND  name LIKE 'A%';       -- statement ends with a semicolon
+
+SELECT `order`, `group` FROM `my table`;  -- backticks quote identifiers
+```
+
+- **Keywords** (`SELECT`, `select`) are case-insensitive; writing them in
+  capitals is a convention for readability.
+- **Strings** use single quotes. Double quotes also work by default in
+  MySQL but are non-standard, so avoid them for strings.
+- **Identifiers** (table and column names) can be wrapped in backticks,
+  which you need when a name is a reserved word or contains a space.
+- Whether table names are case-sensitive depends on the operating system
+  (case-sensitive on Linux by default, not on Windows), so pick one style,
+  typically lower-case `snake_case`, and stick to it.
+
+## Where MySQL fits
+
+MySQL is an open-source **relational database management system (RDBMS)**
+owned by Oracle, alongside PostgreSQL, SQL Server and Oracle Database.
+Its storage engine, **InnoDB**, provides transactions, row-level locking
+and crash recovery. MariaDB is a community fork that started compatible
+with MySQL but has diverged, so features do not always match.
+
+### Try it yourself
+
+Create the `customers` and `orders` tables above in a database called
+`vocab`. Insert three customers (one with a NULL city) and four orders.
+Then: try inserting an order with `customer_id = 99` and read the error;
+find customers whose city is unknown; and label each statement you ran as
+DDL, DML, DCL or TCL. Finally, wrap two inserts in a transaction, run
+`ROLLBACK`, and confirm neither row exists.

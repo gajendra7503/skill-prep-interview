@@ -1,0 +1,180 @@
+---
+title: "Package Management (apt, dnf, snap)"
+description: "Install, update and remove software with apt on Ubuntu, map the commands to dnf on Fedora and RHEL, and know when snap fits."
+module: "System Basics"
+level: "intermediate"
+order: 12
+---
+
+On Linux you rarely download installers from websites. A **package manager**
+fetches software from trusted **repositories**, resolves dependencies,
+verifies signatures and keeps everything updatable with one command. Debian
+and Ubuntu use `.deb` packages managed by `dpkg` and `apt`; Fedora, RHEL,
+Rocky and AlmaLinux use `.rpm` packages managed by `rpm` and `dnf`.
+
+## Two layers: low-level and high-level
+
+| Layer | Debian/Ubuntu | Fedora/RHEL | Job |
+|---|---|---|---|
+| Low-level | `dpkg` | `rpm` | install a single local package file, query the database; no dependency resolution |
+| High-level | `apt` (`apt-get`, `apt-cache`) | `dnf` | talk to repositories, resolve dependencies, upgrade |
+
+You will use the high-level tool almost always and the low-level one for
+queries such as "which package owns this file?".
+
+## Everyday apt
+
+Changing system packages requires root, so these commands run with `sudo`
+(see "Users, Groups, Permissions & sudo").
+
+```bash
+sudo apt update                 # refresh the package index from repositories
+sudo apt upgrade                # upgrade installed packages
+sudo apt install nginx curl     # install one or more packages
+sudo apt install -y htop        # -y: answer "yes" (scripts, Dockerfiles)
+sudo apt remove nginx           # remove the package, keep its config files
+sudo apt purge nginx            # remove the package AND its system config
+sudo apt autoremove             # remove dependencies nothing needs any more
+apt search "json processor"     # search names and descriptions
+apt show jq                     # version, size, dependencies, description
+apt list --installed            # everything installed
+apt list --upgradable           # what "upgrade" would change
+```
+
+### update vs upgrade (a classic interview question)
+
+- `apt update` changes **no software**. It downloads the latest package
+  lists so apt knows what versions exist. Run it before installing.
+- `apt upgrade` installs newer versions of what you already have, but never
+  removes packages.
+- `apt full-upgrade` also removes or installs packages when that is needed
+  to complete an upgrade (for example, when dependencies change).
+
+A typical server maintenance sequence is therefore
+`sudo apt update && sudo apt upgrade`.
+
+### apt vs apt-get
+
+`apt` is the friendly interactive front end with progress bars and colour.
+Its output format is not guaranteed to stay stable, and it prints a warning
+when its output is piped. In scripts and Dockerfiles, prefer `apt-get` and
+`apt-cache`, whose interface is stable:
+
+```bash
+apt-get update && apt-get install -y --no-install-recommends ca-certificates curl
+```
+
+`--no-install-recommends` skips optional "recommended" packages, keeping
+container images small.
+
+## Querying with dpkg
+
+```bash
+dpkg -l | grep nginx            # is it installed? (ii = installed)
+dpkg -L curl                    # files a package installed
+dpkg -S /usr/bin/curl           # which package owns this file?
+# curl: /usr/bin/curl
+sudo apt install ./tool_amd64.deb   # install a local .deb WITH dependencies
+```
+
+Prefer `apt install ./file.deb` (note the `./`) over `dpkg -i file.deb`,
+because dpkg alone will not fetch missing dependencies.
+
+## Repositories and signing keys
+
+apt reads its repository list from `/etc/apt/sources.list` and files in
+`/etc/apt/sources.list.d/`. Recent Ubuntu releases keep the default list in
+`/etc/apt/sources.list.d/ubuntu.sources`, in the newer "deb822" format.
+
+Third-party vendors (Docker, Node.js distributions, databases) publish their
+own repositories. The modern pattern is to store the vendor's signing key in
+`/etc/apt/keyrings/` and reference it with `signed-by`, so that key is
+trusted **only** for that repository. The old `apt-key add` command is
+deprecated because it trusted a key for every repository.
+
+```text
+deb [arch=amd64 signed-by=/etc/apt/keyrings/vendor.gpg] https://packages.vendor.example/apt stable main
+```
+
+On Ubuntu, `sudo add-apt-repository ppa:owner/name` adds a PPA (a personal
+package archive hosted on Launchpad). Treat every extra repository as code
+you are trusting to run as root, and be especially wary of install guides
+that pipe a downloaded script straight into `sudo sh` without letting you
+read it first.
+
+### Pinning a version
+
+```bash
+sudo apt-mark hold nginx        # exclude from upgrades
+apt-mark showhold               # list held packages
+sudo apt-mark unhold nginx
+apt-cache policy nginx          # installed vs candidate version, and source repo
+```
+
+Ubuntu servers commonly run `unattended-upgrades` to install security
+updates automatically; it is covered with other hardening steps in "Server
+Security Hardening Basics".
+
+## The same tasks with dnf
+
+| Task | Ubuntu (apt) | Fedora/RHEL (dnf) |
+|---|---|---|
+| Refresh metadata / check updates | `apt update` | `dnf check-update` (dnf also refreshes automatically) |
+| Upgrade everything | `apt upgrade` | `dnf upgrade` |
+| Install | `apt install pkg` | `dnf install pkg` |
+| Remove | `apt remove pkg` | `dnf remove pkg` |
+| Search | `apt search word` | `dnf search word` |
+| Details | `apt show pkg` | `dnf info pkg` |
+| List installed | `apt list --installed` | `dnf list --installed` |
+| Which package provides a file | `dpkg -S /path` | `rpm -qf /path` or `dnf provides /path` |
+| Files in a package | `dpkg -L pkg` | `rpm -ql pkg` |
+
+Package names sometimes differ between families: Apache is `apache2` on
+Ubuntu but `httpd` on Fedora/RHEL, and development headers end in `-dev` on
+Debian but `-devel` on the RPM side (`libssl-dev` versus `openssl-devel`).
+On RHEL-family servers, many extra packages come from the EPEL repository.
+
+## snap (and flatpak)
+
+Snaps are self-contained packages, from Canonical's Snap Store, that bundle
+their own dependencies and update automatically in the background.
+
+```bash
+sudo snap install code --classic   # --classic: opts out of the sandbox
+snap list
+sudo snap refresh                  # update snaps now
+```
+
+Strictly confined snaps run in a sandbox; `--classic` snaps (editors,
+compilers) get normal system access. Trade-offs: larger downloads, slower
+first start, and updates you do not fully control. Desktop users on other
+distributions often use **flatpak** for the same purpose.
+
+## System packages vs language packages
+
+Recent Ubuntu and Debian releases refuse a bare `sudo pip install` with an
+"externally-managed-environment" error, so Python libraries cannot break
+tools the OS depends on. Use a virtual environment (`python3 -m venv .venv`)
+for projects and `pipx` for command-line tools. The same principle applies
+to npm: never use `sudo npm install -g` to work around permissions; use a
+Node version manager or a user-level prefix instead.
+
+## Interview angles
+
+- **"remove vs purge?"** Purge also deletes system configuration files under
+  `/etc`; neither touches users' home directories.
+- **"A command is missing on a server. How do you find which package has it?"**
+  On Ubuntu, the shell itself often suggests a package; otherwise
+  `apt-file search bin/name` (after installing `apt-file`), or
+  `dnf provides '*/name'` on Fedora/RHEL.
+- **"Why `apt-get` in a Dockerfile?"** Stable CLI for scripts; combine
+  `update` and `install` in one `RUN` so the cached index is never stale.
+
+### Try it yourself
+
+1. On an Ubuntu machine or container, run `apt show curl`, then
+   `dpkg -L curl | head` and `dpkg -S "$(command -v curl)"`.
+2. Install `jq`, use it once (`echo '{"a":1}' | jq .a`), then `purge` it
+   and run `autoremove`.
+3. Write the dnf equivalents of your three commands from exercise 1 and
+   check them in a Fedora container (`docker run -it fedora bash`).

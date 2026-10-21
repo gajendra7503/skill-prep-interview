@@ -1,0 +1,149 @@
+---
+title: "String, Date & Numeric Functions"
+description: "The built-in functions that show up in real reports — string building and parsing, regex, date arithmetic, IST time zones, rounding and casting — and when they kill index use."
+module: "Practical MySQL"
+level: intermediate
+order: 9
+---
+
+Every reporting query eventually needs to format a name, bucket orders by
+month, convert UTC to IST or round GST. Interviewers use these functions to
+check two things: that you know the exact semantics (NULL handling,
+rounding direction, inclusive vs exclusive dates), and that you know when
+wrapping a column in a function stops an index being used.
+
+## Building strings: `CONCAT` vs `CONCAT_WS`
+
+```sql
+SELECT CONCAT(name, ' (', city, ')')      AS label,   -- NULL if city is NULL
+       CONCAT_WS(', ', name, city, email) AS contact  -- skips NULL arguments
+FROM customers;
+```
+
+`CONCAT` returns NULL if **any** argument is NULL, a common source of blank
+labels. `CONCAT_WS` (with separator) skips NULL values after the separator
+argument, so it is the safer choice for addresses and display names. Wrap
+individual values in `COALESCE(city, 'Unknown')` when you need a
+placeholder.
+
+## Parsing strings: `SUBSTRING_INDEX`
+
+```sql
+SELECT SUBSTRING_INDEX('priya.sharma@example.in', '@', -1);  -- example.in
+SELECT SUBSTRING_INDEX('priya.sharma@example.in', '@', 1);   -- priya.sharma
+SELECT SUBSTRING_INDEX('Electronics/Mobiles/Android', '/', 2);
+-- Electronics/Mobiles
+
+-- Orders per email domain
+SELECT SUBSTRING_INDEX(c.email, '@', -1) AS domain, COUNT(*) AS orders
+FROM orders o JOIN customers c ON c.id = o.customer_id
+GROUP BY domain;
+```
+
+A positive count returns everything left of the Nth delimiter; a negative
+count returns everything right of the Nth delimiter from the end. Other
+staples: `SUBSTRING(s, pos, len)` (1-based), `TRIM`, `LPAD(id, 6, '0')`,
+`REPLACE`, and `LENGTH` (bytes) vs `CHAR_LENGTH` (characters) — they
+differ for utf8mb4 text such as Hindi names.
+
+## Regular expressions (MySQL 8.0+)
+
+```sql
+-- Assume customers has a phone VARCHAR(20) column for these examples.
+-- Invalid Indian mobile numbers: not 10 digits starting 6-9
+SELECT id, phone FROM customers
+WHERE NOT REGEXP_LIKE(phone, '^[6-9][0-9]{9}$');
+
+-- Normalise '+91 98765-43210' to '9876543210'
+SELECT REGEXP_REPLACE(REGEXP_REPLACE(phone, '[^0-9]', ''), '^91(?=[0-9]{10}$)', '');
+
+SELECT REGEXP_SUBSTR(name, '[A-Za-z]+') AS first_word FROM products;
+```
+
+MySQL 8.0 uses the ICU regex library, so it is Unicode-aware and supports
+look-ahead. Matching follows the column's collation: with the default
+`_ci` collation, `REGEXP_LIKE` is case-insensitive unless you pass the
+`'c'` match type. Regex predicates can never use a B-tree index.
+
+## Formatting and arithmetic on dates
+
+```sql
+SELECT DATE_FORMAT(created_at, '%d-%b-%Y %h:%i %p') AS placed_on  -- 05-Apr-2025 03:30 PM
+FROM orders;
+
+SELECT DATE_ADD('2025-01-31', INTERVAL 1 MONTH);     -- 2025-02-28 (clamped)
+SELECT DATEDIFF('2025-04-01', '2025-03-01');         -- 31 (days, ignores time)
+SELECT TIMESTAMPDIFF(MONTH, '2025-01-31', '2025-02-28');  -- 0 (not a full month)
+SELECT TIMESTAMPDIFF(HOUR, created_at, NOW()) FROM orders;
+SELECT LAST_DAY('2024-02-10');                       -- 2024-02-29
+```
+
+`DATEDIFF(a, b)` returns `a - b` in whole days using only the date part.
+`TIMESTAMPDIFF(unit, start, end)` counts **complete** units, so it is the
+right tool for age or tenure in months or years. `DATE_ADD` with month
+intervals clamps to the last valid day.
+
+## Sargable date filters
+
+```sql
+-- Bad: function on the column, index on created_at cannot range-scan
+SELECT * FROM orders WHERE DATE(created_at) = '2025-04-01';
+SELECT * FROM orders WHERE DATE_FORMAT(created_at, '%Y-%m') = '2025-04';
+
+-- Good: compare the bare column with a half-open range
+SELECT * FROM orders
+WHERE created_at >= '2025-04-01' AND created_at < '2025-04-02';
+
+SELECT * FROM orders
+WHERE created_at >= '2025-04-01' AND created_at < '2025-04-01' + INTERVAL 1 MONTH;
+```
+
+Move the function to the **constant** side. If a function on the column is
+unavoidable, MySQL 8.0.13+ supports functional indexes such as
+`INDEX ((DATE(created_at)))`, but the query must use the exact same
+expression.
+
+## Time zones and IST
+
+```sql
+SELECT CONVERT_TZ(created_at, '+00:00', '+05:30') AS created_ist FROM orders;
+SELECT CONVERT_TZ(created_at, 'UTC', 'Asia/Kolkata') FROM orders;  -- needs tz tables
+
+-- "Orders placed on 1 April IST", with created_at stored in UTC
+SELECT COUNT(*) FROM orders
+WHERE created_at >= '2025-03-31 18:30:00' AND created_at < '2025-04-01 18:30:00';
+```
+
+Named zones return NULL until the time zone tables are loaded
+(`mysql_tzinfo_to_sql`); offsets always work, and IST has no daylight
+saving so `+05:30` is safe. Note the filter converts the IST day
+boundaries to UTC rather than calling `CONVERT_TZ` on the column, which
+keeps it sargable.
+
+## `ROUND` vs `TRUNCATE`, and `CAST`
+
+```sql
+SELECT ROUND(1499.555, 2), TRUNCATE(1499.555, 2);   -- 1499.56, 1499.55
+SELECT ROUND(2.5), ROUND(-2.5);                      -- 3, -3 (exact values: half away from zero)
+SELECT ROUND(1499, -2);                              -- 1500
+SELECT ROUND(total * 0.18, 2) AS gst FROM orders;    -- 18% GST in INR
+
+SELECT CAST('2025-04-01' AS DATE), CAST(price AS UNSIGNED),
+       CAST('₹1,499' AS DECIMAL(10,2));             -- last one: 0.00 + warning
+```
+
+For exact-value types (`DECIMAL`, integers) `ROUND` rounds half away from
+zero; for `DOUBLE` it uses the C library, typically round-half-to-even.
+`TRUNCATE` just drops digits towards zero. `CAST(... AS UNSIGNED)` rounds
+a `DECIMAL`. Casting a string that does not start with a number yields 0
+with a warning (or an error in strict mode on writes), so clean strings with
+`REPLACE` first. Comparing a string column to a number
+(`WHERE phone = 9876543210`) casts every row and disables the index.
+
+### Try it yourself
+
+Write one report over the course schema showing, per IST calendar month of
+2025: the month as `Apr 2025`, order count, revenue rounded to whole rupees,
+18% GST on that revenue to two decimals, and the most common customer email
+domain. Keep every `WHERE` predicate sargable and confirm with `EXPLAIN`
+that the `created_at` index is used for a range scan.

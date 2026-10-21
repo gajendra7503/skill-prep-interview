@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A subsets function calls `result.push(path)` instead of `result.push([...path])`. What happens?",
+      "options": [
+        "It works correctly but uses less memory",
+        "Every entry in result points to the same array, which ends up empty after all the pops",
+        "It throws a TypeError",
+        "It returns only the largest subset"
+      ],
+      "correctIndex": 1,
+      "explanation": "The shared path array is mutated and restored throughout the search. Pushing the reference stores the same array repeatedly; after backtracking finishes it is empty, so you get a list of empty arrays."
+    },
+    {
+      "question": "In combination sum where each coin may be reused any number of times, what index should the recursive call start from?",
+      "options": [
+        "0",
+        "i + 1",
+        "start + 1",
+        "i"
+      ],
+      "correctIndex": 3,
+      "explanation": "Starting from i lets the same coin be chosen again while still preventing earlier coins (which would create reordered duplicates). i + 1 is for use-each-item-once problems."
+    },
+    {
+      "question": "In N-Queens, which value is the same for every cell on a diagonal running from top-left to bottom-right?",
+      "options": [
+        "row - col",
+        "row + col",
+        "row * col",
+        "col - 2 * row"
+      ],
+      "correctIndex": 0,
+      "explanation": "Moving down-right increases both row and col by 1, so row - col stays constant. row + col is constant on the other (anti) diagonal."
+    },
+    {
+      "question": "What is the typical time complexity of generating all subsets of n elements with backtracking?",
+      "options": [
+        "O(n^2)",
+        "O(n log n)",
+        "O(n * 2^n)",
+        "O(n!)"
+      ],
+      "correctIndex": 2,
+      "explanation": "There are 2^n subsets and copying each into the result costs up to O(n), giving O(n * 2^n). Exponential time is unavoidable because the output itself is exponential."
+    }
+  ]
+}

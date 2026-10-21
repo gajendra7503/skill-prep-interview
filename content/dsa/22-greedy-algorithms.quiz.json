@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "For interval scheduling (maximum number of non-overlapping meetings), which greedy rule is optimal?",
+      "options": [
+        "Earliest start time first",
+        "Shortest meeting first",
+        "Earliest end time first",
+        "Fewest conflicts first"
+      ],
+      "correctIndex": 2,
+      "explanation": "Choosing the meeting that ends first leaves the most room for the rest; an exchange argument shows swapping it into any optimal solution never makes it worse."
+    },
+    {
+      "question": "With coins [1, 3, 4], what does largest-coin-first greedy return for amount 6?",
+      "options": [
+        "[4, 1, 1] — not optimal, since [3, 3] uses fewer coins",
+        "[3, 3] — optimal",
+        "[4, 2] — optimal",
+        "No solution — greedy cannot make 6"
+      ],
+      "correctIndex": 0,
+      "explanation": "Greedy takes 4 then 1 and 1 (three coins), but 3 + 3 needs only two. Minimum-coin change for arbitrary denominations needs DP."
+    },
+    {
+      "question": "What is the standard technique for proving a greedy algorithm correct?",
+      "options": [
+        "Testing it on a few examples",
+        "Showing it runs in O(n log n)",
+        "Memoising the recursion",
+        "The exchange argument: swap an optimal solution's choice for the greedy choice without making it worse"
+      ],
+      "correctIndex": 3,
+      "explanation": "The exchange argument transforms any optimal solution step by step into the greedy one while preserving optimality."
+    },
+    {
+      "question": "Why is greedy by value-per-kg optimal for fractional knapsack but not for 0/1 knapsack?",
+      "options": [
+        "Fractional knapsack always has fewer items",
+        "Splitting lets you always fill leftover capacity with the next-best ratio; with whole items, leftover space can be wasted",
+        "0/1 knapsack allows negative weights",
+        "Greedy is actually optimal for both"
+      ],
+      "correctIndex": 1,
+      "explanation": "When items can be split, the best ratio always fills capacity exactly. With whole items only, an early high-ratio pick can leave unusable space, so DP is required."
+    }
+  ]
+}

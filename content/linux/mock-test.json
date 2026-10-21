@@ -1,0 +1,762 @@
+{
+  "title": "Linux & the Command Line Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "linux-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-what-is-linux-and-getting-a-shell",
+      "question": "An interviewer asks: \"What is the difference between Linux and Ubuntu?\" Which answer is correct?",
+      "options": [
+        "Linux is a desktop environment; Ubuntu is the kernel underneath it",
+        "They are two names for the same operating system",
+        "Linux is the kernel; Ubuntu is a distribution that bundles that kernel with GNU tools, a package manager (apt) and defaults",
+        "Ubuntu is the shell; Linux is the terminal window that displays it"
+      ],
+      "correctIndex": 2,
+      "explanation": "Strictly, \"Linux\" is only the kernel. A distribution such as Ubuntu packages the kernel with GNU tools, the apt package manager and default settings. Calling them the same thing is the common but imprecise answer interviewers want you to avoid."
+    },
+    {
+      "id": "linux-02",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-navigating-the-file-system",
+      "question": "On a Linux server, where would you look first for system configuration files and for logs?",
+      "options": [
+        "Configuration in /etc, logs in /var/log",
+        "Configuration in /usr, logs in /tmp",
+        "Configuration in /root, logs in /proc",
+        "Configuration in /home, logs in /dev"
+      ],
+      "correctIndex": 0,
+      "explanation": "/etc holds system configuration (text files) and /var holds changing data, with logs under /var/log. /root is only the root user's home directory, and /proc is a virtual view of processes and the kernel, not log storage."
+    },
+    {
+      "id": "linux-03",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-navigating-the-file-system",
+      "question": "You are bouncing between /srv/app and /var/log. Which command takes you back to the previous directory you were in (and prints it)?",
+      "answerHint": "Type the full command",
+      "acceptedAnswers": [
+        "cd -"
+      ],
+      "caseSensitive": false,
+      "explanation": "`cd -` switches to the previous working directory and prints its path. Plain `cd` with no argument goes to your home directory instead."
+    },
+    {
+      "id": "linux-04",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "03-working-with-files-and-directories",
+      "question": "`cp reports reports-copy` fails with \"cp: -r not specified; omitting directory 'reports'\". What is the fix?",
+      "options": [
+        "Use `mv reports reports-copy`, because cp cannot copy directories",
+        "Run it with sudo",
+        "Create reports-copy first with mkdir, then repeat the same command",
+        "Use `cp -r reports reports-copy` (or `cp -a` to also keep permissions and timestamps)"
+      ],
+      "correctIndex": 3,
+      "explanation": "cp needs -r (recursive) or -a (archive) to copy a directory. mv would move (rename) the directory rather than copy it, and sudo does not change cp's refusal to copy a directory without -r."
+    },
+    {
+      "id": "linux-05",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "03-working-with-files-and-directories",
+      "question": "What does this command print?",
+      "code": "echo report-{jan,feb,mar}.csv",
+      "codeLanguage": "bash",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "report-jan.csv report-feb.csv report-mar.csv"
+      ],
+      "caseSensitive": false,
+      "explanation": "Bash brace expansion turns `{jan,feb,mar}` into three separate words before echo runs, so echo receives three arguments and prints them separated by spaces."
+    },
+    {
+      "id": "linux-06",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "04-viewing-and-editing-text",
+      "question": "You want to watch an application log live, and the log is rotated (renamed and recreated) every night. Which command keeps following the log after rotation?",
+      "options": [
+        "tail -n +1 app.log",
+        "tail -F app.log",
+        "less -S app.log",
+        "head -f app.log"
+      ],
+      "correctIndex": 1,
+      "explanation": "`tail -F` re-opens the file by name when it is rotated. `tail -f` would keep following the old, renamed file. `less -S` only disables line wrapping, and head has no follow mode."
+    },
+    {
+      "id": "linux-07",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "04-viewing-and-editing-text",
+      "question": "You are in vim's normal mode with unsaved changes you do not want. What do you type to quit and discard the changes?",
+      "answerHint": "Type the vim command",
+      "acceptedAnswers": [
+        ":q!",
+        "q!"
+      ],
+      "caseSensitive": false,
+      "explanation": "`:q!` quits and discards changes. Plain `:q` refuses while there are unsaved changes, and `:wq` or `:x` would save them."
+    },
+    {
+      "id": "linux-08",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "05-getting-help-and-command-anatomy",
+      "question": "A deployment script fails and `echo $?` prints 127. What does that exit status usually mean?",
+      "options": [
+        "The command succeeded",
+        "The command was stopped with Ctrl+C",
+        "The command was not found",
+        "The file exists but is not executable"
+      ],
+      "correctIndex": 2,
+      "explanation": "127 means \"command not found\" (often a PATH problem or a typo). 0 is success, 130 is Ctrl+C (128 + 2), and \"found but not executable\" is 126."
+    },
+    {
+      "id": "linux-09",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "05-getting-help-and-command-anatomy",
+      "question": "What does this command print?",
+      "code": "ls /nope 2>/dev/null && echo found || echo missing",
+      "codeLanguage": "bash",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "missing"
+      ],
+      "caseSensitive": false,
+      "explanation": "ls fails (the error is hidden by 2>/dev/null), so `&& echo found` is skipped. The status is still non-zero, so `|| echo missing` runs."
+    },
+    {
+      "id": "linux-10",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-users-groups-and-permissions",
+      "question": "User ravi owns `notes.txt` and it has mode 600, but `rm notes.txt` fails with \"Permission denied\". What is the most likely reason?",
+      "options": [
+        "ravi has no write permission on the directory that contains notes.txt",
+        "The file needs execute permission before it can be deleted",
+        "Only root can delete files with mode 600",
+        "The file is in use by another process"
+      ],
+      "correctIndex": 0,
+      "explanation": "Deleting a file changes the directory's list of entries, so it needs write (and execute) permission on the directory, not on the file. Execute on a file only allows running it, and mode 600 does not restrict deletion to root."
+    },
+    {
+      "id": "linux-11",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "06-users-groups-and-permissions",
+      "question": "What octal mode gives the permissions `rwxr-x---` (owner full access, group read and execute, others nothing)?",
+      "answerHint": "Type a three-digit octal mode",
+      "acceptedAnswers": [
+        "750",
+        "0750"
+      ],
+      "caseSensitive": false,
+      "explanation": "r=4, w=2, x=1 per class: owner rwx = 7, group r-x = 5, others --- = 0, giving 750."
+    },
+    {
+      "id": "linux-12",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "06-users-groups-and-permissions",
+      "question": "Your umask is set to 027. What octal mode does a new regular file get when created with `touch`?",
+      "code": "umask 027\ntouch report.txt\nstat -c '%a' report.txt",
+      "codeLanguage": "bash",
+      "answerHint": "Type a three-digit octal mode",
+      "acceptedAnswers": [
+        "640",
+        "0640"
+      ],
+      "caseSensitive": false,
+      "explanation": "Files start from 666 and the umask removes bits: 666 with 027 masked off gives 640 (rw-r-----). A directory would start from 777 and become 750."
+    },
+    {
+      "id": "linux-13",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-pipes-and-redirection",
+      "question": "`out.txt` exists and `missing.txt` does not. Which command still prints the \"No such file or directory\" error on the terminal?",
+      "options": [
+        "ls out.txt missing.txt > all.txt 2>&1",
+        "ls out.txt missing.txt &> all.txt",
+        "ls out.txt missing.txt > all.txt 2> err.txt",
+        "ls out.txt missing.txt 2>&1 > all.txt"
+      ],
+      "correctIndex": 3,
+      "explanation": "Redirections are processed left to right, and `2>&1` copies wherever FD 1 points at that moment. In `2>&1 > all.txt`, stderr is pointed at the terminal first, then only stdout moves to the file. `> all.txt 2>&1` and `&>` send both streams to the file."
+    },
+    {
+      "id": "linux-14",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-pipes-and-redirection",
+      "question": "`sudo echo \"10.0.0.5 db.internal\" >> /etc/hosts` fails with \"Permission denied\". Why, and what works instead?",
+      "options": [
+        "echo is a shell builtin and cannot run under sudo; use `sudo /bin/echo ... >> /etc/hosts`",
+        "Your own shell opens /etc/hosts for the redirection before sudo runs; use `echo \"...\" | sudo tee -a /etc/hosts > /dev/null`",
+        "`>>` is not allowed on system files; use `>` instead",
+        "sudo needs -E to keep the redirection; use `sudo -E echo ... >> /etc/hosts`"
+      ],
+      "correctIndex": 1,
+      "explanation": "The redirection is performed by your unprivileged shell, not by the root process, so it fails before sudo matters. With `sudo tee -a`, tee runs as root and opens the file itself. Using /bin/echo or -E does not change who opens the file."
+    },
+    {
+      "id": "linux-15",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "07-pipes-and-redirection",
+      "question": "What does this print in Bash?",
+      "code": "false | true\necho \"${PIPESTATUS[@]}\"",
+      "codeLanguage": "bash",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "1 0"
+      ],
+      "caseSensitive": false,
+      "explanation": "PIPESTATUS holds the exit status of every command in the last pipeline, in order: false returned 1 and true returned 0. `$?` alone would show only the last one (0)."
+    },
+    {
+      "id": "linux-16",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-grep-and-regular-expressions",
+      "question": "`app.conf` exists but contains no line with \"nosuch\". What does this print?",
+      "code": "grep -q \"nosuch\" app.conf; echo $?",
+      "codeLanguage": "bash",
+      "options": [
+        "0",
+        "2",
+        "1",
+        "Nothing, because -q suppresses the echo too"
+      ],
+      "correctIndex": 2,
+      "explanation": "grep exits 0 if a line matched, 1 if nothing matched, and 2 on an error such as a missing file. -q only silences grep's own output; the separate echo still runs."
+    },
+    {
+      "id": "linux-17",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-grep-and-regular-expressions",
+      "question": "Why does `ps aux | grep \"[n]ginx\"` avoid listing the grep process itself, unlike `ps aux | grep nginx`?",
+      "options": [
+        "The regex [n]ginx matches the text \"nginx\", but grep's own command line contains \"[n]ginx\", which that regex does not match",
+        "Square brackets make grep skip its own process ID",
+        "The brackets turn on case-insensitive matching",
+        "ps hides processes whose arguments contain brackets"
+      ],
+      "correctIndex": 0,
+      "explanation": "The class [n] matches a single \"n\", so the pattern matches \"nginx\". The grep process's command line literally contains \"[n]ginx\", which has a \"[\" where the pattern needs \"n\", so it does not match itself. grep has no special knowledge of its own PID; `pgrep nginx` is the cleaner alternative."
+    },
+    {
+      "id": "linux-18",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "09-sed-awk-and-text-tools",
+      "question": "What does this pipeline print?",
+      "code": "printf 'Pune\\nDelhi\\nPune\\nMumbai\\nPune\\nDelhi\\n' | sort | uniq -c | sort -rn | head -n 1 | awk '{print $2}'",
+      "codeLanguage": "bash",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "Pune"
+      ],
+      "caseSensitive": false,
+      "explanation": "sort groups identical lines, `uniq -c` counts each group (3 Pune, 2 Delhi, 1 Mumbai), `sort -rn` puts the highest count first, head keeps that line and awk prints its second field: the city name."
+    },
+    {
+      "id": "linux-19",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "09-sed-awk-and-text-tools",
+      "question": "What does this command print?",
+      "code": "printf 'dept,amount\\nSales,400\\nOps,250\\nSales,600\\nOps,150\\n' |\n  awk -F, 'NR>1 && $1==\"Sales\" {s+=$2; n++} END {print s/n}'",
+      "codeLanguage": "bash",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "500"
+      ],
+      "caseSensitive": false,
+      "explanation": "-F, splits on commas, NR>1 skips the header, and only the two Sales rows (400 and 600) are summed and counted. The END block prints 1000 / 2 = 500."
+    },
+    {
+      "id": "linux-20",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "10-find-and-xargs",
+      "question": "What is the practical difference between `find src -name \"*.js\" -exec wc -l {} \\;` and `find src -name \"*.js\" -exec wc -l {} +`?",
+      "options": [
+        "`\\;` searches recursively, `+` only searches the top level",
+        "`+` deletes the files after running wc",
+        "There is no difference; `+` is just the newer spelling",
+        "`\\;` runs wc once per file; `+` packs many file names into each wc run, which is far faster for many files"
+      ],
+      "correctIndex": 3,
+      "explanation": "With `\\;`, find starts a new process for every match. With `+`, it passes many names to one invocation (so wc can also print a total). Neither form changes how deep find searches."
+    },
+    {
+      "id": "linux-21",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-find-and-xargs",
+      "question": "`find logs -name \"*.log\" | xargs ls -1` fails on a file named `app 2026-10-01.log`. Which command handles it correctly?",
+      "options": [
+        "find logs -name \"*.log\" | xargs -n 1 ls -1",
+        "find logs -name \"*.log\" -print0 | xargs -0 ls -1",
+        "find logs -name \"*.log\" | xargs -P 4 ls -1",
+        "find logs -name '*.log' | xargs -r ls -1"
+      ],
+      "correctIndex": 1,
+      "explanation": "By default xargs splits on any whitespace, so the name becomes two bogus arguments. `-print0` separates names with NUL bytes, which cannot appear in a Linux path, and `xargs -0` splits only on NUL. `-n 1`, `-P` and `-r` still split on the space."
+    },
+    {
+      "id": "linux-22",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "10-find-and-xargs",
+      "question": "What number does this print?",
+      "code": "echo \"a b c d e\" | xargs -n 2 echo | wc -l",
+      "codeLanguage": "bash",
+      "answerHint": "Type the number",
+      "acceptedAnswers": [
+        "3"
+      ],
+      "caseSensitive": false,
+      "explanation": "`-n 2` gives each echo at most two arguments, so xargs runs echo three times (\"a b\", \"c d\", \"e\"), producing three lines."
+    },
+    {
+      "id": "linux-23",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "11-processes-and-job-control",
+      "question": "Which signal can a process NOT catch or handle to clean up before it dies?",
+      "options": [
+        "SIGKILL (9)",
+        "SIGTERM (15)",
+        "SIGINT (2)",
+        "SIGHUP (1)"
+      ],
+      "correctIndex": 0,
+      "explanation": "SIGKILL (and SIGSTOP) cannot be caught; the kernel ends the process immediately. SIGTERM, the default for `kill`, can be caught, which is why you send it first and allow a graceful shutdown."
+    },
+    {
+      "id": "linux-24",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "11-processes-and-job-control",
+      "question": "What exit status does this print?",
+      "code": "sleep 30 & pid=$!\nkill \"$pid\"\nwait \"$pid\"; echo \"$?\"",
+      "codeLanguage": "bash",
+      "answerHint": "Type the exit status",
+      "acceptedAnswers": [
+        "143"
+      ],
+      "caseSensitive": false,
+      "explanation": "`kill` sends SIGTERM (15) by default. A process killed by a signal reports 128 + the signal number, so 128 + 15 = 143. SIGKILL would give 137."
+    },
+    {
+      "id": "linux-25",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "12-package-management",
+      "question": "What does `sudo apt update` do on Ubuntu?",
+      "options": [
+        "Installs newer versions of every installed package",
+        "Upgrades the distribution to the next Ubuntu release",
+        "Removes packages that are no longer needed",
+        "Downloads the latest package lists from the repositories, without changing any installed software"
+      ],
+      "correctIndex": 3,
+      "explanation": "`apt update` only refreshes the package index so apt knows what versions exist. Installing newer versions is `apt upgrade`, and removing unneeded dependencies is `apt autoremove`."
+    },
+    {
+      "id": "linux-26",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-package-management",
+      "question": "What is the difference between `apt remove nginx` and `apt purge nginx`?",
+      "options": [
+        "remove deletes the package for all users; purge deletes it only for the current user",
+        "purge also deletes users' files under /home; remove does not",
+        "remove keeps the package's system configuration files; purge also deletes its configuration under /etc",
+        "There is none; purge is an alias of remove"
+      ],
+      "correctIndex": 2,
+      "explanation": "remove uninstalls the package but leaves its configuration files, while purge also deletes that system configuration. Neither touches users' home directories."
+    },
+    {
+      "id": "linux-27",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "13-environment-and-shell-configuration",
+      "question": "What does this print?",
+      "code": "GREETING=hello\nbash -c 'echo \"child sees: [$GREETING]\"'",
+      "codeLanguage": "bash",
+      "options": [
+        "child sees: [hello]",
+        "child sees: []",
+        "child sees: [$GREETING]",
+        "bash: GREETING: unbound variable"
+      ],
+      "correctIndex": 1,
+      "explanation": "GREETING is a shell variable that has not been exported, so the child bash does not inherit it and expands it to empty. The single quotes stop the parent from expanding it, which is why the child, not the parent, sees an empty value. After `export GREETING` it would print [hello]."
+    },
+    {
+      "id": "linux-28",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "14-bash-scripting-fundamentals",
+      "question": "A script is run as `./args.sh \"New Delhi\" Pune` and loops over its arguments. Which form gives exactly two words, `New Delhi` and `Pune`?",
+      "options": [
+        "$*",
+        "\"$*\"",
+        "$@ (unquoted)",
+        "\"$@\""
+      ],
+      "correctIndex": 3,
+      "explanation": "\"$@\" expands to each argument as a separate word with its spaces kept. Unquoted $* (or $@) splits \"New Delhi\" into two words, giving three, while \"$*\" joins everything into the single word \"New Delhi Pune\"."
+    },
+    {
+      "id": "linux-29",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "14-bash-scripting-fundamentals",
+      "question": "What does this print?",
+      "code": "f=\"report.final.csv\"\necho \"${f%.*}\"",
+      "codeLanguage": "bash",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "report.final"
+      ],
+      "caseSensitive": false,
+      "explanation": "`%` removes the shortest suffix matching `.*`, which is \".csv\". `%%` would remove the longest match and leave just \"report\"."
+    },
+    {
+      "id": "linux-30",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "15-bash-control-flow-and-functions",
+      "question": "What does this print in Bash?",
+      "code": "[[ 10 > 9 ]] && echo true || echo false",
+      "codeLanguage": "bash",
+      "options": [
+        "false",
+        "true",
+        "Nothing; it creates a file named 9",
+        "A syntax error"
+      ],
+      "correctIndex": 0,
+      "explanation": "Inside [[ ]], > and < compare strings, not numbers, and \"10\" sorts before \"9\" because \"1\" comes before \"9\". Use `-gt` or `(( 10 > 9 ))` for numbers. Unlike [ ], [[ ]] does not treat > as a redirection, so no file is created."
+    },
+    {
+      "id": "linux-31",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "15-bash-control-flow-and-functions",
+      "question": "What does the final echo print?",
+      "code": "count=0\nprintf '1\\n2\\n3\\n' | while read -r l; do ((count++)); done\necho \"$count\"",
+      "codeLanguage": "bash",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "0"
+      ],
+      "caseSensitive": false,
+      "explanation": "Each part of a pipeline runs in a subshell, so the loop increments its own copy of count and the change is lost. Feeding the loop with `done < <(printf ...)` (process substitution) keeps it in the current shell and gives 3."
+    },
+    {
+      "id": "linux-32",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "16-archives-compression-and-transfers",
+      "question": "Before extracting `project.tar.gz` received from someone else, which command lists its contents without extracting anything?",
+      "options": [
+        "tar -czf project.tar.gz",
+        "tar -xzf project.tar.gz",
+        "tar -tzf project.tar.gz",
+        "gzip -k project.tar.gz"
+      ],
+      "correctIndex": 2,
+      "explanation": "-t lists (\"tells\") the contents, -z handles gzip and -f names the archive. -x extracts, and -c would create a new archive, overwriting the file you meant to inspect."
+    },
+    {
+      "id": "linux-33",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "17-networking-essentials",
+      "question": "`ifconfig` is missing on a new Ubuntu server. Which modern iproute2 command shows the interfaces and their IP addresses?",
+      "options": [
+        "ss -tlnp",
+        "ip addr",
+        "ip route",
+        "netstat -i"
+      ],
+      "correctIndex": 1,
+      "explanation": "`ip addr` (or `ip a`) replaces ifconfig. `ip route` shows the routing table, `ss -tlnp` shows listening sockets, and netstat comes from the same deprecated net-tools package as ifconfig."
+    },
+    {
+      "id": "linux-34",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "17-networking-essentials",
+      "question": "`sudo ss -tlnp` shows your Node app listening on `127.0.0.1:3000`. The firewall allows port 3000, yet other machines cannot connect. Why?",
+      "options": [
+        "The app accepts only connections from the machine itself, because it is bound to the loopback address",
+        "ss shows the port as LISTEN only after the first connection arrives",
+        "Port numbers above 1024 are blocked by the kernel for remote clients",
+        "The -n flag in ss hides the real public address"
+      ],
+      "correctIndex": 0,
+      "explanation": "127.0.0.1 is loopback, so only local clients can connect, whatever the firewall says. To accept remote connections the app must bind 0.0.0.0 (all interfaces), or stay on loopback behind a local reverse proxy such as nginx. -n only stops name resolution."
+    },
+    {
+      "id": "linux-35",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "18-ssh-and-remote-administration",
+      "question": "For key-based SSH login, which file on the server must contain your public key?",
+      "options": [
+        "~/.ssh/known_hosts",
+        "~/.ssh/id_ed25519",
+        "/etc/ssh/sshd_config",
+        "~/.ssh/authorized_keys of the account you log in as"
+      ],
+      "correctIndex": 3,
+      "explanation": "The server checks the public keys listed in the target account's ~/.ssh/authorized_keys. known_hosts stores servers' host keys on the client, and id_ed25519 is your private key, which never leaves your laptop."
+    },
+    {
+      "id": "linux-36",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "18-ssh-and-remote-administration",
+      "question": "You run `ssh -N -L 5433:10.0.1.20:5432 web1`. Where does port 5433 start listening, and what does it reach?",
+      "options": [
+        "On web1; it reaches port 5432 on your laptop",
+        "On 10.0.1.20; it reaches port 5433 on web1",
+        "On your laptop; connections to it travel through web1 to 10.0.1.20:5432",
+        "On your laptop; it opens a SOCKS proxy for any destination"
+      ],
+      "correctIndex": 2,
+      "explanation": "With -L, the listening port opens on your side and traffic is forwarded through the SSH server (web1) to the target, here PostgreSQL at 10.0.1.20:5432. -R opens the port on the server instead, and -D creates a SOCKS proxy."
+    },
+    {
+      "id": "linux-37",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "19-systemd-services-and-logs",
+      "question": "You changed `ExecStart=` in `/etc/systemd/system/myapp.service` and ran `sudo systemctl restart myapp`, but the old command still runs. What did you forget?",
+      "options": [
+        "sudo systemctl enable myapp",
+        "sudo systemctl daemon-reload",
+        "sudo systemctl reload myapp",
+        "journalctl -u myapp"
+      ],
+      "correctIndex": 1,
+      "explanation": "After creating or editing a unit file, `systemctl daemon-reload` makes systemd re-read it. enable only affects starting at boot, and `reload` asks the running service to re-read its own configuration, not the unit file."
+    },
+    {
+      "id": "linux-38",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "19-systemd-services-and-logs",
+      "question": "A unit contains `ExecStart=/usr/bin/node server.js > /var/log/app.log 2>&1 && echo started`. Why does it not behave as intended?",
+      "options": [
+        "ExecStart must use a relative path",
+        "Output redirection is allowed but `&&` must be written as `;`",
+        "systemd ignores ExecStart unless Restart= is also set",
+        "ExecStart is not run through a shell, so redirections and `&&` are not interpreted; the app should simply log to stdout/stderr for the journal"
+      ],
+      "correctIndex": 3,
+      "explanation": "systemd executes ExecStart directly, not via a shell, so pipes, redirections, `&&` and `~` do not work there. ExecStart needs an absolute path, and the journal already captures stdout and stderr, so redirecting to a file is unnecessary."
+    },
+    {
+      "id": "linux-39",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "20-disks-filesystems-and-mounts",
+      "question": "Why should an /etc/fstab entry for a data volume use `UUID=...` instead of `/dev/sdb`?",
+      "options": [
+        "Device names like /dev/sdb can change between boots when disks are added or removed; the filesystem UUID stays the same",
+        "fstab does not accept /dev paths at all",
+        "Using a UUID makes the mount read-only and therefore safer",
+        "UUIDs make mounting faster at boot"
+      ],
+      "correctIndex": 0,
+      "explanation": "Kernel device names depend on detection order, so /dev/sdb could become a different disk. The UUID (from `blkid`) identifies the filesystem itself. /dev paths are allowed, just fragile, and the UUID has nothing to do with read-only mounting."
+    },
+    {
+      "id": "linux-40",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "20-disks-filesystems-and-mounts",
+      "question": "`df -h` shows / at 100%, you deleted a 10 GB log with `rm`, and `df` still shows 100% while `du` cannot find the space. What is the most likely cause and the check?",
+      "options": [
+        "The inode table is corrupted; run `mkfs.ext4` on the root partition",
+        "du skips hidden files; run `du -a` instead",
+        "A process still has the deleted file open, so its space is not freed; list such files with `sudo lsof +L1` and restart or reload that process",
+        "df caches results for 24 hours; wait for the next refresh"
+      ],
+      "correctIndex": 2,
+      "explanation": "Space from a deleted file is released only when the last process holding it open closes it. `lsof +L1` lists deleted-but-open files; restart or reload the process (and next time empty a live log with `truncate -s 0`). mkfs would erase the filesystem, and df does not cache."
+    },
+    {
+      "id": "linux-41",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "21-scheduling-with-cron",
+      "question": "When does the crontab entry `0 9 13 * 5 /opt/bin/report.sh` run?",
+      "options": [
+        "Only at 09:00 on a Friday that falls on the 13th",
+        "At 09:00 on the 13th of every month and also at 09:00 every Friday",
+        "At 09:13 every Friday",
+        "At 13:09 on the 5th of every month"
+      ],
+      "correctIndex": 1,
+      "explanation": "When both day-of-month and day-of-week are restricted, cron runs the job when either one matches, not only when both do. Fields are minute (0), hour (9), day of month (13), month (*), day of week (5 = Friday)."
+    },
+    {
+      "id": "linux-42",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "21-scheduling-with-cron",
+      "question": "Write the five cron time fields (no command) for a job that runs at 09:30 from Monday to Friday.",
+      "answerHint": "Type the five fields separated by spaces",
+      "acceptedAnswers": [
+        "30 9 * * 1-5",
+        "30 09 * * 1-5",
+        "30 9 * * mon-fri",
+        "30 09 * * mon-fri"
+      ],
+      "caseSensitive": false,
+      "explanation": "The fields are minute, hour, day of month, month, day of week: minute 30, hour 9, any day of month, any month, days 1-5 (Monday to Friday)."
+    },
+    {
+      "id": "linux-43",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "22-robust-shell-scripts",
+      "question": "What happens when this strict-mode script runs?",
+      "code": "set -euo pipefail\ng() { local out=$(false); echo \"masked: '$out'\"; }\ng\necho after",
+      "codeLanguage": "bash",
+      "options": [
+        "It exits inside g with status 1 and prints nothing",
+        "It prints \"masked: ''\" and then exits before \"after\"",
+        "It fails with \"out: unbound variable\"",
+        "It prints \"masked: ''\" and then \"after\", because `local` returns 0 and hides the failure of $(false)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The status of `local out=$(false)` is the status of `local`, which is 0, so set -e never sees the failure. Declaring first (`local out; out=$(false)`) makes the script exit as expected. out is set (to empty), so -u does not trigger."
+    },
+    {
+      "id": "linux-44",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "22-robust-shell-scripts",
+      "question": "What does this print?",
+      "code": "bash -c 'set -euo pipefail; false | true; echo ok'; echo \"$?\"",
+      "codeLanguage": "bash",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "1"
+      ],
+      "caseSensitive": false,
+      "explanation": "With pipefail, `false | true` fails because one command in it failed, and -e then stops the inner shell before `echo ok`. The inner bash exits with status 1, which the outer echo prints. Without pipefail it would print ok and 0."
+    },
+    {
+      "id": "linux-45",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "23-security-hardening",
+      "question": "You are connected over SSH and setting up ufw with `default deny incoming`. Which step must come before `sudo ufw enable`?",
+      "options": [
+        "sudo ufw default allow incoming",
+        "sudo ufw status verbose",
+        "sudo ufw allow OpenSSH",
+        "sudo systemctl disable ssh"
+      ],
+      "correctIndex": 2,
+      "explanation": "With a default-deny policy, enabling the firewall without an SSH rule cuts off your own session and locks you out. Checking status changes nothing, and allowing all incoming traffic defeats the point of the firewall."
+    },
+    {
+      "id": "linux-46",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "24-linux-internals",
+      "question": "At the system-call level, how does Bash run an external command such as `ls`?",
+      "options": [
+        "It forks (clone) a near-copy of itself, the child calls execve to load /usr/bin/ls, and the parent waits (wait4) to collect the exit status into $?",
+        "It calls execve directly in its own process and resumes once ls finishes",
+        "It asks systemd (PID 1) to start ls and polls /proc for the result",
+        "It loads ls as a shared library and calls its main function"
+      ],
+      "correctIndex": 0,
+      "explanation": "Bash creates a child with fork/clone (cheap, thanks to copy-on-write), the child replaces itself with execve, and the parent calls wait. If Bash called execve itself, the shell would be replaced and never come back."
+    },
+    {
+      "id": "linux-47",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "25-performance-troubleshooting",
+      "question": "`uptime` shows a load average of 12 on a 4-CPU server, but `vmstat` shows `us` at 10%, `b` at 9 and `wa` at 70%. What is the most likely bottleneck?",
+      "options": [
+        "CPU saturation by user-space code",
+        "Tasks blocked on disk I/O; Linux load average counts tasks in uninterruptible sleep (D state)",
+        "Memory leak causing heavy swapping",
+        "Too many network connections in TIME-WAIT"
+      ],
+      "correctIndex": 1,
+      "explanation": "On Linux, load includes tasks in uninterruptible sleep, so slow storage raises load without using CPU. High `b` and `wa` with low `us` point to I/O; the next step is `iostat -xz` and `pidstat -d`. CPU saturation would show high `us`/`sy` and a large `r`."
+    },
+    {
+      "id": "linux-48",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "26-containers-under-the-hood",
+      "question": "In cgroups v2, a container's group has `cpu.max` set to `50000 100000`. What does that mean?",
+      "options": [
+        "The container may use at most 50,000 processes",
+        "The container is limited to 50,000 KB of memory",
+        "The container may use 50 ms of CPU time in every 100 ms period, i.e. half a CPU",
+        "The container's CPU priority is 50% of the host's"
+      ],
+      "correctIndex": 2,
+      "explanation": "cpu.max holds a quota and a period in microseconds: 50000 of every 100000 microseconds is half a CPU, which is what `docker run --cpus=0.5` writes. The process limit is pids.max and memory is memory.max."
+    },
+    {
+      "id": "linux-49",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "27-production-operations",
+      "question": "An app cannot be told to reopen its log file, so you use `copytruncate` in its logrotate config. What is the trade-off?",
+      "options": [
+        "Lines written between the copy and the truncate can be lost",
+        "The app keeps writing to the rotated app.log.1 forever",
+        "Old logs can no longer be compressed",
+        "logrotate must then run as the app's user"
+      ],
+      "correctIndex": 0,
+      "explanation": "copytruncate copies the file and then truncates the original in place, so the app keeps its descriptor and needs no signal, but anything written in between is lost. Writing to app.log.1 is what happens with a plain rename when the app is not signalled to reopen."
+    },
+    {
+      "id": "linux-50",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "28-project-deploy-a-web-server",
+      "question": "After editing an nginx site config on a live server, which sequence is safest?",
+      "options": [
+        "sudo systemctl restart nginx, then check the site",
+        "sudo systemctl stop nginx && sudo systemctl start nginx",
+        "sudo nginx -s stop, then edit again if anything fails",
+        "sudo nginx -t && sudo systemctl reload nginx"
+      ],
+      "correctIndex": 3,
+      "explanation": "`nginx -t` validates the configuration first, and `reload` applies it without dropping connections; with a bad config, reload keeps the old one running. A restart (or stop/start) with a broken config takes the site down."
+    }
+  ]
+}

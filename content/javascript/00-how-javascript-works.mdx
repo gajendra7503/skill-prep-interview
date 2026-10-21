@@ -1,0 +1,135 @@
+---
+title: "How JavaScript Works: The Mental Model"
+description: "Values, variables, expressions, statements, functions and objects — the core vocabulary, plus what an engine and a runtime actually are."
+module: "Getting Started"
+level: "beginner"
+order: 2
+---
+
+Before diving into scope, closures or promises, it helps to have a simple
+picture of what a JavaScript program *is* and the words developers use to
+describe it. Every later lesson builds on the vocabulary in this one.
+
+## A program is a list of statements
+
+JavaScript runs your file **top to bottom, one statement at a time**. A
+statement is an instruction; most end with a semicolon (optional in many
+cases, but common in professional code):
+
+```js
+const city = "Pune";              // a declaration statement
+console.log("Hello from " + city); // an expression statement
+if (city === "Pune") {             // an if statement containing a block
+  console.log("Monsoon is coming");
+}
+// Hello from Pune
+// Monsoon is coming
+```
+
+## Values and types
+
+Everything your program works with is a **value**. Each value has a type:
+
+```js
+console.log(typeof "Asha");    // "string"   — text
+console.log(typeof 499);       // "number"   — integers and decimals alike
+console.log(typeof true);      // "boolean"  — true or false
+console.log(typeof undefined); // "undefined" — "no value assigned yet"
+console.log(typeof null);      // "object"   — a famous historical bug; null means "intentionally empty"
+console.log(typeof {});        // "object"
+console.log(typeof []);        // "object"   — arrays are objects too
+```
+
+Strings, numbers, booleans, `undefined`, `null`, `bigint` and `symbol` are
+**primitives** — simple, unchangeable values. Everything else (objects,
+arrays, functions) is an **object**. The Data Types lesson goes deeper.
+
+## Variables are labels pointing at values
+
+A **variable** is a name you attach to a value so you can use it later:
+
+```js
+const gstRate = 0.18; // const: the label can never point somewhere else
+let cartTotal = 1000; // let: the label can be reassigned
+cartTotal = cartTotal + cartTotal * gstRate;
+console.log(cartTotal); // 1180
+```
+
+Use `const` by default and `let` only when you genuinely need to reassign.
+You will also see the older `var` in legacy code — the next lesson explains
+why modern code avoids it.
+
+## Expressions produce values
+
+An **expression** is any piece of code that evaluates to a value:
+
+```js
+2 + 3            // 5
+"5" + 3          // "53" — + with a string joins text
+"5" - 3          // 2    — - converts the string to a number
+cartTotal > 1000 // true
+0.1 + 0.2        // 0.30000000000000004 — decimals are binary floating point
+```
+
+That last line surprises everyone once. For money, store amounts in whole
+paise (₹11.80 becomes `1180`) and convert only for display.
+
+## Functions are reusable recipes
+
+A **function** packages statements so you can run them again with different
+inputs (**parameters**) and get a result back (**return value**):
+
+```js
+function addGst(amount) {
+  return amount * 1.18;
+}
+
+console.log(addGst(1000)); // 1180
+console.log(addGst(500));  // 590
+```
+
+Writing `addGst(1000)` is **calling** (or invoking) the function. In
+JavaScript functions are values too — you can store them in variables and
+pass them to other functions, which is the foundation of most modern code.
+
+## Objects and arrays group related data
+
+```js
+const user = { name: "Asha", city: "Pune", isMember: true }; // object: named properties
+const prices = [250, 120, 80];                               // array: ordered list
+
+console.log(user.name);      // "Asha"
+console.log(prices[0]);      // 250 — arrays start counting at 0
+console.log(prices.length);  // 3
+```
+
+## Engine vs runtime
+
+Two words you will hear constantly:
+
+- The **engine** reads and executes JavaScript. Chrome, Edge and Node use
+  V8; Firefox uses SpiderMonkey; Safari uses JavaScriptCore.
+- The **runtime** is the engine plus everything around it. A browser adds
+  `document`, `window`, `fetch` and timers; Node adds files, processes and
+  networking.
+
+The **language** itself is standardised as **ECMAScript**, with a new
+edition every year (ES2015, often called ES6, was the big modernisation).
+That is why `console.log` works everywhere but `document` only exists in
+browsers.
+
+## One thread, one thing at a time
+
+JavaScript runs your code on a **single thread**: it never executes two of
+your statements at the same moment. Slow work such as network requests is
+handed to the runtime, and your code is called back when the result is
+ready. Keep that picture in mind — the Event Loop lesson explains exactly
+how it works.
+
+### Try it yourself
+
+In the Node REPL or the browser console, create an object describing a
+product with `name` and `pricePaise` properties, write a function
+`formatPrice(product)` that returns a string like `"Notebook: ₹49.50"`,
+and check what `typeof` returns for the object, the function and the
+returned string.

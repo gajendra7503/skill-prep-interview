@@ -1,0 +1,791 @@
+{
+  "title": "Express.js Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "exp-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-introduction-to-express",
+      "question": "Which command runs `app.js` and restarts it automatically when files change, using only Node.js itself (no extra package)?",
+      "options": [
+        "node --watch app.js",
+        "node --reload app.js",
+        "npm start --watch",
+        "express --dev app.js"
+      ],
+      "correctIndex": 0,
+      "explanation": "Modern Node has a built-in `--watch` flag that restarts the process when imported files change. nodemon does the same job but is a separate package; the other commands do not exist."
+    },
+    {
+      "id": "exp-02",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-routing-basics",
+      "question": "In Express 5, which route path matches every URL under `/files/` (for example `/files/a/b.txt`)?",
+      "options": [
+        "/files/*",
+        "/files/*splat",
+        "/files/(.*)",
+        "/files/:path*"
+      ],
+      "correctIndex": 1,
+      "explanation": "Express 5 uses path-to-regexp v8, where a wildcard must have a name: `*splat` (any name works). A bare `/files/*` throws \"Missing parameter name\" at startup, and inline regex groups like `(.*)` are no longer supported in string paths."
+    },
+    {
+      "id": "exp-03",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "03-request-and-response",
+      "question": "For the route `app.get('/users/:id', handler)`, what is `req.params` when a client requests `/users/42`?",
+      "options": [
+        "{ id: 42 }",
+        "['42']",
+        "{ id: '42' }",
+        "{ users: '42' }"
+      ],
+      "correctIndex": 2,
+      "explanation": "Route parameters are always strings, so `req.params.id` is `'42'`, not the number 42. Convert it yourself (or with a validator such as zod) before using it as a number."
+    },
+    {
+      "id": "exp-04",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "04-middleware-deep-dive",
+      "question": "A middleware function logs the request but neither calls `next()` nor sends a response. What does the client experience?",
+      "options": [
+        "Express automatically moves on to the next middleware",
+        "Express sends an empty 200 response",
+        "Express sends a 404 response",
+        "The request hangs until the client or server times out"
+      ],
+      "correctIndex": 3,
+      "explanation": "Express never advances on its own: each middleware must either call `next()` or end the response. If it does neither, the request is left open and the client just waits."
+    },
+    {
+      "id": "exp-05",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "05-routers-and-project-structure",
+      "question": "A router is mounted with `app.use('/api/users', usersRouter)` and defines `usersRouter.get('/:id', getUser)`. Which request reaches `getUser`?",
+      "options": [
+        "GET /api/users/7",
+        "GET /users/7",
+        "GET /api/7",
+        "GET /api/users/users/7"
+      ],
+      "correctIndex": 0,
+      "explanation": "Paths inside a router are relative to the mount path, so `/:id` on a router mounted at `/api/users` matches `/api/users/7`. The router never sees the `/api/users` prefix in its own paths."
+    },
+    {
+      "id": "exp-06",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "06-handling-request-bodies-and-uploads",
+      "question": "A client sends `POST /notes` with a JSON body and `Content-Type: application/json`, but `req.body` is `undefined` in the handler. What is the most likely cause?",
+      "options": [
+        "The client should have used PUT instead of POST",
+        "No body-parsing middleware such as `express.json()` was registered before the route",
+        "Express 5 only parses bodies on routers, not on the app",
+        "`req.body` is only filled in after `res.send()` is called"
+      ],
+      "correctIndex": 1,
+      "explanation": "Express does not parse request bodies by default. Register `app.use(express.json())` before the routes that read `req.body`; without it, `req.body` is `undefined` in Express 5."
+    },
+    {
+      "id": "exp-07",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "07-rest-api-design",
+      "question": "Which HTTP method is NOT idempotent by definition?",
+      "options": [
+        "PUT",
+        "DELETE",
+        "POST",
+        "GET"
+      ],
+      "correctIndex": 2,
+      "explanation": "Sending the same PUT, DELETE or GET request several times leaves the server in the same state as sending it once. Repeating a POST usually creates another resource each time, so it is not idempotent."
+    },
+    {
+      "id": "exp-08",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "09-error-handling-in-express-5",
+      "question": "How does Express recognise a function as error-handling middleware?",
+      "options": [
+        "It is registered with `app.error()`",
+        "Its name ends in `Error`",
+        "It is registered after every route",
+        "It declares exactly four parameters: (err, req, res, next)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Express checks how many parameters the function declares. Four parameters, `(err, req, res, next)`, mark it as an error handler, even if you never use `next`."
+    },
+    {
+      "id": "exp-09",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "16-static-files-and-templates",
+      "question": "With `app.use(express.static('public'))`, at which URL is the file `public/images/logo.png` served?",
+      "options": [
+        "/images/logo.png",
+        "/public/images/logo.png",
+        "/static/images/logo.png",
+        "It is not served until a route is defined for it"
+      ],
+      "correctIndex": 0,
+      "explanation": "`express.static` serves files relative to the folder you pass, and the folder name is not part of the URL. To add a prefix, mount it: `app.use('/static', express.static('public'))`."
+    },
+    {
+      "id": "exp-10",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "13-sessions-and-cookies",
+      "question": "What does setting the `httpOnly` flag on a session cookie do?",
+      "options": [
+        "It makes the browser send the cookie only over HTTPS",
+        "It stops client-side JavaScript from reading the cookie through `document.cookie`",
+        "It stops the cookie from being sent on cross-site requests",
+        "It encrypts the cookie value"
+      ],
+      "correctIndex": 1,
+      "explanation": "`httpOnly` hides the cookie from JavaScript, which limits what an XSS attack can steal. HTTPS-only sending is the `secure` flag, and cross-site behaviour is controlled by `sameSite`."
+    },
+    {
+      "id": "exp-11",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "02-routing-basics",
+      "question": "In Express 5, which route path matches both `/download/report` and `/download/report.pdf`?",
+      "options": [
+        "/download/:file.:ext?",
+        "/download/:file(.:ext)?",
+        "/download/:file{.:ext}",
+        "/download/:file[.:ext]"
+      ],
+      "correctIndex": 2,
+      "explanation": "path-to-regexp v8 marks optional parts with braces, so `{.:ext}` is optional and `req.params.ext` is `'pdf'` only when the extension is present. The Express 4 style `:ext?` throws an \"Unexpected ?\" error in Express 5."
+    },
+    {
+      "id": "exp-12",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "03-request-and-response",
+      "question": "A validation middleware parses the query string and wants later handlers to use the cleaned values. What is the correct approach in Express 5?",
+      "options": [
+        "Assign the parsed object to `req.query`",
+        "Call `req.setQuery(parsed)`",
+        "Use `Object.assign(req.query, parsed)` only after calling `next()`",
+        "Store the parsed values somewhere else, such as `res.locals` or a custom property on `req`, because `req.query` is a read-only getter"
+      ],
+      "correctIndex": 3,
+      "explanation": "In Express 5, `req.query` is a getter with no setter, so assigning to it fails (it throws in strict mode, which includes ES modules). Put the validated values in `res.locals` or your own property, such as `req.validatedQuery`."
+    },
+    {
+      "id": "exp-13",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "04-middleware-deep-dive",
+      "question": "Why is `req.body` undefined inside the POST handler?",
+      "code": "const app = express()\n\napp.post('/notes', (req, res) => {\n  res.status(201).json(req.body)\n})\n\napp.use(express.json())",
+      "codeLanguage": "js",
+      "options": [
+        "`express.json()` is registered after the route, so it never runs before the handler",
+        "`express.json()` only parses PUT and PATCH requests",
+        "`res.status(201)` clears the body",
+        "`app.use` middleware always runs last"
+      ],
+      "correctIndex": 0,
+      "explanation": "Middleware runs in registration order. The POST route matches and responds before `express.json()` gets a chance to run, so the body is never parsed. Move `app.use(express.json())` above the routes."
+    },
+    {
+      "id": "exp-14",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-routers-and-project-structure",
+      "question": "A router is mounted at `/users/:userId/posts`. Inside it, `req.params.userId` is `undefined`. What fixes this?",
+      "options": [
+        "Mount it with `app.use('/users/*splat/posts', router)`",
+        "Create the router with `express.Router({ mergeParams: true })`",
+        "Read the value from `req.query.userId` instead",
+        "Use `app.param('userId')` inside the router"
+      ],
+      "correctIndex": 1,
+      "explanation": "By default a router only sees its own params. `mergeParams: true` makes params from the parent mount path, such as `:userId`, available in the child router's `req.params`."
+    },
+    {
+      "id": "exp-15",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-handling-request-bodies-and-uploads",
+      "question": "A client posts a 200 KB JSON body to an app that uses `app.use(express.json())` with no options. What happens?",
+      "options": [
+        "The body is parsed normally because there is no default limit",
+        "The body is cut off at 100 KB and the rest is ignored",
+        "Express rejects it with a 413 error, because the default JSON size limit is 100kb",
+        "Express responds with 400 Bad Request because the JSON is too large"
+      ],
+      "correctIndex": 2,
+      "explanation": "`express.json()` has a default `limit` of `'100kb'`. A larger body produces an error with status 413 (Payload Too Large) and type `entity.too.large`. Raise it explicitly, for example `express.json({ limit: '1mb' })`, only where needed."
+    },
+    {
+      "id": "exp-16",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-handling-request-bodies-and-uploads",
+      "question": "In Express 5, what is the default value of the `extended` option of `express.urlencoded()`?",
+      "options": [
+        "true, so nested objects are parsed with the qs library",
+        "There is no default; omitting it throws an error",
+        "'auto', which picks a parser based on the Content-Type",
+        "false, so the simple querystring parser is used and `user[name]=a` is not turned into a nested object"
+      ],
+      "correctIndex": 3,
+      "explanation": "Express 5 changed the default to `extended: false`. With it, `user[name]=a` becomes `{ 'user[name]': 'a' }`. Pass `{ extended: true }` if you need qs-style nested objects."
+    },
+    {
+      "id": "exp-17",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-rest-api-design",
+      "question": "A logged-in user with the role `viewer` calls `DELETE /api/projects/9`, which only admins may do. Which status code fits best?",
+      "options": [
+        "403 Forbidden",
+        "401 Unauthorized",
+        "404 Not Found",
+        "409 Conflict"
+      ],
+      "correctIndex": 0,
+      "explanation": "The server knows who the user is but they are not allowed to do this, which is 403. 401 means the request is not authenticated at all, for example a missing or invalid token."
+    },
+    {
+      "id": "exp-18",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-validation-with-zod",
+      "question": "Query string values always arrive as strings. Which zod schema accepts `?page=3` and gives you the number 3?",
+      "options": [
+        "z.number().int().min(1)",
+        "z.coerce.number().int().min(1)",
+        "z.string().number()",
+        "z.parseInt().min(1)"
+      ],
+      "correctIndex": 1,
+      "explanation": "`z.coerce.number()` converts the input with `Number()` before validating it, so `'3'` becomes `3`. A plain `z.number()` rejects the string `'3'`. The other two options are not zod APIs."
+    },
+    {
+      "id": "exp-19",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "09-error-handling-in-express-5",
+      "question": "In Express 5, what happens when this handler's database call rejects?",
+      "code": "app.get('/users/:id', async (req, res) => {\n  const user = await db.user.findUnique({ where: { id: Number(req.params.id) } })\n  res.json(user)\n})",
+      "codeLanguage": "js",
+      "options": [
+        "The process crashes with an unhandled promise rejection",
+        "The request hangs because there is no try/catch",
+        "The rejection is passed to `next(err)` automatically and reaches the error-handling middleware",
+        "Express retries the handler once before failing"
+      ],
+      "correctIndex": 2,
+      "explanation": "Express 5 forwards rejected promises returned by handlers and middleware to `next(err)`, so the error middleware handles it. In Express 4 you needed try/catch or a wrapper like express-async-handler for this."
+    },
+    {
+      "id": "exp-20",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "10-databases-with-prisma",
+      "question": "Creating an expense and updating the user's balance must both succeed or both fail. Which Prisma feature should you use?",
+      "options": [
+        "Two separate `await` calls, one after the other",
+        "`prisma.$connect()` before the first query",
+        "Running the queries inside `Promise.all`",
+        "`prisma.$transaction`"
+      ],
+      "correctIndex": 3,
+      "explanation": "`prisma.$transaction` runs the operations atomically: if any one fails, all of them are rolled back. Separate awaits or `Promise.all` can leave the database half-updated if the second write fails."
+    },
+    {
+      "id": "exp-21",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "10-databases-with-prisma",
+      "question": "Why do Express apps usually create a single shared PrismaClient instance instead of calling `new PrismaClient()` inside each request handler?",
+      "options": [
+        "Each PrismaClient opens its own connection pool, so creating many can exhaust database connections",
+        "PrismaClient can only be created once per process; a second call throws",
+        "A new PrismaClient deletes the cached schema",
+        "Handlers cannot use `await` with a new client"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each client manages its own connection pool. Creating one per request (or on every hot reload in development) quickly uses up the database's connection limit, so export one instance from a module and reuse it."
+    },
+    {
+      "id": "exp-22",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-pagination-filtering-and-sorting",
+      "question": "What is the main advantage of cursor-based pagination over offset (`skip`/`take`) pagination on a large, frequently updated table?",
+      "options": [
+        "It lets clients jump straight to page 500",
+        "It stays fast for deep pages and does not skip or repeat rows when new rows are inserted",
+        "It returns the total row count for free",
+        "It needs no index on the sort column"
+      ],
+      "correctIndex": 1,
+      "explanation": "A cursor (\"items after id X\") uses an index to continue where the last page ended. Large offsets make the database scan and discard rows, and inserts can shift rows between pages. The trade-off is that you cannot jump to an arbitrary page number."
+    },
+    {
+      "id": "exp-23",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-pagination-filtering-and-sorting",
+      "question": "An endpoint accepts `?sort=createdAt`. Why should the server check the value against an allow-list of sortable fields?",
+      "options": [
+        "Because query strings cannot contain field names",
+        "Because Prisma can only sort by `id`",
+        "To stop clients from sorting by arbitrary or sensitive columns, including unindexed ones that make queries slow",
+        "Because sorting must always be done in JavaScript"
+      ],
+      "correctIndex": 2,
+      "explanation": "Passing user input straight into `orderBy` lets clients sort by any column, such as a password hash or an unindexed field. An allow-list keeps the API predictable, secure and fast; reject or ignore anything else."
+    },
+    {
+      "id": "exp-24",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "14-jwt-authentication",
+      "question": "Which statement about the payload of a standard signed JWT is true?",
+      "options": [
+        "It is encrypted, so it is safe to store passwords in it",
+        "It can be changed by the client as long as the signature is left alone",
+        "It is hidden from the client but visible to the server",
+        "It is only base64url-encoded, so anyone holding the token can read it"
+      ],
+      "correctIndex": 3,
+      "explanation": "A signed JWT (JWS) guarantees integrity, not secrecy: anyone can decode the payload. Changing the payload makes signature verification fail, but you should still never put secrets in it."
+    },
+    {
+      "id": "exp-25",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-security-middleware",
+      "question": "A React app on `https://app.example.com` calls your API with `credentials: 'include'`. Why does the browser block the response if the API sends `Access-Control-Allow-Origin: *`?",
+      "options": [
+        "Browsers do not accept the `*` wildcard for credentialed requests; the exact origin must be sent, along with `Access-Control-Allow-Credentials: true`",
+        "The wildcard only works for POST requests",
+        "`*` is only valid when helmet is installed",
+        "Credentialed requests are never allowed across origins"
+      ],
+      "correctIndex": 0,
+      "explanation": "For requests that carry cookies or other credentials, the CORS spec requires a specific origin, not `*`. With the cors package, configure `origin` with an allow-list (or a function) and set `credentials: true`."
+    },
+    {
+      "id": "exp-26",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "02-routing-basics",
+      "question": "Which route definition throws an error as soon as the app starts in Express 5?",
+      "options": [
+        "app.get('/files/*splat', handler)",
+        "app.get('/users/:id?', handler)",
+        "app.get('/download/:file{.:ext}', handler)",
+        "app.get('/users/:id', handler)"
+      ],
+      "correctIndex": 1,
+      "explanation": "path-to-regexp v8 no longer supports `?`, `+` or `*` as regex modifiers in string paths. `'/users/:id?'` throws \"Unexpected ?\" when the route is registered. Write `'/users{/:id}'` for an optional parameter instead."
+    },
+    {
+      "id": "exp-27",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "04-middleware-deep-dive",
+      "question": "What is logged, in order, for `GET /`?",
+      "code": "app.use((req, res, next) => {\n  console.log('A1')\n  next()\n  console.log('A2')\n})\n\napp.use((req, res, next) => {\n  console.log('B')\n  res.send('ok')\n})\n\napp.use((req, res, next) => {\n  console.log('C')\n  next()\n})",
+      "codeLanguage": "js",
+      "options": [
+        "A1, A2, B",
+        "A1, B, C, A2",
+        "A1, B, A2",
+        "A1, B, C"
+      ],
+      "correctIndex": 2,
+      "explanation": "`next()` calls the next middleware synchronously, so B runs (and sends the response) before `next()` returns to the first middleware, which then logs A2. C never runs, because B ends the response without calling `next()`."
+    },
+    {
+      "id": "exp-28",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "09-error-handling-in-express-5",
+      "question": "An async route throws, but the custom handler below never runs and the client gets Express's default HTML 500 page. Why?",
+      "code": "app.get('/', async () => {\n  throw new Error('boom')\n})\n\napp.use((err, req, res) => {\n  res.status(400).json({ error: err.message })\n})",
+      "codeLanguage": "js",
+      "options": [
+        "Async errors are only forwarded to handlers registered with `app.error()`",
+        "Error handlers must be registered before the routes",
+        "The handler must call `next()` to send its response",
+        "It declares only three parameters, so Express treats it as normal middleware and skips it for errors"
+      ],
+      "correctIndex": 3,
+      "explanation": "Express decides whether middleware handles errors by its parameter count. With three parameters, `(err, req, res)` looks like `(req, res, next)`, so Express skips it while an error is being passed along. Declare all four: `(err, req, res, next)`."
+    },
+    {
+      "id": "exp-29",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "09-error-handling-in-express-5",
+      "question": "In Express 5, what happens when `GET /later` is requested?",
+      "code": "app.get('/later', async (req, res) => {\n  setTimeout(() => {\n    throw new Error('late failure')\n  }, 10)\n  res.send('scheduled')\n})",
+      "codeLanguage": "js",
+      "options": [
+        "The client receives 'scheduled', then the throw inside the timer becomes an uncaught exception that crashes the process (unless handled at process level)",
+        "Express catches the error and sends a 500 instead of 'scheduled'",
+        "The error is forwarded to the error middleware after the response is sent",
+        "The error is silently ignored because the handler is async"
+      ],
+      "correctIndex": 0,
+      "explanation": "Express 5 only catches rejections of the promise the handler returns. The timer callback runs later, outside that promise, so its throw is an uncaught exception. Wrap callback APIs in promises and `await` them so failures reach the error middleware."
+    },
+    {
+      "id": "exp-30",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "05-routers-and-project-structure",
+      "question": "With this router mounted at `/api`, what does `GET /api/users/me` return?",
+      "code": "const router = express.Router()\n\nrouter.get('/users/:id', (req, res) => res.send(`id=${req.params.id}`))\nrouter.get('/users/me', (req, res) => res.send('me'))\n\napp.use('/api', router)",
+      "codeLanguage": "js",
+      "options": [
+        "me",
+        "id=me",
+        "404 Not Found",
+        "An error, because two routes overlap"
+      ],
+      "correctIndex": 1,
+      "explanation": "Routes are matched in registration order, and `/users/:id` matches `/users/me` with `id = 'me'`. Its handler responds, so the `/users/me` route is never reached. Register specific paths before parameterised ones."
+    },
+    {
+      "id": "exp-31",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "14-jwt-authentication",
+      "question": "For a browser-based SPA with its API on the same site, which token arrangement is the most defensible?",
+      "options": [
+        "A long-lived access token in localStorage, sent in the Authorization header",
+        "Access and refresh tokens both in localStorage",
+        "A short-lived access token, plus a refresh token in an httpOnly, Secure, SameSite cookie scoped to the refresh endpoint",
+        "A refresh token placed in the URL query string so it is always available"
+      ],
+      "correctIndex": 2,
+      "explanation": "Keeping the refresh token in an httpOnly cookie hides it from JavaScript, so an XSS attack cannot steal it, and short-lived access tokens limit the damage if one leaks. Tokens in localStorage can be read by any injected script, and tokens in URLs leak into logs and history."
+    },
+    {
+      "id": "exp-32",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "15-security-middleware",
+      "question": "Your app runs behind a load balancer, and express-rate-limit starts blocking every user at once after a handful of requests. What is the most likely cause and fix?",
+      "options": [
+        "The limiter must be registered after the routes",
+        "express-rate-limit does not work behind a proxy, so it must be removed",
+        "The limit should count requests per `req.path` instead of per IP",
+        "Without `trust proxy`, `req.ip` is the load balancer's address, so all users share one counter; set `app.set('trust proxy', 1)` (or the right hop count)"
+      ],
+      "correctIndex": 3,
+      "explanation": "By default Express ignores X-Forwarded-For, so `req.ip` is the proxy's IP and every client looks like the same address. Configure `trust proxy` to match your real proxy setup; trusting everything blindly lets clients fake their IP."
+    },
+    {
+      "id": "exp-33",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "19-testing-apis-with-supertest",
+      "question": "Why do Express projects usually export `app` from `app.js` and call `app.listen()` in a separate `server.js`?",
+      "options": [
+        "So supertest can call `request(app)` without the app binding a fixed port, avoiding port clashes and open handles in tests",
+        "Because `app.listen()` cannot be called in a module that uses `export`",
+        "Because supertest only works with apps that have never been started",
+        "So that middleware runs faster in production"
+      ],
+      "correctIndex": 0,
+      "explanation": "supertest starts the app on a temporary port for each test when you pass it the app. If importing the module also called `app.listen(3000)`, tests would fight over the port and leave the server running, which stops the test runner from exiting cleanly."
+    },
+    {
+      "id": "exp-34",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "21-deploying-express-apps",
+      "question": "On receiving SIGTERM, what does calling `server.close()` on the HTTP server do?",
+      "options": [
+        "It immediately destroys all open connections",
+        "It stops accepting new connections and calls its callback once the existing connections have closed, which lets in-flight requests finish",
+        "It restarts the server on the same port",
+        "It sends a 503 to every connected client"
+      ],
+      "correctIndex": 1,
+      "explanation": "`server.close()` stops new connections, and its callback runs after the existing ones end. A graceful shutdown handler calls it, then closes database connections and exits, usually with a timeout as a safety net. (Idle keep-alive connections may also need closing, for example with `server.closeIdleConnections()`.)"
+    },
+    {
+      "id": "exp-35",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "17-real-time-with-socket-io",
+      "question": "Clients cannot connect to Socket.IO on port 3000, although normal HTTP routes work. What is wrong?",
+      "code": "const app = express()\nconst server = http.createServer(app)\nconst io = new Server(server)\n\nio.on('connection', (socket) => { /* ... */ })\n\napp.listen(3000)",
+      "codeLanguage": "js",
+      "options": [
+        "Socket.IO requires a separate port from Express",
+        "`io.on` must come before `http.createServer`",
+        "`app.listen()` creates and starts a second HTTP server; Socket.IO is attached to `server`, which is never started. Call `server.listen(3000)`",
+        "Socket.IO only works with HTTPS servers"
+      ],
+      "correctIndex": 2,
+      "explanation": "`app.listen()` builds its own `http.Server` internally. Socket.IO is attached to the `server` you created, so that is the one that must listen. Express routes keep working because `app.listen()`'s server passes requests to `app`."
+    },
+    {
+      "id": "exp-36",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "07-rest-api-design",
+      "question": "`POST /api/expenses` successfully creates a new expense and returns it. Which HTTP status code should the response use?",
+      "answerHint": "Type the status code, e.g. 200",
+      "acceptedAnswers": [
+        "201",
+        "201 Created",
+        "Created"
+      ],
+      "caseSensitive": false,
+      "explanation": "201 Created signals that a new resource was made. It is usually sent with the created object and often a `Location` header pointing to it."
+    },
+    {
+      "id": "exp-37",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "07-rest-api-design",
+      "question": "`DELETE /api/expenses/12` succeeds and the server sends no response body. Which status code fits?",
+      "answerHint": "Type the status code",
+      "acceptedAnswers": [
+        "204",
+        "204 No Content",
+        "No Content"
+      ],
+      "caseSensitive": false,
+      "explanation": "204 No Content means the request succeeded and there is deliberately no body. In Express: `res.status(204).end()` or `res.sendStatus(204)`."
+    },
+    {
+      "id": "exp-38",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "06-handling-request-bodies-and-uploads",
+      "question": "Which built-in Express middleware parses JSON request bodies into `req.body`?",
+      "answerHint": "Type the middleware, e.g. express.something()",
+      "acceptedAnswers": [
+        "express.json()",
+        "express.json",
+        "json()",
+        "json"
+      ],
+      "caseSensitive": false,
+      "explanation": "`app.use(express.json())` parses `application/json` bodies. It is built into Express, so you no longer need to install the body-parser package separately."
+    },
+    {
+      "id": "exp-39",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "05-routers-and-project-structure",
+      "question": "Which Express function creates a modular, mountable group of routes that you can then attach with `app.use('/api/users', ...)`?",
+      "answerHint": "Type the function, e.g. express.something()",
+      "acceptedAnswers": [
+        "express.Router()",
+        "express.Router",
+        "Router()",
+        "Router",
+        "express.Router({})"
+      ],
+      "caseSensitive": false,
+      "explanation": "`express.Router()` creates a mini-app with its own routes and middleware. Mount it on a path with `app.use()` to split a large app into feature files."
+    },
+    {
+      "id": "exp-40",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "20-logging-monitoring-and-health-checks",
+      "question": "Which request/response header is conventionally used to carry a unique request ID, so log lines from one request can be tied together across services?",
+      "answerHint": "Type the header name",
+      "acceptedAnswers": [
+        "X-Request-Id",
+        "X-Request-Id:",
+        "Request-Id"
+      ],
+      "caseSensitive": false,
+      "explanation": "`X-Request-Id` is the common convention: reuse the incoming value or generate one (for example with `crypto.randomUUID()`), attach it to the logger and echo it in the response. pino-http can do this through its `genReqId` option."
+    },
+    {
+      "id": "exp-41",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "04-middleware-deep-dive",
+      "question": "For a request to `GET /hello`, which letters are logged, in order? Type them separated by spaces.",
+      "code": "app.use((req, res, next) => { console.log('A'); next() })\napp.get('/hello', (req, res, next) => { console.log('B'); next() })\napp.use('/admin', (req, res, next) => { console.log('C'); next() })\napp.get('/hello', (req, res) => { console.log('D'); res.send('hi') })\napp.use((req, res) => { console.log('E'); res.status(404).end() })",
+      "codeLanguage": "js",
+      "answerHint": "Letters separated by spaces, e.g. X Y Z",
+      "acceptedAnswers": [
+        "A B D",
+        "A, B, D",
+        "A,B,D",
+        "ABD",
+        "A -> B -> D",
+        "A->B->D",
+        "A > B > D"
+      ],
+      "caseSensitive": false,
+      "explanation": "Middleware and routes run in registration order: A always runs, the first `/hello` route logs B and calls `next()`, the `/admin` middleware is skipped because the path does not match, and the second `/hello` route logs D and responds. E never runs because the response has already been sent and nobody called `next()`."
+    },
+    {
+      "id": "exp-42",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "07-rest-api-design",
+      "question": "`POST /api/users` is called with an email address that is already registered, and emails must be unique. Which status code best describes this?",
+      "answerHint": "Type the status code",
+      "acceptedAnswers": [
+        "409",
+        "409 Conflict",
+        "Conflict"
+      ],
+      "caseSensitive": false,
+      "explanation": "409 Conflict means the request clashes with the current state of the resource, which is the case for a duplicate unique value. With Prisma you can detect this from the unique-constraint error code P2002 and map it to 409."
+    },
+    {
+      "id": "exp-43",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "08-validation-with-zod",
+      "question": "Which zod schema method validates input and returns a `{ success, data }` or `{ success, error }` result object instead of throwing?",
+      "answerHint": "Type the method name",
+      "acceptedAnswers": [
+        "safeParse",
+        "safeParse()",
+        ".safeParse()",
+        ".safeParse",
+        "schema.safeParse()",
+        "schema.safeParse"
+      ],
+      "caseSensitive": false,
+      "explanation": "`schema.safeParse(input)` never throws, which makes it handy in a `validate()` middleware: on `success: false`, send the field errors with a 400 or 422; otherwise use `result.data`. `parse()` throws a ZodError instead."
+    },
+    {
+      "id": "exp-44",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "11-building-a-crud-api",
+      "question": "In a CRUD handler for `GET /api/expenses/:id`, `prisma.expense.findUnique()` returns `null` for the requested id. Which status code should the API send?",
+      "answerHint": "Type the status code",
+      "acceptedAnswers": [
+        "404",
+        "404 Not Found",
+        "Not Found"
+      ],
+      "caseSensitive": false,
+      "explanation": "`findUnique` returns `null` when no row matches. Check for it and respond with 404 (or throw an HttpError(404) for the error middleware), instead of returning `200` with `null`."
+    },
+    {
+      "id": "exp-45",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "15-security-middleware",
+      "question": "Which response header must the API send for a browser to let a page on another origin read the response?",
+      "answerHint": "Type the header name",
+      "acceptedAnswers": [
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Origin:"
+      ],
+      "caseSensitive": false,
+      "explanation": "The browser checks `Access-Control-Allow-Origin` against the page's origin. The cors middleware sets it (along with related headers such as `Access-Control-Allow-Credentials`) based on the options you configure."
+    },
+    {
+      "id": "exp-46",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "03-request-and-response",
+      "question": "Fill in the blank with the response method that sets the status code and returns `res`, so it can be chained:",
+      "code": "res.______(404).json({ error: 'Expense not found' })",
+      "codeLanguage": "js",
+      "answerHint": "Type the method name",
+      "acceptedAnswers": [
+        "status",
+        "res.status",
+        "res.status()",
+        "status()",
+        ".status"
+      ],
+      "caseSensitive": false,
+      "explanation": "`res.status(code)` sets the status code and returns `res`, so you can chain `.json()` or `.send()`. `res.sendStatus(404)` is different: it sets the status and sends the status text as the body straight away."
+    },
+    {
+      "id": "exp-47",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "22-project-expense-tracker-api",
+      "question": "An expense tracker stores amounts as whole paise (integers) to avoid floating-point rounding errors. Which integer stores an expense of ₹1,249.50?",
+      "answerHint": "Type a whole number",
+      "acceptedAnswers": [
+        "124950",
+        "1,24,950",
+        "124,950"
+      ],
+      "caseSensitive": false,
+      "explanation": "₹1 = 100 paise, so ₹1,249.50 × 100 = 1,24,950 paise. Integer amounts add up exactly, unlike floats, where 0.1 + 0.2 !== 0.3. Convert back to rupees only for display."
+    },
+    {
+      "id": "exp-48",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "04-middleware-deep-dive",
+      "question": "In Express 5, what is logged, in order, for `GET /x`? Type the numbers separated by spaces.",
+      "code": "app.use((req, res, next) => {\n  console.log('1')\n  next()\n  console.log('2')\n})\n\napp.get('/x', async (req, res) => {\n  console.log('3')\n  throw new Error('boom')\n})\n\napp.use((req, res, next) => {\n  console.log('4')\n  next()\n})\n\napp.use((err, req, res, next) => {\n  console.log('5')\n  res.status(500).end()\n})",
+      "codeLanguage": "js",
+      "answerHint": "Numbers separated by spaces, e.g. 9 8 7",
+      "acceptedAnswers": [
+        "1 3 2 5",
+        "1, 3, 2, 5",
+        "1,3,2,5",
+        "1325",
+        "1 -> 3 -> 2 -> 5",
+        "1->3->2->5"
+      ],
+      "caseSensitive": false,
+      "explanation": "1 logs, then `next()` runs the async handler, which logs 3 and returns a rejected promise. Express 5 passes that rejection to `next(err)` asynchronously (in a promise callback), so control first returns to the first middleware, which logs 2. Then the error skips the normal middleware (4) and reaches the four-parameter error handler, which logs 5."
+    },
+    {
+      "id": "exp-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "18-caching-and-performance",
+      "question": "Express sent a response with `ETag: W/\"b-Kq5s...\"`. The client later requests the same URL with `If-None-Match` set to that ETag, and the content has not changed. Which status code does Express send?",
+      "answerHint": "Type the status code",
+      "acceptedAnswers": [
+        "304",
+        "304 Not Modified",
+        "Not Modified"
+      ],
+      "caseSensitive": false,
+      "explanation": "Express generates weak ETags for `res.send()` by default and checks freshness against `If-None-Match`. When they match, it sends 304 Not Modified with no body, and the client reuses its cached copy."
+    },
+    {
+      "id": "exp-50",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "13-sessions-and-cookies",
+      "question": "An API on a different site from the frontend sets its session cookie with `SameSite=None` so the cookie is sent on cross-site requests. Which other cookie attribute must be set, or browsers will reject the cookie?",
+      "answerHint": "Type the attribute name",
+      "acceptedAnswers": [
+        "Secure",
+        "secure: true",
+        "secure=true",
+        "Secure;"
+      ],
+      "caseSensitive": false,
+      "explanation": "Modern browsers only accept `SameSite=None` cookies that are also marked `Secure`, meaning they are sent only over HTTPS. In express-session: `cookie: { sameSite: 'none', secure: true }`. Behind a proxy, this also needs `trust proxy`."
+    }
+  ]
+}

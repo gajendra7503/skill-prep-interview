@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `SELECT total * 0.18 AS gst FROM orders WHERE gst > 100` fail?",
+      "options": [
+        "Arithmetic is not allowed in a SELECT list",
+        "WHERE is evaluated before SELECT, so the alias gst does not exist yet",
+        "Aliases must be quoted with backticks",
+        "WHERE cannot compare DECIMAL values"
+      ],
+      "correctIndex": 1,
+      "explanation": "Logically, FROM and WHERE run before SELECT computes aliases; aliases are usable in ORDER BY (and HAVING in MySQL), but not in WHERE."
+    },
+    {
+      "question": "A table has customers with city 'Pune', 'Delhi' and NULL. What does `WHERE city <> 'Pune'` return?",
+      "options": [
+        "Only the Delhi rows; NULL cities evaluate to UNKNOWN and are filtered out",
+        "The Delhi rows and the NULL rows",
+        "No rows, because NULL makes the whole query NULL",
+        "An error, because NULL cannot be compared"
+      ],
+      "correctIndex": 0,
+      "explanation": "Comparing NULL with anything yields UNKNOWN, and WHERE keeps only rows where the condition is TRUE, so NULL cities are excluded."
+    },
+    {
+      "question": "Which filter correctly returns all orders placed in January 2025 from a DATETIME column while staying index-friendly?",
+      "options": [
+        "WHERE created_at BETWEEN '2025-01-01' AND '2025-01-31'",
+        "WHERE MONTH(created_at) = 1 AND YEAR(created_at) = 2025",
+        "WHERE created_at LIKE '2025-01%'",
+        "WHERE created_at >= '2025-01-01' AND created_at < '2025-02-01'"
+      ],
+      "correctIndex": 3,
+      "explanation": "The half-open range covers the whole of 31 January and keeps the predicate sargable; BETWEEN misses times after midnight on the 31st, and functions on the column prevent an index range scan."
+    },
+    {
+      "question": "Paginating with `ORDER BY created_at LIMIT 10 OFFSET n` shows duplicate rows across pages. What is the most likely cause and fix?",
+      "options": [
+        "OFFSET is zero-based; use OFFSET n + 1",
+        "LIMIT must come before ORDER BY",
+        "Ties on created_at make the order non-deterministic; add a unique tie-breaker such as id to ORDER BY",
+        "The table needs a FULLTEXT index"
+      ],
+      "correctIndex": 2,
+      "explanation": "Rows with equal sort keys have no guaranteed order, so pages can overlap; ORDER BY created_at, id makes the order total and deterministic."
+    }
+  ]
+}

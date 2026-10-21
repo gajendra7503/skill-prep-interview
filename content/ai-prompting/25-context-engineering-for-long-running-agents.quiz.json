@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In the Narmada Payments audit after 120 turns, what filled most of the context?",
+      "options": [
+        "The system prompt and tool definitions",
+        "Stale raw tool results",
+        "The task brief",
+        "The current step"
+      ],
+      "correctIndex": 1,
+      "explanation": "Old raw CSV extracts took about 410,000 tokens, most of it stale."
+    },
+    {
+      "question": "Why does just-in-time loading usually win for long sessions?",
+      "options": [
+        "It removes the need for tools",
+        "It avoids all round trips",
+        "It makes the system prompt longer",
+        "The agent gets lightweight references and fetches detail only when needed, avoiding context bloat"
+      ],
+      "correctIndex": 3,
+      "explanation": "Just-in-time loading keeps context small; its trade-off is extra round trips, which matter little in long sessions."
+    },
+    {
+      "question": "What is the critical implementation detail when using compaction?",
+      "options": [
+        "Disable caching",
+        "Append only the text of each response",
+        "Append the full response.content to your history each turn",
+        "Rewrite earlier turns yourself"
+      ],
+      "correctIndex": 2,
+      "explanation": "Dropping non-text blocks loses the compaction state, so keep all of response.content."
+    },
+    {
+      "question": "Where should details that must survive exactly, like account numbers or agreed decisions, be kept?",
+      "options": [
+        "In external memory such as a progress file",
+        "In the hope a summary keeps them",
+        "In the system prompt, edited each turn",
+        "They need not be kept"
+      ],
+      "correctIndex": 0,
+      "explanation": "Summaries are lossy, so critical facts belong in external memory the agent writes and reads."
+    }
+  ]
+}

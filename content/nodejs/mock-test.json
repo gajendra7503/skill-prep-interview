@@ -1,0 +1,785 @@
+{
+  "title": "Node.js Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "node-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-what-is-nodejs",
+      "question": "Which library gives Node.js its event loop and the thread pool used for tasks such as file system access?",
+      "options": [
+        "V8",
+        "OpenSSL",
+        "libuv",
+        "npm"
+      ],
+      "correctIndex": 2,
+      "explanation": "libuv is the C library that implements the event loop and a worker thread pool. V8 only executes JavaScript; OpenSSL provides cryptography; npm is the package manager."
+    },
+    {
+      "id": "node-02",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-modules-commonjs-and-esm",
+      "question": "What happens when this file, saved as `app.mjs`, is run with `node app.mjs`?",
+      "code": "try {\n  console.log(__dirname);\n} catch (err) {\n  console.log(err.name);\n}",
+      "codeLanguage": "js",
+      "options": [
+        "It logs \"ReferenceError\"",
+        "It logs the folder containing app.mjs",
+        "It logs undefined",
+        "It logs an empty string"
+      ],
+      "correctIndex": 0,
+      "explanation": "`__dirname`, `__filename` and `require` are injected only into CommonJS modules. In an ES module they do not exist, so reading `__dirname` throws a ReferenceError. Use `import.meta.dirname` and `import.meta.filename` instead."
+    },
+    {
+      "id": "node-03",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "02-modules-commonjs-and-esm",
+      "question": "A project's package.json contains `\"type\": \"module\"`. How does Node treat a file named `legacy.cjs` in that project?",
+      "options": [
+        "As an ES module, because \"type\" applies to every file",
+        "It refuses to load it until \"type\" is removed",
+        "As CommonJS only if it is inside node_modules",
+        "As CommonJS, because the .cjs extension always means CommonJS"
+      ],
+      "correctIndex": 3,
+      "explanation": "The \"type\" field sets the default for `.js` files only. The `.cjs` extension always means CommonJS and `.mjs` always means ES module, whatever \"type\" says."
+    },
+    {
+      "id": "node-04",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "03-npm-and-package-management",
+      "question": "In package.json, which versions does the range `\"^1.4.2\"` allow npm to install?",
+      "options": [
+        "Exactly 1.4.2",
+        ">=1.4.2 and <2.0.0",
+        ">=1.4.2 and <1.5.0",
+        "Any version >=1.4.2, including 2.x"
+      ],
+      "correctIndex": 1,
+      "explanation": "The caret allows changes that do not modify the left-most non-zero number, so for 1.x it allows any minor or patch update up to (not including) 2.0.0. The tilde `~1.4.2` would allow only patch updates (<1.5.0)."
+    },
+    {
+      "id": "node-05",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "21-typescript-and-modern-node-tooling",
+      "question": "A recent Node version runs `app.ts` directly by stripping type annotations. What happens with `const n: number = \"x\"; console.log(n);`?",
+      "options": [
+        "It fails with a TypeScript type error",
+        "It prints NaN",
+        "It prints x, because type stripping does not type-check",
+        "It prints undefined"
+      ],
+      "correctIndex": 2,
+      "explanation": "Node's built-in TypeScript support only erases type syntax; it does not run the type checker. The program runs and prints `x`. Run `tsc --noEmit` (for example in CI) to catch type errors."
+    },
+    {
+      "id": "node-06",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "04-the-nodejs-event-loop",
+      "question": "What does this code print?",
+      "code": "const fs = require('node:fs');\n\nfs.readFile(__filename, () => {\n  setTimeout(() => console.log('timeout'), 0);\n  setImmediate(() => console.log('immediate'));\n});",
+      "codeLanguage": "js",
+      "options": [
+        "immediate, then timeout",
+        "timeout, then immediate",
+        "The order changes from run to run",
+        "Only immediate"
+      ],
+      "correctIndex": 0,
+      "explanation": "Inside an I/O callback the loop is in the poll phase. The next phase is check, where setImmediate callbacks run, before the loop wraps around to the timers phase. So the order is always immediate, then timeout. (At the top level of the main module the order of these two is not guaranteed.)"
+    },
+    {
+      "id": "node-07",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "04-the-nodejs-event-loop",
+      "question": "What does this code print (one letter per line)?",
+      "code": "console.log('A');\nsetTimeout(() => console.log('B'), 0);\nPromise.resolve().then(() => console.log('C'));\nprocess.nextTick(() => console.log('D'));\nconsole.log('E');",
+      "codeLanguage": "js",
+      "options": [
+        "A E C D B",
+        "A D C E B",
+        "A E B D C",
+        "A E D C B"
+      ],
+      "correctIndex": 3,
+      "explanation": "Synchronous code runs first (A, E). Then the process.nextTick queue is drained (D) before the promise microtask queue (C). Timer callbacks run only in the next timers phase of the event loop (B)."
+    },
+    {
+      "id": "node-08",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "20-testing-with-the-node-test-runner",
+      "question": "What does this test print?",
+      "code": "import { test, mock } from 'node:test';\n\ntest('adds', () => {\n  const add = mock.fn((a, b) => a + b);\n  add(2, 3);\n  add(10, 20);\n  console.log(add.mock.callCount(), add.mock.calls[1].result);\n});",
+      "codeLanguage": "js",
+      "options": [
+        "2 5",
+        "2 30",
+        "1 30",
+        "2 undefined"
+      ],
+      "correctIndex": 1,
+      "explanation": "`mock.fn` wraps a function and records every call. `callCount()` is 2, and each entry in `mock.calls` stores its `arguments` and `result`; the second call (index 1) returned 30."
+    },
+    {
+      "id": "node-09",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "05-asynchronous-patterns",
+      "question": "In the Node.js callback convention, what is the first argument passed to a callback such as the one given to `fs.readFile`?",
+      "options": [
+        "The result data",
+        "The file name that was read",
+        "An error object, or null if the operation succeeded",
+        "A done() function to call when finished"
+      ],
+      "correctIndex": 2,
+      "explanation": "Node core uses \"error-first\" callbacks: `(err, result) => {}`. Always check `err` before using the result."
+    },
+    {
+      "id": "node-10",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-asynchronous-patterns",
+      "question": "What does this code print?",
+      "code": "Promise.allSettled([\n  Promise.resolve(1),\n  Promise.reject(new Error('x')),\n  3,\n]).then(r => console.log(r.map(s => s.status).join(' ')));",
+      "codeLanguage": "js",
+      "options": [
+        "fulfilled rejected fulfilled",
+        "It rejects with Error: x",
+        "fulfilled rejected",
+        "fulfilled fulfilled fulfilled"
+      ],
+      "correctIndex": 0,
+      "explanation": "`Promise.allSettled` never short-circuits: it waits for every input and reports each as fulfilled or rejected. Non-promise values such as 3 count as fulfilled. `Promise.all` would have rejected with the error instead."
+    },
+    {
+      "id": "node-11",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "05-asynchronous-patterns",
+      "question": "What does this code print?",
+      "code": "const { readFile } = require('node:fs/promises');\n\nconst ac = new AbortController();\nconst p = readFile(__filename, { signal: ac.signal });\nac.abort();\np.then(() => console.log('read'), err => console.log(err.name));",
+      "codeLanguage": "js",
+      "options": [
+        "read",
+        "TimeoutError",
+        "Nothing; the promise never settles",
+        "AbortError"
+      ],
+      "correctIndex": 3,
+      "explanation": "Many promise-based Node APIs accept an AbortSignal. Calling `abort()` before the read completes makes the promise reject with an error whose name is \"AbortError\"."
+    },
+    {
+      "id": "node-12",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "06-events-and-eventemitter",
+      "question": "What happens when an EventEmitter emits an `'error'` event and no `'error'` listener is registered?",
+      "options": [
+        "The event is silently ignored",
+        "The error is thrown, which crashes the process if not caught",
+        "A warning is printed and execution continues",
+        "The emitter retries the event once"
+      ],
+      "correctIndex": 1,
+      "explanation": "`'error'` is special: with no listener, `emit('error', err)` throws `err`. Always add an error listener to emitters such as streams and servers."
+    },
+    {
+      "id": "node-13",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-events-and-eventemitter",
+      "question": "What does this code print?",
+      "code": "const EventEmitter = require('node:events');\nconst e = new EventEmitter();\nlet n = 0;\ne.once('ping', () => n++);\ne.on('ping', () => n += 10);\ne.emit('ping');\ne.emit('ping');\nconsole.log(n);",
+      "codeLanguage": "js",
+      "options": [
+        "22",
+        "20",
+        "21",
+        "11"
+      ],
+      "correctIndex": 2,
+      "explanation": "The `once` listener runs on the first emit only (+1) and is then removed. The `on` listener runs on both emits (+10 twice). Total: 21."
+    },
+    {
+      "id": "node-14",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-events-and-eventemitter",
+      "question": "By default, what happens when you add an 11th listener for the same event on one EventEmitter?",
+      "options": [
+        "Node prints a MaxListenersExceededWarning, but the listener is still added",
+        "An error is thrown and the listener is rejected",
+        "The oldest listener is removed",
+        "Nothing at all; there is no limit"
+      ],
+      "correctIndex": 0,
+      "explanation": "The default max listeners is 10. Exceeding it only prints a possible-memory-leak warning; it is a hint that listeners are being added repeatedly without removal. Use `setMaxListeners` if many listeners are genuinely needed."
+    },
+    {
+      "id": "node-15",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "07-the-file-system-module",
+      "question": "Which `fs/promises` function adds data to the end of a file, creating the file if it does not exist?",
+      "options": [
+        "writeFile",
+        "readFile",
+        "mkdir",
+        "appendFile"
+      ],
+      "correctIndex": 3,
+      "explanation": "`appendFile` appends. `writeFile` replaces the whole file contents; `readFile` reads; `mkdir` creates directories."
+    },
+    {
+      "id": "node-16",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-the-file-system-module",
+      "question": "What is the usual way to write a config file \"atomically\", so a crash never leaves a half-written file behind?",
+      "options": [
+        "Use appendFile instead of writeFile",
+        "Write to a temporary file in the same directory, then rename it over the target",
+        "Call writeFileSync instead of writeFile",
+        "Delete the target first, then write it"
+      ],
+      "correctIndex": 1,
+      "explanation": "A rename within the same file system replaces the target in one step, so readers see either the old file or the complete new one. Sync APIs block the thread but are not atomic, and deleting first opens a window with no file at all."
+    },
+    {
+      "id": "node-17",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-buffers-and-binary-data",
+      "question": "What does this code print?",
+      "code": "console.log('héllo'.length, Buffer.from('héllo').length);",
+      "codeLanguage": "js",
+      "options": [
+        "5 5",
+        "6 6",
+        "5 6",
+        "6 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "String length counts UTF-16 code units (5). Buffer.from encodes as UTF-8 by default, and \"é\" takes 2 bytes in UTF-8, so the buffer is 6 bytes. Use `Buffer.byteLength` when you need the byte size, e.g. for Content-Length."
+    },
+    {
+      "id": "node-18",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-buffers-and-binary-data",
+      "question": "What does this code print?",
+      "code": "console.log(Buffer.from('Node').toString('base64'));",
+      "codeLanguage": "js",
+      "options": [
+        "Tm9kZQ==",
+        "4e6f6465",
+        "Node",
+        "TmFkZQ=="
+      ],
+      "correctIndex": 0,
+      "explanation": "The 4 bytes of \"Node\" encode to the base64 string \"Tm9kZQ==\" (padded to a multiple of 4 characters). \"4e6f6465\" is the hex encoding of the same bytes."
+    },
+    {
+      "id": "node-19",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "09-streams-and-pipelines",
+      "question": "A writable stream's `write()` call returns `false`. What should well-behaved code do?",
+      "options": [
+        "Retry the same write immediately in a loop",
+        "Call end() because the stream has failed",
+        "Ignore it; false only means the data was small",
+        "Stop writing and wait for the 'drain' event before writing more"
+      ],
+      "correctIndex": 3,
+      "explanation": "A false return means the internal buffer has reached its highWaterMark. Continuing to write ignores backpressure and lets memory grow. Wait for `drain`, or let `stream.pipeline` handle it for you."
+    },
+    {
+      "id": "node-20",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "09-streams-and-pipelines",
+      "question": "Why is `stream.pipeline()` (or `stream/promises` pipeline) preferred over chaining `.pipe()` calls?",
+      "options": [
+        "It is the only way to apply backpressure",
+        "It forwards errors from any stream and destroys all streams on failure, avoiding leaks",
+        "It converts every stream to object mode",
+        "It reads the whole source into memory first, which is faster"
+      ],
+      "correctIndex": 1,
+      "explanation": "`.pipe()` handles backpressure but does not propagate errors: if one stream fails, the others are not cleaned up and file descriptors can leak. `pipeline` wires up error handling and cleanup, and its promise version can be awaited."
+    },
+    {
+      "id": "node-21",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "10-the-http-module",
+      "question": "In an `http.createServer` handler, the code sets a status and header but never calls `res.end()`. What does the client experience?",
+      "options": [
+        "Node sends an empty 200 response automatically",
+        "Node sends a 500 error",
+        "The request hangs until it times out, because the response never finishes",
+        "The server crashes"
+      ],
+      "correctIndex": 2,
+      "explanation": "The response is a writable stream. Until `res.end()` is called (or `res.end(body)`), Node keeps the response open, so the client waits."
+    },
+    {
+      "id": "node-22",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "10-the-http-module",
+      "question": "With the plain `node:http` module, how do you get the JSON body of a POST request?",
+      "options": [
+        "Collect the request's 'data' chunks, then JSON.parse the combined string on 'end'",
+        "Read req.body, which Node fills in automatically",
+        "Call req.json()",
+        "Read it from req.headers[\"body\"]"
+      ],
+      "correctIndex": 0,
+      "explanation": "The request is a readable stream; the body arrives in chunks. Node does not parse it for you (that is what framework middleware like `express.json()` adds). You can also `for await` over `req` to collect the chunks."
+    },
+    {
+      "id": "node-23",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "11-path-url-os-and-process",
+      "question": "What does this code print?",
+      "code": "const path = require('node:path');\nconsole.log(path.posix.join('/app', 'src', '../logs', 'out.log'));",
+      "codeLanguage": "js",
+      "options": [
+        "/app/src/../logs/out.log",
+        "/logs/out.log",
+        "/app/src/logs/out.log",
+        "/app/logs/out.log"
+      ],
+      "correctIndex": 3,
+      "explanation": "`path.join` joins the segments and normalises the result, so `src/..` cancels out. (The `path.posix` variant is used here so the output uses forward slashes on every OS.)"
+    },
+    {
+      "id": "node-24",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "03-npm-and-package-management",
+      "question": "What does `npm ci` do differently from `npm install`?",
+      "options": [
+        "Upgrades every dependency to its latest version",
+        "Installs exactly what the lockfile says, removes node_modules first, and fails if package.json and the lockfile disagree",
+        "Installs only devDependencies",
+        "Publishes the package to the registry"
+      ],
+      "correctIndex": 1,
+      "explanation": "`npm ci` is meant for CI and deployments: it is reproducible and never rewrites package-lock.json. `npm install` may update the lockfile to satisfy package.json ranges."
+    },
+    {
+      "id": "node-25",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-fetch-and-calling-apis",
+      "question": "A request made with the built-in `fetch` gets a 404 response. What happens?",
+      "options": [
+        "The promise rejects with an HTTP error",
+        "fetch retries the request automatically",
+        "The promise resolves; you must check res.ok or res.status yourself",
+        "res.json() throws before you can read the status"
+      ],
+      "correctIndex": 2,
+      "explanation": "`fetch` only rejects on network failures (or aborts). Any HTTP response, including 4xx and 5xx, resolves normally with `res.ok` set to false."
+    },
+    {
+      "id": "node-26",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "12-fetch-and-calling-apis",
+      "question": "What does this code print?",
+      "code": "const signal = AbortSignal.timeout(10);\nsignal.addEventListener('abort', () => console.log(signal.reason.name));\nsetTimeout(() => {}, 50); // keep the process alive",
+      "codeLanguage": "js",
+      "options": [
+        "TimeoutError",
+        "AbortError",
+        "Error",
+        "undefined"
+      ],
+      "correctIndex": 0,
+      "explanation": "A signal from `AbortSignal.timeout()` aborts with a DOMException named \"TimeoutError\", while a manual `controller.abort()` gives \"AbortError\". This lets fetch code tell a timeout apart from a user cancellation."
+    },
+    {
+      "id": "node-27",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "13-child-processes-and-worker-threads",
+      "question": "A route runs `exec(`convert ${req.query.file} out.png`)`. What is the safest fix for the security problem?",
+      "options": [
+        "Wrap the string in double quotes",
+        "Use exec with a longer timeout",
+        "Run the command with sudo",
+        "Use execFile or spawn with the arguments passed as an array, so no shell parses the input"
+      ],
+      "correctIndex": 3,
+      "explanation": "`exec` runs the string through a shell, so input such as `x; rm -rf ~` is a command injection. `execFile`/`spawn` without `shell: true` pass each argument directly to the program. Still validate the input."
+    },
+    {
+      "id": "node-28",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "13-child-processes-and-worker-threads",
+      "question": "The main thread sends an object to a worker with `worker.postMessage(order)`, and the worker sets `order.status = \"paid\"`. What does the main thread see in `order.status`?",
+      "options": [
+        "\"paid\", because both threads share the same object",
+        "The old value, because the message was copied with the structured clone algorithm",
+        "undefined, because the object is detached after sending",
+        "A TypeError is thrown in the worker"
+      ],
+      "correctIndex": 1,
+      "explanation": "Workers have separate JavaScript heaps. postMessage copies the data (structured clone), so changes in the worker do not affect the original. Send a reply message, or use a SharedArrayBuffer for truly shared memory."
+    },
+    {
+      "id": "node-29",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "14-cluster-and-scaling",
+      "question": "An app keeps login sessions in an in-memory object and is then run as 4 processes with the `cluster` module. What breaks?",
+      "options": [
+        "Nothing; cluster workers share one heap",
+        "The app fails to start",
+        "Users appear logged out at random, because each worker has its own memory",
+        "Only the primary process can read sessions"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each cluster worker is a separate process with its own memory, and requests are spread across them. Keep processes stateless and move shared state such as sessions to a store like Redis or a database."
+    },
+    {
+      "id": "node-30",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-errors-and-process-lifecycle",
+      "question": "On receiving SIGTERM (e.g. from a container orchestrator), what should a well-behaved HTTP server do?",
+      "options": [
+        "Stop accepting new connections with server.close(), let in-flight requests finish, close resources, then exit",
+        "Call process.exit(0) immediately",
+        "Ignore it and keep running",
+        "Throw an error so the process restarts"
+      ],
+      "correctIndex": 0,
+      "explanation": "This is graceful shutdown: drain in-flight work, close database pools, then exit. Add a timeout that force-exits in case something hangs."
+    },
+    {
+      "id": "node-31",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "15-errors-and-process-lifecycle",
+      "question": "In Node 15 and later, what happens by default when a promise rejects and nothing handles the rejection?",
+      "options": [
+        "A warning is printed and the process keeps running",
+        "The rejection is silently ignored",
+        "The promise is retried once",
+        "It is raised as an uncaught exception: the process exits with code 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "Since Node 15 the default `--unhandled-rejections` mode is \"throw\", so an unhandled rejection crashes the process like an uncaught exception. Older versions only printed a warning."
+    },
+    {
+      "id": "node-32",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "16-configuration-and-environment",
+      "question": "A `.env` file contains `PORT=9999`. What does this command print?",
+      "code": "PORT=3000 node --env-file=.env -p \"process.env.PORT\"",
+      "codeLanguage": "bash",
+      "options": [
+        "9999",
+        "3000",
+        "30009999",
+        "undefined"
+      ],
+      "correctIndex": 1,
+      "explanation": "Variables that already exist in the environment take precedence over values in the file loaded by `--env-file`. The file only fills in what is missing, so PORT stays 3000."
+    },
+    {
+      "id": "node-33",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "17-logging-and-debugging",
+      "question": "Which flag starts the inspector and pauses on the first line of your script, so you can set breakpoints in Chrome DevTools before any code runs?",
+      "options": [
+        "--inspect",
+        "--watch",
+        "--inspect-brk",
+        "--trace-warnings"
+      ],
+      "correctIndex": 2,
+      "explanation": "`--inspect` enables the debugger but starts running immediately; `--inspect-brk` also breaks before the first line. Then open chrome://inspect to attach."
+    },
+    {
+      "id": "node-34",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "18-performance-and-memory",
+      "question": "Which of these does NOT run on the libuv thread pool?",
+      "options": [
+        "Reading and writing TCP sockets for an HTTP server",
+        "fs.readFile",
+        "crypto.pbkdf2",
+        "zlib.gzip (async)"
+      ],
+      "correctIndex": 0,
+      "explanation": "Network I/O uses the operating system's non-blocking mechanisms (epoll, kqueue, IOCP) directly on the event loop. File system calls, `dns.lookup`, async crypto like pbkdf2/scrypt and zlib use the thread pool (4 threads by default)."
+    },
+    {
+      "id": "node-35",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "19-security-best-practices",
+      "question": "What does this code print?",
+      "code": "function merge(target, src) {\n  for (const k in src) {\n    if (typeof src[k] === 'object') {\n      target[k] = target[k] || {};\n      merge(target[k], src[k]);\n    } else {\n      target[k] = src[k];\n    }\n  }\n  return target;\n}\nmerge({}, JSON.parse('{\"__proto__\": {\"isAdmin\": true}}'));\nconsole.log({}.isAdmin);",
+      "codeLanguage": "js",
+      "options": [
+        "undefined",
+        "false",
+        "A SyntaxError is thrown",
+        "true"
+      ],
+      "correctIndex": 3,
+      "explanation": "JSON.parse creates an own property named \"__proto__\". The naive merge then reads `target.__proto__`, which is Object.prototype, and copies `isAdmin` onto it, so every object now has `isAdmin: true`. This is prototype pollution: block \"__proto__\", \"constructor\" and \"prototype\" keys, or use `Object.create(null)` / Map."
+    },
+    {
+      "id": "node-36",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "01-what-is-nodejs",
+      "question": "What does this command print?",
+      "code": "node -p \"[1, 2, 3].map(n => n * 2).join('-')\"",
+      "codeLanguage": "bash",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "2-4-6"
+      ],
+      "caseSensitive": false,
+      "explanation": "`node -p` (print) evaluates the expression and prints its result. The array becomes [2, 4, 6] and is joined with \"-\"."
+    },
+    {
+      "id": "node-37",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-modules-commonjs-and-esm",
+      "question": "What prefix can you put before a built-in module name (as in `import fs from '___fs'`) to make it explicit that it is a Node core module?",
+      "answerHint": "Type the prefix",
+      "acceptedAnswers": [
+        "node:"
+      ],
+      "caseSensitive": false,
+      "explanation": "The `node:` scheme (e.g. `node:fs`, `node:path`) always resolves to the built-in module and can never be confused with an npm package of the same name."
+    },
+    {
+      "id": "node-38",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "03-npm-and-package-management",
+      "question": "Which command, bundled with npm, runs a package's executable (for example `___ create-vite`) without installing it globally?",
+      "answerHint": "Type the command name",
+      "acceptedAnswers": [
+        "npx",
+        "npm exec"
+      ],
+      "caseSensitive": false,
+      "explanation": "`npx` runs a binary from local node_modules/.bin, or downloads it temporarily if it is not installed. `npm exec` is the equivalent npm subcommand."
+    },
+    {
+      "id": "node-39",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "04-the-nodejs-event-loop",
+      "question": "What does this code print? Write the four words in order, separated by spaces.",
+      "code": "const fs = require('node:fs');\n\nfs.readFile(__filename, () => {\n  setTimeout(() => console.log('timeout'), 0);\n  setImmediate(() => console.log('immediate'));\n  Promise.resolve().then(() => console.log('promise'));\n  process.nextTick(() => console.log('tick'));\n});",
+      "codeLanguage": "js",
+      "answerHint": "Four words in order, separated by spaces",
+      "acceptedAnswers": [
+        "tick promise immediate timeout",
+        "tick, promise, immediate, timeout",
+        "tick,promise,immediate,timeout"
+      ],
+      "caseSensitive": false,
+      "explanation": "When the I/O callback finishes, Node drains the nextTick queue (tick) and then the promise microtask queue (promise). The loop then moves from the poll phase to the check phase (immediate), and only then wraps around to timers (timeout)."
+    },
+    {
+      "id": "node-40",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "05-asynchronous-patterns",
+      "question": "What does this code print?",
+      "code": "const { promisify } = require('node:util');\n\nfunction double(x, cb) {\n  cb(null, x * 2);\n}\n\npromisify(double)(21).then(console.log);",
+      "codeLanguage": "js",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "42"
+      ],
+      "caseSensitive": false,
+      "explanation": "`util.promisify` turns a function that takes an error-first callback as its last argument into one that returns a promise. The callback's second argument (42) becomes the resolved value."
+    },
+    {
+      "id": "node-41",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "06-events-and-eventemitter",
+      "question": "What does this ES module print?",
+      "code": "import { EventEmitter, once } from 'node:events';\n\nconst e = new EventEmitter();\nsetTimeout(() => e.emit('ready', 42, 'ok'), 10);\n\nconst args = await once(e, 'ready');\nconsole.log(args.length, args[0]);",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "2 42",
+        "2, 42",
+        "2,42"
+      ],
+      "caseSensitive": false,
+      "explanation": "`events.once` returns a promise that resolves with an ARRAY of all the arguments passed to emit, here [42, \"ok\"]. So the length is 2 and the first element is 42."
+    },
+    {
+      "id": "node-42",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "07-the-file-system-module",
+      "question": "Which built-in module do you import to get the promise-based versions of readFile, writeFile and mkdir (so you can use them with await)?",
+      "answerHint": "Type the module specifier",
+      "acceptedAnswers": [
+        "fs/promises",
+        "node:fs/promises",
+        "\"node:fs/promises\"",
+        "'node:fs/promises'",
+        "fs.promises"
+      ],
+      "caseSensitive": false,
+      "explanation": "`node:fs/promises` exports promise-returning versions of the fs functions. The same API is also available as `require('node:fs').promises`."
+    },
+    {
+      "id": "node-43",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "08-buffers-and-binary-data",
+      "question": "What does this code print?",
+      "code": "console.log('₹'.length, Buffer.byteLength('₹'));",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "1 3",
+        "1, 3",
+        "1,3"
+      ],
+      "caseSensitive": false,
+      "explanation": "The rupee sign (U+20B9) is one UTF-16 code unit, so its string length is 1, but UTF-8 encodes it in 3 bytes. Mixing these up causes wrong Content-Length headers and truncated buffers."
+    },
+    {
+      "id": "node-44",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "09-streams-and-pipelines",
+      "question": "What does this code print?",
+      "code": "const { Readable } = require('node:stream');\n\n(async () => {\n  let a = 0, b = 0;\n  for await (const chunk of Readable.from('abc')) a++;\n  for await (const chunk of Readable.from(['a', 'b', 'c'])) b++;\n  console.log(a, b);\n})();",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "1 3",
+        "1, 3",
+        "1,3"
+      ],
+      "caseSensitive": false,
+      "explanation": "`Readable.from` iterates arrays and other iterables item by item, but a string is treated as a single chunk rather than being split into characters (for performance). So the first stream yields 1 chunk and the second yields 3."
+    },
+    {
+      "id": "node-45",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "11-path-url-os-and-process",
+      "question": "This file is run as `node app.js --port 3000`. What does it print?",
+      "code": "console.log(process.argv[2], process.argv.length);",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "--port 4",
+        "--port, 4",
+        "--port,4"
+      ],
+      "caseSensitive": false,
+      "explanation": "`process.argv[0]` is the node executable path and `process.argv[1]` is the script path, so user arguments start at index 2. There are 4 entries: node, app.js, --port and 3000."
+    },
+    {
+      "id": "node-46",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "15-errors-and-process-lifecycle",
+      "question": "Which signal does pressing Ctrl+C in the terminal send to a running Node process?",
+      "answerHint": "Type the signal name",
+      "acceptedAnswers": [
+        "SIGINT",
+        "INT"
+      ],
+      "caseSensitive": false,
+      "explanation": "Ctrl+C sends SIGINT. Container platforms and process managers usually send SIGTERM to ask for shutdown. Handle both with `process.on('SIGINT' | 'SIGTERM', ...)` for graceful shutdown."
+    },
+    {
+      "id": "node-47",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "20-testing-with-the-node-test-runner",
+      "question": "What command runs your tests with Node's built-in test runner (finding test files such as `*.test.js` automatically)?",
+      "answerHint": "Type the command",
+      "acceptedAnswers": [
+        "node --test"
+      ],
+      "caseSensitive": false,
+      "explanation": "`node --test` discovers and runs test files that use `node:test`. Add `--watch` to rerun on changes, or `--experimental-test-coverage` for a coverage report."
+    },
+    {
+      "id": "node-48",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "17-logging-and-debugging",
+      "question": "Which built-in Node flag restarts your script automatically whenever an imported file changes (replacing tools like nodemon for development)?",
+      "answerHint": "Type the flag",
+      "acceptedAnswers": [
+        "--watch",
+        "node --watch"
+      ],
+      "caseSensitive": false,
+      "explanation": "`node --watch app.js` restarts the process when the entry file or any file it imports changes. Use `--watch-path` to watch specific folders."
+    },
+    {
+      "id": "node-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "18-performance-and-memory",
+      "question": "Which environment variable sets the size of the libuv thread pool (4 threads by default)?",
+      "answerHint": "Type the variable name",
+      "acceptedAnswers": [
+        "UV_THREADPOOL_SIZE"
+      ],
+      "caseSensitive": false,
+      "explanation": "Set `UV_THREADPOOL_SIZE` before the pool is first used (normally when starting the process) if heavy fs, crypto or zlib work queues up behind the default 4 threads."
+    },
+    {
+      "id": "node-50",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "19-security-best-practices",
+      "question": "An upload handler builds a path from user input. What does this print?",
+      "code": "const path = require('node:path');\nconsole.log(path.posix.join('/srv/uploads', '../../etc/passwd'));",
+      "codeLanguage": "js",
+      "answerHint": "Type the exact console output",
+      "acceptedAnswers": [
+        "/etc/passwd"
+      ],
+      "caseSensitive": false,
+      "explanation": "join normalises `..` segments, so the user escaped the uploads folder: a path traversal attack. Resolve the final path and check that it still starts with the base directory (plus a separator) before opening it."
+    }
+  ]
+}

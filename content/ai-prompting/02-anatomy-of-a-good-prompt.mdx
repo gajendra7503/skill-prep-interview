@@ -1,0 +1,141 @@
+---
+title: "Anatomy of a Good Prompt"
+description: "The six building blocks of an effective prompt, the brilliant-new-colleague mental model, and a reusable template."
+module: "Foundations"
+level: "beginner"
+order: 4
+---
+
+Most weak prompts fail for the same reason: the writer knows far more about
+the task than they put on the page. The model is capable, but it cannot read
+your mind, your inbox or your team's unwritten conventions. This lesson gives
+you a checklist of six building blocks and a template you can reuse every day.
+
+## The brilliant new colleague
+
+Picture a highly capable colleague who joined this morning. They are smart,
+fast and willing, but they know nothing about your company, your customers
+or why this task matters. If you handed them your prompt as a sticky note,
+could they do excellent work without coming back with questions?
+
+This mental model fixes most problems instantly. You would never tell a new
+joiner "write the email" and walk away. You would say who it is for, what
+happened, what tone to use and what a good result looks like. Write prompts
+the same way.
+
+A useful test: if a colleague would need to ask a clarifying question, the
+model probably needs that answer in the prompt too.
+
+## The six building blocks
+
+| Block | Question it answers | Example |
+| --- | --- | --- |
+| Task | What exactly should be produced? | "Draft a reply to this customer email" |
+| Context | What background is needed? | "The customer's refund was delayed by our payment partner" |
+| Audience | Who will read the output? | "A retired customer, not technical, writing in English" |
+| Format | What shape should the output take? | "Under 150 words, plain text, no bullet points" |
+| Constraints | What must it respect or avoid? | "Do not promise a date; our policy allows 7 working days" |
+| Success criteria | How will we judge it? | "The customer should know what happened and what happens next" |
+
+Not every prompt needs all six spelled out at length, but checking each one
+takes ten seconds and catches most gaps.
+
+## Weak vs improved
+
+A weak prompt:
+
+```text
+Write a reply to this complaint.
+
+[customer email]
+```
+
+The model will produce something generic: polite, vague and possibly
+promising things your team cannot deliver.
+
+An improved prompt that covers the six blocks:
+
+```text
+You are helping the customer support team at Nirmal Home Appliances, a
+fictional consumer electronics retailer.
+
+Task: Draft a reply to the customer email below.
+
+Context: Mr Rajesh Iyer ordered a ₹42,000 refrigerator on 2 October. Delivery
+was delayed because our logistics partner had a warehouse flood in Chennai.
+The new delivery window is 15 to 18 October. We are offering free
+installation (normally ₹1,500) as an apology.
+
+Audience: The customer is frustrated and has written twice already. He wants
+a clear answer, not corporate language.
+
+Format: Plain text email, under 150 words, with a greeting and sign-off from
+"Priya, Customer Care".
+
+Constraints: Do not blame the customer or name the logistics partner. Do not
+promise a specific day within the window, because the partner has not
+confirmed it.
+
+Success criteria: After reading, Mr Iyer should understand why the delay
+happened, when to expect delivery, and what we are doing to make up for it.
+
+<email>
+[customer email]
+</email>
+```
+
+The second prompt is longer, but every line removes a guess the model would
+otherwise have to make.
+
+## Context is the most skipped block
+
+People usually remember the task and forget the context. Context includes:
+
+- **Why** the task exists ("this summary goes to the regional head before a
+  budget meeting").
+- **What has already happened** ("we sent a reminder last week").
+- **Relevant data** (the policy text, the numbers, the previous email).
+- **Conventions** ("we write dates as 12 Oct 2026", "amounts in lakh").
+
+Telling the model the purpose often improves output more than any wording
+trick, because it can then make sensible decisions about details you did not
+think to specify.
+
+## A reusable template
+
+Keep a template like this in a notes file and fill it in for any recurring
+task:
+
+```text
+Task: [one sentence: what to produce]
+
+Context: [background, purpose, what has happened, relevant facts]
+
+Audience: [who reads it, what they know, what they care about]
+
+Format: [length, structure, tone, file or text type]
+
+Constraints: [what to respect or avoid, and why]
+
+Success criteria: [what a great result achieves]
+
+Input:
+[the document, data or message to work on]
+```
+
+Once the template is filled in, read it as the new colleague would. Remove
+anything irrelevant, and add anything they would still need to ask about.
+
+## Iterate, do not restart
+
+Your first prompt rarely gives the perfect answer. When the output misses,
+diagnose which block was weak. Too long? Tighten the format. Wrong tone?
+Describe the audience better. Made up a policy? Supply the policy text as
+context. Changing one block at a time teaches you what actually matters.
+
+### Try it yourself
+
+Pick a task you did at work this week, such as summarising a meeting or
+replying to a vendor. Write the lazy one-line prompt you would normally use,
+then rewrite it using the six-block template. Run both and compare: which
+blocks made the biggest difference, and which could you drop for this task?

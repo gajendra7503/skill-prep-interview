@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `npx expo start` launch?",
+      "options": [
+        "The iOS App Store submission flow",
+        "The Metro development server, which bundles your JavaScript and serves it to the device",
+        "A web browser version of Android",
+        "A Gradle release build"
+      ],
+      "correctIndex": 1,
+      "explanation": "npx expo start runs Metro, the dev server that bundles your JS and prints a QR code so Expo Go or a simulator can load it."
+    },
+    {
+      "question": "You save a change to a screen file and the phone updates in a second without restarting. What is this feature called?",
+      "options": [
+        "Over-the-air updates",
+        "Code signing",
+        "Hermes bytecode",
+        "Fast Refresh"
+      ],
+      "correctIndex": 3,
+      "explanation": "Fast Refresh swaps the changed modules into the running app, usually preserving component state."
+    },
+    {
+      "question": "Your phone and laptop are on office Wi-Fi and Expo Go cannot connect to the dev server. What is a sensible first fix?",
+      "options": [
+        "Run `npx expo start --tunnel` so the connection goes through the internet",
+        "Install Xcode on the phone",
+        "Rename the app folder",
+        "Delete package.json"
+      ],
+      "correctIndex": 0,
+      "explanation": "Many corporate or public networks block device-to-device traffic. Tunnel mode routes the connection through the internet instead of the local network."
+    },
+    {
+      "question": "Which statement about the iOS Simulator is true?",
+      "options": [
+        "It runs on any Windows laptop",
+        "It is built into Expo Go",
+        "It requires a Mac with Xcode, though you can still test on a physical iPhone via Expo Go from any OS",
+        "It is required before you can write any React Native code"
+      ],
+      "correctIndex": 2,
+      "explanation": "The iOS Simulator ships with Xcode, which only runs on macOS. Expo Go on a real iPhone works regardless of your computer's OS."
+    }
+  ]
+}

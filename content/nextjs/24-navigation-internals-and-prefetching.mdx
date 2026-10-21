@@ -1,0 +1,157 @@
+---
+title: "Navigation Internals: RSC Payload, Client Cache & Prefetching"
+description: "What actually travels over the wire when you click a Link, how the client router caches segments, and how to tune prefetching for large apps."
+module: "Pro Level"
+level: "pro"
+order: 25
+---
+
+Most developers know that `Link` "makes navigation fast". A senior engineer
+should be able to explain **why** — what is fetched, what is cached in the
+browser, what is thrown away — because that is exactly what you need when a
+dashboard feels sluggish, a prefetch storm hammers your servers, or users
+see stale data after a mutation.
+
+## Two payloads: HTML and the RSC Payload
+
+On the **first visit** to a URL the server returns HTML (for a fast first
+paint), the JavaScript for Client Components, and an embedded **React Server
+Component (RSC) Payload**. The RSC Payload is a compact, serialised
+description of the rendered Server Component tree: the output of each
+Server Component, placeholders marking where Client Components go, and the
+props passed to them.
+
+On **every later navigation** there is no HTML. The router asks the server
+only for the RSC Payload of the segments that changed, plus any Client
+Component chunks not yet loaded, and React reconciles it into the live DOM.
+
+```text
+First load of /funds/42           Client navigation /funds/42 -> /funds/77
+---------------------------       -----------------------------------------
+HTML document                     (no HTML)
+RSC Payload (inline)              RSC Payload for the [id] page segment only
+JS for Client Components          JS chunks not already in the browser
+```
+
+Because shared layouts are not re-requested, a sidebar with an open
+accordion or a half-typed search box keeps its state.
+
+## The client cache
+
+The router keeps fetched RSC payloads **in memory, keyed by route
+segment**. Moving from `/dashboard/settings` to `/dashboard/analytics`
+reuses the cached `/dashboard` layout and fetches only the new leaf page.
+
+How long an entry counts as fresh depends on the model you use:
+
+- **Previous model** — prefetched static pages stay fresh for 5 minutes and
+  dynamic pages are not reused (0 seconds) by default; the experimental
+  `staleTimes` option tunes both.
+- **Cache Components** — the `stale` value of each `cacheLife` profile
+  decides it, communicated to the browser in the `x-nextjs-stale-time`
+  header. The router enforces a **minimum of 30 seconds**.
+
+Back/forward navigation always restores from this cache so scroll position
+and layout don't jump.
+
+## What gets prefetched
+
+In production, as each `Link` scrolls into the viewport, Next.js queues a
+prefetch. The `prefetch` prop decides how much:
+
+| `prefetch` value | Static route | Dynamic route |
+| --- | --- | --- |
+| `"auto"` / `null` (default) | Full route | Down to the nearest `loading.tsx` only |
+| `true` | Full route | Full route |
+| `false` | Nothing, not even on hover | Nothing |
+
+That table explains a classic support ticket: "the product page is slow to
+open". A dynamic route **without** a `loading.tsx` gets no prefetch at all,
+so the click waits for a full server round trip. Adding a `loading.tsx`
+makes the click show a skeleton instantly while the rest streams.
+
+Prefetching is scheduled, not fired all at once: links in the viewport
+first, then links the user hovers or touches, newer links replace older
+ones, and links scrolled off-screen are discarded.
+
+## Tuning prefetching in big apps
+
+A page with 500 links in an infinite table can trigger a lot of work. Three
+levers, from lightest to heaviest:
+
+```tsx
+"use client";
+import Link from "next/link";
+import { useState } from "react";
+
+// 1. Prefetch only once the user shows intent
+export function HoverPrefetchLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const [active, setActive] = useState(false);
+  return (
+    <Link href={href} prefetch={active ? null : false} onMouseEnter={() => setActive(true)}>
+      {children}
+    </Link>
+  );
+}
+```
+
+```tsx
+"use client";
+import { useRouter } from "next/navigation";
+
+// 2. Warm a route programmatically, e.g. before opening a checkout flow
+export function BuyButton() {
+  const router = useRouter();
+  return (
+    <button onMouseEnter={() => router.prefetch("/checkout")} onClick={() => router.push("/checkout")}>
+      Invest ₹5,000
+    </button>
+  );
+}
+```
+
+3. `prefetch={false}` for footer links and long lists that users rarely
+   click.
+
+On slow networks the prefetch may not finish in time. `useLinkStatus` from
+`next/link` exposes a `pending` flag inside a `Link` so you can show a
+small inline hint instead of a frozen-feeling UI.
+
+## The side-effect trap
+
+Prefetching **renders** layouts and pages on the server before anyone
+visits them. Any side effect in a Server Component — logging a page view,
+incrementing a counter, sending an email — fires on prefetch:
+
+```tsx
+// app/funds/[id]/page.tsx — BUG
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  await analytics.track("fund_viewed", { id }); // fires for every visible link!
+  return <FundDetails id={id} />;
+}
+```
+
+Keep Server Components pure. Track page views in a Client Component's
+`useEffect`, or in a Server Action triggered from the client.
+
+## Keeping the client cache honest after writes
+
+When a Server Action calls `revalidatePath` (or `updateTag`/`revalidateTag`),
+the UI you are looking at updates immediately in the same round trip, and
+previously visited pages are refetched when you navigate to them again — no
+manual refetching needed. For data changed **outside** your app (a webhook,
+another tab), `router.refresh()` re-requests the current route and merges
+the new payload without losing client state such as form inputs or scroll
+position. Note that `router.refresh()` clears only the **client** cache for
+that route: if the server-side data is cached, it can return the same stale
+result until you revalidate on the server.
+
+### Try it yourself
+
+Build a production version of an app (`npm run build` then `npm run start`)
+with a list page linking to 20 dynamic detail pages. Open the Network tab
+and record which requests fire as you scroll. Then add a `loading.tsx` to
+the detail route, compare again, and finally switch the list to the
+hover-prefetch link. Write down how many prefetch requests each version
+makes and how fast a click feels.

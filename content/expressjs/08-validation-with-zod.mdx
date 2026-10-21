@@ -1,0 +1,184 @@
+---
+title: "Validation with Zod"
+description: "Validate request bodies, route params and query strings with Zod schemas, safeParse and a reusable validate() middleware that returns field-level errors."
+module: "Building APIs"
+level: "intermediate"
+order: 10
+---
+
+Express does no validation at all: `req.body` is whatever JSON the client
+sent, and `req.params` and `req.query` are always strings. Trusting them
+leads to crashes, bad data in the database and security bugs. Zod lets you
+declare the expected shape once and get both runtime checks and TypeScript
+types from it. Interviewers want to hear "validate at the edge, then trust
+the parsed value".
+
+## A schema for creating an expense
+
+```bash
+npm install zod
+```
+
+```js
+// src/schemas/expense.js
+import { z } from "zod";
+
+export const CATEGORIES = ["food", "travel", "rent", "other"];
+
+export const createExpenseSchema = z.object({
+  title: z.string().trim().min(1, { error: "Title is required" }).max(100),
+  amountPaise: z.number().int().positive().max(10_000_000), // up to ₹1,00,000
+  category: z.enum(CATEGORIES),
+  spentOn: z.iso.date(),                                    // "2026-04-01"
+  note: z.string().max(200).optional(),
+});
+
+// For PATCH: every field optional, same rules when present
+export const updateExpenseSchema = createExpenseSchema.partial();
+```
+
+Money is stored as integer paise (₹450.00 is `45000`) so there is no
+floating-point rounding. `z.object` **strips unknown keys** by default, so a
+client sending `"isAdmin": true` cannot sneak it through; use
+`z.strictObject` if you would rather reject unknown keys with an error.
+
+## parse vs safeParse
+
+```js
+const input = { title: "  Lunch ", amountPaise: 45000, category: "food", spentOn: "2026-04-01" };
+
+createExpenseSchema.parse(input);
+// { title: "Lunch", amountPaise: 45000, category: "food", spentOn: "2026-04-01" }
+// parse() THROWS a ZodError when the data is invalid
+
+const result = createExpenseSchema.safeParse({ title: " ", amountPaise: 12.5, category: "toys" });
+result.success;          // false
+result.error.issues;
+// [
+//   { path: ["title"], message: "Title is required", ... },
+//   { path: ["amountPaise"], message: "Invalid input: expected int, received number", ... },
+//   { path: ["category"], message: "Invalid option: expected one of ...", ... },
+//   { path: ["spentOn"], message: "Invalid input: expected string, received undefined", ... }
+// ]
+```
+
+`safeParse` never throws; it returns `{ success: true, data }` or
+`{ success: false, error }`. Note that `data` is the **parsed** value:
+trimmed, with defaults applied and unknown keys removed. Always use it
+instead of the raw input.
+
+## Params and query strings are strings
+
+A route param like `/expenses/42` arrives as `"42"`, and a query string like
+`?minAmount=500` arrives as `"500"`. Use `z.coerce` to convert:
+
+```js
+export const idParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+export const listQuerySchema = z.object({
+  category: z.enum(CATEGORIES).optional(),
+  minAmount: z.coerce.number().int().min(0).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+});
+
+listQuerySchema.parse({ minAmount: "500" }); // { minAmount: 500, page: 1 }
+idParamSchema.safeParse({ id: "abc" }).success; // false (NaN is rejected)
+```
+
+Watch out: `z.coerce.number()` turns an empty string into `0`, so pair it
+with `.positive()` or `.min(1)` where zero makes no sense. Express 5 also
+changed the default query parser to the "simple" one, so nested syntax such
+as `?filter[category]=food` is no longer parsed into an object unless you
+opt back in to the extended parser.
+
+## A reusable validate() middleware
+
+```js
+// src/middleware/validate.js
+import { z } from "zod";
+
+export function validate(schemas) {
+  return (req, res, next) => {
+    const validated = {};
+    for (const part of ["params", "query", "body"]) {
+      if (!schemas[part]) continue;
+      const result = schemas[part].safeParse(req[part]);
+      if (!result.success) {
+        return res.status(400).json({
+          error: {
+            code: "VALIDATION_FAILED",
+            message: `Invalid request ${part}`,
+            details: result.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
+          },
+        });
+      }
+      validated[part] = result.data;
+    }
+    req.validated = validated; // req.query is read-only in Express 5, so store results here
+    next();
+  };
+}
+```
+
+In Express 5, `req.query` is a getter, so you **cannot assign** the parsed
+query back onto it. Storing results on a separate property (or on
+`res.locals`) works for all three parts and keeps the raw input intact.
+
+```js
+import { validate } from "../middleware/validate.js";
+import { createExpenseSchema, idParamSchema, listQuerySchema } from "../schemas/expense.js";
+
+router.get("/", validate({ query: listQuerySchema }), async (req, res) => {
+  const { category, minAmount, page } = req.validated.query; // numbers, not strings
+  res.json(await expenses.list({ category, minAmount, page }));
+});
+
+router.post("/", validate({ body: createExpenseSchema }), async (req, res) => {
+  const expense = await expenses.create(req.validated.body);
+  res.status(201).json(expense);
+});
+
+router.get("/:id", validate({ params: idParamSchema }), async (req, res) => {
+  res.json(await expenses.get(req.validated.params.id));
+});
+```
+
+```bash
+curl -X POST localhost:3000/api/v1/expenses -H "Content-Type: application/json" -d '{"title":"","amountPaise":-5}'
+# 400 {"error":{"code":"VALIDATION_FAILED","message":"Invalid request body",
+#      "details":[{"path":"title","message":"Title is required"},
+#                 {"path":"amountPaise","message":"Too small: expected number to be >0"}, ...]}}
+```
+
+## Grouping errors by field
+
+If the frontend wants errors keyed by field name for a form, Zod 4 provides
+`z.flattenError`:
+
+```js
+const result = createExpenseSchema.safeParse({ title: "", amountPaise: -5 });
+z.flattenError(result.error).fieldErrors;
+// { title: ["Title is required"], amountPaise: ["Too small: expected number to be >0"], ... }
+```
+
+## Types for free
+
+In TypeScript, `z.infer` derives the type from the schema, so the validator
+and the type can never drift apart:
+
+```ts
+type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
+// { title: string; amountPaise: number; category: "food" | "travel" | "rent" | "other"; ... }
+```
+
+Rules that need the database (is this invoice number already used?) belong
+in the service layer, not the schema; they typically return 409 or 422.
+
+### Try it yourself
+
+Add a `GET /api/v1/expenses?from=2026-04-01&to=2026-04-30` endpoint. Write a
+query schema with two `z.iso.date()` fields and use `.refine()` to reject a
+range where `from` is after `to`. Send an invalid range with curl and confirm
+your 400 response lists the problem under `details`.

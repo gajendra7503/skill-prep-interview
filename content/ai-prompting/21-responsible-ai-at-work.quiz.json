@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "You want a free public chatbot to help rewrite a client email that includes the client's PAN and portfolio value. What should you do?",
+      "options": [
+        "Paste it as is; chatbots don't store data",
+        "Anonymise it or use a company-approved tool, following company data policy",
+        "Paste it but ask the chatbot to forget it afterwards",
+        "Remove only the client's first name"
+      ],
+      "correctIndex": 1,
+      "explanation": "Identity numbers and client data must not go into unapproved tools; anonymise or use an approved tool per policy."
+    },
+    {
+      "question": "Which is the recommended way to handle questions about how the DPDP Act 2023 applies to a new AI workflow?",
+      "options": [
+        "Interpret the Act yourself from a summary",
+        "Ask the AI model for a legal opinion and follow it",
+        "Assume it doesn't apply to internal tools",
+        "Follow company policy and consult the compliance or data protection team"
+      ],
+      "correctIndex": 3,
+      "explanation": "The lesson gives only a high-level overview; employees should rely on company policy and compliance, not their own legal interpretation."
+    },
+    {
+      "question": "What is a counterfactual pair test for bias?",
+      "options": [
+        "Running the same input twice and comparing outputs",
+        "Asking two different models the same question",
+        "Changing only a sensitive attribute, such as the name or city, and checking whether the output changes",
+        "Comparing English and Hindi versions of a prompt"
+      ],
+      "correctIndex": 2,
+      "explanation": "If swapping only an irrelevant attribute changes the assessment, the process may be biased."
+    },
+    {
+      "question": "An AI draft of a marketing message says a product gives \"safe, assured 15% returns\". What is the right action?",
+      "options": [
+        "Route it through compliance review instead of sending it",
+        "Send it, since the AI wrote it",
+        "Change 15% to 12% and send",
+        "Ask the AI whether it is compliant and send if it says yes"
+      ],
+      "correctIndex": 0,
+      "explanation": "Financial claims are regulated; overclaiming language must go through human compliance approval, and you remain accountable."
+    }
+  ]
+}

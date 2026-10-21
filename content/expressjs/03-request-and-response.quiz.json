@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "For `PATCH /accounts/42?notify=true` with a JSON body, where does `42` appear?",
+      "options": [
+        "`req.query.id`",
+        "`req.body.id`",
+        "`req.params.id`, as the string \"42\"",
+        "`req.params.id`, as the number 42"
+      ],
+      "correctIndex": 2,
+      "explanation": "Path segments matched by `:id` land in `req.params` and are always strings. `notify` is in `req.query` and the JSON payload is in `req.body`."
+    },
+    {
+      "question": "What causes the error \"Cannot set headers after they are sent to the client\"?",
+      "options": [
+        "Calling `res.status()` before `res.json()`",
+        "Sending a response and then letting execution continue to another `res.send()` or `res.json()`",
+        "Forgetting to register `express.json()`",
+        "Returning a promise from the handler"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each request gets one response. If you send early without `return`, the code continues and tries to send again. Use `return res.status(404).json(...)` for early exits."
+    },
+    {
+      "question": "Which call correctly sends a 201 response with a JSON body in Express 5?",
+      "options": [
+        "`res.status(201).json({ id: 43 })`",
+        "`res.json({ id: 43 }, 201)`",
+        "`res.send(201, { id: 43 })`",
+        "`res.json(201, { id: 43 })`"
+      ],
+      "correctIndex": 0,
+      "explanation": "`res.status()` sets the code and returns `res`, so it chains with `json()`. The older signatures that passed a status alongside the body were removed in Express 5."
+    },
+    {
+      "question": "What does `res.format()` use to choose which handler to run?",
+      "options": [
+        "The file extension in the URL",
+        "The request's `Content-Type` header",
+        "The `?format=` query parameter",
+        "The request's `Accept` header"
+      ],
+      "correctIndex": 3,
+      "explanation": "`res.format()` performs content negotiation on the `Accept` header, runs the best-matching handler, uses `default` if given, and otherwise responds 406 Not Acceptable."
+    }
+  ]
+}

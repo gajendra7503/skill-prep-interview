@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "question": "Which command installs the Angular CLI so that `ng` is available in any terminal?",
+      "options": [
+        "npm install @angular/core",
+        "npm install -g @angular/cli",
+        "ng install angular",
+        "npx create-angular-app"
+      ],
+      "correctIndex": 1,
+      "explanation": "The CLI is the `@angular/cli` npm package; installing it globally with `-g` puts the `ng` command on your PATH."
+    },
+    {
+      "question": "What does `ng serve` do?",
+      "options": [
+        "Deploys the app to a production server",
+        "Runs the unit tests once",
+        "Starts a development server (by default on localhost:4200) that rebuilds on every save",
+        "Generates a new component"
+      ],
+      "correctIndex": 2,
+      "explanation": "`ng serve` compiles the app in memory, serves it locally on port 4200 by default, and rebuilds when files change."
+    },
+    {
+      "question": "Which generated file is the entry point that bootstraps the root component?",
+      "options": ["angular.json", "src/index.html", "src/app/app.routes.ts", "src/main.ts"],
+      "correctIndex": 3,
+      "explanation": "`src/main.ts` is the entry point; it bootstraps the root component with the app configuration."
+    },
+    {
+      "question": "In a template, what does `{{ budget }}` do?",
+      "options": [
+        "Interpolates the value of the component's `budget` property into the page",
+        "Declares a new variable called budget",
+        "Binds a click event to a method named budget",
+        "Imports a component called budget"
+      ],
+      "correctIndex": 0,
+      "explanation": "Double curly braces are interpolation: Angular renders the current value of the matching class property as text."
+    }
+  ]
+}

@@ -1,0 +1,174 @@
+---
+title: "Big-O & Complexity Analysis"
+description: "Measure how running time and memory grow with input size using Big-O, spot hidden costs in JavaScript, and answer the complexity question in interviews."
+module: "Getting Started"
+level: "beginner"
+order: 2
+---
+
+Big-O notation describes **how the cost of an algorithm grows as the input
+grows**. It ignores the speed of your laptop and focuses on the shape of the
+growth: does doubling the input double the work, quadruple it, or barely
+change it? Every interviewer will ask for it after you solve a problem.
+
+## Counting steps, not seconds
+
+Count the basic operations as a function of the input size `n`:
+
+```js
+function countPairs(n) {
+  let ops = 0;
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++) ops++;
+  return ops;
+}
+
+function halvings(n) {
+  let steps = 0;
+  while (n > 1) { n = Math.floor(n / 2); steps++; }
+  return steps;
+}
+
+for (const n of [10, 100, 1000]) console.log(n, countPairs(n), halvings(n));
+// 10 100 3
+// 100 10000 6
+// 1000 1000000 9
+console.log(halvings(1e6), halvings(1e9)); // 19 29
+```
+
+`countPairs` grows as n² — that is **O(n²)**. `halvings` grows by one step
+each time `n` doubles — that is **O(log n)**. Even for 100 crore (10⁹), it
+needs only 29 steps.
+
+## The rules of simplification
+
+1. **Drop constants**: `3n + 5` is O(n). Two separate loops over the array
+   are still O(n).
+2. **Keep the dominant term**: `n² + n log n + n` is O(n²).
+3. **Different inputs get different letters**: looping over `a` then `b`
+   is O(a + b); nesting them is O(a × b). Don't call it O(n²) unless both
+   have the same size.
+4. **Nested loops multiply, sequential loops add.**
+
+Big-O is formally an *upper bound*. In interviews, people use it to mean
+the tight bound for the worst case unless they say otherwise.
+
+## The common classes
+
+| Big-O | Name | Typical example | n = 10 lakh |
+|---|---|---|---|
+| O(1) | constant | array index, `Map.get` (average) | 1 |
+| O(log n) | logarithmic | binary search, halving loop | about 20 |
+| O(n) | linear | one pass over an array | 10 lakh |
+| O(n log n) | linearithmic | efficient sorting | about 2 crore |
+| O(n²) | quadratic | all pairs | 10¹² (too slow) |
+| O(2ⁿ) | exponential | all subsets | impossible beyond n ≈ 30-40 |
+| O(n!) | factorial | all orderings | impossible beyond n ≈ 10-12 |
+
+## Using constraints to pick the approach
+
+A rough rule of thumb: a simple JavaScript loop does somewhere around
+10⁸ basic operations per second (it varies a lot with the work per step).
+Read the input limits and work backwards:
+
+| Max n | Complexity that usually fits |
+|---|---|
+| up to about 12 | O(n!) |
+| up to about 25 | O(2ⁿ) |
+| up to a few thousand | O(n²) |
+| up to 10⁵ - 10⁶ | O(n log n) or O(n) |
+| above 10⁸ or so | O(log n) or O(1) — a formula or binary search |
+
+Interviewers often hint with constraints. "n can be 10⁵" means your O(n²)
+brute force is not the final answer.
+
+## Seeing growth for real
+
+Doubling the input of an O(n²) function should roughly quadruple its time:
+
+```js
+function quadratic(arr) {
+  let c = 0;
+  for (let i = 0; i < arr.length; i++)
+    for (let j = i + 1; j < arr.length; j++)
+      if (arr[i] + arr[j] === -1) c++;
+  return c;
+}
+// Measured with performance.now() on Node 24 (your numbers will differ):
+// n = 5000   ->  17 ms
+// n = 10000  ->  59 ms
+// n = 20000  -> 226 ms   (about 4x per doubling)
+```
+
+## Space complexity
+
+Space complexity counts the **extra** memory an algorithm uses beyond the
+input. A loop with a couple of variables is O(1) space. Building a new array
+or a Set of size `n` is O(n). Recursion is easy to forget: every pending call
+occupies a stack frame.
+
+```js
+function sumTo(n) { return n === 0 ? 0 : n + sumTo(n - 1); }   // O(n) stack space
+function sumToLoop(n) { let s = 0; for (let i = 1; i <= n; i++) s += i; return s; } // O(1)
+
+console.log(sumTo(1000));       // 500500
+console.log(sumToLoop(1e6));    // 500000500000
+sumTo(1e6);                     // RangeError: Maximum call stack size exceeded
+```
+
+"Recursion Fundamentals" covers the call stack in detail.
+
+## Best, average, worst and amortised
+
+- **Worst case** — the guarantee. Linear search is O(n) worst case.
+- **Best case** — rarely useful ("the target is the first element").
+- **Average case** — expected cost over typical inputs. Hash map lookups are
+  O(1) on average but O(n) in the worst case.
+- **Amortised** — the average cost per operation over a long sequence.
+  `array.push` occasionally has to copy the whole array into a bigger block,
+  but because capacity grows geometrically, the total copying over n pushes
+  is less than n. A simulation of capacity doubling shows 1,023 element
+  copies for 1,024 pushes — so each push is **amortised O(1)**.
+
+## Hidden costs in JavaScript
+
+One line of code is not always O(1). These are linear in the size of the
+array or string they work on:
+
+| Operation | Cost |
+|---|---|
+| `arr.includes(x)`, `indexOf`, `find` | O(n) |
+| `arr.slice()`, `[...arr]`, `concat` | O(n) — copies |
+| `arr.shift()`, `arr.unshift(x)`, `splice` in the middle | O(n) in general |
+| `str.split("")`, `str.slice`, `toUpperCase` | O(length) |
+| `arr.sort()` | O(n log n) |
+| `Object.keys(obj)` | O(number of keys) |
+
+So this innocent-looking function is O(a × b), not O(a):
+
+```js
+function hasCommon(a, b) {
+  for (const x of a) if (b.includes(x)) return true; // includes is O(b)
+  return false;
+}
+console.log(hasCommon([1, 2, 3], [4, 5, 3])); // true
+```
+
+Converting `b` into a Set first makes it O(a + b) — see "Hash Maps & Sets".
+
+## Common mistakes
+
+- Calling two nested loops O(n²) when the inner loop runs a fixed 26 times
+  (that is O(26n) = O(n)).
+- Forgetting the cost of sorting at the start of a solution.
+- Ignoring the recursion stack when stating space complexity.
+- Saying "O(n)" without saying what n is. Say "n is the length of the array".
+
+### Try it yourself
+
+1. State the time complexity of a loop where `i` starts at 1 and does
+   `i *= 3` until `i` exceeds `n`. Verify by counting steps for n = 10⁶.
+2. A function sorts an array of n strings, each of length up to k. What is
+   its time complexity, given that one string comparison can cost O(k)?
+3. Rewrite `hasCommon` with a Set and measure both versions on two arrays
+   of 20,000 numbers with no common elements.

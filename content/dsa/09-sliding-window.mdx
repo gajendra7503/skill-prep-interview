@@ -1,0 +1,186 @@
+---
+title: "Sliding Window"
+description: "Solve contiguous subarray and substring problems in O(n) by growing and shrinking a window instead of recomputing every range."
+module: "Core Patterns"
+level: "intermediate"
+order: 9
+---
+
+"Find the best **contiguous** stretch" problems — the busiest 7 days of
+sales, the longest substring without repeats, the shortest run of orders
+worth at least ₹50,000 — have a brute force that checks every start and end:
+O(n²) ranges, sometimes O(n³) if you re-sum each one.
+
+A **sliding window** keeps a range `[left, right]` plus a running summary of
+it (a sum, a count, a map). When the window moves, you update the summary
+with only the element that entered and the one that left. Both edges only
+ever move forward, so the total work is O(n).
+
+```text
+nums:   [ 4, 2, 7, 1, 8, 3 ]       window size k = 3
+          [-----]                   sum = 13
+             [-----]                sum = 13 - 4 + 1 = 10
+                [-----]             sum = 10 - 2 + 8 = 17
+          add the new right element, subtract the element that fell out
+```
+
+## The two kinds of window
+
+| Kind | Window size | Typical question | How it moves |
+|---|---|---|---|
+| Fixed | always `k` | max/average of every `k` consecutive items | slide by one: add right, drop left |
+| Variable | grows and shrinks | longest/shortest range satisfying a condition | expand `right` every step; shrink `left` while the condition says so |
+
+## Fixed window: best 3-day sales
+
+```js
+function maxSumOfK(sales, k) {
+  if (sales.length < k) return null;
+  let windowSum = 0;
+  for (let i = 0; i < k; i++) windowSum += sales[i];  // first window
+  let best = windowSum;
+  for (let right = k; right < sales.length; right++) {
+    windowSum += sales[right] - sales[right - k];     // slide by one
+    best = Math.max(best, windowSum);
+  }
+  return best;
+}
+
+const dailySales = [12000, 8000, 15000, 22000, 9000, 30000, 11000]; // ₹ per day
+console.log(maxSumOfK(dailySales, 3)); // 61000  (₹22,000 + ₹9,000 + ₹30,000)
+```
+
+**Complexity:** O(n) time, O(1) space, versus O(n·k) for re-summing.
+
+## Variable window: the general template
+
+Most variable-window problems fit this skeleton:
+
+```text
+left = 0
+for right in 0..n-1:
+    add nums[right] to the window state
+    while window can / must shrink:
+        (record answer here for "shortest" problems)
+        remove nums[left] from the state; left++
+    (record answer here for "longest" problems)
+```
+
+Each element enters the window once and leaves at most once, so even with
+the inner `while`, the total work is O(n). Interviewers often ask you to
+justify this: each index moves forward at most n times in total.
+
+## Interview problem: shortest run with sum at least target
+
+**Pattern:** variable window, shrink while valid. A seller's order values (all
+positive) are in a list; what is the fewest consecutive orders totalling at
+least ₹50,000? Expand `right`; while `sum >= target`, record the length
+and try a shorter window by dropping `nums[left]`.
+
+```js
+function minSubarrayLen(target, nums) {
+  let left = 0, sum = 0, best = Infinity;
+  for (let right = 0; right < nums.length; right++) {
+    sum += nums[right];
+    while (sum >= target) {
+      best = Math.min(best, right - left + 1);
+      sum -= nums[left];
+      left++;
+    }
+  }
+  return best === Infinity ? 0 : best;
+}
+
+console.log(minSubarrayLen(50000, [10000, 25000, 5000, 20000, 30000, 4000])); // 2
+console.log(minSubarrayLen(7, [2, 3, 1, 2, 4, 3]));  // 2  ([4, 3])
+console.log(minSubarrayLen(100, [1, 2, 3]));         // 0  (impossible)
+```
+
+O(n) time, O(1) space.
+
+**The positivity trap.** Shrinking works only because adding an element
+always increases the sum. With negatives, that breaks:
+
+```js
+console.log(minSubarrayLen(7, [1, -5, 4, 3])); // 0  -- wrong, [4, 3] sums to 7
+```
+
+For arrays with negative numbers, switch to prefix sums with a hash map —
+see "Prefix Sums & Difference Arrays".
+
+## Interview problem: longest substring without repeating characters
+
+**Pattern:** variable window, longest valid. Remember the last index of each
+character; when a repeat appears inside the window, jump `left` past it.
+
+```js
+function longestUniqueSubstring(s) {
+  const lastSeen = new Map();
+  let left = 0, best = 0;
+  for (let right = 0; right < s.length; right++) {
+    const ch = s[right];
+    if (lastSeen.has(ch) && lastSeen.get(ch) >= left) {
+      left = lastSeen.get(ch) + 1;    // jump past the earlier copy
+    }
+    lastSeen.set(ch, right);
+    best = Math.max(best, right - left + 1);
+  }
+  return best;
+}
+
+console.log(longestUniqueSubstring("abcabcbb"));  // 3  ("abc")
+console.log(longestUniqueSubstring("bengaluru")); // 8  ("bengalur")
+console.log(longestUniqueSubstring(""));          // 0
+```
+
+The check `lastSeen.get(ch) >= left` matters: a character seen *before* the
+window started must not drag `left` backwards. Time O(n); space O(min(n, σ))
+where σ is the alphabet size.
+
+## Fixed window with counts: find all anagrams
+
+To find every start index where a substring of `s` is an anagram of `p`,
+slide a window of length `p.length` and keep letter counts.
+
+```js
+function findAnagrams(s, p) {
+  const need = new Array(26).fill(0), have = new Array(26).fill(0);
+  const idx = (c) => c.charCodeAt(0) - 97;
+  for (const c of p) need[idx(c)]++;
+  const target = need.join(), result = [];
+  for (let right = 0; right < s.length; right++) {
+    have[idx(s[right])]++;                                // element entering
+    if (right >= p.length) have[idx(s[right - p.length])]--; // element leaving
+    if (have.join() === target) result.push(right - p.length + 1);
+  }
+  return result;
+}
+
+console.log(findAnagrams("cbaebabacd", "abc")); // [ 0, 6 ]
+console.log(findAnagrams("abab", "ab"));        // [ 0, 1, 2 ]
+```
+
+Comparing 26 counts per step is O(26·n) = O(n). A follow-up interviewers
+like: keep a `matches` counter of letters whose counts agree, making each
+step truly O(1).
+
+A related hard problem, the **maximum of every window of size k**, needs a
+deque kept in decreasing order; that monotonic idea is developed in
+"Designing Data Structures: LRU/LFU Caches, Monotonic Stacks & Rate Limiters".
+
+## Common mistakes
+
+- **Off-by-one length.** `[left, right]` has `right - left + 1` items.
+- **Using `if` instead of `while` to shrink**, so the window shrinks by at
+  most one per step and misses shorter answers.
+- **Applying the shrink template to negative numbers** (see above).
+- **Recording the answer in the wrong place** (see the template).
+- **Forgetting the stale-index check** in the repeating-characters problem.
+
+### Try it yourself
+
+1. Given hourly temperatures in Chennai, return the highest **average** over
+   any 4 consecutive hours.
+2. Find the length of the longest substring with **at most two distinct
+   characters** (`"eceba"` gives 3). Hint: keep a `Map` of counts and shrink
+   while it has more than two keys.

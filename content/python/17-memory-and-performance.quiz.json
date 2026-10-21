@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `del x` do in CPython?",
+      "options": [
+        "Immediately destroys the object x refers to, even if other references exist",
+        "Removes the name binding x and decrements the object's reference count",
+        "Moves the object to the oldest garbage collector generation",
+        "Marks the object read-only"
+      ],
+      "correctIndex": 1,
+      "explanation": "del removes a name binding. The object is freed only when its reference count reaches zero (or the cycle collector reclaims it)."
+    },
+    {
+      "question": "Why does CPython need a cyclic garbage collector in addition to reference counting?",
+      "options": [
+        "Reference counting is too slow to be used for most objects",
+        "Reference counting only works for immutable objects",
+        "The GIL prevents reference counts from being updated",
+        "Objects in a reference cycle keep each other's counts above zero even when unreachable"
+      ],
+      "correctIndex": 3,
+      "explanation": "Cycles (a refers to b, b refers to a) never reach a count of zero on their own, so the generational gc module detects and frees them."
+    },
+    {
+      "question": "What does `sys.getsizeof(my_list)` report?",
+      "options": [
+        "Only the memory of the list object itself, not the objects it contains",
+        "The total memory of the list and every object it references",
+        "The number of elements in the list",
+        "The peak memory used by the program so far"
+      ],
+      "correctIndex": 0,
+      "explanation": "getsizeof is shallow; referenced objects are not included. Walk the contents or use tracemalloc for a true footprint."
+    },
+    {
+      "question": "Which change most reduces peak memory when summing the squares of 10 million numbers?",
+      "options": [
+        "Using sum([n * n for n in range(10_000_000)])",
+        "Storing the squares in a dict first",
+        "Using a generator expression: sum(n * n for n in range(10_000_000))",
+        "Running the code under cProfile"
+      ],
+      "correctIndex": 2,
+      "explanation": "A generator expression yields one value at a time, so memory stays constant; the list comprehension materialises all 10 million results first."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "When a Server Action is used with `useActionState`, how does its signature change?",
+      "options": [
+        "It must return a Response object",
+        "It receives the previous state as its first argument, before the FormData",
+        "It no longer receives FormData",
+        "It must be declared inside the Client Component"
+      ],
+      "correctIndex": 1,
+      "explanation": "useActionState calls the action as `action(prevState, formData)` and stores the returned value as the new state, which is how validation errors reach the form."
+    },
+    {
+      "question": "Why should `redirect()` be called outside a `try/catch` block in a Server Action?",
+      "options": [
+        "redirect() only works in Route Handlers",
+        "redirect() returns a Promise that must not be awaited",
+        "redirect() throws a framework control-flow exception, which the catch block would swallow",
+        "try/catch is not allowed in Server Actions"
+      ],
+      "correctIndex": 2,
+      "explanation": "redirect() works by throwing. If it runs inside try, your catch intercepts it and the navigation never happens. Revalidate before calling it, since code after it does not run."
+    },
+    {
+      "question": "Where must a component that calls `useFormStatus()` be placed to get the form's pending state?",
+      "options": [
+        "Inside (as a child of) the `<form>` whose status it reads",
+        "In the root layout",
+        "In the same component that renders the `<form>`",
+        "In a Server Component"
+      ],
+      "correctIndex": 0,
+      "explanation": "useFormStatus reads the status of the parent form, so it only works in a component rendered inside that form, typically a SubmitButton."
+    },
+    {
+      "question": "After a user creates an expense in a Server Action, which call guarantees their next request sees fresh tagged data rather than stale content?",
+      "options": [
+        "revalidateTag('expenses', 'max')",
+        "router.refresh() inside the action",
+        "No call is needed; Server Actions always bypass the cache",
+        "updateTag('expenses')"
+      ],
+      "correctIndex": 3,
+      "explanation": "updateTag (Server Actions only) expires the tag immediately for read-your-own-writes. revalidateTag with 'max' uses stale-while-revalidate, so the next request may still see stale data."
+    }
+  ]
+}

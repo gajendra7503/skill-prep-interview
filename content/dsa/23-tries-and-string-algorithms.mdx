@@ -1,0 +1,206 @@
+---
+title: "Tries & String Algorithms (KMP, Rolling Hash)"
+description: "Prefix trees for autocomplete and dictionary lookups, KMP's prefix function for linear-time matching, and Rabin-Karp rolling hashes."
+module: "Strings"
+level: "advanced"
+order: 23
+---
+
+The naive way to find a pattern of length `m` in a text of length `n`
+compares at every position: `O(n * m)`. For dictionaries, checking every
+word against a prefix costs `O(total characters)` per query. This lesson
+covers three tools that beat both: the **trie**, **KMP** and the **rolling
+hash**.
+
+## Tries (prefix trees)
+
+A trie stores strings character by character along paths from the root.
+Words with a common prefix share nodes, and a flag marks where a word ends.
+
+```text
+words: belagavi, bengaluru, bhopal, bhuj
+
+(root) - b -+- e -+- l - a - g - a - v - i*
+            |     +- n - g - a - l - u - r - u*
+            +- h -+- o - p - a - l*
+                  +- u - j*                      (* = isEnd)
+```
+
+```js
+class TrieNode {
+  constructor() { this.children = new Map(); this.isEnd = false; }
+}
+class Trie {
+  constructor() { this.root = new TrieNode(); }
+  insert(word) {
+    let node = this.root;
+    for (const ch of word) {
+      if (!node.children.has(ch)) node.children.set(ch, new TrieNode());
+      node = node.children.get(ch);
+    }
+    node.isEnd = true;
+  }
+  #walk(prefix) {
+    let node = this.root;
+    for (const ch of prefix) {
+      node = node.children.get(ch);
+      if (!node) return null;
+    }
+    return node;
+  }
+  search(word) { return this.#walk(word)?.isEnd === true; }
+  startsWith(prefix) { return this.#walk(prefix) !== null; }
+  autocomplete(prefix, limit = 5) {
+    const start = this.#walk(prefix);
+    const out = [];
+    const dfs = (node, path) => {
+      if (out.length >= limit) return;
+      if (node.isEnd) out.push(path);
+      for (const ch of [...node.children.keys()].sort()) dfs(node.children.get(ch), path + ch);
+    };
+    if (start) dfs(start, prefix);
+    return out;
+  }
+}
+
+const t = new Trie();
+for (const c of ["bengaluru", "belagavi", "bhopal", "bhubaneswar", "bikaner", "bhuj", "bharuch"]) t.insert(c);
+console.log(t.search("bhopal"), t.search("bho"), t.startsWith("bho")); // true false true
+console.log(t.autocomplete("bh")); // [ 'bharuch', 'bhopal', 'bhubaneswar', 'bhuj' ]
+console.log(t.autocomplete("be")); // [ 'belagavi', 'bengaluru' ]
+```
+
+| Operation | Time | Notes |
+|---|---|---|
+| `insert`, `search`, `startsWith` | `O(L)` | `L` = word/prefix length, independent of dictionary size |
+| `autocomplete` | `O(P + output size)` | walk the prefix, then DFS the subtree |
+| Space | `O(total characters)` | worst case, no shared prefixes |
+
+Interviewers often ask: "Why a trie and not a hash set?" A set answers
+"is this exact word present?" in `O(L)` too, but cannot answer "which words
+start with `bh`?" without scanning everything. Tries also power **word
+search on a grid** (prune DFS paths that are not a prefix of any word) and
+**maximum XOR pair** (a binary trie over bits).
+
+Using a `Map` per node is flexible; an array of 26 slots is faster for
+lowercase-only input but wastes memory on sparse nodes.
+
+## KMP: linear-time pattern matching
+
+When a mismatch happens after matching `j` characters, the naive approach
+throws that work away. KMP precomputes, for each prefix of the pattern, the
+length of the longest **proper prefix that is also a suffix** (the `lps` or
+prefix-function array). On a mismatch it jumps `j` back to `lps[j - 1]`
+instead of restarting.
+
+```text
+pattern  a b a b a c a
+lps      0 0 1 2 3 0 1
+
+lps[2] = 1  "aba"    : prefix "a"   == suffix "a"
+lps[4] = 3  "ababa"  : prefix "aba" == suffix "aba"
+```
+
+```js
+function prefixFunction(p) {
+  const lps = new Array(p.length).fill(0);
+  let len = 0;
+  for (let i = 1; i < p.length; i++) {
+    while (len > 0 && p[i] !== p[len]) len = lps[len - 1];
+    if (p[i] === p[len]) len++;
+    lps[i] = len;
+  }
+  return lps;
+}
+console.log(prefixFunction("ababaca")); // [ 0, 0, 1, 2, 3, 0, 1 ]
+
+function kmpSearch(text, pattern) {
+  const lps = prefixFunction(pattern);
+  const hits = [];
+  let j = 0;
+  for (let i = 0; i < text.length; i++) {
+    while (j > 0 && text[i] !== pattern[j]) j = lps[j - 1];
+    if (text[i] === pattern[j]) j++;
+    if (j === pattern.length) { hits.push(i - j + 1); j = lps[j - 1]; }
+  }
+  return hits;
+}
+console.log(kmpSearch("abababcabab", "abab")); // [ 0, 2, 7 ]  (overlaps included)
+```
+
+**Complexity:** `O(n + m)` time, `O(m)` space. The inner `while` looks
+quadratic, but `j` can only decrease as many times as it increased, so the
+total work is linear (an amortised argument worth stating in interviews).
+
+### Interview problem: repeated substring pattern
+
+"Is the string made of one block repeated?" The `lps` array answers it
+directly: the smallest period is `n - lps[n - 1]`, valid if it divides `n`.
+
+```js
+function smallestPeriod(s) {
+  const lps = prefixFunction(s);
+  const p = s.length - lps[s.length - 1];
+  return s.length % p === 0 ? p : s.length;
+}
+console.log(smallestPeriod("abcabcabc"), smallestPeriod("abcab"), smallestPeriod("aaaa")); // 3 5 1
+```
+
+## Rabin-Karp: rolling hash
+
+Hash every window of length `m` and compare with the pattern's hash. The
+trick is updating the window hash in `O(1)`: subtract the outgoing
+character's contribution, multiply by the base, add the incoming one.
+
+```js
+function rabinKarp(text, pattern) {
+  const B = 131, M = 1_000_000_007;
+  const m = pattern.length, hits = [];
+  if (m > text.length) return hits;
+  let high = 1; // B^(m-1) mod M
+  for (let i = 0; i < m - 1; i++) high = (high * B) % M;
+  let hp = 0, ht = 0;
+  for (let i = 0; i < m; i++) {
+    hp = (hp * B + pattern.charCodeAt(i)) % M;
+    ht = (ht * B + text.charCodeAt(i)) % M;
+  }
+  for (let i = 0; ; i++) {
+    if (hp === ht && text.startsWith(pattern, i)) hits.push(i); // verify: collisions happen
+    if (i + m >= text.length) break;
+    ht = (ht - text.charCodeAt(i) * high % M + M) % M;
+    ht = (ht * B + text.charCodeAt(i + m)) % M;
+  }
+  return hits;
+}
+console.log(rabinKarp("the cat sat on the mat", "at")); // [ 5, 9, 20 ]
+```
+
+**Complexity:** `O(n + m)` expected; `O(n * m)` worst case if many hashes
+collide and need verification. Space `O(1)`.
+
+**JavaScript gotcha:** numbers are 64-bit floats, exact only up to
+`Number.MAX_SAFE_INTEGER` (about 9 * 10^15). With `M` near 10^9, products
+like `ht * B` stay safe, but multiplying two values near `M` does not — use
+`BigInt` or a smaller modulus in that case.
+
+Rolling hashes shine when comparing **many substrings**: "longest
+duplicate substring" combines binary search on the length (see "Binary
+Search & Search on the Answer") with a set of window hashes.
+
+## Common mistakes
+
+- Forgetting `isEnd`, so `search("bho")` wrongly returns true.
+- In KMP, resetting `j = 0` after a full match instead of `j = lps[j - 1]`,
+  which misses overlapping matches.
+- Trusting a hash match without verifying the characters.
+- Letting the rolling hash go negative after subtraction — add `M` before
+  taking `% M`.
+
+### Try it yourself
+
+1. Add a `delete(word)` method to the trie that also prunes nodes no longer
+   used by any word.
+2. Use KMP to find the shortest string you must prepend to make a string a
+   palindrome (hint: run the prefix function on `s + "#" + reverse(s)`).
+3. Find the longest substring that appears at least twice in a 10,000
+   character string, using binary search plus rolling hashes.

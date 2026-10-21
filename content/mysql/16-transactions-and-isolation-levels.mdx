@@ -1,0 +1,143 @@
+---
+title: "Transactions & Isolation Levels"
+description: "ACID, transaction control statements, implicit commits, read anomalies, the four isolation levels and how InnoDB's MVCC snapshots differ from locking reads."
+module: "Transactions & Concurrency"
+level: advanced
+order: 18
+---
+
+"Walk me through a bank transfer" is the classic opener for transaction
+questions, and it quickly leads to "what isolation level does InnoDB use by
+default, and does it prevent phantoms?" This lesson gives you precise
+answers for MySQL 8.0/8.4 with InnoDB.
+
+## ACID in one paragraph each
+
+- **Atomicity**: all statements in a transaction take effect, or none do.
+  InnoDB uses the **undo log** to roll back partial work.
+- **Consistency**: a transaction moves the database from one valid state to
+  another — constraints, foreign keys and your business rules hold.
+- **Isolation**: concurrent transactions do not see each other's
+  intermediate state (to a degree chosen by the isolation level).
+- **Durability**: once `COMMIT` returns, the change survives a crash. InnoDB
+  writes the **redo log** first; `innodb_flush_log_at_trx_commit = 1` (the
+  default) flushes it to disk on every commit.
+
+## The bank transfer
+
+```sql
+CREATE TABLE accounts (
+  account_id INT PRIMARY KEY,
+  holder     VARCHAR(50) NOT NULL,
+  balance    DECIMAL(12,2) NOT NULL CHECK (balance >= 0)
+) ENGINE = InnoDB;
+
+INSERT INTO accounts VALUES (1, 'Asha', 50000.00), (2, 'Ravi', 10000.00);
+
+START TRANSACTION;
+UPDATE accounts SET balance = balance - 15000 WHERE account_id = 1;
+UPDATE accounts SET balance = balance + 15000 WHERE account_id = 2;
+COMMIT;
+-- Asha: ₹35,000.00   Ravi: ₹25,000.00
+```
+
+If anything fails between the two updates, `ROLLBACK` undoes both. A key
+interview detail: a failing statement (say, the `CHECK` violation) rolls
+back **only that statement**, not the whole transaction. Your application
+must catch the error and issue `ROLLBACK` itself. The exception is a
+deadlock, where InnoDB rolls back the entire victim transaction.
+
+**Savepoints** let you undo part of a transaction:
+
+```sql
+START TRANSACTION;
+UPDATE accounts SET balance = balance - 2000 WHERE account_id = 1;
+SAVEPOINT after_debit;
+UPDATE accounts SET balance = balance + 2000 WHERE account_id = 99; -- 0 rows
+ROLLBACK TO SAVEPOINT after_debit;   -- debit kept, credit undone
+ROLLBACK;                            -- or COMMIT; here we abandon it all
+```
+
+## autocommit and implicit commits
+
+With `autocommit = 1` (the default), every statement outside an explicit
+transaction is its own transaction and commits immediately.
+`START TRANSACTION` (or `BEGIN`) suspends autocommit until `COMMIT` or
+`ROLLBACK`. Setting `autocommit = 0` means a transaction is always open and
+nothing is saved until you commit — a common cause of "my data vanished"
+after a client disconnects.
+
+Some statements cause an **implicit commit** of the open transaction before
+they run: DDL such as `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE`,
+`TRUNCATE TABLE` and `RENAME TABLE`, plus `LOCK TABLES`, `CREATE USER` and
+even another `START TRANSACTION`. MySQL 8.0 DDL is *atomic* (it fully
+succeeds or fully fails) but it is **not transactional** — you cannot roll
+it back as part of your transaction.
+
+## Read anomalies
+
+| Anomaly | What happens |
+| --- | --- |
+| Dirty read | You read another transaction's uncommitted change |
+| Non-repeatable read | Re-reading a row returns a different committed value |
+| Phantom read | Re-running a range query returns new rows |
+
+## The four isolation levels
+
+| Level | Dirty | Non-repeatable | Phantom (SQL standard) |
+| --- | --- | --- | --- |
+| READ UNCOMMITTED | possible | possible | possible |
+| READ COMMITTED | prevented | possible | possible |
+| REPEATABLE READ | prevented | prevented | possible |
+| SERIALIZABLE | prevented | prevented | prevented |
+
+**REPEATABLE READ is InnoDB's default.** Unlike the standard's minimum,
+InnoDB's REPEATABLE READ also avoids phantoms for plain `SELECT`s (they all
+read one snapshot) and for locking reads (via next-key locks, covered in
+the next lesson). Under SERIALIZABLE, InnoDB turns plain `SELECT`s into
+`SELECT ... FOR SHARE` when autocommit is off.
+
+```sql
+SELECT @@transaction_isolation;                 -- REPEATABLE-READ
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;   -- next transaction only
+```
+
+## Consistent snapshot reads vs locking reads
+
+InnoDB uses **MVCC**: a plain `SELECT` is a *consistent nonlocking read*
+that reconstructs old row versions from the undo log, so readers never
+block writers. In REPEATABLE READ the snapshot is taken at the **first
+read** in the transaction (or at `START TRANSACTION WITH CONSISTENT
+SNAPSHOT`); in READ COMMITTED each statement gets a fresh snapshot.
+
+A **locking read** (`SELECT ... FOR UPDATE` / `FOR SHARE`) and every
+`UPDATE` or `DELETE` read the **latest committed** row instead and lock it.
+
+```sql
+-- Session A                         -- Session B
+START TRANSACTION;
+SELECT balance FROM accounts
+ WHERE account_id = 2;  -- 25000.00
+                                     UPDATE accounts SET balance = 30000
+                                      WHERE account_id = 2;  -- autocommit
+SELECT balance FROM accounts
+ WHERE account_id = 2;  -- 25000.00  (snapshot)
+SELECT balance FROM accounts
+ WHERE account_id = 2 FOR UPDATE;  -- 30000.00 (current)
+COMMIT;
+```
+
+This is why "read balance, then update" in application code must use
+`FOR UPDATE` or an atomic `UPDATE ... SET balance = balance - x`.
+Otherwise two transactions can read the same snapshot value and one update
+is lost.
+
+### Try it yourself
+
+Open two `mysql` sessions. In session A start a transaction and run
+`SELECT SUM(balance) FROM accounts`. In session B insert a new account with
+₹5,000 and let it autocommit. Re-run the sum in A — is it unchanged? Repeat
+with session A at READ COMMITTED and explain the difference. Finally, in
+A run `CREATE TABLE t (id INT)` mid-transaction and verify that an earlier
+uncommitted `UPDATE` can no longer be rolled back.

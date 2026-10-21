@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does the `auto` keyword in `contain-intrinsic-size: auto 800px` add?",
+      "options": [
+        "It makes the section always 800px tall",
+        "It lets the browser remember the section's last rendered size and use that instead of the 800px estimate once it has been rendered",
+        "It disables content-visibility in unsupported browsers",
+        "It automatically calculates the size before rendering"
+      ],
+      "correctIndex": 1,
+      "explanation": "800px is only the initial placeholder. After the section renders, the remembered real size is used, which reduces scrollbar jumps and layout shift."
+    },
+    {
+      "question": "How does content skipped by `content-visibility: auto` differ from content hidden with `display: none`?",
+      "options": [
+        "Skipped content is removed from the DOM",
+        "Skipped content is still painted but invisible",
+        "There is no difference",
+        "Skipped content stays in the DOM and accessibility tree and can still be found with find-in-page"
+      ],
+      "correctIndex": 3,
+      "explanation": "content-visibility: auto only skips rendering work for offscreen content; it remains accessible and searchable, and find-in-page reveals it."
+    },
+    {
+      "question": "Why is this loop slow? `for (const row of rows) { row.style.width = container.offsetWidth / 2 + \"px\"; }`",
+      "options": [
+        "Each iteration writes a style and then reads offsetWidth, forcing a synchronous layout every time",
+        "String concatenation with px is expensive",
+        "style.width cannot be set from JavaScript",
+        "offsetWidth always returns 0 inside loops"
+      ],
+      "correctIndex": 0,
+      "explanation": "The write invalidates layout and the next read forces it to be recalculated immediately. Reading once before the loop avoids this layout thrashing."
+    },
+    {
+      "question": "A developer adds `* { will-change: transform; }` to speed up animations. What is the likely result?",
+      "options": [
+        "All animations become free on every device",
+        "The rule is ignored because will-change only works on :root",
+        "Many compositor layers are created, using lots of GPU memory and possibly making low-end devices slower",
+        "Layout thrashing is eliminated"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each promoted layer costs memory. will-change should be applied to a few elements just before they animate, not globally."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "You call `reportsSlice.injectInto(rootReducer)` on a running store and immediately call `store.getState()`. What do you see?",
+      "options": [
+        "The reports key with its initial state",
+        "No reports key yet; it appears after the next action is dispatched",
+        "An error, because the store must be recreated",
+        "The reports key set to null"
+      ],
+      "correctIndex": 1,
+      "explanation": "Injection only adds the reducer to the reducer map; it does not dispatch. The key appears in state after the next action runs through the root reducer."
+    },
+    {
+      "question": "Why should a lazy feature export the selectors from the injected slice rather than `reportsSlice.selectors`?",
+      "options": [
+        "The original selectors are not memoised",
+        "The original selectors only work in production",
+        "Injected selectors fall back to the slice's initial state when the slice state is missing, while the original ones throw in development",
+        "Injected selectors automatically dispatch an init action"
+      ],
+      "correctIndex": 2,
+      "explanation": "The injected slice's selectors tolerate an undefined slice by using its initial state. The original slice's selectors throw 'selectSlice returned undefined for an uninjected slice reducer' in development."
+    },
+    {
+      "question": "What does `.withLazyLoadedSlices<LazyLoadedSlices>()` do at runtime?",
+      "options": [
+        "Nothing; it returns the same reducer and only adjusts the TypeScript state type",
+        "It pre-registers placeholder reducers for each lazy key",
+        "It downloads the lazy chunks in the background",
+        "It enables hot module replacement"
+      ],
+      "correctIndex": 0,
+      "explanation": "It is a type-level helper. The lazy keys are added to the state type as optional properties; the runtime reducer is unchanged."
+    },
+    {
+      "question": "During hot reloading you need to replace the reducer already injected under 'reports'. Which call does that?",
+      "options": [
+        "rootReducer.inject(newSlice)",
+        "store.replaceReducer(newSlice.reducer)",
+        "rootReducer.selector(newSlice)",
+        "rootReducer.inject(newSlice, { overrideExisting: true })"
+      ],
+      "correctIndex": 3,
+      "explanation": "Injecting a different reducer under an existing key is ignored (with a development-mode error) unless you pass overrideExisting: true."
+    }
+  ]
+}

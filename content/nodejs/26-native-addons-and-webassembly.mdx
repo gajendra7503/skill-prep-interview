@@ -1,0 +1,214 @@
+---
+title: "Native Addons and WebAssembly"
+description: "When JavaScript is not enough: writing ABI-stable native addons with Node-API, keeping native work off the event loop, shipping prebuilt binaries, and when WebAssembly is the safer choice."
+module: "Pro Level"
+level: "pro"
+order: 27
+---
+
+Some of the most downloaded npm packages are not really JavaScript:
+`sharp` wraps the C library libvips, `bcrypt` and `better-sqlite3` ship
+compiled C/C++, and tools like esbuild and SWC are native binaries.
+Senior engineers are expected to know how native code plugs into Node,
+what it costs, and when WebAssembly is the better answer.
+
+## Why go native at all?
+
+| Reason | Example |
+| --- | --- |
+| Reuse an existing C/C++/Rust library | Image processing, compression codecs, SQLite |
+| CPU-bound work where JavaScript is too slow | Hashing, parsing, numeric kernels |
+| OS features with no Node API | Hardware devices, platform-specific system calls |
+
+The costs are real: every user now needs a matching binary for their OS,
+CPU architecture and libc; a bug such as a bad pointer **crashes the whole
+process** (no `try`/`catch` can save you); and you carry C-level security
+risks. Always measure first — after the earlier lessons on worker threads
+and V8 optimisation, plain JavaScript is often fast enough.
+
+## The three ways to write an addon
+
+| Approach | Language | Survives a Node upgrade? |
+| --- | --- | --- |
+| Node-API (formerly N-API) | C | Yes — ABI-stable |
+| `node-addon-api` | C++ wrapper over Node-API | Yes — same ABI guarantee |
+| Raw V8 / libuv APIs, or the old NAN helpers | C++ | No — rebuild for every major version |
+
+**Node-API** is the recommended choice. It is an ABI-stable C interface:
+an addon compiled against Node-API version N keeps loading on later Node
+releases that support version N or higher, without recompiling. Check
+what your runtime supports:
+
+```bash
+node -p "process.versions.napi"
+# 10   (on Node 24; older releases report lower numbers)
+```
+
+## A minimal Node-API addon
+
+```c
+// addon.c
+#include <node_api.h>
+
+static napi_value Add(napi_env env, napi_callback_info info) {
+  size_t argc = 2;
+  napi_value args[2];
+  napi_get_cb_info(env, info, &argc, args, NULL, NULL);
+
+  double a, b;
+  if (argc < 2 ||
+      napi_get_value_double(env, args[0], &a) != napi_ok ||
+      napi_get_value_double(env, args[1], &b) != napi_ok) {
+    napi_throw_type_error(env, NULL, "add(a, b) expects two numbers");
+    return NULL;
+  }
+
+  napi_value result;
+  napi_create_double(env, a + b, &result);
+  return result;
+}
+
+NAPI_MODULE_INIT() {            // gives you env and exports
+  napi_value fn;
+  napi_create_function(env, "add", NAPI_AUTO_LENGTH, Add, NULL, &fn);
+  napi_set_named_property(env, exports, "add", fn);
+  return exports;
+}
+```
+
+Every call returns a `napi_status`; production code checks each one.
+JavaScript values are opaque `napi_value` handles — you never touch V8
+objects directly, which is exactly what makes the ABI stable.
+
+Build it with `node-gyp`, which needs Python and a C/C++ toolchain
+(Xcode command-line tools, `build-essential`, or Visual Studio Build
+Tools on Windows):
+
+```python
+# binding.gyp
+{ "targets": [ { "target_name": "addon", "sources": ["addon.c"] } ] }
+```
+
+```bash
+npx node-gyp configure build
+# ... creates build/Release/addon.node
+```
+
+A `.node` file is a shared library. Load it with `require` — from an ES
+module, create one with `createRequire`:
+
+```js
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const { add } = require("./build/Release/addon.node");
+
+console.log(add(2, 3));      // 5
+add("2", 3);                 // TypeError: add(a, b) expects two numbers
+```
+
+## Do not block the event loop from C either
+
+Native code called from JavaScript runs **on the main thread**. A C
+function that takes 300 ms freezes every request for 300 ms, just like a
+slow JavaScript loop. For long work, Node-API offers:
+
+- **Async work** (`napi_create_async_work`) — an `execute` callback runs on
+  the libuv thread pool, then a `complete` callback runs back on the main
+  thread to resolve a promise. Inside `execute` you must **not** call
+  Node-API functions or touch JavaScript values; copy the input into plain
+  C memory first.
+- **Thread-safe functions** (`napi_create_threadsafe_function`) — let a
+  native thread you created queue calls into JavaScript safely, for
+  example to stream progress events.
+
+Remember the thread pool defaults to 4 threads (see the performance
+lesson); a CPU-heavy addon can starve `fs` and `crypto` work sharing it.
+
+## Memory and lifetimes
+
+V8's garbage collector does not know about memory you `malloc`. Handles
+created during a call are freed when it returns; to keep a JavaScript
+value alive longer, create a **reference** (`napi_create_reference`). To
+free native memory when a JavaScript object dies, attach a **finalizer**
+(`napi_wrap` for class instances, or external buffers via
+`napi_create_external_buffer`). Forgetting either side gives you a leak
+that heap snapshots cannot see, or a use-after-free crash.
+
+## Shipping binaries to users
+
+Asking every user to have a compiler is unkind and fragile in CI and
+Docker. Mature packages ship **prebuilt binaries**:
+
+- **Prebuilds inside the package** — tools like `prebuildify` build for
+  each platform in CI, and `node-gyp-build` picks the right file at load
+  time, compiling only as a fallback.
+- **One package per platform** — a main package lists
+  `@scope/pkg-linux-x64`, `@scope/pkg-darwin-arm64` and so on as
+  `optionalDependencies`, each with `os` and `cpu` fields so npm installs
+  only the matching one. esbuild and SWC use this pattern.
+
+Native packages often run `install` scripts, which execute arbitrary code
+on your machine — one more reason to audit dependencies and consider
+`npm install --ignore-scripts` in CI where possible.
+
+## WebAssembly: portable, sandboxed, no compiler for users
+
+WebAssembly (Wasm) is a compact bytecode that V8 compiles to machine code.
+You compile Rust, C, C++, Go or AssemblyScript to a `.wasm` file **once**,
+and the same file runs on every OS and CPU. It runs in a sandbox: it can
+only touch its own linear memory and the functions you import into it, so
+a bug cannot corrupt the Node process.
+
+Here is a complete module (an `add` of two 32-bit integers) written as
+raw bytes, so you can run it with no toolchain:
+
+```js
+// wasm-add.mjs — (func (export "add") (param i32 i32) (result i32) ...)
+const bytes = new Uint8Array([
+  0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,       // magic + version
+  0x01, 0x07, 0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f, // type: (i32,i32)->i32
+  0x03, 0x02, 0x01, 0x00,                               // one function
+  0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64, 0x00, 0x00, // export "add"
+  0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b, // body
+]);
+
+const { instance } = await WebAssembly.instantiate(bytes);
+const { add } = instance.exports;
+console.log(add(2, 3));             // 5
+console.log(add(2 ** 31 - 1, 1));   // -2147483648  (i32 wraps around)
+console.log(add(1.9, "4"));         // 5  (arguments coerced to i32)
+```
+
+In real projects you load the file with
+`WebAssembly.instantiate(await readFile("lib.wasm"), imports)`. Wasm
+functions only exchange numbers; strings and arrays are copied into the
+module's memory (a `WebAssembly.Memory` whose `buffer` you view with a
+`Uint8Array`), and generators such as `wasm-bindgen` write that glue for
+you. For Wasm programs that expect files and environment variables,
+`node:wasi` provides the WASI interface, though it is still marked
+experimental.
+
+## Choosing the right tool
+
+| Need | Reach for |
+| --- | --- |
+| CPU-heavy JavaScript blocking requests | Worker threads first |
+| Portable speed-up or a Rust/C library without OS access | WebAssembly |
+| A native library needing threads, OS APIs or zero-copy speed | Node-API addon with prebuilds |
+| Running a whole external program | `child_process` |
+
+Wasm calls carry a small boundary cost and data copying, so it shines for
+chunky work (resize an image, hash a file), not for millions of tiny
+calls. Native addons are the fastest and most capable, and the most
+expensive to build, ship and keep safe.
+
+### Try it yourself
+
+1. Run `wasm-add.mjs`, then change the opcode `0x6a` (i32.add) to `0x6b`
+   (i32.sub) and confirm `add(10, 3)` now prints 7.
+2. If you have a C toolchain, build the Node-API addon above, then upgrade
+   or switch Node versions with `nvm` and confirm `addon.node` still loads
+   without rebuilding.
+3. Write a short decision note for a team that needs to generate 50,000
+   PDF invoices of ₹ amounts a day: would you choose pure JavaScript with
+   worker threads, a Wasm library or a native addon, and why?

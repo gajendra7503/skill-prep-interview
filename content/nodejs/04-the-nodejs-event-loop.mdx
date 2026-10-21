@@ -1,0 +1,145 @@
+---
+title: "The Node.js Event Loop"
+description: "The libuv event loop phases, process.nextTick versus promise microtasks, setImmediate versus setTimeout, and why blocking the loop hurts."
+module: "Core Concepts"
+level: "intermediate"
+order: 7
+---
+
+The browser event loop has a task queue and a microtask queue. Node's loop,
+implemented by libuv, is more detailed: it moves through a fixed sequence
+of **phases**, and Node adds its own `process.nextTick` queue on top.
+"Predict the output" questions about this are standard in Node interviews.
+
+## The phases
+
+Each turn of the loop (a "tick") visits these phases in order. Each phase
+has a queue of callbacks, and the loop runs callbacks from that queue
+before moving on.
+
+1. **timers** — callbacks from `setTimeout` and `setInterval` whose time
+   has passed.
+2. **pending callbacks** — some system-level callbacks deferred from the
+   previous turn (for example certain TCP errors).
+3. **idle / prepare** — internal use only.
+4. **poll** — retrieve new I/O events and run their callbacks (most of
+   your file and network callbacks). If nothing else is scheduled, the loop
+   waits here for I/O.
+5. **check** — `setImmediate` callbacks.
+6. **close callbacks** — `close` events, such as `socket.on("close")`.
+
+When no timers, I/O or handles remain, the loop exits and the process ends.
+
+## Microtasks run between callbacks
+
+Two queues are drained **after every single callback** (not just after each
+phase), before the loop continues:
+
+1. the **`process.nextTick` queue**, completely;
+2. the **promise microtask queue** (`.then`, `await` continuations,
+   `queueMicrotask`), completely.
+
+In a CommonJS script, the order is easy to see:
+
+```js
+// order.cjs
+console.log("1 sync");
+setTimeout(() => console.log("5 timeout"), 0);
+Promise.resolve().then(() => console.log("4 promise"));
+process.nextTick(() => console.log("3 nextTick"));
+console.log("2 sync");
+
+// 1 sync
+// 2 sync
+// 3 nextTick
+// 4 promise
+// 5 timeout
+```
+
+Synchronous code finishes first, then the nextTick queue, then promises,
+and only then does the loop reach the timers phase.
+
+A subtle gotcha: if you run the same code as an **ES module** (`.mjs`),
+`promise` prints **before** `nextTick`. Module evaluation is itself
+promise-based, so the promise queue is drained before Node gets a chance to
+process the nextTick queue. Interviewers usually assume CommonJS — say so
+when you answer.
+
+Because `nextTick` callbacks run before anything else, a recursive
+`process.nextTick` can **starve** the loop, so I/O never runs. Prefer
+`queueMicrotask` or `setImmediate` unless you specifically need to run
+something before any other async work (for example, emitting an event
+after the caller has had a chance to attach listeners).
+
+## setImmediate vs setTimeout(fn, 0)
+
+From the main script, the order of these two is **not guaranteed** — it
+depends on how quickly the loop starts relative to the 1ms minimum timer
+delay:
+
+```js
+setTimeout(() => console.log("timeout"), 0);
+setImmediate(() => console.log("immediate"));
+// either order is possible when run from the main module
+```
+
+Inside an I/O callback, however, the order **is** deterministic. The loop
+is in the poll phase, the check phase comes next, and timers only come
+around on the following turn:
+
+```js
+import { readFile } from "node:fs";
+
+readFile(import.meta.filename, () => {
+  setTimeout(() => console.log("timeout"), 0);
+  setImmediate(() => console.log("immediate"));
+});
+// immediate
+// timeout   (always, inside an I/O callback)
+```
+
+## Blocking the loop
+
+Every request in a Node server is served by the same thread. A synchronous
+or CPU-heavy operation freezes *all* of them:
+
+```js
+import http from "node:http";
+
+http.createServer((req, res) => {
+  if (req.url === "/report") {
+    const end = Date.now() + 5000;
+    while (Date.now() < end) {} // 5 seconds of pure CPU work
+  }
+  res.end("ok\n");
+}).listen(3000);
+// While /report runs, a request to / also waits 5 seconds.
+```
+
+Common ways people block the loop:
+
+- `fs.readFileSync` and other `*Sync` calls inside request handlers;
+- `JSON.parse` / `JSON.stringify` on very large payloads;
+- heavy loops, image processing, or a catastrophic regular expression;
+- synchronous crypto such as `crypto.pbkdf2Sync`.
+
+Fixes: use the async APIs, split work into chunks with `setImmediate`,
+stream large data, or move CPU work to `worker_threads` or a separate
+service. You can measure delay with `perf_hooks.monitorEventLoopDelay()`.
+
+### Try it yourself
+
+Predict the output of this CommonJS file, then run it with `node`:
+
+```js
+setTimeout(() => console.log("A"), 0);
+setImmediate(() => console.log("B"));
+process.nextTick(() => console.log("C"));
+Promise.resolve().then(() => {
+  console.log("D");
+  process.nextTick(() => console.log("E"));
+});
+console.log("F");
+```
+
+Then rename it to `.mjs`, run it again, and explain any difference.

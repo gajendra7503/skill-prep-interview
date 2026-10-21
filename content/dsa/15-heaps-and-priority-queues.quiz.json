@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In a 0-indexed array-based binary heap, what is the index of the left child of the node at index i?",
+      "options": [
+        "2i",
+        "2i + 1",
+        "i + 1",
+        "Math.floor((i - 1) / 2)"
+      ],
+      "correctIndex": 1,
+      "explanation": "With 0-based indexing, left(i) = 2i + 1 and right(i) = 2i + 2. Math.floor((i - 1) / 2) is the parent index."
+    },
+    {
+      "question": "To find the kth largest element in a large stream of numbers, which approach does the lesson recommend?",
+      "options": [
+        "A max-heap holding every number, popped k times",
+        "Sorting the stream after each new number",
+        "A binary search tree of all numbers",
+        "A min-heap capped at size k, whose root is the answer"
+      ],
+      "correctIndex": 3,
+      "explanation": "A size-k min-heap keeps the k largest values seen so far. Its root is the smallest of those, which is the kth largest. This takes O(n log k) time and O(k) space, and works on an unbounded stream."
+    },
+    {
+      "question": "What is the time complexity of building a heap from an unsorted array of n elements using the bottom-up heapify loop?",
+      "options": [
+        "O(n)",
+        "O(log n)",
+        "O(n log n)",
+        "O(n^2)"
+      ],
+      "correctIndex": 0,
+      "explanation": "Sifting down every non-leaf from index floor(n/2) - 1 back to 0 is O(n) overall, because most nodes are near the bottom and only move a few levels."
+    },
+    {
+      "question": "What does `[10, 9, 100, 25].sort()` return in JavaScript?",
+      "options": [
+        "[9, 10, 25, 100]",
+        "[100, 25, 10, 9]",
+        "[10, 100, 25, 9]",
+        "[9, 25, 100, 10]"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without a comparator, Array.prototype.sort compares elements as strings, so \"10\" < \"100\" < \"25\" < \"9\". Pass (a, b) => a - b for numeric order."
+    }
+  ]
+}

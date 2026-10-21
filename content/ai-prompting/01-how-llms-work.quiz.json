@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is an LLM fundamentally trained to do?",
+      "options": [
+        "Look up answers in a live database",
+        "Predict the next token given the preceding text",
+        "Execute arithmetic like a calculator",
+        "Translate text into a fixed internal language"
+      ],
+      "correctIndex": 1,
+      "explanation": "LLMs generate output one token at a time by predicting the next token from everything before it."
+    },
+    {
+      "question": "A team notices that Hindi customer emails cost more to process than English ones of similar length. What is the most likely reason?",
+      "options": [
+        "The model charges a surcharge for non-English languages",
+        "Hindi emails are always longer in word count",
+        "The context window is smaller for Indic languages",
+        "Indic scripts usually break into more tokens per word than English"
+      ],
+      "correctIndex": 3,
+      "explanation": "Pricing is per token, and Indic scripts typically tokenize less efficiently than English, so the same content uses more tokens."
+    },
+    {
+      "question": "Why can the same prompt produce different answers on different runs?",
+      "options": [
+        "The model samples from a probability distribution over next tokens",
+        "The model's training data changes between runs",
+        "The context window resets randomly",
+        "The model deliberately avoids repeating itself across users"
+      ],
+      "correctIndex": 0,
+      "explanation": "At each step the model samples from possible next tokens, so outputs vary; clear instructions, examples and fixed formats reduce this."
+    },
+    {
+      "question": "You need a model to cite the source for a company's revenue figure. What is the most reliable approach?",
+      "options": [
+        "Ask it to cite sources from memory",
+        "Raise the temperature so it searches harder",
+        "Provide the relevant document and ask it to quote the sentence it used",
+        "Ask the question in capital letters so it is more careful"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without documents a model may invent plausible references; supplying the source and asking for a quote grounds the answer."
+    }
+  ]
+}

@@ -1,0 +1,184 @@
+---
+title: "Built-in Utility Types"
+description: "Derive new types from existing ones with Partial, Required, Readonly, Pick, Omit, Record, Exclude, Extract, NonNullable, ReturnType, Parameters and Awaited."
+module: "Generics"
+level: "intermediate"
+order: 12
+---
+
+Utility types are generic types that ship with TypeScript and transform
+other types. They let you keep **one source of truth** — say, a `Loan`
+type — and derive the variants you need (create payloads, update payloads,
+summary views) instead of copy-pasting fields that drift apart over time.
+
+We will use this type throughout:
+
+```ts
+interface Loan {
+  id: string;
+  borrower: string;
+  amountRupees: number;
+  city: string;
+  approvedAt?: Date;
+}
+```
+
+## Object-shape utilities
+
+| Utility | Effect |
+|---|---|
+| `Partial<T>` | Every property optional |
+| `Required<T>` | Every property required (removes `?`) |
+| `Readonly<T>` | Every property `readonly` |
+| `Pick<T, K>` | Keep only keys `K` |
+| `Omit<T, K>` | Remove keys `K` |
+| `Record<K, V>` | Object with keys `K`, each of type `V` |
+
+```ts
+// PATCH /loans/:id — the client may send any subset of editable fields
+type LoanUpdate = Partial<Omit<Loan, "id">>;
+
+function updateLoan(id: string, changes: LoanUpdate) {
+  /* ... */
+}
+updateLoan("L-1", { amountRupees: 750000 });     // OK
+updateLoan("L-1", { id: "L-2" });
+// Error: Object literal may only specify known properties, and 'id' does not exist in type 'Partial<Omit<Loan, "id">>'
+
+// A lightweight row for a list screen
+type LoanRow = Pick<Loan, "id" | "borrower" | "amountRupees">;
+
+// Every approved loan must have a date
+type ApprovedLoan = Required<Loan>;
+```
+
+Composing utilities like `Partial<Omit<Loan, "id">>` is everyday code in
+real projects, and a common interview exercise is "type the body of an
+update endpoint".
+
+## `Record` for lookup tables
+
+`Record` shines when the key is a union of literals, because TypeScript
+then insists every key is present:
+
+```ts
+type Status = "PENDING" | "APPROVED" | "REJECTED";
+
+const statusLabel: Record<Status, string> = {
+  PENDING: "Under review",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+};
+// Remove one entry and you get:
+// Error: Property 'REJECTED' is missing in type ...
+```
+
+Add a new status to the union and the compiler points at every lookup
+table that needs updating. `Record<string, number>` is also fine for
+open-ended maps such as "city to total disbursed".
+
+## Union utilities
+
+These filter the members of a union type:
+
+```ts
+type Method = "UPI" | "CARD" | "NETBANKING" | "CASH";
+
+type Digital = Exclude<Method, "CASH">;      // "UPI" | "CARD" | "NETBANKING"
+type CardLike = Extract<Method, "CARD" | "UPI">; // "UPI" | "CARD"
+
+type MaybeCity = string | null | undefined;
+type City = NonNullable<MaybeCity>;          // string
+```
+
+Do not confuse them: `Omit` and `Pick` work on the **keys of an object**,
+while `Exclude` and `Extract` work on the **members of a union**.
+
+## Function and class utilities
+
+These extract types from functions and classes you already have, which is
+invaluable when a library does not export the type you need:
+
+```ts
+async function fetchLoan(id: string, withHistory: boolean) {
+  return { id, amountRupees: 500000, history: [] as string[] };
+}
+
+type Args = Parameters<typeof fetchLoan>;
+// [id: string, withHistory: boolean]
+
+type Ret = ReturnType<typeof fetchLoan>;
+// Promise<{ id: string; amountRupees: number; history: string[] }>
+
+type LoanData = Awaited<ReturnType<typeof fetchLoan>>;
+// { id: string; amountRupees: number; history: string[] }
+
+class SmsClient {
+  constructor(public apiKey: string, public sender: string) {}
+}
+type Client = InstanceType<typeof SmsClient>;          // SmsClient
+type CtorArgs = ConstructorParameters<typeof SmsClient>; // [apiKey: string, sender: string]
+```
+
+Note the `typeof`: utilities take **types**, and `fetchLoan` is a value, so
+`typeof fetchLoan` gets its type. `Awaited` unwraps promises (recursively,
+for nested promises), which makes it the natural partner of `ReturnType`
+for async functions. `NoInfer`, another built-in, is covered in "Generic
+Constraints & Defaults".
+
+## Gotchas interviewers probe
+
+**1. `Partial` and `Readonly` are shallow.** They change only top-level
+properties:
+
+```ts
+interface Profile { name: string; address: { city: string } }
+
+const p: Readonly<Profile> = { name: "Ravi", address: { city: "Nagpur" } };
+p.name = "Ravi K";        // Error: Cannot assign to 'name' because it is a read-only property
+p.address.city = "Pune";  // OK — nested object is still mutable
+```
+
+A deep version needs a recursive custom type; see "Mapped Types & Key
+Remapping".
+
+**2. `Omit` does not check its keys.** `Pick<Loan, "rate">` is an error,
+but `Omit<Loan, "rate">` silently compiles — a typo leaves the field in.
+
+**3. `Omit` on a union does not distribute.** It works on the keys shared
+by **all** members, so variant-specific fields are lost:
+
+```ts
+type Upi = { kind: "upi"; vpa: string; id: string };
+type Card = { kind: "card"; last4: string; id: string };
+
+type NoId = Omit<Upi | Card, "id">;
+const bad: NoId = { kind: "upi" }; // compiles — 'vpa' is no longer required!
+```
+
+The fix is a distributive helper built with a conditional type, explained
+in "Conditional Types & infer".
+
+## How they are built
+
+Utility types are not magic; most are a single line in TypeScript's
+standard library. `Partial`, for example, is defined as:
+
+```ts
+type MyPartial<T> = { [K in keyof T]?: T[K] };
+```
+
+That syntax is a mapped type, the subject of "Mapped Types & Key
+Remapping". You do not need it to **use** the utilities, but knowing that
+you can write your own is what moves you from intermediate to advanced.
+
+### Try it yourself
+
+1. From the `Loan` interface, derive `LoanCreate` (no `id`, no
+   `approvedAt`) and `LoanSummary` (only `borrower` and `amountRupees`, both
+   readonly).
+2. Write `const cityTarget: Record<"Delhi" | "Mumbai" | "Bengaluru", number>`
+   with disbursal targets in rupees (for example ₹50 crore), then add
+   `"Chennai"` to the union and observe the error.
+3. Given a third-party function `createOrder(input: { sku: string; qty: number }): Promise<{ orderId: string }>`
+   that exports no types, derive its input type and its resolved output type.

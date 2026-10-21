@@ -1,0 +1,173 @@
+---
+title: "Navigating the File System"
+description: "How the Linux directory tree is laid out, absolute versus relative paths, and moving around confidently with pwd, ls and cd."
+module: "Getting Started"
+level: "beginner"
+order: 2
+---
+
+On Windows you have drive letters: `C:\`, `D:\`. Linux has **one tree**
+that starts at a single root directory, written `/`. Every file, every
+USB drive, even information about running processes, lives somewhere under
+`/`. Learning to move around that tree quickly is the first real
+command-line skill.
+
+## The directory tree
+
+These are the top-level directories you will meet most often. You do not
+need to memorise them today, but knowing them makes server debugging much
+less mysterious.
+
+| Directory | What lives there |
+| --- | --- |
+| `/` | The root of everything |
+| `/home` | Users' personal directories, e.g. `/home/asha` |
+| `/root` | The root user's home directory (not the same as `/`) |
+| `/etc` | System configuration files (text) |
+| `/var` | Data that changes: logs in `/var/log`, web files in `/var/www` |
+| `/tmp` | Temporary files, often cleared on reboot |
+| `/usr` | Installed programs and libraries (`/usr/bin`, `/usr/lib`) |
+| `/bin`, `/sbin` | Essential commands (on modern distros, links into `/usr`) |
+| `/opt` | Optional third-party software |
+| `/dev` | Device files such as disks |
+| `/proc` | Virtual files describing running processes and the kernel |
+
+Interviewers often ask: "Where would you look for an application's logs
+or configuration on a Linux server?" A good first answer: configuration in
+`/etc`, logs in `/var/log` — then the service's own docs.
+
+## Where am I? `pwd`
+
+`pwd` (print working directory) shows the directory your shell is
+currently "in":
+
+```bash
+pwd
+```
+
+```text
+/home/asha
+```
+
+When you open a terminal you start in your **home directory**. The shell
+abbreviates it as `~` in the prompt, and you can type `~` in commands too.
+
+## What is here? `ls`
+
+`ls` lists the contents of a directory — the current one by default:
+
+```bash
+ls
+```
+
+```text
+README.md  docs  src
+```
+
+The most useful options:
+
+```bash
+ls -a        # include hidden files (names starting with a dot)
+ls -l        # long format: permissions, owner, size, date
+ls -lh       # long format with human-readable sizes (K, M, G)
+ls -la       # long format, including hidden files
+ls -F        # mark directories with / and executables with *
+ls /etc      # list a different directory without going there
+```
+
+Here is `ls -la` inside a small project:
+
+```text
+total 16
+drwxr-xr-x 4 asha asha 4096 Oct 15 13:17 .
+drwxr-xr-x 3 asha asha 4096 Oct 15 13:17 ..
+-rw-r--r-- 1 asha asha    0 Oct 15 13:17 .env
+-rw-r--r-- 1 asha asha    6 Oct 15 13:17 README.md
+drwxr-xr-x 2 asha asha 4096 Oct 15 13:17 docs
+drwxr-xr-x 2 asha asha 4096 Oct 15 13:17 src
+```
+
+Reading a line from left to right: file type and permissions (`d` means
+directory, `-` a regular file), link count, owner, group, size in bytes,
+last-modified time and name. Permissions get their own lesson — see
+"Users, Groups, Permissions & sudo".
+
+**Hidden files** are simply files whose names start with `.`, such as
+`.env`, `.gitignore` or `.bashrc`. There is no special "hidden" attribute;
+`ls` just skips them unless you pass `-a`.
+
+## `.` and `..`
+
+Every directory contains two special entries:
+
+- `.` — this directory
+- `..` — the parent directory (one level up)
+
+You saw both at the top of the `ls -la` output. They are what make
+relative paths work.
+
+## Absolute vs relative paths
+
+| Kind | Starts with | Means | Example |
+| --- | --- | --- | --- |
+| Absolute | `/` | From the root, works from anywhere | `/home/asha/projects/payroll/src` |
+| Relative | anything else | From the current directory | `projects/payroll/src` |
+| Home-relative | `~` | From your home directory | `~/projects/payroll` |
+
+If you are in `/home/asha`, the paths `projects/payroll`,
+`./projects/payroll`, `~/projects/payroll` and
+`/home/asha/projects/payroll` all point to the same directory. In scripts
+and cron jobs, prefer absolute paths — the "current directory" may not be
+what you expect.
+
+## Moving around: `cd`
+
+```bash
+cd projects/payroll   # relative: go down two levels
+pwd                   # /home/asha/projects/payroll
+cd src                # down one more
+cd ..                 # up one level
+pwd                   # /home/asha/projects/payroll
+cd ../..              # up two levels
+pwd                   # /home/asha
+cd /var/log           # absolute path: jump anywhere
+cd -                  # back to the previous directory (and print it)
+cd                    # no argument: straight home
+cd ~/projects         # home-relative
+```
+
+`cd -` is a big time-saver when you are bouncing between, say, an app
+directory and `/var/log`.
+
+If a name contains spaces, quote it: `cd "Monthly Reports"`. Tab
+completion adds the escaping for you.
+
+## Working faster
+
+- **Tab completion**: type `cd pro` and press Tab; the shell completes
+  `projects/`. Press Tab twice to see all matches when there are several.
+- **Case matters**: `Docs` and `docs` are different directories on Linux,
+  unlike on Windows and (by default) macOS.
+- `ls -R` lists a directory recursively; the `tree` command (install it
+  with `sudo apt install tree`) draws the same thing as an indented tree.
+- `ls -lt` sorts by modification time (newest first) — handy for finding
+  the latest log file. Add `-r` to reverse the order.
+
+## Common beginner mistakes
+
+| Mistake | What happens | Fix |
+| --- | --- | --- |
+| `cd/etc` (no space) | `command not found` | `cd /etc` |
+| Using `\` in paths | Treated as an escape character | Linux uses `/` |
+| `cd Documents` when it is `documents` | `No such file or directory` | Check case with `ls` |
+| Confusing `/root` with `/` | Wrong directory | `/` is the root of the tree; `/root` is root's home |
+
+### Try it yourself
+
+1. Starting from your home directory, `cd` to `/var/log`, list it with
+   `ls -lt`, and identify the most recently modified log. Then use `cd -`
+   to return home.
+2. Run `ls -a ~` and name three hidden files you find. Why didn't plain
+   `ls` show them?
+3. From `/tmp`, write both the absolute and the relative path to your home
+   directory, and check each one with `cd` followed by `pwd`.

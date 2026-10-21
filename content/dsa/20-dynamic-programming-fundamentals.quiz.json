@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which pair of properties must a problem have for dynamic programming to help?",
+      "options": [
+        "Sorted input and unique elements",
+        "A greedy choice property and a monotonic answer",
+        "Optimal substructure and overlapping subproblems",
+        "A tree structure and no cycles"
+      ],
+      "correctIndex": 2,
+      "explanation": "Optimal substructure means the answer can be built from smaller subproblem answers; overlapping subproblems means those answers are needed repeatedly, so caching them pays off."
+    },
+    {
+      "question": "With coins [1, 3, 4] and amount 6, what do the greedy approach (largest coin first) and DP return for the minimum number of coins?",
+      "options": [
+        "Greedy 3, DP 2",
+        "Greedy 2, DP 2",
+        "Greedy 3, DP 3",
+        "Greedy 2, DP 3"
+      ],
+      "correctIndex": 0,
+      "explanation": "Greedy takes 4 + 1 + 1 = 3 coins. DP finds 3 + 3 = 2 coins. Greedy is not safe for arbitrary coin sets."
+    },
+    {
+      "question": "Which statement about bottom-up tabulation compared with top-down memoisation is true?",
+      "options": [
+        "Tabulation always computes fewer subproblems",
+        "Memoisation cannot be used for minimum or maximum problems",
+        "Tabulation has a higher time complexity",
+        "Tabulation avoids recursion, so there is no stack overflow risk, and it makes space optimisation easier"
+      ],
+      "correctIndex": 3,
+      "explanation": "Tabulation fills a table with loops, so there is no deep recursion, and rolling arrays or variables are easy when each row depends only on recent rows. Memoisation computes only the subproblems actually reached."
+    },
+    {
+      "question": "In the minimum-coins DP, why are cells other than dp[0] initialised to Infinity rather than 0?",
+      "options": [
+        "JavaScript arrays cannot hold 0",
+        "Infinity marks amounts that cannot be made yet, so min() never wrongly picks them",
+        "It makes the loop run faster",
+        "So the final answer is always a whole number"
+      ],
+      "correctIndex": 1,
+      "explanation": "For a minimisation, unreachable states must not look cheap. Starting at Infinity ensures only real combinations lower a cell; if dp[A] is still Infinity, the amount is impossible and the function returns -1."
+    }
+  ]
+}

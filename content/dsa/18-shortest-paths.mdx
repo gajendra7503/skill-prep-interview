@@ -1,0 +1,193 @@
+---
+title: "Shortest Paths: Dijkstra, Bellman-Ford & 0-1 BFS"
+description: "Choosing the right shortest-path algorithm for weighted graphs: Dijkstra with a min-heap, Bellman-Ford for negative edges and limited hops, and 0-1 BFS."
+module: "Graphs"
+level: "advanced"
+order: 18
+---
+
+BFS finds the path with the fewest **edges** (see "Graphs: Representation,
+BFS & DFS"). Real networks have **weights** (kilometres, minutes, ₹ fares),
+and the fewest hops is often not the cheapest route. Picking the right
+algorithm from the edge weights is half the interview answer:
+
+| Edge weights | Algorithm | Time |
+|---|---|---|
+| all equal | plain BFS | O(V + E) |
+| only 0 or 1 | 0-1 BFS (deque) | O(V + E) |
+| non-negative | Dijkstra (min-heap) | O((V + E) log V) |
+| may be negative | Bellman-Ford | O(V x E) |
+| at most K edges allowed | Bellman-Ford limited to K + 1 rounds | O(K x E) |
+
+All rely on **relaxation**: if reaching `u` then taking edge `u -> v` (weight
+`w`) beats the best known distance to `v`, update it:
+`if (dist[u] + w < dist[v]) dist[v] = dist[u] + w`.
+
+## Dijkstra's algorithm
+
+**Intuition:** like BFS, but the "ring" grows by distance, not hop count.
+Always expand the node with the smallest known distance; with non-negative
+weights no later path can make it cheaper, so its distance is final. That
+repeated "give me the smallest" is a priority queue. JavaScript has none, so
+we reuse the `MinHeap` class from "Heaps & Priority Queues" (paste it above
+this code to run it), storing `[distance, node]` pairs.
+
+```js
+// graph[node] = [[neighbour, weight], ...]   (directed)
+function dijkstra(graph, source) {
+  const dist = new Map([[source, 0]]);
+  const heap = new MinHeap((a, b) => a[0] - b[0]);
+  heap.push([0, source]);
+  while (heap.size) {
+    const [d, node] = heap.pop();
+    if (d > dist.get(node)) continue;   // stale entry, already improved
+    for (const [next, w] of graph[node] ?? []) {
+      const nd = d + w;
+      if (nd < (dist.get(next) ?? Infinity)) {
+        dist.set(next, nd);
+        heap.push([nd, next]);
+      }
+    }
+  }
+  return dist;
+}
+
+const roads = {   // driving hours
+  Mumbai: [["Pune", 3], ["Nashik", 4]],
+  Pune: [["Nashik", 5], ["Hyderabad", 10], ["Kolhapur", 4]],
+  Nashik: [["Hyderabad", 12]],
+  Kolhapur: [["Hyderabad", 9], ["Goa", 4]],
+  Hyderabad: [["Bengaluru", 9]],
+  Goa: [["Bengaluru", 10]],
+};
+console.log(dijkstra(roads, "Mumbai"));
+// Map(7) { 'Mumbai' => 0, 'Pune' => 3, 'Nashik' => 4, 'Hyderabad' => 13,
+//          'Kolhapur' => 7, 'Goa' => 11, 'Bengaluru' => 21 }
+```
+
+**Lazy deletion.** Our heap cannot lower an existing entry's priority, so we
+push a fresh entry when a distance improves and skip outdated ones when popped
+(`d > dist.get(node)`). The heap may hold up to E entries, which is fine since
+log E is at most 2 log V. **Complexity:** O((V + E) log V) time, O(V + E)
+space. Track a `parent` map, as in BFS, to rebuild the route.
+
+**Why negative edges break it.** Take `A -> B` (1), `A -> C` (3),
+`C -> B` (-3), `B -> D` (1). The textbook version that finalises a node when
+it is first popped fixes B at 1 and D at 2, but the best is A, C, B, D at
+cost 1. Our lazy version repairs this example by re-pushing B, but with
+negative edges it can re-process nodes exponentially often. Use Bellman-Ford.
+
+## Bellman-Ford
+
+**Intuition:** a shortest path in a graph with V vertices uses at most V - 1
+edges (unless there is a negative cycle). Relax **every edge** V - 1 times;
+after round i, every shortest path that uses at most i edges is correct.
+
+```js
+// edges: [from, to, weight]; vertices numbered 0..n-1
+function bellmanFord(n, edges, source) {
+  const dist = new Array(n).fill(Infinity);
+  dist[source] = 0;
+  for (let round = 0; round < n - 1; round++) {
+    let changed = false;
+    for (const [u, v, w] of edges) {
+      if (dist[u] + w < dist[v]) { dist[v] = dist[u] + w; changed = true; }
+    }
+    if (!changed) break;                // early exit: already stable
+  }
+  for (const [u, v, w] of edges) {
+    if (dist[u] + w < dist[v]) return null; // still improving: negative cycle
+  }
+  return dist;
+}
+// A=0, B=1, C=2, D=3 from the example above
+console.log(bellmanFord(4, [[0, 1, 1], [0, 2, 3], [1, 3, 1], [2, 1, -3]], 0)); // [ 0, 0, 3, 1 ]
+console.log(bellmanFord(3, [[0, 1, 2], [1, 2, -4], [2, 1, 1]], 0));            // null
+```
+
+O(V x E) time, O(V) space. The extra pass detects a **negative cycle** (total
+weight below zero, so "shortest" is undefined); in currency exchange, with
+weights as negative logs of rates, that means an arbitrage opportunity.
+
+## Problem 1: Cheapest flight with at most K stops
+
+Find the cheapest Delhi to Chennai fare with at most K intermediate stops.
+Dijkstra on cost alone ignores the hop limit, but Bellman-Ford fits: K stops
+means at most K + 1 edges, so run K + 1 rounds. **Copy the array each round**
+so a round extends paths by exactly one edge.
+
+```js
+function cheapestFlight(n, flights, src, dst, k) {
+  let cost = new Array(n).fill(Infinity);
+  cost[src] = 0;
+  for (let i = 0; i <= k; i++) {
+    const next = [...cost];             // read old, write new
+    for (const [u, v, price] of flights) {
+      if (cost[u] + price < next[v]) next[v] = cost[u] + price;
+    }
+    cost = next;
+  }
+  return cost[dst] === Infinity ? -1 : cost[dst];
+}
+// 0 Delhi, 1 Mumbai, 2 Bengaluru, 3 Chennai; fares in ₹
+const flights = [[0, 1, 4000], [1, 2, 3000], [0, 2, 9000], [2, 3, 2000], [1, 3, 8000]];
+console.log(cheapestFlight(4, flights, 0, 3, 0)); // -1     (no direct flight)
+console.log(cheapestFlight(4, flights, 0, 3, 1)); // 11000  (via Bengaluru)
+console.log(cheapestFlight(4, flights, 0, 3, 2)); // 9000   (via Mumbai, Bengaluru)
+```
+
+O(K x E) time, O(V) space. Interviewers often follow up with a Dijkstra
+variant whose state is (city, stops used); mention it as an alternative.
+
+## Problem 2: 0-1 BFS, fewest walls to break
+
+Moving into `.` costs 0 and into `#` (a wall to break) costs 1. Find the
+fewest walls to break from top-left to bottom-right. With only 0/1 weights, a
+**deque** replaces the heap: 0-cost moves go to the **front**, 1-cost moves to
+the **back**, so it stays sorted by distance: Dijkstra's order in O(V + E)
+time and O(V) space. The deque is a `Map` with `head` and `tail` indices, so
+both ends are O(1).
+
+```js
+function minWallsToBreak(grid) {
+  const rows = grid.length, cols = grid[0].length;
+  const dist = Array.from({ length: rows }, () => new Array(cols).fill(Infinity));
+  const deque = new Map([[0, [0, 0]]]); // index -> cell
+  let head = 0, tail = 1;
+  dist[0][0] = 0;
+  while (head < tail) {
+    const [r, c] = deque.get(head);
+    deque.delete(head++);
+    for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nr = r + dr, nc = c + dc;
+      if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) continue;
+      const w = grid[nr][nc] === "#" ? 1 : 0;
+      if (dist[r][c] + w < dist[nr][nc]) {
+        dist[nr][nc] = dist[r][c] + w;
+        if (w === 0) deque.set(--head, [nr, nc]); // front
+        else deque.set(tail++, [nr, nc]);         // back
+      }
+    }
+  }
+  return dist[rows - 1][cols - 1];
+}
+console.log(minWallsToBreak([".#...", ".#.#.", "##.#.", "...#."])); // 1
+console.log(minWallsToBreak([".##", "###", "##."]));                // 3
+```
+
+## Common mistakes
+
+- **Using BFS for weighted graphs**, or Dijkstra with negative edges.
+- **Not skipping stale heap entries**: still correct, but nodes are
+  re-processed and time grows.
+- **Updating in place in the K-stops problem**, letting a round use 2+ edges.
+- **Using `shift()` / `unshift()`** as a queue or deque: both are O(n).
+- **Forgetting unreachable nodes** stay at `Infinity`; return -1 or `null`.
+
+### Try it yourself
+
+1. Network delay: given directed weighted edges and a source server, return
+   the time until all servers get a signal (max Dijkstra distance), or -1.
+2. Add a `parent` map to `dijkstra` and print the Mumbai to Bengaluru route.
+3. Path with minimum effort: a route's cost is its largest height step in a
+   grid. Adapt Dijkstra so "distance" is the maximum along the path, not the sum.

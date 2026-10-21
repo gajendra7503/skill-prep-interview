@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "You need the total of 8,000 invoice amounts. What is the most reliable way to use an AI assistant?",
+      "options": [
+        "Paste all the numbers and ask the model for the total",
+        "Ask the model to add them carefully, step by step",
+        "Ask the model to write the formula, SQL or pandas code, then run it in a real tool",
+        "Ask two different models and average their answers"
+      ],
+      "correctIndex": 2,
+      "explanation": "LLMs are unreliable at exact arithmetic over many numbers; generating code or formulas lets real software do the maths."
+    },
+    {
+      "question": "Which of these should never be pasted into an unapproved AI tool?",
+      "options": [
+        "Column names and data types",
+        "Customers' PAN, Aadhaar and bank account numbers",
+        "Three fictional sample rows",
+        "The name of your SQL dialect"
+      ],
+      "correctIndex": 1,
+      "explanation": "Confidential customer identifiers must not go into unapproved tools; a schema and fictional rows are usually enough."
+    },
+    {
+      "question": "A new query's Q1 total differs from the signed-off finance figure. What is the best next step?",
+      "options": [
+        "Ask the model to list likely causes such as credit notes, date boundaries or duplicates, with a query to test each",
+        "Use the query's total because code is always correct",
+        "Use the finance figure and delete the query",
+        "Average the two totals"
+      ],
+      "correctIndex": 0,
+      "explanation": "Reconciling against known totals is how you catch logic errors; testing each candidate cause finds the real one."
+    },
+    {
+      "question": "When asking a model to write commentary on a summary table, which instruction best reduces misleading output?",
+      "options": [
+        "Ask it to explain the root cause of every change",
+        "Ask it to recompute the totals to double-check them",
+        "Ask for as many observations as possible",
+        "State only what the numbers show and label any suggested reason as a hypothesis"
+      ],
+      "correctIndex": 3,
+      "explanation": "Models readily invent causes; separating observation from labelled hypotheses keeps the commentary honest."
+    }
+  ]
+}

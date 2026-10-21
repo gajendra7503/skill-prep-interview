@@ -1,0 +1,6 @@
+{
+  "title": "Redux",
+  "description": "Predictable app state with modern Redux Toolkit — slices, typed hooks, selectors, thunks, RTK Query and large-scale Redux architecture.",
+  "icon": "redux",
+  "accent": "#764abc"
+}

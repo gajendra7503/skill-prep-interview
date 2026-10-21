@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why compute Cohen's kappa instead of relying only on raw agreement?",
+      "options": [
+        "It is faster to compute",
+        "Raw agreement flatters a judge when most outputs pass; kappa corrects for chance agreement",
+        "It replaces human labelling",
+        "It measures cost"
+      ],
+      "correctIndex": 1,
+      "explanation": "With mostly-PASS data, high raw agreement can occur by chance, so kappa gives a fairer measure of judge reliability."
+    },
+    {
+      "question": "What is the purpose of swapping positions in pairwise comparison?",
+      "options": [
+        "To halve the cost",
+        "To make outputs longer",
+        "To counter judges favouring whichever answer appears first",
+        "To check the JSON schema"
+      ],
+      "correctIndex": 2,
+      "explanation": "Running each pair in both orders and counting a win only when both agree reduces position bias."
+    },
+    {
+      "question": "Prompt v2 scored 88% against v1's 84% on 200 cases, and the 95% bootstrap interval was -0.5% to +9.0%. What does this indicate?",
+      "options": [
+        "v2 is definitely better",
+        "v2 is definitely worse",
+        "The test set is too small to run",
+        "The evidence is not conclusive because the interval includes zero"
+      ],
+      "correctIndex": 3,
+      "explanation": "An interval that includes zero means the gap could be noise; the lesson also notes v2 broke 8 cases v1 passed."
+    },
+    {
+      "question": "Why split a rubric into one criterion per judge call?",
+      "options": [
+        "It guarantees 100% agreement",
+        "A judge scoring several criteria at once tends to blur them; separate binary calls are easier to calibrate and debug",
+        "The API only allows one criterion",
+        "It removes the need for humans"
+      ],
+      "correctIndex": 1,
+      "explanation": "Separate PASS/FAIL calls per criterion are easier to calibrate and debug than one blended score."
+    }
+  ]
+}

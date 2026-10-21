@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does this print? `e.on(\"x\", () => console.log(\"B\")); console.log(\"A\"); e.emit(\"x\"); console.log(\"C\");`",
+      "options": [
+        "A, B, C",
+        "A, C, B",
+        "B, A, C",
+        "A, C (the listener never runs)"
+      ],
+      "correctIndex": 0,
+      "explanation": "emit calls listeners synchronously, in registration order, before returning. So B prints between A and C."
+    },
+    {
+      "question": "What happens when an EventEmitter emits \"error\" and no \"error\" listener is attached?",
+      "options": [
+        "The event is silently ignored",
+        "Node logs a warning and continues",
+        "The error is thrown, which typically crashes the process if not caught",
+        "The emitter retries the event later"
+      ],
+      "correctIndex": 2,
+      "explanation": "\"error\" is special: with no listener, emit throws the error. Always attach an error listener to streams, sockets and custom emitters."
+    },
+    {
+      "question": "You see `MaxListenersExceededWarning: Possible EventEmitter memory leak detected` in production logs. What is the best first response?",
+      "options": [
+        "Call setMaxListeners(0) everywhere to hide it",
+        "Ignore it, because warnings never matter",
+        "Restart the server every hour",
+        "Find where listeners are being added repeatedly without removal (for example per request) and use once or off"
+      ],
+      "correctIndex": 3,
+      "explanation": "The default limit is 10 listeners per event. Exceeding it usually indicates a leak, such as attaching a listener on every request. Fix the cause; raise the limit only when many listeners are intended."
+    },
+    {
+      "question": "What does `await events.once(emitter, \"ready\")` resolve with?",
+      "options": [
+        "The emitter itself",
+        "An array of the arguments passed to emit for that event",
+        "true when the event fires",
+        "The number of listeners for the event"
+      ],
+      "correctIndex": 1,
+      "explanation": "events.once returns a promise that resolves with an array of the event's arguments, and rejects if an \"error\" event is emitted first."
+    }
+  ]
+}

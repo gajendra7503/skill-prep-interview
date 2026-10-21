@@ -1,0 +1,202 @@
+---
+title: "Setting Up Redux Toolkit in a React App"
+description: "Install Redux Toolkit and React-Redux in a Vite React app, create the store and a first slice, and wire it up with Provider."
+module: "Getting Started"
+level: "beginner"
+order: 2
+---
+
+In this lesson you go from an empty React project to a working Redux store
+that a component can read and update. We use **Vite** with the React +
+TypeScript template, because it is the most common setup for new
+single-page React apps. The same files work in any React project.
+
+## Install the packages
+
+The Redux team maintains a ready-made Vite template
+(`npx degit reduxjs/redux-templates/packages/vite-template-redux my-app`),
+but it hides the steps. Building it yourself once makes every later lesson
+easier, so create a fresh Vite app (or use an existing one) and install the
+two Redux packages:
+
+```bash
+npm create vite@latest expense-app -- --template react-ts
+cd expense-app
+npm install @reduxjs/toolkit react-redux
+```
+
+`@reduxjs/toolkit` brings `configureStore`, `createSlice`, RTK Query and
+the `redux` core itself; `react-redux` provides `Provider` and the hooks.
+React-Redux 9 supports React 18 and 19 and bundles its own types, so
+remove any old `@types/react-redux` you find.
+
+## The folder layout we will use
+
+```text
+src/
+  app/
+    store.ts          // creates the store
+    hooks.ts          // pre-typed hooks
+  features/
+    counter/
+      counterSlice.ts // state + reducers + actions for one feature
+      Counter.tsx     // the component that uses it
+  main.tsx            // wraps the app in <Provider>
+```
+
+Grouping by **feature** is the pattern the Redux docs recommend; see
+"Structuring a Redux App: Feature Folders & What Belongs in Redux".
+
+## Step 1: write a slice
+
+A slice holds one feature's initial state and the reducers that change it.
+`createSlice` also generates the matching action creators for you.
+
+```ts
+// src/features/counter/counterSlice.ts
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+
+interface CounterState {
+  value: number;
+}
+
+const initialState: CounterState = { value: 0 };
+
+export const counterSlice = createSlice({
+  name: "counter",
+  initialState,
+  reducers: {
+    incremented(state) {
+      state.value += 1;
+    },
+    decremented(state) {
+      state.value -= 1;
+    },
+    incrementedBy(state, action: PayloadAction<number>) {
+      state.value += action.payload;
+    },
+  },
+});
+
+export const { incremented, decremented, incrementedBy } = counterSlice.actions;
+export default counterSlice.reducer;
+```
+
+Every option of `createSlice` is covered in "Writing Slices with
+createSlice". For now: `name` prefixes the action types, and each key in
+`reducers` becomes an action creator.
+
+## Step 2: create the store
+
+```ts
+// src/app/store.ts
+import { configureStore } from "@reduxjs/toolkit";
+import counterReducer from "../features/counter/counterSlice";
+
+export const store = configureStore({
+  reducer: {
+    counter: counterReducer,
+  },
+});
+
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
+```
+
+The keys of the `reducer` object decide the shape of your state: here the
+state is `{ counter: { value: 0 } }`. `configureStore` also adds useful
+development checks and connects Redux DevTools automatically — see
+"configureStore, Middleware Defaults & Redux DevTools".
+
+The two exported types are inferred from the store, so they stay correct as
+you add slices.
+
+## Step 3: pre-typed hooks
+
+```ts
+// src/app/hooks.ts
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "./store";
+
+export const useAppDispatch = useDispatch.withTypes<AppDispatch>();
+export const useAppSelector = useSelector.withTypes<RootState>();
+```
+
+Components import these instead of the raw hooks so `state` is typed
+everywhere without repeating annotations. Why this matters is explained in
+"Typing Redux: RootState, AppDispatch & Typed Hooks".
+
+## Step 4: provide the store to React
+
+```tsx
+// src/main.tsx
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { Provider } from "react-redux";
+import { store } from "./app/store";
+import { Counter } from "./features/counter/Counter";
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <Provider store={store}>
+      <Counter />
+    </Provider>
+  </StrictMode>
+);
+```
+
+`Provider` puts the store into React context so any component below it can
+use the hooks. Wrap it around your whole app, once.
+
+## Step 5: use it in a component
+
+```tsx
+// src/features/counter/Counter.tsx
+import { useAppDispatch, useAppSelector } from "../../app/hooks";
+import { decremented, incremented, incrementedBy } from "./counterSlice";
+
+export function Counter() {
+  const count = useAppSelector((state) => state.counter.value);
+  const dispatch = useAppDispatch();
+
+  return (
+    <div>
+      <button onClick={() => dispatch(decremented())}>-</button>
+      <span>{count}</span>
+      <button onClick={() => dispatch(incremented())}>+</button>
+      <button onClick={() => dispatch(incrementedBy(10))}>+10</button>
+    </div>
+  );
+}
+```
+
+Run `npm run dev`, click the buttons and the number updates. How
+`useSelector` decides when to re-render is the subject of "Connecting
+React: Provider, useSelector & useDispatch".
+
+Because the store is plain TypeScript, you can also exercise it without a
+browser: `store.dispatch(incrementedBy(5))` followed by `store.getState()`
+returns `{ counter: { value: 5 } }`.
+
+## Common setup mistakes
+
+| Symptom | Cause |
+|---|---|
+| "could not find react-redux context value" | A component using hooks is rendered outside `Provider` |
+| State key is `undefined` | The slice reducer was not added to the `reducer` object |
+| Nothing happens on click | You wrote `dispatch(incremented)` instead of `dispatch(incremented())` |
+| Two stores, inconsistent data | `configureStore` called inside a component, creating a new store each render |
+
+Create the store once, at module level, in a single-page app. (Server-side
+frameworks need a store per request; that is covered in "Redux with the
+Next.js App Router".)
+
+### Try it yourself
+
+1. Build the counter app step by step, then add a `reset` reducer and a
+   Reset button.
+2. Add a second slice, `theme`, with state `{ mode: "light" }` and a
+   `toggled` reducer. Register it in the store and log `store.getState()`
+   from `main.tsx` — confirm the state now has two keys.
+3. Deliberately render `Counter` outside `Provider` and read the error
+   message in the browser console.

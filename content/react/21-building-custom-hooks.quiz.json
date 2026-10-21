@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why must hooks be called unconditionally at the top level of a component?",
+      "options": [
+        "React matches each hook call to its stored state by call order, so skipping one shifts every later hook",
+        "Conditional hooks are slower",
+        "It is only a style convention enforced by ESLint",
+        "Hooks inside conditions run on the server only"
+      ],
+      "correctIndex": 0,
+      "explanation": "Hook state is kept in an ordered list per component. A conditional call changes the order between renders, so later hooks read the wrong slot."
+    },
+    {
+      "question": "Two components both call the same custom `useCounter` hook. What do they share?",
+      "options": [
+        "The same count value",
+        "Nothing — not even the logic",
+        "The logic only; each component gets its own independent state",
+        "Only the state, not the logic"
+      ],
+      "correctIndex": 2,
+      "explanation": "Custom hooks reuse stateful logic. Each call creates separate state; to share state you need lifting, Context or an external store."
+    },
+    {
+      "question": "Why is `useSyncExternalStore` preferred over `useState` + `useEffect` for a `useMediaQuery` hook?",
+      "options": [
+        "It works without a browser",
+        "It avoids tearing in concurrent rendering, reads the correct value on the first render, and supports a server snapshot for SSR",
+        "useEffect cannot add event listeners",
+        "It automatically memoises the component"
+      ],
+      "correctIndex": 1,
+      "explanation": "useSyncExternalStore subscribes to an external source and reads a consistent snapshot during render, with getServerSnapshot covering SSR and hydration."
+    },
+    {
+      "question": "When testing a hook with `renderHook`, how do you read its latest return value?",
+      "options": [
+        "From the hook's return value captured when renderHook was called",
+        "Via screen.getByRole",
+        "By calling the hook again inside the test",
+        "Via result.current, which updates after each render"
+      ],
+      "correctIndex": 3,
+      "explanation": "renderHook returns a result object whose current property always reflects the most recent render; rerender lets you pass new props."
+    }
+  ]
+}

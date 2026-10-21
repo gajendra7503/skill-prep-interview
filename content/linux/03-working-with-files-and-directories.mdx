@@ -1,0 +1,174 @@
+---
+title: "Working with Files & Directories"
+description: "Creating, copying, moving, renaming and deleting files and directories safely, plus wildcards, brace expansion, quoting and symbolic links."
+module: "Command-Line Basics"
+level: "beginner"
+order: 3
+---
+
+Now that you can move around the tree (see "Navigating the File System"),
+it is time to change it. The commands in this lesson are short — `mkdir`,
+`touch`, `cp`, `mv`, `rm` — but they act immediately and there is **no
+Recycle Bin**. A deleted file is gone. Learn the safe habits now.
+
+## Creating directories and files
+
+```bash
+mkdir reports                 # one directory
+mkdir reports/2026/q1         # fails if reports/2026 does not exist
+# mkdir: cannot create directory 'reports/2026/q1': No such file or directory
+mkdir -p reports/2026/q1      # -p: create missing parents, no error if it exists
+touch notes.txt               # create an empty file (or update its timestamp)
+touch jan.csv feb.csv mar.csv # several at once
+```
+
+`mkdir -p` is ideal for scripts because it is safe to run repeatedly; add
+`-v` to print each directory it creates.
+
+## Brace expansion
+
+Bash expands `{a,b,c}` into separate words **before** running the command,
+which saves a lot of typing:
+
+```bash
+echo report-{jan,feb,mar}.csv
+# report-jan.csv report-feb.csv report-mar.csv
+
+mkdir -p reports/2026/{q1,q2,q3,q4}   # four directories in one go
+touch log-{1..3}.txt                  # log-1.txt log-2.txt log-3.txt
+```
+
+## Copying with `cp`
+
+```bash
+cp jan.csv jan.bak              # copy to a new name
+cp jan.csv feb.csv reports/     # copy several files into a directory
+cp jan.csv reports/q1-jan.csv   # copy into a directory with a new name
+cp -r reports reports-copy      # copy a directory recursively
+cp -a reports reports-backup    # archive: recursive, keeps permissions and timestamps
+```
+
+`cp` needs `-r` (or `-a`) for directories; without it you get
+`cp: -r not specified; omitting directory 'reports'`. By default `cp`
+**silently overwrites** an existing destination; `cp -i` asks first
+(`cp: overwrite 'reports/jan.csv'?`).
+
+## Moving and renaming with `mv`
+
+Linux has no separate "rename" command for single files: renaming is
+moving to a new name.
+
+```bash
+mv notes.txt todo.txt           # rename
+mv mar.csv reports/2026/q1/     # move into a directory
+mv -v feb.csv reports/          # -v shows what happened
+```
+
+```text
+renamed 'feb.csv' -> 'reports/feb.csv'
+```
+
+`mv` also overwrites silently. Use `mv -i` to be prompted, or `mv -n` to
+never overwrite. Unlike `cp`, `mv` works on directories without `-r`.
+
+## Deleting with `rm` and `rmdir`
+
+```bash
+rm jan.bak              # delete a file
+rm -i jan.csv           # ask before deleting
+rmdir old-empty-dir     # delete an EMPTY directory
+rm -r reports-copy      # delete a directory and everything inside it
+```
+
+`rmdir` refuses to remove a directory that still has contents, which makes
+it a safe choice:
+
+```text
+rmdir: failed to remove 'reports-copy': Directory not empty
+```
+
+**Warning about `rm -rf`.** `-r` recurses and `-f` forces (no prompts, no
+errors for missing files). Combined with a typo or an empty variable it
+can wipe out far more than you intended — for example `rm -rf $DIR/`
+becomes `rm -rf /` if `DIR` is empty. Before any recursive delete:
+
+1. Run `pwd` and `ls` on the target first.
+2. Prefer explicit paths over wildcards.
+3. Use `rm -ri` or `rm -rv` when in doubt, so you see what is happening.
+
+Interviewers sometimes ask how you would recover a file deleted with `rm`.
+Honest answer: normally you can't — restore from backup or version
+control. That is why backups and Git matter.
+
+## Wildcards (globbing)
+
+The shell expands wildcard patterns into matching file names before the
+command runs:
+
+| Pattern | Matches | Example |
+| --- | --- | --- |
+| `*` | Any characters (including none) | `*.csv` |
+| `?` | Exactly one character | `?eb.csv` matches `feb.csv` |
+| `[abc]` | One character from the set | `[jf]*.csv` matches `jan.csv`, `feb.csv` |
+| `[0-9]` | One character in a range | `log-[0-9].txt` |
+
+```bash
+ls *.csv          # feb.csv  jan.csv  mar.csv
+ls [jf]*.csv      # feb.csv  jan.csv
+echo *.log        # *.log    (no match: Bash passes the pattern unchanged)
+```
+
+Two details trip people up: `*` does not match hidden files (names
+starting with `.`), and the expansion is done by the **shell**, not by
+`ls` or `rm`. Preview a destructive wildcard with `echo` first:
+`echo rm *.tmp` shows exactly what would be deleted.
+
+## Spaces and odd characters in names
+
+The shell splits words on spaces, so a file called `march report.txt` must
+be quoted or escaped:
+
+```bash
+rm march report.txt      # WRONG: tries to delete "march" and "report.txt"
+rm "march report.txt"    # right
+rm march\ report.txt     # also right
+```
+
+A file name starting with a dash looks like an option. Use `--` to mean
+"no more options": `rm -- -n` deletes a file literally named `-n`. Better
+still, avoid spaces and leading dashes when naming files.
+
+## Symbolic links
+
+A **symbolic link** (symlink) is a small file that points to another path,
+like a shortcut:
+
+```bash
+ln -s /var/www/payroll/releases/v42 current   # create link "current"
+ls -l current
+```
+
+```text
+lrwxrwxrwx 1 asha asha 30 Oct 15 13:20 current -> /var/www/payroll/releases/v42
+```
+
+The `l` at the start marks a link. Deployment tools use this trick:
+switching a `current` symlink to a new release directory is an instant
+"deploy", and pointing it back is an instant rollback. Deleting a symlink
+(`rm current`) removes only the link, not the target. Without `-s`, `ln`
+creates a **hard link** — a second name for the same data — which is less
+common in daily work.
+
+To inspect files, `file notes.txt` guesses the type from the contents,
+`stat jan.csv` shows size, permissions and timestamps, and `du -sh reports`
+totals a directory's disk usage.
+
+### Try it yourself
+
+1. In a fresh directory under `/tmp`, use one `mkdir -p` command with brace
+   expansion to create `shop/{orders,invoices,refunds}`, then `touch` three
+   files named `order-101.json` to `order-103.json` inside `shop/orders`.
+2. Copy the whole `shop` tree to `shop-backup` with timestamps preserved,
+   rename `shop/refunds` to `shop/returns`, and confirm with `ls -R`.
+3. Preview `rm shop/orders/order-10?.json` with `echo`, then delete only
+   `order-102.json` using `rm -i`.

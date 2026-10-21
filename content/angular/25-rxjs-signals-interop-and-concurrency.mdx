@@ -1,0 +1,152 @@
+---
+title: "RxJS & Signals: Interop and Concurrency at Scale"
+description: "Choosing between signals and Observables, bridging them correctly, and the concurrency, caching and error-handling patterns that keep large apps correct."
+module: "Pro Level"
+level: "pro"
+order: 26
+---
+
+Modern Angular has two reactive systems. **Signals** model *state*: there
+is always a current value, and reads are synchronous. **Observables** model
+*events over time*: clicks, HTTP responses, WebSocket messages, with
+cancellation and rich timing operators. Senior engineers are expected to
+know where the boundary sits and how to cross it without bugs.
+
+## The boundary rule
+
+- Use **signals** for anything the template renders and for derived state.
+- Use **RxJS** where time, cancellation or concurrency matter: debouncing,
+  racing requests, retries, polling, streams of server events.
+- Convert at the edge: Observables in services and data pipelines, signals
+  in components.
+
+## Crossing the boundary
+
+```ts
+import { toSignal, toObservable } from "@angular/core/rxjs-interop";
+
+@Component({
+  selector: "app-nav-lookup",
+  template: `<p>NAV: ₹{{ nav() }}</p>`,
+})
+export class NavLookup {
+  private api = inject(FundApi);
+  schemeCode = input.required<string>();
+
+  // signal -> Observable -> async work -> back to a signal
+  nav = toSignal(
+    toObservable(this.schemeCode).pipe(
+      debounceTime(200),
+      switchMap((code) => this.api.latestNav(code)),
+    ),
+    { initialValue: 0 },
+  );
+}
+```
+
+Things that catch people out:
+
+- `toSignal` **subscribes immediately** and unsubscribes when the
+  enclosing injection context (here, the component) is destroyed. Calling
+  it outside an injection context, such as inside a click handler, throws
+  unless you pass an `injector`.
+- Without `initialValue`, the signal's type includes `undefined` until the
+  first emission. Use `requireSync: true` only for sources that emit
+  synchronously, like a `BehaviorSubject`.
+- `toObservable` emits through an effect, so it delivers the **settled**
+  value: setting a signal three times in the same task emits once.
+  Signals are glitch-free; Observables emit every value. Never use a
+  signal as an event bus.
+
+## Choosing the flattening operator
+
+The earlier RxJS lesson introduced `switchMap`, `mergeMap` and
+`concatMap`. The fourth, `exhaustMap`, **ignores** new values while an
+inner Observable is still running:
+
+| Situation | Operator | Why |
+| --- | --- | --- |
+| Type-ahead search | `switchMap` | Only the latest result matters |
+| Upload several documents | `mergeMap` | Independent work, run in parallel |
+| Ordered ledger writes | `concatMap` | Order must be preserved |
+| "Pay ₹5,000" button | `exhaustMap` | Ignore double-clicks until the first payment settles |
+
+```ts
+this.payClicks$.pipe(
+  exhaustMap(() => this.payments.pay({ amount: 5000 })),
+).subscribe();
+// User clicks 3 times quickly -> exactly one payment request
+```
+
+Using `switchMap` for a payment is a real production bug: the second click
+cancels the client-side subscription, but the first request may already
+have reached the server.
+
+## Errors kill streams — contain them
+
+An error that reaches the outer pipe **completes** the stream permanently.
+After one failed search, the search box silently stops working:
+
+```ts
+// Bug: one 500 response ends the stream forever
+results$ = this.term$.pipe(
+  switchMap((t) => this.api.search(t)),
+  catchError(() => of([])),
+);
+
+// Fix: catch inside the inner Observable, so the outer stream survives
+results$ = this.term$.pipe(
+  switchMap((t) =>
+    this.api.search(t).pipe(catchError(() => of([]))),
+  ),
+);
+```
+
+## Retry with exponential backoff
+
+```ts
+this.api.portfolio().pipe(
+  retry({
+    count: 3,
+    delay: (_error, attempt) => timer(2 ** attempt * 500), // 1s, 2s, 4s
+  }),
+);
+```
+
+Retry only **idempotent** requests (GETs, or writes protected by an
+idempotency key). Retrying a non-idempotent POST can create duplicate
+orders.
+
+## Sharing one request between many subscribers
+
+```ts
+@Injectable({ providedIn: "root" })
+export class ConfigService {
+  readonly config$ = inject(HttpClient).get<AppConfig>("/api/config").pipe(
+    shareReplay({ bufferSize: 1, refCount: true }),
+  );
+}
+```
+
+Ten components subscribing to `config$` trigger **one** HTTP call, and late
+subscribers get the cached value. With `refCount: true`, the source is
+unsubscribed when the last subscriber leaves; with `refCount: false` the
+cache lives for the app's lifetime, which is what you want for truly
+static config but a memory leak for per-entity streams.
+
+## Where `resource` fits
+
+For the common case — "load data when these signals change" — the
+signal-based `resource` and `rxResource` APIs (covered in an earlier
+lesson, and still evolving in recent versions) remove most of the
+`toObservable`/`switchMap`/`toSignal` boilerplate. Reach for raw RxJS when
+you need operators those APIs do not offer: `exhaustMap`, backoff,
+`bufferTime`, or merging several live streams.
+
+### Try it yourself
+
+Build a "Place order" button whose clicks are a `Subject`. Pipe it through
+`exhaustMap` to a fake API that takes two seconds and fails on every third
+call. Make sure a failure shows an error message without breaking later
+clicks, retries the call up to two times with backoff, and exposes the
+latest status to the template as a signal via `toSignal`.

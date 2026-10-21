@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does Node 24 do when you run `node app.ts`?",
+      "options": [
+        "Type-checks the file and refuses to run it if there are type errors",
+        "Strips the type annotations and runs the result without type-checking",
+        "Compiles enums and parameter properties into JavaScript, then runs it",
+        "Requires a tsconfig.json before it will run any .ts file"
+      ],
+      "correctIndex": 1,
+      "explanation": "Node's built-in support only strips erasable type syntax. It never type-checks, and it rejects syntax that needs code generation, such as enums and parameter properties. Keep tsc --noEmit in CI for actual checking."
+    },
+    {
+      "question": "In Express's `Request<A, B, C, D>`, which type argument describes the request body?",
+      "options": [
+        "A",
+        "B",
+        "D",
+        "C"
+      ],
+      "correctIndex": 3,
+      "explanation": "The order is route params, response body, request body, query string. So the third argument (C) types req.body."
+    },
+    {
+      "question": "A handler is typed `Request<{}, unknown, CreateFundBody>`. A client posts `{ \"navInr\": \"lots\" }`. What happens?",
+      "options": [
+        "Nothing stops it: the type is only a compile-time claim, so the bad data reaches your code unless you validate it",
+        "TypeScript rejects the request with a 400 response",
+        "Express converts navInr to a number automatically",
+        "The server fails to compile"
+      ],
+      "correctIndex": 0,
+      "explanation": "Types are erased at runtime. Annotating req.body does not check incoming data, so you must validate at the boundary, for example with a schema library."
+    },
+    {
+      "question": "Why is `process.env.DATABASE_URL` typed as `string | undefined`?",
+      "options": [
+        "Because @types/node has a bug",
+        "Because environment variables can only be strings in Windows",
+        "Because any environment variable may be missing at runtime, so the type honestly includes undefined",
+        "Because strict mode adds undefined to every property"
+      ],
+      "correctIndex": 2,
+      "explanation": "Nothing guarantees a variable is set. The recommended pattern is to read and validate env vars once at startup, throwing if a required one is missing, and export a typed config object."
+    }
+  ]
+}

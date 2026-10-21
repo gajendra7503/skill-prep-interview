@@ -1,0 +1,157 @@
+---
+title: "Angular Architecture at Scale"
+description: "Structuring large Angular codebases: library layering, enforced module boundaries, micro frontends and their trade-offs, global error handling, and keeping dozens of teams on a current Angular version."
+module: "Pro Level"
+level: "pro"
+order: 27
+---
+
+A ten-component app can live in one folder. A banking or wealth platform
+with 40 developers, five product teams and 2,000 components cannot. At that
+size the hard problems are no longer "how do I use a signal" but "how do I
+stop team A's change from breaking team B" and "how do we upgrade Angular
+without a six-month freeze".
+
+## Organise by domain, then by layer
+
+Group code first by **business domain** (portfolio, onboarding, payments),
+then split each domain into libraries with a single responsibility:
+
+```text
+libs/
+├── portfolio/
+│   ├── feature-holdings/     # routed pages, smart components
+│   ├── ui/                   # presentational components only
+│   ├── data-access/          # services, API clients, state
+│   └── util/                 # pure functions: XIRR, formatting
+├── payments/
+│   ├── feature-checkout/
+│   └── data-access/
+└── shared/
+    ├── ui-design-system/     # buttons, tables, form controls
+    └── util-auth/
+```
+
+| Layer | May depend on | Must not depend on |
+| --- | --- | --- |
+| feature | ui, data-access, util | other domains' features |
+| ui | ui, util | data-access, HttpClient |
+| data-access | data-access, util | ui, feature |
+| util | util | anything Angular-specific, ideally |
+
+Each library exposes a **public API** through a single `index.ts`. Anything
+not exported there is private, even if TypeScript could technically
+import it by path.
+
+## Enforce boundaries with tooling, not code review
+
+Rules that live only in a wiki are broken within a sprint. In an Nx
+monorepo, every project gets tags, and an ESLint rule fails the build when
+an import crosses a forbidden boundary:
+
+```json
+{
+  "rules": {
+    "@nx/enforce-module-boundaries": [
+      "error",
+      {
+        "depConstraints": [
+          { "sourceTag": "type:ui", "onlyDependOnLibsWithTags": ["type:ui", "type:util"] },
+          { "sourceTag": "domain:payments", "onlyDependOnLibsWithTags": ["domain:payments", "domain:shared"] }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The same graph powers **affected builds**: CI only lints, tests and builds
+projects touched by a change and the projects that depend on them, which
+keeps pipeline time flat as the repository grows.
+
+## Micro frontends: when, and at what cost
+
+Micro frontends split one product into separately built and deployed
+applications, composed at runtime. In Angular this is usually done with
+Module Federation or Native Federation, loading a remote's routes lazily:
+
+```ts
+import { loadRemoteModule } from "@angular-architects/native-federation";
+
+export const routes: Routes = [
+  {
+    path: "insurance",
+    loadChildren: () =>
+      loadRemoteModule({ remoteName: "insurance", exposedModule: "./routes" })
+        .then((m) => m.INSURANCE_ROUTES),
+  },
+];
+```
+
+They solve an **organisational** problem — independent release cadence for
+teams that cannot coordinate deploys — and they introduce technical ones:
+
+- **Shared dependency versions.** Angular, RxJS and your design system
+  must usually be singletons. Version skew between remotes causes runtime
+  errors that no single build catches.
+- **Duplicate downloads and slower startup** if sharing is misconfigured.
+- **Cross-app contracts** (auth state, routing, analytics) become public
+  APIs you must version.
+- **Harder local development and end-to-end testing.**
+
+A well-structured monorepo with enforced boundaries and one deployable
+gives most of the team autonomy with none of the runtime risk. Choose
+micro frontends only when independent deployment is a genuine business
+requirement.
+
+## Centralise error handling and observability
+
+Uncaught errors from templates, lifecycle hooks and event handlers flow to
+Angular's `ErrorHandler`. Replace it once to report every error with
+context:
+
+```ts
+@Injectable()
+export class AppErrorHandler implements ErrorHandler {
+  private telemetry = inject(TelemetryService);
+
+  handleError(error: unknown): void {
+    this.telemetry.captureException(error, {
+      release: environment.release,
+      route: location.pathname,
+    });
+    console.error(error); // keep local debugging output
+  }
+}
+
+// app.config.ts
+providers: [{ provide: ErrorHandler, useClass: AppErrorHandler }];
+```
+
+Pair it with an HTTP interceptor that tags each request with a correlation
+ID, so a failed ₹50,000 SIP registration can be traced from the browser
+error through every backend service in one search.
+
+## Staying current across many teams
+
+Angular ships a major version roughly every six months, and each major is
+supported for 18 months (active support followed by long-term support).
+Falling behind compounds: skipping versions means stacking breaking
+changes and missing the automated migrations that make upgrades cheap.
+
+- Run `ng update` one major at a time; it applies code migrations
+  automatically.
+- In a monorepo, everything upgrades together in one change, so there is
+  never a "which Angular does this library use" question.
+- Treat deprecation warnings as backlog items, not noise.
+- Budget a small, regular upgrade slot each quarter instead of a big-bang
+  rewrite every three years.
+
+### Try it yourself
+
+Take the employee directory from this course's project and sketch it as a
+monorepo: list the libraries you would create (feature, ui, data-access,
+util), give each a pair of tags, and write the `depConstraints` that would
+stop the `ui` library from importing `HttpClient`-based services. Then
+write two sentences arguing for or against splitting it into micro
+frontends.

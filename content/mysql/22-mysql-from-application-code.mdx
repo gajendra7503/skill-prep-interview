@@ -1,0 +1,178 @@
+---
+title: "MySQL from Application Code"
+description: "Connection pools, prepared statements in Python and Node, the ORM N+1 problem, transactions with deadlock retry, pagination APIs and sizing max_connections."
+module: "Practical MySQL"
+level: advanced
+order: 20
+---
+
+Most MySQL problems in production are not caused by a bad query in
+isolation but by how the application talks to the database: a new
+connection per request, string-built SQL, an ORM firing 200 queries for one
+page, or a transaction that gives up on the first deadlock. Backend
+interviews increasingly ask about this layer.
+
+## Connection pooling
+
+Opening a MySQL connection costs a TCP handshake (plus TLS), authentication
+and server-side thread setup — several milliseconds each time. A **pool**
+keeps a set of open connections and lends one to each request.
+
+```js
+// Node.js with mysql2
+import mysql from "mysql2/promise";
+
+export const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: "shop_app",
+  password: process.env.DB_PASSWORD,
+  database: "shop",
+  connectionLimit: 10,     // max open connections from THIS process
+  queueLimit: 0,           // wait for a free connection rather than fail
+  enableKeepAlive: true,
+});
+```
+
+Key rules: create the pool **once** per process (not per request), always
+release connections (use `pool.query`/`pool.execute`, or `try/finally`
+around `getConnection()`), and recycle idle connections before the
+server's `wait_timeout` (default 28,800 s) closes them — otherwise you see
+"MySQL server has gone away" or `ECONNRESET`.
+
+## Prepared statements and parameter binding
+
+```python
+# Python with mysql-connector-python
+import mysql.connector
+
+cnx = mysql.connector.connect(host="db", user="shop_app",
+                              password=PASSWORD, database="shop")
+cur = cnx.cursor(prepared=True)          # server-side prepared statement
+cur.execute("SELECT id, total FROM orders WHERE customer_id = %s AND status = %s",
+            (customer_id, "shipped"))
+rows = cur.fetchall()
+
+# PyMySQL: same %s placeholders, but escaping happens client-side
+with conn.cursor() as cur:
+    cur.execute("SELECT * FROM products WHERE category = %s", (category,))
+```
+
+```js
+// mysql2: execute() = server-side prepared statement (cached per connection)
+const [rows] = await pool.execute(
+  "SELECT id, name, price FROM products WHERE category = ? AND price <= ?",
+  ["Mobiles", 25000]
+);
+// query() = client-side escaping, no server prepare
+```
+
+Never build SQL with f-strings or template literals from user input — that
+is how SQL injection happens (see "Replication, Backup & Security"). Placeholders bind **values**
+only; identifiers such as column names in `ORDER BY` cannot be
+parameterised, so map them through an allow-list. Server-side prepared
+statements also save parse time on repeated queries, but each one holds
+server memory, bounded by `max_prepared_stmt_count`.
+
+## ORMs and the N+1 problem
+
+```python
+# SQLAlchemy: 1 query for orders + 1 query PER order for its customer
+orders = session.scalars(select(Order).limit(50)).all()
+for o in orders:
+    print(o.customer.name)            # lazy load -> 50 extra queries
+
+# Fix: eager-load in a fixed number of queries
+orders = session.scalars(
+    select(Order).options(selectinload(Order.customer)).limit(50)
+).all()                               # 2 queries total: orders, then customers WHERE id IN (...)
+```
+
+The N+1 problem is when loading N parent rows triggers N extra queries for
+related rows. Each query is fast, but 50–500 network round trips add up.
+Fixes: eager loading (`selectinload`/`joinedload` in SQLAlchemy, `include`
+in Prisma or Sequelize), a single `JOIN`, or batching with a DataLoader in
+GraphQL. Detect it by logging SQL in development or counting queries per
+request in tests. `joinedload` on a one-to-many relation multiplies rows,
+so prefer `selectinload` for collections.
+
+## Transactions with deadlock retry
+
+A deadlock (error 1213) rolls back the whole victim transaction, so the
+only correct response is to retry **the entire transaction** (see "Locking & Deadlocks").
+
+```python
+import time, random
+from mysql.connector import errors
+
+def place_order(cnx, customer_id, items, max_attempts=3):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            cnx.start_transaction()
+            cur = cnx.cursor()
+            for product_id, qty in sorted(items):          # consistent lock order
+                cur.execute("SELECT price FROM products WHERE id = %s FOR UPDATE",
+                            (product_id,))
+                # ... check stock, insert order and order_items ...
+            cnx.commit()
+            return
+        except errors.DatabaseError as e:
+            cnx.rollback()
+            if e.errno in (1213, 1205) and attempt < max_attempts:
+                time.sleep((2 ** attempt) * 0.05 + random.random() * 0.05)
+                continue
+            raise
+```
+
+- Keep transactions short and never hold one open across an HTTP call or
+  user input.
+- Error 1205 (lock wait timeout) by default rolls back only the
+  **statement**, not the transaction, so roll back explicitly before
+  retrying.
+- Retries must be idempotent: a payment step should carry an idempotency
+  key so a retried transaction cannot charge ₹1,499 twice.
+
+## Pagination APIs
+
+`LIMIT 20 OFFSET 100000` reads and discards 1 lakh rows. For APIs, return
+an opaque **cursor** built from the last row's sort key and use keyset
+pagination (see "EXPLAIN & Query Optimization"):
+
+```sql
+SELECT id, total, created_at FROM orders
+WHERE customer_id = ? AND (created_at, id) < (?, ?)
+ORDER BY created_at DESC, id DESC
+LIMIT 21;     -- fetch one extra row to know whether a next page exists
+```
+
+Encode `created_at` and `id` (for example base64 JSON) as `next_cursor`.
+Offset pagination is fine for small admin tables where users need "jump to
+page 7". Avoid `COUNT(*)` of the full result on every page; it is a full
+index scan.
+
+## Sizing `max_connections`
+
+`max_connections` defaults to 151; exceeding it gives error 1040 "Too many
+connections". The real constraint is:
+
+```text
+app instances x pool size per instance  <  max_connections (minus admin headroom)
+e.g. 20 pods x 10 connections = 200  ->  set max_connections around 250
+```
+
+Bigger is not better: each connection costs thread memory plus per-session
+buffers, and more concurrent queries than CPU cores mainly adds contention.
+A pool of roughly 2–4x the database's cores per service, tuned by load
+testing, is a common starting point. Serverless functions open a pool per
+instance and can exhaust connections fast — use a proxy such as ProxySQL
+or RDS Proxy to multiplex them. Monitor `Threads_connected`,
+`Max_used_connections` and `Aborted_connects`.
+
+### Try it yourself
+
+Build a small Node or Python endpoint `GET /customers/:id/orders` that uses
+a pool, prepared statements and keyset pagination with a `next_cursor`.
+Add an ORM-based version, log its SQL, reproduce the N+1 problem when
+printing each order's items, and fix it with eager loading. Finally, remove
+the `sorted()` call, run two concurrent `place_order` calls that lock the
+same products in opposite order, confirm one hits 1213, and show that the
+retry wrapper completes both.

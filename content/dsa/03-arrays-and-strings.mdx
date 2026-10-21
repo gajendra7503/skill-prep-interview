@@ -1,0 +1,189 @@
+---
+title: "Arrays & Strings"
+description: "How arrays and strings work in memory and in JavaScript, the cost of each operation, and classic interview problems: counting, Kadane's maximum subarray and in-place rotation."
+module: "Linear Structures"
+level: "beginner"
+order: 3
+---
+
+Arrays and strings appear in more interview problems than any other
+structure. Most "harder" topics — two pointers, sliding window, prefix sums,
+binary search, DP — are techniques applied *to* arrays and strings. Get the
+costs right here and everything later is easier.
+
+## The mental model
+
+An array is a block of slots numbered from 0. Because the slots are
+contiguous, the engine can compute the address of slot `i` directly, so
+reading or writing `arr[i]` is **O(1)**.
+
+```text
+index:    0     1     2     3
+        +-----+-----+-----+-----+
+arr:    | 499 | 799 | 129 | 999 |
+        +-----+-----+-----+-----+
+insert at index 1 -> every element from index 1 onwards must shift right
+```
+
+JavaScript arrays are more flexible than classic fixed-size arrays — they
+grow automatically and can hold mixed types — but engines like V8 store
+dense arrays of similar values as contiguous blocks, so the costs below hold
+in practice.
+
+## Cost of common array operations
+
+| Operation | Example | Time |
+|---|---|---|
+| Read / write by index | `arr[i]`, `arr[i] = x` | O(1) |
+| Add / remove at the end | `push`, `pop` | O(1) amortised |
+| Add / remove at the front | `unshift`, `shift` | O(n) |
+| Insert / delete in the middle | `splice(i, 1)` | O(n) |
+| Search by value | `indexOf`, `includes` | O(n) |
+| Copy | `slice()`, `[...arr]` | O(n) |
+
+```js
+const arr = [10, 20, 30];
+arr.push(40);
+console.log(arr.pop(), arr);   // 40 [ 10, 20, 30 ]
+arr.unshift(5);
+console.log(arr);              // [ 5, 10, 20, 30 ]
+arr.shift();
+console.log(arr.splice(1, 1), arr); // [ 20 ] [ 10, 30 ]
+
+const holes = [];
+holes[5] = 1;
+console.log(holes.length, holes);   // 6 [ <5 empty items>, 1 ]  (avoid sparse arrays)
+```
+
+For a 2D grid, create each row separately:
+
+```js
+const grid = Array.from({ length: 2 }, () => new Array(3).fill(0));
+grid[0][1] = 7;
+console.log(grid); // [ [ 0, 7, 0 ], [ 0, 0, 0 ] ]
+```
+
+## Strings are immutable
+
+A string behaves like a read-only array of UTF-16 code units. You can read
+`s[i]` in O(1), but you cannot change it — every "modification" creates a new
+string.
+
+```js
+const s = "Pune";
+s[0] = "X";            // silently ignored (throws TypeError in strict mode)
+console.log(s);        // Pune
+console.log(s.charCodeAt(0), "a".charCodeAt(0), String.fromCharCode(98)); // 80 97 b
+console.log("😀".length, [..."😀"].length); // 2 1  (emoji = two code units)
+```
+
+Two practical consequences:
+
+- To build a string piece by piece, push parts into an array and `join`
+  once. (Modern engines optimise `+=` well, but the array approach makes
+  the O(n) cost obvious and is the expected answer in many languages.)
+- To modify characters, convert to an array (`s.split("")` or `[...s]`),
+  edit, and `join("")`. That is O(n) extra space.
+
+## Pattern: counting with a fixed-size array
+
+When the alphabet is small (say, lowercase English letters), an array of 26
+counters beats a hash map. **Problem: are two strings anagrams?**
+
+```js
+function isAnagram(a, b) {
+  if (a.length !== b.length) return false;
+  const count = new Array(26).fill(0);
+  for (let i = 0; i < a.length; i++) {
+    count[a.charCodeAt(i) - 97]++;   // 97 is "a"
+    count[b.charCodeAt(i) - 97]--;
+  }
+  return count.every((c) => c === 0);
+}
+console.log(isAnagram("listen", "silent"), isAnagram("rat", "car")); // true false
+```
+
+Time O(n), space O(1) — the 26 counters do not grow with input. Sorting both
+strings and comparing also works but costs O(n log n). Interviewers often
+follow up: "What if the input is Unicode?" Then switch to a `Map`.
+
+## Problem: maximum subarray sum (Kadane's algorithm)
+
+A shop in Jaipur records daily profit or loss in ₹ thousands:
+`[3, -5, 4, -1, 2, 1, -6, 2]`. Find the best total over any run of
+**consecutive** days.
+
+Brute force tries every start and end: O(n²). Kadane's insight: at each day,
+the best run *ending today* either extends yesterday's best run or starts
+fresh today — whichever is larger.
+
+```js
+function maxSubarraySum(nums) {
+  let best = nums[0];
+  let current = nums[0];          // best sum of a run ending at i
+  for (let i = 1; i < nums.length; i++) {
+    current = Math.max(nums[i], current + nums[i]);
+    best = Math.max(best, current);
+  }
+  return best;
+}
+console.log(maxSubarraySum([3, -5, 4, -1, 2, 1, -6, 2])); // 6  (days 4,-1,2,1)
+console.log(maxSubarraySum([-8, -3, -6]));                // -3
+```
+
+Trace: `current` goes 3, -2, 4, 3, 5, 6, 0, 2 and `best` ends at 6.
+Time O(n), space O(1). The classic mistake is initialising `best` to 0,
+which returns 0 for an all-negative array instead of -3.
+
+## Problem: rotate an array right by k, in place
+
+`[1, 2, 3, 4, 5, 6, 7]` rotated by 3 becomes `[5, 6, 7, 1, 2, 3, 4]`. Popping
+and unshifting k times is O(n × k). The **reversal trick** does it in O(n)
+time and O(1) extra space:
+
+```text
+reverse all          7 6 5 4 3 2 1
+reverse first k      5 6 7 | 4 3 2 1
+reverse the rest     5 6 7 | 1 2 3 4
+```
+
+```js
+function reverse(arr, lo, hi) {
+  while (lo < hi) {
+    [arr[lo], arr[hi]] = [arr[hi], arr[lo]];
+    lo++; hi--;
+  }
+}
+function rotateRight(arr, k) {
+  const n = arr.length;
+  if (n === 0) return arr;
+  k %= n;                 // rotating by n is a no-op
+  reverse(arr, 0, n - 1);
+  reverse(arr, 0, k - 1);
+  reverse(arr, k, n - 1);
+  return arr;
+}
+console.log(rotateRight([1, 2, 3, 4, 5, 6, 7], 3)); // [ 5, 6, 7, 1, 2, 3, 4 ]
+console.log(rotateRight([1, 2], 5));                // [ 2, 1 ]
+```
+
+Forgetting `k %= n` breaks the second case. The `lo`/`hi` walk inside
+`reverse` is a first taste of "The Two-Pointer Technique".
+
+## Common mistakes
+
+- Using `shift()` inside a loop over a large array — that hides an O(n²).
+- Off-by-one errors with `arr.length` versus `arr.length - 1`.
+- Mutating an array you are iterating over with `for...of`.
+- Assuming `str.length` counts characters; emoji and some scripts use two
+  code units per character.
+- Forgetting that `slice` and spread copy (O(n) time and space).
+
+### Try it yourself
+
+1. Write `firstUniqueChar(s)` returning the index of the first non-repeating
+   lowercase letter, or -1, in O(n) using a 26-slot count array.
+2. Extend `maxSubarraySum` to also return the start and end indices of the
+   best run.
+3. Implement `rotateLeft(arr, k)` using the reversal trick, and test it with
+   k equal to 0, n and 2n + 1.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does the analyzer store per-path count and totalMs instead of a running average in each worker?",
+      "options": [
+        "Averages cannot be sent through postMessage",
+        "Sums and counts from different workers can be merged exactly; averages of averages are wrong when batch sizes differ",
+        "Integers use less memory than floating-point numbers",
+        "JSON.stringify cannot serialise decimal numbers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Mergeable partial results (sums and counts) are the core of map-reduce. The average is computed once at the end from the merged totals."
+    },
+    {
+      "question": "What does `if (pending.size >= threads * 2) await Promise.race(pending)` achieve while reading the file?",
+      "options": [
+        "It applies backpressure so the reader pauses instead of queueing unlimited batches in memory",
+        "It cancels the slowest worker",
+        "It guarantees results are merged in file order",
+        "It restarts workers that have crashed"
+      ],
+      "correctIndex": 0,
+      "explanation": "Awaiting inside the for await loop stops pulling lines until a batch finishes, keeping memory flat for very large files."
+    },
+    {
+      "question": "Why does analyzeFile call pool.close() in a finally block?",
+      "options": [
+        "To flush the readline interface",
+        "To write the report file",
+        "Because worker.terminate() is required before postMessage can be used",
+        "Live worker threads keep the event loop alive, so the CLI would never exit, even after an error"
+      ],
+      "correctIndex": 3,
+      "explanation": "Active workers hold the process open. Terminating them in finally ensures clean shutdown on both success and failure."
+    },
+    {
+      "question": "Benchmarking shows `--threads 1` is about as fast as using every core. What is the most likely explanation?",
+      "options": [
+        "Worker threads cannot run JavaScript in parallel",
+        "readline automatically uses all cores already",
+        "Per-line work is cheap, so file reading and copying batches to workers dominate the cost",
+        "availableParallelism() always returns 1 on laptops"
+      ],
+      "correctIndex": 2,
+      "explanation": "Workers help with CPU-heavy work. When parsing is a fast regex, I/O and structured-clone overhead dominate, which is why you should always measure."
+    }
+  ]
+}

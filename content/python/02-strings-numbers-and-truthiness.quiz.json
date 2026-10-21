@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the idiomatic way to build a large string from many pieces in a loop?",
+      "options": [
+        "Use `s += piece` on each iteration",
+        "Collect the pieces in a list and call `\"\".join(pieces)` once",
+        "Assign characters directly with `s[i] = ch`",
+        "Convert the string to a tuple and append to it"
+      ],
+      "correctIndex": 1,
+      "explanation": "Strings are immutable, so repeated += can create many intermediate objects; joining a list once is linear and idiomatic."
+    },
+    {
+      "question": "Why should `Decimal` be constructed from a string, e.g. `Decimal(\"0.1\")`, rather than `Decimal(0.1)`?",
+      "options": [
+        "Decimal does not accept float arguments at all",
+        "String construction is required for rounding to work",
+        "A float literal already carries binary representation error, which Decimal copies exactly",
+        "Strings are faster to parse than floats"
+      ],
+      "correctIndex": 2,
+      "explanation": "`Decimal(0.1)` gives 0.1000000000000000055511..., the exact value of the binary float; a string gives exactly 0.1."
+    },
+    {
+      "question": "What does `[] or \"default\"` evaluate to?",
+      "options": [
+        "\"default\"",
+        "True",
+        "[]",
+        "False"
+      ],
+      "correctIndex": 0,
+      "explanation": "`or` returns the first truthy operand (or the last operand); an empty list is falsy, so the result is the string \"default\"."
+    },
+    {
+      "question": "A function uses `if not seconds: seconds = 30` to apply a default. What bug does this introduce?",
+      "options": [
+        "It raises a TypeError when seconds is None",
+        "It never applies the default",
+        "It converts seconds to a string",
+        "It treats a valid value of 0 as missing and replaces it with 30"
+      ],
+      "correctIndex": 3,
+      "explanation": "0 is falsy, so truthiness cannot distinguish 0 from None; use `if seconds is None:` instead."
+    }
+  ]
+}

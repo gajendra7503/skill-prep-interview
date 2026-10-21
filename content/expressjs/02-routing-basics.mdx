@@ -1,0 +1,131 @@
+---
+title: "Routing Basics"
+description: "HTTP verb methods, route parameters, query strings, route order, and the Express 5 path syntax for named wildcards and optional segments."
+module: "Fundamentals"
+level: "beginner"
+order: 4
+---
+
+A route is a method plus a path pattern plus one or more handlers. Routing
+questions in interviews test three things: whether you know where each
+piece of input lives, whether you understand that the first matching route
+wins, and whether you know the Express 5 path syntax, which broke many
+Express 4 route strings.
+
+## Verb methods
+
+```js
+import express from "express";
+
+const app = express();
+app.use(express.json());
+
+const accounts = [{ id: 1, holder: "Asha", balance: 25000 }];
+
+app.get("/accounts", (req, res) => res.json(accounts));
+app.post("/accounts", (req, res) => res.status(201).json(req.body));
+app.put("/accounts/:id", (req, res) => res.json({ replaced: req.params.id }));
+app.patch("/accounts/:id", (req, res) => res.json({ updated: req.params.id }));
+app.delete("/accounts/:id", (req, res) => res.sendStatus(204));
+app.all("/legacy", (req, res) => res.status(410).send("Gone")); // any method
+```
+
+Group handlers for one path with `app.route()` to avoid repeating it:
+
+```js
+app.route("/accounts/:id")
+  .get((req, res) => res.json({ id: req.params.id }))
+  .delete((req, res) => res.sendStatus(204));
+```
+
+## Route parameters
+
+```js
+app.get("/accounts/:accountId/txns/:txnId", (req, res) => {
+  res.json(req.params);
+});
+// GET /accounts/42/txns/7  ->  {"accountId":"42","txnId":"7"}
+```
+
+Parameters are always **strings**. Convert and validate them yourself:
+`Number("42")` gives `42`, but `Number("abc")` gives `NaN`, so return a
+400 when conversion fails.
+
+## Query strings
+
+```js
+app.get("/txns", (req, res) => {
+  const { type = "all", limit = "20" } = req.query;
+  res.json({ type, limit: Number(limit), raw: req.query });
+});
+// GET /txns?type=debit&limit=5   ->  {"type":"debit","limit":5,"raw":{"type":"debit","limit":"5"}}
+// GET /txns?tag=upi&tag=neft      ->  raw: {"tag":["upi","neft"]}
+```
+
+Query values are strings, or arrays when a key repeats, so always handle
+both. Express 5 uses a simpler query parser by default than Express 4 did,
+so bracket syntax such as `?filter[min]=100` is no longer expanded into
+nested objects unless you opt in with `app.set("query parser", "extended")`.
+In Express 5 `req.query` is a getter: you can read it, but assigning
+`req.query = ...` in middleware does not work. Store parsed values on a
+different property such as `req.validatedQuery`.
+
+## Order matters: first match wins
+
+```js
+app.get("/accounts/me", (req, res) => res.json({ id: "current-user" }));
+app.get("/accounts/:id", (req, res) => res.json({ id: req.params.id }));
+```
+
+Express checks routes in the order they were registered. If `/:id` came
+first, `GET /accounts/me` would match it with `id = "me"`. Put specific
+routes before parameterised ones.
+
+## Express 5 path syntax
+
+Express 5 upgraded to `path-to-regexp` v8, which removed the regex-like
+characters that string paths used to accept.
+
+```js
+// Named wildcard: matches one or more segments
+app.get("/files/*splat", (req, res) => {
+  res.json({ splat: req.params.splat });
+});
+// GET /files/reports/2025/q1.pdf  ->  {"splat":["reports","2025","q1.pdf"]}
+// GET /files                      ->  404 (needs at least one segment)
+
+// Wrap the wildcard in braces to also match the bare path
+app.get("/docs{/*path}", (req, res) => res.json({ path: req.params.path ?? [] }));
+
+// Optional segment with braces
+app.get("/download/:file{.:ext}", (req, res) => {
+  res.json({ file: req.params.file, ext: req.params.ext ?? "none" });
+});
+// GET /download/statement.pdf  ->  {"file":"statement","ext":"pdf"}
+// GET /download/statement      ->  {"file":"statement","ext":"none"}
+```
+
+Migrating from Express 4:
+
+| Express 4 | Express 5 |
+| --- | --- |
+| `/files/*` | `/files/*splat` |
+| `/:file.:ext?` | `/:file{.:ext}` |
+| `/users/:id?` | `/users{/:id}` |
+| `/ab+c` or `/ab?cd` | not allowed; list paths in an array or use a RegExp |
+
+Key points: every wildcard needs a name, and the wildcard value arrives as
+an **array of segments**, not a single string. Characters such as `?`, `+`,
+`(`, `)` and `[` are reserved in string paths; escape them with a
+backslash if you mean them literally. An old route string that uses them
+throws an error when the app starts, which makes broken routes easy to spot
+during an upgrade.
+
+### Try it yourself
+
+Build a small accounts router with `GET /accounts`, `GET /accounts/me`,
+`GET /accounts/:id` (return 400 if the id is not a number) and
+`DELETE /accounts/:id`. Add `GET /statements/:month{.:format}` that returns
+JSON by default and a message like "PDF for 2025-03" when the format is
+`pdf`, plus a `GET /static/*splat` route that echoes the joined path. Test
+each with `curl`, including `/accounts/abc` and `/static`.

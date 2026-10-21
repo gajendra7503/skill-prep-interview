@@ -1,0 +1,184 @@
+---
+title: "Advanced RTK Query: Optimistic Updates, Polling & Code Splitting"
+description: "Make RTK Query UIs feel instant with optimistic and pessimistic cache updates, keep data fresh with polling and refetch triggers, and split APIs with injectEndpoints."
+module: "Advanced Redux"
+level: "advanced"
+order: 18
+---
+
+Tag invalidation (see "RTK Query Mutations & Cache Invalidation with Tags")
+is simple and correct: a mutation succeeds, tags are invalidated, queries
+refetch. But it costs a round trip before the UI changes. This lesson covers
+the tools for when that is not good enough, plus keeping data fresh and
+splitting a large API across bundles.
+
+## Optimistic updates: change the cache first, undo on failure
+
+`onQueryStarted` runs when a mutation starts. Inside it,
+`api.util.updateQueryData` patches a cached query with an Immer recipe and
+returns an object whose `undo()` reverses exactly that patch.
+
+```js
+const api = createApi({
+  reducerPath: 'api',
+  baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
+  tagTypes: ['Todo'],
+  endpoints: build => ({
+    getTodos: build.query({ query: () => 'todos', providesTags: ['Todo'] }),
+    toggleTodo: build.mutation({
+      query: ({ id, done }) => ({ url: `todos/${id}`, method: 'PATCH', body: { done } }),
+      async onQueryStarted({ id, done }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          api.util.updateQueryData('getTodos', undefined, draft => {
+            const todo = draft.find(t => t.id === id)
+            if (todo) todo.done = done
+          }),
+        )
+        try {
+          await queryFulfilled
+        } catch {
+          patch.undo() // server said no: roll back
+        }
+      },
+    }),
+  }),
+})
+```
+
+Running this against a fake backend that succeeds once and then fails:
+
+```text
+loaded     [ { id: 1, title: 'Review SIP mandate', done: false } ]
+optimistic [ { id: 1, title: 'Review SIP mandate', done: true } ]   <- instantly
+confirmed  [ { id: 1, title: 'Review SIP mandate', done: true } ]
+optimistic [ { id: 1, title: 'Review SIP mandate', done: false } ]
+rolled back
+after fail [ { id: 1, title: 'Review SIP mandate', done: true } ]
+```
+
+Points that come up in reviews and interviews:
+
+- The second argument to `updateQueryData` is the **cache key argument** —
+  it must match what the component passed to the hook (`undefined` here
+  because `useGetTodosQuery()` has no argument). Patch the wrong key and
+  nothing changes.
+- Optimistic updates suit actions that almost always succeed (likes,
+  toggles, reordering). For payments or anything with server-side
+  validation, prefer pessimistic updates.
+- You may still invalidate tags as well, so the server's version eventually
+  replaces your guess.
+
+## Pessimistic updates: wait, then write the response into the cache
+
+When the server returns the updated entity, write it straight into the cache
+instead of refetching:
+
+```js
+updatePortfolio: build.mutation({
+  query: ({ id, ...patch }) => ({ url: `portfolios/${id}`, method: 'PATCH', body: patch }),
+  async onQueryStarted({ id }, { dispatch, queryFulfilled }) {
+    const { data: updated } = await queryFulfilled
+    dispatch(api.util.updateQueryData('getPortfolio', id, draft => {
+      Object.assign(draft, updated)
+    }))
+  },
+}),
+```
+
+`api.util.upsertQueryData(endpoint, arg, value)` goes further: it creates the
+cache entry if it does not exist, which is handy for seeding a "detail" query
+from a "create" response.
+
+## Keeping data fresh
+
+| Need | Option | Where |
+|---|---|---|
+| Refresh every N ms | `pollingInterval: 5000` | hook options |
+| Pause polling in background tabs | `skipPollingIfUnfocused: true` | hook options |
+| Refetch when the tab regains focus | `refetchOnFocus: true` | `createApi` or hook |
+| Refetch when the network comes back | `refetchOnReconnect: true` | `createApi` or hook |
+| Refetch if cached data is older than N seconds on mount | `refetchOnMountOrArgChange: 30` | `createApi` or hook |
+| Keep unused data around longer | `keepUnusedDataFor: 300` (seconds, default 60) | `createApi` or endpoint |
+
+```tsx
+function LiveNav({ fundId }: { fundId: string }) {
+  const { data, isFetching } = useGetNavQuery(fundId, {
+    pollingInterval: 10_000,
+    skipPollingIfUnfocused: true,
+  })
+  return <p>NAV: ₹{data?.nav} {isFetching && '(refreshing)'}</p>
+}
+```
+
+`refetchOnFocus` and `refetchOnReconnect` need one line of wiring after the
+store is created, because RTK Query has to subscribe to browser events:
+
+```ts
+import { setupListeners } from '@reduxjs/toolkit/query'
+setupListeners(store.dispatch)
+```
+
+Polling is per subscription: if two components poll the same query at
+different intervals, RTK Query uses the **shortest** interval.
+
+## Prefetching
+
+Start a request before the user needs it — for example on hover:
+
+```tsx
+const prefetchFund = usePrefetch('getFund')
+<li onMouseEnter={() => prefetchFund(fund.id, { ifOlderThan: 60 })}>{fund.name}</li>
+```
+
+## Code splitting with injectEndpoints
+
+One `createApi` per backend is the rule, but listing every endpoint in one
+file means every page's bundle pulls in every endpoint. Define an empty base
+API and let each feature inject its own endpoints:
+
+```ts
+// app/api.ts
+export const api = createApi({
+  baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
+  tagTypes: ['Todo', 'Report'],
+  endpoints: () => ({}),
+})
+
+// features/reports/reportsApi.ts (loaded only with the reports route)
+export const reportsApi = api.injectEndpoints({
+  endpoints: build => ({
+    getReport: build.query<{ aum: string }, void>({ query: () => 'reports/summary' }),
+  }),
+})
+export const { useGetReportQuery } = reportsApi
+```
+
+`injectEndpoints` mutates the original API and returns it with better types:
+
+```js
+console.log('same api object?', reportsApi === api, 'has getReport:', 'getReport' in api.endpoints)
+// same api object? true has getReport: true
+```
+
+Because the reducer and middleware belong to the base `api`, the store needs
+no changes when a lazy chunk injects endpoints. Re-injecting an existing name
+is skipped (with a console error in development) unless you pass
+`overrideExisting: true`, or `'throw'` to make it fail loudly.
+
+For APIs generated from an OpenAPI spec, use
+`api.enhanceEndpoints({ addTagTypes, endpoints })` to attach `providesTags`
+and `invalidatesTags` without editing generated code.
+
+Interviewers often ask: "How would you make a like button feel instant but
+stay correct?" Answer: optimistic `updateQueryData` in `onQueryStarted`,
+`undo()` on failure, optionally invalidate the tag so the server's value wins.
+
+### Try it yourself
+
+1. Add an optimistic `deleteTodo` mutation that removes the item from
+   `getTodos` and restores it if the request fails.
+2. Poll a `getOrderStatus` query every 3 seconds only while the status is
+   `'pending'` (hint: compute `pollingInterval` from the current data, and
+   use `0` to stop).
+3. Move one feature's endpoints into an `injectEndpoints` file and confirm
+   with your bundler's analyser that they leave the main chunk.

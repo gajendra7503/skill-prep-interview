@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A route calls `pbkdf2Sync` with 600,000 iterations. Why does `/health` become slow while it runs?",
+      "options": [
+        "`pbkdf2Sync` opens too many database connections",
+        "Express queues health checks behind POST requests",
+        "Your JavaScript runs on one thread, so synchronous work blocks every other request in the process until it finishes",
+        "The health route shares a rate limiter with the hash route"
+      ],
+      "correctIndex": 2,
+      "explanation": "Express runs your code on a single event-loop thread. A long synchronous computation delays every other request in that process, even trivial ones."
+    },
+    {
+      "question": "Why is switching from `pbkdf2Sync` to the async `pbkdf2` often enough to unblock the main thread?",
+      "options": [
+        "The async version runs on libuv's thread pool instead of the main thread",
+        "The async version uses fewer iterations",
+        "The async version is cached after the first call",
+        "The async version runs inside a worker thread created per request"
+      ],
+      "correctIndex": 0,
+      "explanation": "Node's async `crypto.pbkdf2`, `crypto.scrypt`, `zlib` and file system calls run on libuv's thread pool (4 threads by default, set with `UV_THREADPOOL_SIZE`). Pure JavaScript work has no async version and needs worker threads."
+    },
+    {
+      "question": "Behind a load balancer with a 60-second idle timeout, what is the recommended `server.keepAliveTimeout` setting?",
+      "options": [
+        "Leave Node's 5-second default so idle sockets are freed quickly",
+        "Set it to 0 to disable keep-alive",
+        "Set it to 30 seconds, half the load balancer's timeout",
+        "Set it longer than the load balancer's idle timeout, such as 65 seconds"
+      ],
+      "correctIndex": 3,
+      "explanation": "If Node closes idle sockets before the load balancer does, the LB can reuse a closed socket and return intermittent 502s. Making Node outlive the proxy (for example 65,000 ms) avoids this."
+    },
+    {
+      "question": "Why does the lesson use a pool such as `piscina` instead of spawning a new worker thread per request?",
+      "options": [
+        "Worker threads cannot return values without a pool",
+        "Spawning a worker costs tens of milliseconds and several MB each, so reusing a pool of workers is far cheaper",
+        "Pools let workers share the main thread's event loop",
+        "Without a pool, data cannot be passed to the worker"
+      ],
+      "correctIndex": 1,
+      "explanation": "Creating a worker is slow and memory-hungry. A pool keeps a set of workers alive and reuses them, so each request only pays for the task itself."
+    }
+  ]
+}

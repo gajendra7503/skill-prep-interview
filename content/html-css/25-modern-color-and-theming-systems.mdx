@@ -1,0 +1,170 @@
+---
+title: "Modern Colour & Theming Systems"
+description: "OKLCH and wide-gamut colour, color-mix() and relative colour syntax, light-dark() themes, typed custom properties with @property, layered design tokens, and forced-colours mode."
+module: "Pro Level"
+level: pro
+order: 26
+---
+
+The custom properties lesson showed how to swap a few hex values for dark
+mode. A real design system has hundreds of colours, several brands or
+themes, hover and disabled states, and accessibility requirements. Modern
+CSS colour features let you **derive** most of that palette instead of
+hand-maintaining it.
+
+## Why OKLCH
+
+Hex, `rgb()` and `hsl()` all describe the sRGB space, and HSL's "lightness"
+is not what the eye perceives: `hsl(60 100% 50%)` (yellow) looks far
+brighter than `hsl(240 100% 50%)` (blue) at the same 50%.
+
+```css
+:root {
+  /* oklch(lightness chroma hue) */
+  --brand:      oklch(55% 0.2 260);   /* a saturated blue */
+  --brand-soft: oklch(90% 0.05 260);  /* same hue, lighter, less colourful */
+  --danger:     oklch(55% 0.2 25);    /* same lightness as --brand, red hue */
+}
+```
+
+- **L** is perceptual lightness (0% to 100%): two colours with the same L
+  look roughly equally light, which makes contrast predictable.
+- **C** is chroma (colourfulness), from 0 (grey) upwards; around 0.37 is
+  the practical maximum.
+- **H** is the hue angle in degrees.
+- OKLCH can describe colours beyond sRGB, such as the wider Display P3
+  gamut on most modern phones and laptops. Out-of-gamut values are mapped
+  to the nearest displayable colour.
+
+`oklch()` and `color-mix()` are both Baseline since 2023.
+
+## Deriving shades: `color-mix()` and relative colour syntax
+
+```css
+.btn {
+  background: var(--brand);
+}
+.btn:hover {
+  background: color-mix(in oklch, var(--brand), black 15%);  /* 15% darker */
+}
+.btn:disabled {
+  background: color-mix(in oklch, var(--brand) 40%, transparent); /* faded */
+}
+```
+
+Relative colour syntax goes further: take an existing colour apart and
+rebuild it with adjusted channels.
+
+```css
+:root {
+  --brand-hover:  oklch(from var(--brand) calc(l - 0.08) c h);
+  --brand-subtle: oklch(from var(--brand) 0.95 calc(c * 0.3) h);
+  --brand-alpha:  oklch(from var(--brand) l c h / 0.5);
+}
+```
+
+Change `--brand` once and every derived state updates — which is how one
+stylesheet can serve several white-label brands. The interpolation space
+matters: mixing in `oklch` or `oklab` avoids the muddy grey midpoints you
+get mixing in `srgb`.
+
+## `light-dark()` and `color-scheme`
+
+```css
+:root {
+  color-scheme: light dark;   /* opt in to both; also themes form controls and scrollbars */
+  --surface: light-dark(oklch(99% 0 0), oklch(20% 0.01 260));
+  --text:    light-dark(oklch(25% 0.02 260), oklch(93% 0.01 260));
+}
+
+/* A user override: force one scheme on a subtree or the whole page */
+:root[data-theme="dark"]  { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+```
+
+`light-dark()` picks its first value when the element's used colour scheme
+is light and the second when it is dark, so a manual theme toggle is just a
+`color-scheme` change — no duplicate token blocks. It only accepts colours.
+
+## Layered design tokens
+
+Large systems separate tokens into tiers so a rebrand or new theme touches
+only one layer:
+
+```css
+/* 1. Primitive tokens: raw palette, never used directly in components */
+:root {
+  --blue-55: oklch(55% 0.2 260);
+  --gray-20: oklch(20% 0.01 260);
+}
+
+/* 2. Semantic tokens: meaning, theme-aware */
+:root {
+  --color-action:  var(--blue-55);
+  --color-surface: light-dark(white, var(--gray-20));
+}
+
+/* 3. Component tokens: optional, local overrides */
+.btn {
+  --btn-bg: var(--color-action);
+  background: var(--btn-bg);
+}
+```
+
+Components reference only semantic or component tokens. Tokens are often
+authored in JSON and generated into CSS by tools such as Style Dictionary,
+so the same source feeds web, Android and iOS.
+
+## Typed custom properties with `@property`
+
+Ordinary custom properties are untyped strings, so the browser cannot
+interpolate them: transitioning a gradient stop just jumps.
+
+```css
+@property --angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.ring {
+  background: conic-gradient(from var(--angle), var(--brand), transparent);
+  transition: --angle 600ms;
+}
+.ring:hover { --angle: 180deg; }   /* now animates smoothly */
+```
+
+Registering also gives a guaranteed fallback (`initial-value`) when a value
+is invalid, and `inherits: false` stops the value cascading into every
+descendant, which reduces style recalculation work in big trees. `@property`
+is Baseline since 2024.
+
+## Accessibility: contrast and forced colours
+
+- WCAG 2.2 AA requires a contrast ratio of at least **4.5:1** for normal
+  text and **3:1** for large text and for UI component boundaries. Because
+  OKLCH lightness is perceptual, keeping text and surface L values far apart
+  is a good first check; verify with DevTools' contrast checker.
+- Windows High Contrast (forced colours mode) replaces your colours with
+  the user's system palette. Do not fight it; fix what it breaks:
+
+```css
+@media (forced-colors: active) {
+  .btn { border: 1px solid ButtonText; }   /* backgrounds are removed, so add an edge */
+  .brand-logo { forced-color-adjust: none; }  /* opt out only where colour is essential */
+}
+```
+
+Information carried only by background colour, `box-shadow` or a
+`background-image` icon often disappears in this mode, so pair colour with
+borders, text or real SVG icons using `currentColor`.
+
+### Try it yourself
+
+Define a single `--brand` in OKLCH and derive hover, active, subtle and
+50%-alpha variants with relative colour syntax. Build primitive, semantic
+and component token layers with `light-dark()` surfaces and a
+`data-theme` override. Register an `@property --angle` to animate a
+conic-gradient border on a "Invest ₹5,000" button. Finally, turn on
+forced-colours emulation in DevTools (Rendering panel) and fix anything
+that vanishes.

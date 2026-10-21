@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What happens if a parent uses `<app-fund-card />` without binding an input declared as `name = input.required<string>()`?",
+      "options": [
+        "`name()` returns undefined at runtime",
+        "`name()` returns an empty string",
+        "Angular logs a warning in development only",
+        "The template fails to compile because a required input is missing"
+      ],
+      "correctIndex": 3,
+      "explanation": "`input.required()` makes the binding mandatory at compile time, replacing the old `@Input() name!: string` non-null assertion."
+    },
+    {
+      "question": "A child component needs to update a value the parent owns, using `[(quantity)]` syntax. Which API should the child use?",
+      "options": [
+        "model()",
+        "input()",
+        "linkedSignal()",
+        "viewChild()"
+      ],
+      "correctIndex": 0,
+      "explanation": "`model()` creates a writable signal plus a matching `quantityChange` output, which is what two-way `[( )]` binding needs."
+    },
+    {
+      "question": "Why use `linkedSignal` for a 'selected plan' that should reset when the `plans` input changes?",
+      "options": [
+        "It is the only way to read an input signal",
+        "It is writable locally but automatically recomputes from its source when the source changes, avoiding effect-based syncing",
+        "It caches HTTP responses across components",
+        "It converts an Observable into a signal"
+      ],
+      "correctIndex": 1,
+      "explanation": "`computed()` is read-only and syncing with `effect()` is an anti-pattern. `linkedSignal` derives its value from a source but can still be set by the user."
+    },
+    {
+      "question": "Which statement about `resource()` and `httpResource()` is accurate as of Angular 20?",
+      "options": [
+        "They are stable and replace HttpClient entirely",
+        "httpResource bypasses HTTP interceptors",
+        "They are experimental; they re-run the loader when their reactive params change and abort the previous request",
+        "They only work in NgModule-based apps"
+      ],
+      "correctIndex": 2,
+      "explanation": "Both are still experimental (the `request` option was already renamed to `params`). httpResource is built on HttpClient, so interceptors still apply."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why do Express projects usually export the app from app.js and call listen() in a separate server.js?",
+      "options": [
+        "Express 5 refuses to start if listen() is in the same file as routes",
+        "supertest needs the app object and starts it on a temporary port itself, so tests never bind a fixed port",
+        "It makes the app run faster in production",
+        "node:test can only import files that do not call listen()"
+      ],
+      "correctIndex": 1,
+      "explanation": "supertest takes the app, binds it to an ephemeral port for each request and closes it, so tests do not clash with a server on port 3000."
+    },
+    {
+      "question": "A test calls request(app).get(\"/todos/1\").expect(200) but forgets to await or return it. What happens?",
+      "options": [
+        "supertest throws a synchronous error",
+        "The request is skipped and the test is marked as todo",
+        "The test can finish and pass before the request completes, so a failing assertion goes unnoticed",
+        "node:test automatically waits for all pending HTTP requests"
+      ],
+      "correctIndex": 2,
+      "explanation": "The supertest chain is thenable; without await or return the test function resolves immediately and the assertions run too late to fail it."
+    },
+    {
+      "question": "Which supertest feature lets a test log in once and send the session cookie on later requests?",
+      "options": [
+        "request.agent(app)",
+        "request(app).cookie(true)",
+        "request(app).keepAlive()",
+        "mock.method(app, \"cookie\")"
+      ],
+      "correctIndex": 0,
+      "explanation": "An agent stores cookies from responses and sends them on subsequent requests, like a browser."
+    },
+    {
+      "question": "Several test files share one MySQL test database and tests fail randomly when run with node --test. What is the most likely fix?",
+      "options": [
+        "Mock the database in every test",
+        "Point the tests at the development database",
+        "Remove the beforeEach cleanup so data accumulates",
+        "Run with --test-concurrency=1 (or a database per worker) and reset data in beforeEach"
+      ],
+      "correctIndex": 3,
+      "explanation": "node --test runs files in parallel processes by default, so they interfere through shared tables. Serialise them or isolate databases, and reset state before each test."
+    }
+  ]
+}

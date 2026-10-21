@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the value of `__name__` inside a module that is run directly with `python greet.py`?",
+      "options": [
+        "\"greet\"",
+        "\"greet.py\"",
+        "None",
+        "\"__main__\""
+      ],
+      "correctIndex": 3,
+      "explanation": "When a file is executed as the entry script, its __name__ is \"__main__\". When imported, it is the module's import name."
+    },
+    {
+      "question": "A module is imported from five different files in the same program. How many times does its top-level code run?",
+      "options": [
+        "Once; later imports return the cached module from sys.modules",
+        "Five times, once per import statement",
+        "Zero times until a function is called",
+        "Once per thread"
+      ],
+      "correctIndex": 0,
+      "explanation": "Python executes a module on first import and caches it in sys.modules. Subsequent imports reuse the cached object."
+    },
+    {
+      "question": "Why is `python -m pip install x` preferred over bare `pip install x`?",
+      "options": [
+        "It installs packages globally for all users",
+        "It guarantees the package is installed into the interpreter you are actually running",
+        "It skips dependency resolution for speed",
+        "Bare pip is removed in Python 3.12"
+      ],
+      "correctIndex": 1,
+      "explanation": "Bare pip on PATH may belong to a different Python. python -m pip ties the install to the exact interpreter invoked."
+    },
+    {
+      "question": "Where does a modern Python project declare its name, version and dependencies per PEP 621?",
+      "options": [
+        "setup.cfg only",
+        "__init__.py",
+        "The [project] table in pyproject.toml",
+        "requirements.txt"
+      ],
+      "correctIndex": 2,
+      "explanation": "PEP 621 standardises project metadata in the [project] table of pyproject.toml, which tools like uv, hatch and pip understand."
+    }
+  ]
+}

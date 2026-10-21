@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "How does Express decide whether a middleware function is an error handler?",
+      "options": [
+        "By checking whether the function name starts with `error`",
+        "By whether it was registered with `app.error()`",
+        "By its declared parameter count, `fn.length`, which must be 4",
+        "By whether it is registered after all routes"
+      ],
+      "correctIndex": 2,
+      "explanation": "Express checks `fn.length`. A function declared with four parameters is treated as an error handler; `(err, req, res)` has length 3 and is treated as normal middleware, so it never receives errors."
+    },
+    {
+      "question": "A router is mounted with `app.use(\"/api/expenses\", router)`. Inside the router, for `GET /api/expenses/7?x=1`, what is `req.url`?",
+      "options": [
+        "`/7?x=1`",
+        "`/api/expenses/7?x=1`",
+        "`/api/expenses`",
+        "`7`"
+      ],
+      "correctIndex": 0,
+      "explanation": "Express strips the mount prefix before calling the router, so `req.url` is `/7?x=1`. `req.baseUrl` holds `/api/expenses` and `req.originalUrl` keeps the full original URL."
+    },
+    {
+      "question": "In the mini Express, which line is the essence of Express 5's automatic async error forwarding?",
+      "options": [
+        "`stack.push({ fn, matches: () => true })`",
+        "`res.statusCode = err ? 500 : 404`",
+        "`if (!layer.matches(req)) return next(err)`",
+        "`result.then(undefined, next)`"
+      ],
+      "correctIndex": 3,
+      "explanation": "If a handler returns a promise that rejects, `result.then(undefined, next)` turns the rejection into `next(err)`. Express 4 ignored the handler's return value."
+    },
+    {
+      "question": "What does `next(\"router\")` do?",
+      "options": [
+        "Restarts the current router from its first layer",
+        "Exits the current router entirely and resumes in the parent stack",
+        "Skips only the remaining handlers of the current route",
+        "Sends a 404 response immediately"
+      ],
+      "correctIndex": 1,
+      "explanation": "`next(\"router\")` leaves the current router and continues with the next matching layer in the parent. `next(\"route\")` is the one that skips the remaining handlers of the current route."
+    }
+  ]
+}

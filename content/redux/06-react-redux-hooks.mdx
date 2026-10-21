@@ -1,0 +1,197 @@
+---
+title: "Connecting React: Provider, useSelector & useDispatch"
+description: "How Provider exposes the store, how useSelector subscribes and decides when to re-render, and how to dispatch actions from components without common performance traps."
+module: "Core Concepts"
+level: "beginner"
+order: 6
+---
+
+React-Redux is the official bridge between a Redux store and React
+components. In modern code you need just three things from it: the
+`Provider` component and the `useSelector` and `useDispatch` hooks. This
+lesson explains not only how to use them but **when a component
+re-renders** — the part interviewers dig into.
+
+## Provider: making the store available
+
+```tsx
+import { Provider } from "react-redux";
+import { store } from "./app/store";
+
+createRoot(document.getElementById("root")!).render(
+  <Provider store={store}>
+    <App />
+  </Provider>
+);
+```
+
+`Provider` puts the store in React context. It passes down the **store
+object**, which never changes — not the state — so `Provider` itself does
+not cause re-renders when state changes. Each component subscribes to the
+store individually through `useSelector`.
+
+A component that uses the hooks outside `Provider` throws "could not find
+react-redux context value".
+
+## useSelector: reading state
+
+```tsx
+import { useSelector } from "react-redux";
+
+function CartBadge() {
+  const count = useSelector((state) => state.cart.items.length);
+  return <span className="badge">{count}</span>;
+}
+
+function CartTotal() {
+  const total = useSelector((state) =>
+    state.cart.items.reduce((sum, item) => sum + item.price, 0)
+  );
+  return <p>Total: ₹{total.toLocaleString("en-IN")}</p>;
+}
+```
+
+The argument is a **selector**: a function from the root state to the
+value you need. You can call `useSelector` several times in one component,
+and you can read props inside the selector through a closure:
+
+```tsx
+function ProductRow({ id }) {
+  const product = useSelector((state) => state.products.byId[id]);
+  return <li>{product.name}</li>;
+}
+```
+
+In TypeScript you would use a pre-typed `useAppSelector` so `state` is
+typed — see "Typing Redux: RootState, AppDispatch & Typed Hooks".
+
+## When does a component re-render?
+
+After every dispatch, React-Redux checks each subscribed `useSelector`:
+
+1. If the **root state reference** did not change (no reducer changed
+   anything), nothing happens.
+2. Otherwise it **re-runs the selector** with the new state.
+3. It compares the new result with the previous one using **`===`**
+   (reference equality) by default.
+4. Only if they differ does the component re-render.
+
+We measured this with three components in a test DOM (counting renders):
+
+```tsx
+function CartBadge() {
+  const n = useSelector((s) => s.cart.items.length);              // number
+}
+function Names() {
+  const names = useSelector((s) => s.cart.items.map((i) => i.name)); // NEW array every run
+}
+```
+
+```text
+after mount             { badge: 1, names: 1 }
+after unrelated action  { badge: 1, names: 1 }   // state unchanged -> selectors skipped
+after theme toggle      { badge: 1, names: 2 }   // Names re-rendered for no reason!
+after item added        { badge: 2, names: 3 }
+```
+
+Toggling the theme changed the root state, so both selectors re-ran.
+`CartBadge` got the same number back and skipped rendering. `Names` built a
+**new array** — equal contents, different reference — so `===` failed and
+it re-rendered, even though nothing it shows had changed.
+
+## The "new reference" trap and how to fix it
+
+React-Redux warns you about this in development. The first time a selector
+runs, it is called twice and the results compared:
+
+```text
+Selector unknown returned a different result when called with the same parameters.
+This can lead to unnecessary rerenders.
+Selectors that return a new reference (such as an object or an array) should be memoized
+```
+
+Ways to fix it:
+
+| Fix | Example |
+|---|---|
+| Select primitives or existing references | `useSelector((s) => s.cart.items)` then `.map` in the component |
+| Split into several `useSelector` calls | one for `count`, one for `theme` |
+| Use `shallowEqual` for small objects | `useSelector((s) => ({ a: s.x.a, b: s.y.b }), shallowEqual)` |
+| Use a memoised selector | `createSelector` — see "Selectors & Memoization with createSelector" |
+
+`shallowEqual` compares the top-level fields of the result instead of the
+object reference:
+
+```tsx
+import { shallowEqual, useSelector } from "react-redux";
+
+const { count, theme } = useSelector(
+  (s) => ({ count: s.cart.items.length, theme: s.ui.theme }),
+  shallowEqual
+);
+```
+
+The second argument can also be an options object,
+`{ equalityFn, devModeChecks }`. `devModeChecks` controls the development
+warnings: `stabilityCheck` (the new-reference warning) and
+`identityFunctionCheck` (warns if you return the whole state). Each can be
+`"once"` (the default), `"always"` or `"never"`. Prefer fixing the selector
+over silencing the check.
+
+**Never select the whole state**, `useSelector((state) => state)`. The
+component would re-render on every change anywhere, and React-Redux warns:
+"Selector unknown returned the root state when called."
+
+## useDispatch: sending actions
+
+```tsx
+import { useDispatch } from "react-redux";
+import { itemAdded } from "./cartSlice";
+
+function AddToCartButton({ product }) {
+  const dispatch = useDispatch();
+  return (
+    <button onClick={() => dispatch(itemAdded({ name: product.name, price: product.price }))}>
+      Add to cart
+    </button>
+  );
+}
+```
+
+`useDispatch` returns the store's own `dispatch` function, so its
+reference is stable — safe in a `useEffect` dependency array. Dispatch in
+event handlers and effects, never during render. You no longer need
+`batch()`: React 18+ batches updates automatically, and React-Redux 9's
+`batch` export is a deprecated no-op.
+
+## useStore and connect()
+
+`useStore()` returns the store itself. Reading `store.getState()` in render
+does **not** subscribe the component, so it will show stale data — reserve
+it for special cases. Older codebases use `connect(mapStateToProps)(Component)`
+instead of hooks; it still works in React-Redux 9, but hooks are
+recommended for new code (see "Migrating Legacy Redux (connect, switch
+reducers) to Redux Toolkit").
+
+## Interview angles
+
+Interviewers often ask:
+
+- **"How does useSelector decide to re-render?"** It re-runs the selector
+  when the store state changes and compares the result with `===`; a new
+  object or array each time means a re-render every time.
+- **"Does Provider re-render the whole app on every change?"** No — it
+  passes the store, not the state; each `useSelector` subscribes separately.
+- **"useSelector vs useStore().getState()?"** Only `useSelector`
+  subscribes to updates.
+
+### Try it yourself
+
+1. Build `CartBadge`, `CartTotal` and `AddToCartButton` in the app from
+   "Setting Up Redux Toolkit in a React App". Add a `console.log` in each
+   component body and confirm which ones log when you add an item.
+2. Write a selector that returns `{ count, total }` as a new object. Read
+   the development warning in the console, then fix it twice: once with
+   two `useSelector` calls and once with `shallowEqual`.
+3. Use React DevTools' "Highlight updates when components render" option
+   to watch which components re-render while you dispatch actions.

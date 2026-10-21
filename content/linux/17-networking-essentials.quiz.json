@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which modern iproute2 command replaces `netstat -tlnp` for listing listening TCP sockets with their processes?",
+      "options": [
+        "ip link -tlnp",
+        "ifconfig -a",
+        "ip route show",
+        "ss -tlnp"
+      ],
+      "correctIndex": 3,
+      "explanation": "ss -tlnp shows TCP (-t) listening (-l) sockets numerically (-n) with the owning process (-p, which needs sudo for other users' processes)."
+    },
+    {
+      "question": "`ss -tlnp` shows a Node app listening on `127.0.0.1:3000`. The firewall allows port 3000, but other machines cannot connect. Why?",
+      "options": [
+        "The app is bound to the loopback address, so it accepts only local connections",
+        "Port 3000 is reserved for root",
+        "ss always shows 127.0.0.1 for user processes",
+        "The DNS record is missing"
+      ],
+      "correctIndex": 0,
+      "explanation": "127.0.0.1 accepts connections only from the same machine. To accept external connections the app must bind to 0.0.0.0 (or a specific interface address), or sit behind a reverse proxy."
+    },
+    {
+      "question": "In `dig` output, what does the number 300 mean in `shop.example.com. 300 IN A 203.0.113.25`?",
+      "options": [
+        "The query took 300 ms",
+        "The record's TTL: resolvers may cache it for 300 seconds",
+        "The server's port number",
+        "The record's priority"
+      ],
+      "correctIndex": 1,
+      "explanation": "The second column is the TTL in seconds. It explains why DNS changes can take time to be seen everywhere."
+    },
+    {
+      "question": "A `curl -w` timing breakdown shows small dns, connect and tls times but a large gap before ttfb (time_starttransfer). What does that suggest?",
+      "options": [
+        "DNS resolution is slow",
+        "The TLS certificate has expired",
+        "The server application is slow to produce its first byte",
+        "The network route is missing"
+      ],
+      "correctIndex": 2,
+      "explanation": "Time to first byte after the TLS handshake is mostly server processing time, so the application or its database is the likely bottleneck."
+    }
+  ]
+}

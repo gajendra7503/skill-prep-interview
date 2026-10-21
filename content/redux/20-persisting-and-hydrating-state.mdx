@@ -1,0 +1,171 @@
+---
+title: "Persisting & Hydrating State"
+description: "Save chosen Redux state across reloads with a hand-rolled listener or redux-persist, version and migrate it, and hydrate server or stored state without mismatches."
+module: "Advanced Redux"
+level: "advanced"
+order: 20
+---
+
+A Redux store lives in memory, so a page refresh wipes it. Two related jobs
+fix that:
+
+- **Persisting**: writing selected state to storage (usually
+  `localStorage`, sometimes IndexedDB) and reading it back on start-up.
+- **Hydrating**: filling a fresh store with state that came from somewhere
+  else — storage, or HTML rendered on the server.
+
+Both are easy to over-do. Persist the smallest useful slice, and treat
+anything read back from storage as untrusted, possibly outdated input.
+
+## Decide what to persist
+
+| State | Persist? | Why |
+|---|---|---|
+| Theme, language, dismissed banners | Yes | Pure user preference, tiny |
+| Form drafts, wizard progress | Often | Losing a half-filled KYC form is painful |
+| Cart for a guest user | Maybe | For logged-in users the server should own it |
+| RTK Query cache | Usually no | It refetches anyway; stale financial data is worse than a spinner |
+| `status: 'loading'`, open modals | Never | Restoring them gives a stuck UI |
+| Auth tokens, PAN, OTPs | No | `localStorage` is readable by any script on the page (XSS); prefer httpOnly cookies |
+
+## Option 1: hand-rolled with the listener middleware
+
+For one or two slices you do not need a library. Load once into
+`preloadedState`, and save with a debounced listener (see "Side Effects with
+the Listener Middleware"):
+
+```js
+const KEY = 'fundpicker:prefs'
+const VERSION = 2
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(KEY)
+    if (!raw) return undefined
+    const saved = JSON.parse(raw)
+    if (saved.version !== VERSION) return undefined // or migrate
+    return saved.state
+  } catch {
+    return undefined // corrupted JSON, storage disabled, private mode...
+  }
+}
+
+export function makeStore() {
+  const listener = createListenerMiddleware()
+  listener.startListening({
+    matcher: isAnyOf(themeToggled, watched),
+    effect: async (_action, api) => {
+      api.cancelActiveListeners()
+      await api.delay(100) // debounce: one write per burst of changes
+      localStorage.setItem(KEY, JSON.stringify({ version: VERSION, state: api.getState().prefs }))
+    },
+  })
+  const saved = loadPrefs()
+  return configureStore({
+    reducer: { prefs: prefsReducer },
+    preloadedState: saved ? { prefs: saved } : undefined,
+    middleware: gDM => gDM().prepend(listener.middleware),
+  })
+}
+```
+
+Simulating a reload (with an in-memory storage stub under Node):
+
+```text
+saved {"version":2,"state":{"theme":"dark","currency":"INR","watchlist":["Nifty 50 Index Fund"]}}
+after reload { theme: 'dark', currency: 'INR', watchlist: [ 'Nifty 50 Index Fund' ] }
+```
+
+Why this shape: the `try`/`catch` survives bad data, the version check stops an
+old shape crashing new reducers, and listening only to specific actions
+avoids running `JSON.stringify` on every dispatch.
+
+## Option 2: redux-persist
+
+`redux-persist` wraps a reducer, saves it on change and rehydrates on start.
+Version 6.0.0 (2019) is still the latest stable release on npm, with a 7.0
+line in beta at the time of writing, so check its status before adopting it.
+
+```js
+import { persistStore, persistReducer, createMigrate,
+  FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist'
+import storage from 'redux-persist/lib/storage' // localStorage on the web
+
+const rootReducer = combineReducers({ prefs: prefsReducer, session: sessionReducer })
+const persisted = persistReducer(
+  { key: 'root', version: 1, storage, whitelist: ['prefs'] }, // never persist session
+  rootReducer,
+)
+export const store = configureStore({
+  reducer: persisted,
+  middleware: gDM => gDM({
+    serializableCheck: { ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER] },
+  }),
+})
+export const persistor = persistStore(store)
+// state: { prefs: { theme: 'dark' }, session: { otp: null }, _persist: { version: 1, rehydrated: true } }
+```
+
+The `ignoredActions` list is required because redux-persist's internal
+actions carry functions, which RTK's serializability check would flag. In
+React, wrap the app in `PersistGate` (from `redux-persist/integration/react`)
+to delay rendering until rehydration finishes.
+
+When the persisted shape changes, bump `version` and add a migration:
+
+```js
+const migrations = { 2: ({ darkMode, ...rest }) => ({ ...rest, theme: darkMode ? 'dark' : 'light' }) }
+persistReducer({ key: 'prefs', version: 2, storage, migrate: createMigrate(migrations) }, prefsReducer)
+// stored v1 { darkMode: true }  ->  { theme: 'dark', _persist: { version: 2, rehydrated: true } }
+```
+
+## Hydrating without a mismatch (SSR)
+
+On the server there is no `localStorage`. If the client reads storage during
+its first render, the HTML it produces differs from the server's and React
+reports a hydration mismatch. The fix: render the default state first, then
+load stored state **after mount**:
+
+```tsx
+'use client'
+export function PrefsHydrator() {
+  const dispatch = useAppDispatch()
+  useEffect(() => {
+    const saved = loadPrefs()
+    if (saved) dispatch(prefsRehydrated(saved)) // a normal slice reducer that merges it in
+  }, [dispatch])
+  return null
+}
+```
+
+Expect a brief flash of the default theme; for theme specifically, a cookie
+the server can read avoids it.
+
+Server data takes the other route: pass it as `preloadedState` when the store
+is created (see "Redux with the Next.js App Router"). For RTK Query,
+`createApi` accepts an `extractRehydrationInfo(action, { reducerPath })`
+option that lets the API slice adopt cache entries from a hydrate action
+you dispatch.
+
+## Gotchas
+
+- **Logout must purge.** Clear storage (`persistor.purge()` or
+  `localStorage.removeItem`) or the next user on a shared office PC sees the
+  previous user's watchlist.
+- **Multiple tabs** do not sync automatically; listen for the `storage`
+  window event if they must.
+- **Do not persist derived data** — persist inputs and recompute with
+  selectors.
+
+Interviewers often ask: "What would you persist in a trading app's Redux
+store?" A good answer names preferences and drafts, explicitly excludes
+tokens, server caches and loading flags, and mentions versioning.
+
+### Try it yourself
+
+1. Persist only `watchlist` from the `prefs` slice and confirm `theme`
+   resets on reload.
+2. Change the saved shape (rename `watchlist` to `watchedFunds`) and write a
+   version-2 migration for the hand-rolled loader.
+3. In a Next.js app, read `localStorage` during render and observe the
+   hydration warning; then move it into `PrefsHydrator`.

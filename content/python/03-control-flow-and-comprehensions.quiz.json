@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "When does the `else` block of a `for` loop execute?",
+      "options": [
+        "Only when the loop body never runs",
+        "When the loop completes without encountering a `break`",
+        "Only when an exception occurs inside the loop",
+        "Always, after every iteration"
+      ],
+      "correctIndex": 1,
+      "explanation": "Loop `else` means 'no break': it runs after normal completion, including when the iterable is empty, but not after break, return or an exception."
+    },
+    {
+      "question": "In a `match` statement, what does `case RED:` (a bare name) do?",
+      "options": [
+        "It compares the subject to the value of the variable RED",
+        "It is a syntax error",
+        "It only matches the string \"RED\"",
+        "It is a capture pattern that matches anything and binds it to RED"
+      ],
+      "correctIndex": 3,
+      "explanation": "Bare names are capture patterns; to compare against a constant, use a dotted name such as Color.RED or a literal."
+    },
+    {
+      "question": "What does `[n * n for n in range(10) if n % 2 == 0]` produce?",
+      "options": [
+        "[0, 4, 16, 36, 64]",
+        "[1, 9, 25, 49, 81]",
+        "[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]",
+        "A generator object"
+      ],
+      "correctIndex": 0,
+      "explanation": "The trailing if filters to even n, and each is squared, giving the squares of 0, 2, 4, 6 and 8."
+    },
+    {
+      "question": "After `big = [y for x in data if (y := x * 10) > 50]` runs, where is `y` bound?",
+      "options": [
+        "Nowhere; it is discarded with the comprehension's scope",
+        "Only inside the comprehension",
+        "In the enclosing scope, so `y` is still accessible afterwards",
+        "It raises a SyntaxError because walrus is not allowed in comprehensions"
+      ],
+      "correctIndex": 2,
+      "explanation": "A walrus target inside a comprehension binds in the enclosing scope, unlike the comprehension's own loop variable."
+    }
+  ]
+}

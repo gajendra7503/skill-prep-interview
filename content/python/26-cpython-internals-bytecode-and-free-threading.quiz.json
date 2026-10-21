@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is reading a local variable inside a function typically faster than reading a global?",
+      "options": [
+        "Globals are stored on disk",
+        "Locals are fixed array slots (LOAD_FAST), while globals and built-ins need dictionary lookups (LOAD_GLOBAL)",
+        "Locals are compiled to machine code but globals are not",
+        "Globals are protected by a separate lock"
+      ],
+      "correctIndex": 1,
+      "explanation": "The compiler assigns each local a slot in the frame, so access is an index; globals require dict lookups in the module and builtins namespaces."
+    },
+    {
+      "question": "After a function multiplies floats many times, `dis.dis(fn, adaptive=True)` shows BINARY_OP_MULTIPLY_FLOAT instead of BINARY_OP. What explains this?",
+      "options": [
+        "The JIT compiler is always enabled",
+        "The .pyc file was rewritten on disk",
+        "The specializing adaptive interpreter (PEP 659) rewrote the instruction for the types it observed",
+        "dis shows a different function each time"
+      ],
+      "correctIndex": 2,
+      "explanation": "Since Python 3.11, hot instructions are specialized in place for the types they see, skipping generic dispatch."
+    },
+    {
+      "question": "What is the status of the free-threaded (no-GIL) build in Python 3.14?",
+      "options": [
+        "Officially supported but optional; the default build still has the GIL",
+        "It is the default interpreter on all platforms",
+        "It was removed after 3.13",
+        "It only works on Windows"
+      ],
+      "correctIndex": 0,
+      "explanation": "PEP 779 made the free-threaded build officially supported in 3.14, but it remains a separate, optional build."
+    },
+    {
+      "question": "Which is a genuine trade-off of running on the free-threaded build?",
+      "options": [
+        "Asyncio stops working",
+        "Bytecode can no longer be inspected with dis",
+        "All C extensions run unchanged with no GIL",
+        "Single-threaded code runs somewhat slower, and C extensions without free-threading support cause the GIL to be re-enabled"
+      ],
+      "correctIndex": 3,
+      "explanation": "The no-GIL build carries some single-threaded overhead, and importing an extension that has not declared support turns the GIL back on."
+    }
+  ]
+}

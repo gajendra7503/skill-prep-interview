@@ -1,0 +1,138 @@
+---
+title: "Regular Expressions & Text Processing"
+description: "The re module in depth — raw strings, match vs search vs fullmatch, groups, greedy vs lazy, and when plain str methods or Unicode normalisation are the better tool."
+module: "Practical Python"
+level: "intermediate"
+order: 16
+---
+
+Text processing questions are everywhere in interviews: parse a log line,
+validate a PAN number, clean user input. The `re` module handles all of
+them, but the most common bugs come from a handful of specifics — escape
+sequences, which matching function you call, and greediness.
+
+## Raw strings: always write patterns as `r"..."`
+
+```python
+import re
+
+"\b"           # a single backspace character (\x08), NOT a word boundary
+r"\b"          # backslash + b, which re reads as a word boundary
+re.findall(r"\bcat\b", "cat catalog bobcat cat")   # ['cat', 'cat']
+re.findall("\bcat\b", "cat catalog bobcat cat")    # [] — silently wrong
+```
+
+Python processes string escapes **before** `re` sees the pattern. A raw
+string passes backslashes through untouched. Invalid escapes like
+`"\d"` in a normal string raise a `SyntaxWarning` since Python 3.12.
+
+## `match` vs `search` vs `fullmatch`
+
+```python
+pattern = r"\d{6}"                    # Indian PIN code
+re.match(pattern, "560001 Bengaluru")   # matches — anchored at the START only
+re.match(pattern, "PIN 560001")         # None
+re.search(pattern, "PIN 560001")        # matches — scans anywhere
+re.fullmatch(pattern, "5600012")        # None — must consume the WHOLE string
+```
+
+Use `fullmatch` for validation. A classic bug is validating with
+`match`, which accepts trailing garbage like `"560001; DROP TABLE"`.
+`findall` returns all matches as strings (or tuples of groups), and
+`finditer` lazily yields `Match` objects with positions.
+
+## Groups and named groups
+
+```python
+m = re.search(r"(?P<code>[A-Z]{5})(?P<num>\d{4})(?P<check>[A-Z])", "PAN: ABCDE1234F")
+m.group(0)        # 'ABCDE1234F' — the whole match
+m.group("num")    # '1234'
+m.groups()        # ('ABCDE', '1234', 'F')
+m.groupdict()     # {'code': 'ABCDE', 'num': '1234', 'check': 'F'}
+m.span("num")     # (10, 14)
+
+re.sub(r"(?P<d>\d{2})-(?P<m>\d{2})-(?P<y>\d{4})", r"\g<y>-\g<m>-\g<d>", "12-10-2026")
+# '2026-10-12'
+```
+
+Gotcha: once a pattern contains capturing groups, `findall` returns
+the **groups**, not the full match. Use non-capturing `(?:...)` when you
+only need grouping for alternation or quantifiers.
+
+## `re.compile` and flags
+
+```python
+AMOUNT = re.compile(
+    r"""
+    ₹\s*                 # rupee sign, optional space
+    (?P<value>\d{1,2}(?:,\d{2})*,\d{3}|\d+)   # 1,50,000 or 150000
+    """,
+    re.VERBOSE,
+)
+[m["value"] for m in AMOUNT.finditer("Paid ₹1,50,000 then ₹500")]
+# ['1,50,000', '500']
+```
+
+`re` caches recently used patterns internally, so `compile` is mostly
+about readability and reuse — naming a pattern once and attaching flags
+there. Common flags: `re.IGNORECASE`, `re.MULTILINE` (`^`/`$` per line),
+`re.DOTALL` (`.` matches newline), `re.VERBOSE` (whitespace and
+comments ignored) and `re.ASCII`.
+
+## Greedy vs lazy
+
+```python
+html = "<b>bold</b> and <i>italic</i>"
+re.findall(r"<.+>", html)    # ['<b>bold</b> and <i>italic</i>'] — greedy
+re.findall(r"<.+?>", html)   # ['<b>', '</b>', '<i>', '</i>'] — lazy
+re.findall(r"<[^>]+>", html) # same result, and no backtracking
+```
+
+Quantifiers (`*`, `+`, `?`, `{m,n}`) grab as much as possible and then
+backtrack; adding `?` makes them take as little as possible. A negated
+character class is often clearer and faster than a lazy dot. Nested
+quantifiers like `(a+)+` can backtrack exponentially on failing input;
+Python 3.11 added atomic groups `(?>...)` and possessive quantifiers
+(`a++`) to prevent that.
+
+## Prefer `str` methods when they suffice
+
+```python
+line = "  INFO: server started  "
+line.strip().startswith("INFO")       # clearer and faster than re.match
+"a,b,,c".split(",")                   # ['a', 'b', '', 'c']
+"2026-10-12".replace("-", "/")
+"error" in line.lower()
+```
+
+Reach for regex only when you need patterns, alternation or captures.
+For structured formats use a real parser — `csv`, `json`, `html.parser`,
+`urllib.parse` — not a regex.
+
+## Unicode: digits, case and normalisation
+
+```python
+import unicodedata
+
+re.fullmatch(r"\d+", "१२३")              # matches! \d includes Devanagari digits
+re.fullmatch(r"\d+", "१२३", re.ASCII)    # None — restrict to 0-9
+
+a, b = "café", "café"               # composed é vs e + combining accent
+a == b                                    # False, though they look identical
+unicodedata.normalize("NFC", a) == unicodedata.normalize("NFC", b)  # True
+
+"Straße".casefold() == "STRASSE".casefold()   # True; .lower() gives False
+```
+
+In `str` patterns, `\d`, `\w` and `\s` are Unicode-aware by default.
+Normalise text (usually NFC, or NFKC for search keys) before comparing
+or storing it, and use `casefold()` rather than `lower()` for caseless
+matching.
+
+### Try it yourself
+
+Write `parse_txn(line)` that uses one compiled `re.VERBOSE` pattern with
+named groups to extract date, UPI ID and amount from lines like
+`12-10-2026 UPI asha@okbank ₹1,250.50 DEBIT`, validating each field with
+`fullmatch` semantics. Normalise the input to NFC first, and return the
+amount as a `Decimal`.

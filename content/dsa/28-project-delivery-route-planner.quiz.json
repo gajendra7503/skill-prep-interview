@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is it safe for the planner's Dijkstra to stop when the target city is popped from the heap?",
+      "options": [
+        "The heap is ordered by city name",
+        "The road graph is a tree",
+        "With non-negative weights, a node's distance is final the first time it is popped",
+        "Dijkstra pops every node exactly once anyway"
+      ],
+      "correctIndex": 2,
+      "explanation": "Non-negative edge weights guarantee no later path can be shorter than the one at the top of the min-heap."
+    },
+    {
+      "question": "What does `if (d > dist.get(city)) continue;` do in fastestRoute?",
+      "options": [
+        "Skips stale heap entries left behind after a shorter distance was found",
+        "Detects negative cycles",
+        "Stops the search at the target",
+        "Prevents revisiting only the start city"
+      ],
+      "correctIndex": 0,
+      "explanation": "The heap is not updated in place; outdated entries remain and are skipped when popped (lazy deletion)."
+    },
+    {
+      "question": "For the 100 kg van, why does greedy (highest ₹ per kg first) earn less than DP?",
+      "options": [
+        "Greedy ignores parcel weights",
+        "DP is allowed to split parcels",
+        "Greedy sorts in ascending order of ratio",
+        "After P6, P2 and P4 (75 kg), nothing else fits the remaining 25 kg, while DP fills 100 kg with P1, P2 and P4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Parcels are indivisible (0/1 knapsack), so locally best ratios can waste capacity; DP considers all combinations and earns ₹4,800 against ₹3,900."
+    },
+    {
+      "question": "When does depotNetwork return null?",
+      "options": [
+        "When two lanes have the same cost",
+        "When the candidate lanes cannot connect every depot (fewer than V - 1 lanes chosen)",
+        "When the total exceeds ₹50 lakh",
+        "When the input lanes contain a cycle"
+      ],
+      "correctIndex": 1,
+      "explanation": "A spanning tree on V depots needs exactly V - 1 edges; fewer means some depot is left disconnected."
+    }
+  ]
+}

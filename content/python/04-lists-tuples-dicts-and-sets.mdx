@@ -1,0 +1,127 @@
+---
+title: "Lists, Tuples, Dicts & Sets"
+description: "Time complexity of the core containers, dict ordering and hashing, shallow vs deep copies, and unpacking."
+module: "Core Concepts"
+level: "beginner"
+order: 6
+---
+
+Choosing the right built-in container is the most common performance
+decision in everyday Python, and "what is the complexity of `x in my_list`
+versus `x in my_set`?" is a near-guaranteed interview question. This lesson
+covers how each container behaves, why dicts and sets need hashable keys,
+and how copying really works.
+
+## Complexity cheat sheet
+
+A `list` is a dynamic array of references; `dict` and `set` are hash
+tables. Average-case costs (CPython):
+
+| Operation | list | dict / set |
+| --- | --- | --- |
+| index `a[i]` / lookup `d[k]` | O(1) | O(1) |
+| membership `x in c` | O(n) | O(1) |
+| append / add | O(1) amortised | O(1) |
+| insert or pop at front | O(n) | n/a |
+| pop from end | O(1) | n/a |
+| sort | O(n log n) | n/a |
+
+If you need fast appends and pops at **both** ends, use
+`collections.deque`, which is O(1) at either end. Turning a list into a set
+for repeated membership tests is a classic optimisation:
+
+```python
+allowed = set(load_ids())          # one O(n) pass
+hits = [x for x in requests if x in allowed]   # each test O(1)
+```
+
+## Tuples: immutable records
+
+Tuples are fixed-size and immutable, so they are hashable when their
+elements are, and can serve as dict keys or set members. Use them for
+heterogeneous records; `collections.namedtuple` or `typing.NamedTuple` add
+field names. Note that a one-element tuple needs a trailing comma: `(1,)`.
+
+## Dicts: ordering and hashing
+
+Since Python 3.7, dicts are guaranteed to preserve **insertion order**.
+Updating an existing key keeps its position; deleting and re-inserting moves
+it to the end.
+
+```python
+d = {"b": 1, "a": 2}
+d["b"] = 99
+d["c"] = 3
+print(list(d))         # ['b', 'a', 'c']
+merged = d | {"a": 0}  # 3.9+ merge operator; right side wins
+print(merged)          # {'b': 99, 'a': 0, 'c': 3}
+```
+
+Keys must be **hashable**: the object needs a `__hash__` that never changes
+during its lifetime and is consistent with `__eq__` — objects that compare
+equal must have equal hashes. That is why `list`, `dict` and `set` cannot be
+keys, while `str`, `int`, `tuple` (of hashables) and `frozenset` can.
+Because `1 == 1.0 == True`, they collide as the same key:
+
+```python
+d = {1: "int"}
+d[1.0] = "float"
+d[True] = "bool"
+print(d)               # {1: 'bool'} — key kept, value overwritten
+```
+
+Useful dict tools: `d.get(k, default)` avoids `KeyError`,
+`d.setdefault(k, [])` inserts if missing, and `collections.defaultdict` and
+`Counter` remove most boilerplate. Sets support `|`, `&`, `-` and `^` for
+union, intersection, difference and symmetric difference.
+
+## Shallow vs deep copy
+
+A **shallow** copy creates a new outer container but reuses the same inner
+objects. A **deep** copy recursively copies everything.
+
+```python
+import copy
+
+orig = [[1, 2], [3]]
+shallow = orig.copy()          # also list(orig), orig[:], copy.copy(orig)
+deep = copy.deepcopy(orig)
+
+orig[0].append(99)
+print(shallow)    # [[1, 2, 99], [3]] — shares inner lists
+print(deep)       # [[1, 2], [3]]     — fully independent
+print(shallow is orig, shallow[0] is orig[0])   # False True
+```
+
+`deepcopy` tracks already-copied objects in a memo dict, so it handles
+cycles and shared references correctly. Classes can customise copying with
+`__copy__` and `__deepcopy__`.
+
+## Unpacking
+
+Any iterable can be unpacked into names; a starred name collects the rest
+into a list.
+
+```python
+x, y = 1, 2
+x, y = y, x                    # swap without a temp variable
+first, *middle, last = [1, 2, 3, 4, 5]
+print(first, middle, last)     # 1 [2, 3, 4] 5
+
+for name, (lat, lon) in [("Delhi", (28.6, 77.2))]:
+    print(name, lat)           # Delhi 28.6
+
+a = [*range(3), *"ab"]         # [0, 1, 2, 'a', 'b']
+cfg = {**{"debug": False}, "debug": True}   # {'debug': True}
+```
+
+The swap works because the right side is evaluated into a tuple first, then
+unpacked. Unpacking the wrong number of items raises `ValueError`.
+
+### Try it yourself
+
+Given a list of order dicts like `{"city": "Pune", "amount": 500}`, write a
+function that returns total amount per city using `defaultdict`, preserving
+the order in which cities first appear. Then deep-copy the input, mutate one
+order in the copy, and prove the original is unchanged — and show what goes
+wrong with `list.copy()` instead.

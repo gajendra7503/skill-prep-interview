@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Middleware A and B are added with getDefaultMiddleware().concat(A, B). Each logs 'in' before next(action) and 'out' after. What is printed for one dispatch?",
+      "options": [
+        "A in, A out, B in, B out",
+        "A in, B in, B out, A out",
+        "B in, A in, A out, B out",
+        "A in, B in, A out, B out"
+      ],
+      "correctIndex": 1,
+      "explanation": "Middleware form an onion. Code before next() runs outer-to-inner (A then B), the reducer runs in the middle, and code after next() unwinds inner-to-outer (B then A)."
+    },
+    {
+      "question": "Inside a middleware, what happens if you call store.dispatch(otherAction) instead of next(otherAction)?",
+      "options": [
+        "The action goes straight to the reducers, skipping all middleware",
+        "Redux throws because middleware may not dispatch",
+        "The action re-enters the whole middleware chain from the beginning",
+        "The action is queued until the current dispatch finishes and then dropped"
+      ],
+      "correctIndex": 2,
+      "explanation": "store.dispatch is the fully wrapped dispatch, so the new action passes through every middleware again. next() only passes the action to the remaining middleware in the chain."
+    },
+    {
+      "question": "Why does `await store.dispatch(someThunk)` work, given that a reducer can only receive plain actions?",
+      "options": [
+        "The thunk middleware intercepts functions, calls them with (dispatch, getState), and returns whatever the function returns",
+        "configureStore converts async functions into plain actions automatically",
+        "Reducers can handle promises when Immer is enabled",
+        "React-Redux awaits the promise inside useDispatch"
+      ],
+      "correctIndex": 0,
+      "explanation": "Middleware controls what dispatch returns. Thunk checks whether the action is a function; if so it calls it and returns its result (for example a promise), so reducers never see it."
+    },
+    {
+      "question": "In Redux 5 / RTK 2, the action parameter of a Middleware is typed as unknown. How should you safely read action.payload for a specific action?",
+      "options": [
+        "Cast it with `action as any`",
+        "Check `typeof action === 'object'`",
+        "Use `isAction(action)` alone; it also types the payload",
+        "Narrow it with the action creator's match method, e.g. placed.match(action)"
+      ],
+      "correctIndex": 3,
+      "explanation": "actionCreator.match(action) is a type guard that narrows to that action including its payload type. isAction only proves there is a string type field."
+    }
+  ]
+}

@@ -1,0 +1,285 @@
+---
+title: "Real Project: Expense Tracker API"
+description: "Build a production-shaped expense tracker REST API with Express 5, Prisma 7 and MySQL, zod validation, JWT auth, rupee amounts stored as paise, and supertest tests."
+module: "Real-World Project"
+level: "pro"
+order: 28
+---
+
+Time to put the course together. Users register, log in, record expenses
+in rupees, delete them, and get a monthly summary by category. It
+touches everything interviewers probe: schema design, money handling,
+validation, auth, ownership checks, central errors and HTTP-level tests.
+
+## 1. Setup and schema
+
+The project is TypeScript run with `tsx`, because Prisma 7's
+`prisma-client` generator emits TypeScript source into your project. To
+keep listings short, imports between your own modules are left out.
+
+```bash
+npm init -y && npm pkg set type=module
+npm install express @prisma/client @prisma/adapter-mariadb zod bcrypt jsonwebtoken dotenv
+npm install -D prisma tsx typescript supertest @types/express @types/bcrypt @types/jsonwebtoken @types/supertest @types/node
+```
+
+```ts
+// prisma.config.ts — the Prisma CLI reads the connection URL from here
+import "dotenv/config";
+import { defineConfig } from "prisma/config";
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: { path: "prisma/migrations" },
+  datasource: { url: process.env["DATABASE_URL"] },
+});
+```
+
+```prisma
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+datasource db {
+  provider = "mysql"
+}
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(100)
+  expenses     Expense[]
+}
+model Expense {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  amountPaise Int      @map("amount_paise") // ₹249.50 is stored as 24950
+  category    String   @db.VarChar(32)
+  note        String?  @db.VarChar(255)
+  spentOn     DateTime @map("spent_on") @db.Date
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, spentOn])
+}
+```
+
+```bash
+npx prisma migrate dev --name init && npx prisma generate
+```
+
+**Why paise?** JavaScript numbers are binary floats, so `0.1 + 0.2` is
+`0.30000000000000004` and summing rupee floats drifts. Integer paise add up
+exactly, serialise as plain JSON numbers, and convert to rupees only at the
+edges. A `Decimal` column is the other correct choice, but Prisma returns a
+`Decimal` object that becomes a string in JSON and needs careful handling.
+A MySQL `INT` holds about ₹2.1 crore in paise, plenty for one expense. The
+`(userId, spentOn)` index serves the main query: one user's month.
+
+## 2. Config, client, money, validation and errors
+
+```ts
+// src/config.ts — crash at startup if the environment is wrong
+export const config = z
+  .object({ DATABASE_URL: z.string().min(1), JWT_SECRET: z.string().min(32), PORT: z.coerce.number().default(3000) })
+  .parse(process.env);
+
+// src/db.ts
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaClient } from "./generated/prisma/client.js";
+export const prisma = new PrismaClient({ adapter: new PrismaMariaDb(config.DATABASE_URL) });
+
+// src/money.ts — parse the string, never go through a float
+export function rupeesToPaise(rupees: string): number {
+  const [whole, frac = ""] = rupees.split(".");
+  return Number(whole) * 100 + Number(frac.padEnd(2, "0"));
+}
+const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
+export const formatPaise = (paise: number) => inr.format(paise / 100);
+// rupeesToPaise("249.5") -> 24950;  formatPaise(12499950) -> "₹1,24,999.50"
+
+// src/schemas.ts — amounts arrive as strings so "0.10" never becomes a float
+export const CATEGORIES = ["food", "travel", "rent", "utilities", "shopping", "other"] as const;
+export const credentials = z.object({ email: z.email(), password: z.string().min(8).max(72) });
+export const newExpense = z.object({
+  amount: z.string().regex(/^\d{1,7}(\.\d{1,2})?$/, "Use rupees such as 249 or 249.50"),
+  category: z.enum(CATEGORIES),
+  note: z.string().max(255).optional(),
+  spentOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
+});
+export const monthQuery = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Use YYYY-MM") });
+
+// src/http.ts
+export class HttpError extends Error {
+  constructor(public status: number, message: string, public details?: unknown) { super(message); }
+}
+export function parse<T extends z.ZodType>(schema: T, input: unknown): z.infer<T> {
+  const r = schema.safeParse(input);
+  if (r.success) return r.data;
+  throw new HttpError(422, "Validation failed", r.error.issues.map((i) => ({ field: i.path.join("."), message: i.message })));
+}
+export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
+  if (err instanceof HttpError) { res.status(err.status).json({ error: err.message, details: err.details }); return; }
+  if (err?.type === "entity.parse.failed") { res.status(400).json({ error: "Malformed JSON" }); return; }
+  if (err?.code === "P2002") { res.status(409).json({ error: "Already exists" }); return; }
+  console.error(err);
+  res.status(500).json({ error: "Internal server error" }); // never leak err.stack
+};
+```
+
+`parse()` returns the validated data instead of writing it back, because
+in Express 5 `req.query` is a read-only getter.
+
+## 3. Auth: bcrypt and JWT
+
+```ts
+// src/auth.ts
+export const authRouter = Router();
+
+authRouter.post("/register", async (req, res) => {
+  const { email, password } = parse(credentials, req.body);
+  const user = await prisma.user.create({ data: { email, passwordHash: await bcrypt.hash(password, 12) } });
+  res.status(201).json({ id: user.id, email: user.email });   // duplicate email -> P2002 -> 409
+});
+
+authRouter.post("/login", async (req, res) => {
+  const { email, password } = parse(credentials, req.body);
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) throw new HttpError(401, "Invalid email or password");
+  res.json({ token: jwt.sign({}, config.JWT_SECRET, { subject: String(user.id), expiresIn: "1h" }) });
+});
+
+export const requireAuth: RequestHandler = (req, res, next) => {
+  const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
+  if (!token) throw new HttpError(401, "Missing token");
+  try {
+    const payload = jwt.verify(token, config.JWT_SECRET, { algorithms: ["HS256"] }) as jwt.JwtPayload;
+    res.locals.userId = Number(payload.sub);
+  } catch {
+    throw new HttpError(401, "Invalid or expired token");
+  }
+  next();
+};
+```
+
+There is no `try/catch` in the async handlers: Express 5 forwards a
+rejected promise (a thrown `HttpError` or a Prisma error) to the error
+middleware automatically.
+
+## 4. Expense routes scoped to the user
+
+```ts
+// src/expenses.ts
+export const expensesRouter = Router();
+expensesRouter.use(requireAuth);
+
+const toJson = (e: Expense) => ({ id: e.id, amountPaise: e.amountPaise, amount: formatPaise(e.amountPaise),
+  category: e.category, note: e.note, spentOn: e.spentOn.toISOString().slice(0, 10) });
+const monthRange = (m: string) => {
+  const [y, mo] = m.split("-").map(Number);
+  return { gte: new Date(Date.UTC(y, mo - 1, 1)), lt: new Date(Date.UTC(y, mo, 1)) };
+};
+
+expensesRouter.post("/", async (req, res) => {
+  const b = parse(newExpense, req.body);
+  const expense = await prisma.expense.create({ data: { userId: res.locals.userId,
+    amountPaise: rupeesToPaise(b.amount), category: b.category, note: b.note, spentOn: new Date(b.spentOn) } });
+  res.status(201).json(toJson(expense));
+});
+
+expensesRouter.get("/summary", async (req, res) => {
+  const { month } = parse(monthQuery, req.query);
+  const groups = await prisma.expense.groupBy({ by: ["category"], _sum: { amountPaise: true },
+    where: { userId: res.locals.userId, spentOn: monthRange(month) } });
+  const totalPaise = groups.reduce((sum, g) => sum + (g._sum.amountPaise ?? 0), 0);
+  res.json({ month, totalPaise, total: formatPaise(totalPaise),
+    byCategory: groups.map((g) => ({ category: g.category, totalPaise: g._sum.amountPaise ?? 0 })) });
+});
+
+expensesRouter.delete("/:id", async (req, res) => {
+  const id = parse(z.coerce.number().int().positive(), req.params.id);
+  const { count } = await prisma.expense.deleteMany({ where: { id, userId: res.locals.userId } });
+  if (count === 0) throw new HttpError(404, "Expense not found");
+  res.status(204).end();
+});
+```
+
+Every query filters by the `userId` from the verified token, never from
+the request. Deleting by `{ id, userId }` means guessing another user's ID
+returns 404, closing the classic IDOR (insecure direct object reference)
+hole.
+
+## 5. App and server
+
+```ts
+// src/app.ts — built separately from listen() so tests can use it
+export function createApp() {
+  const app = express();
+  app.use(express.json({ limit: "10kb" }));
+  app.get("/health", (req, res) => { res.json({ status: "ok" }); });
+  app.use("/api/auth", authRouter);
+  app.use("/api/expenses", expensesRouter);
+  app.use((req, res) => { res.status(404).json({ error: "Not found" }); });
+  app.use(errorHandler);
+  return app;
+}
+
+// src/server.ts — node --env-file=.env --import tsx src/server.ts
+const server = createApp().listen(config.PORT);
+process.on("SIGTERM", () => server.close(() => prisma.$disconnect().then(() => process.exit(0))));
+```
+
+## 6. Tests with supertest
+
+```ts
+// test/expenses.test.ts — DATABASE_URL in .env.test points at expenses_test
+const app = createApp();
+let auth = "";
+const add = (body: object) => request(app).post("/api/expenses").set("Authorization", auth).send(body);
+
+before(async () => {
+  await prisma.expense.deleteMany();
+  await prisma.user.deleteMany();
+  const creds = { email: "asha@example.in", password: "paisa-saved-1" };
+  await request(app).post("/api/auth/register").send(creds).expect(201);
+  auth = `Bearer ${(await request(app).post("/api/auth/login").send(creds).expect(200)).body.token}`;
+});
+after(() => prisma.$disconnect());
+
+it("rejects requests without a token", () => request(app).get("/api/expenses/summary?month=2026-10").expect(401));
+
+it("stores ₹249.50 as 24950 paise and rejects 3 decimals", async () => {
+  const res = await add({ amount: "249.50", category: "food", spentOn: "2026-10-03" }).expect(201);
+  assert.equal(res.body.amount, "₹249.50");
+  const bad = await add({ amount: "12.345", category: "food", spentOn: "2026-10-03" }).expect(422);
+  assert.equal(bad.body.details[0].field, "amount");
+});
+
+it("sums a month exactly", async () => {
+  await add({ amount: "0.10", category: "food", spentOn: "2026-10-05" }).expect(201);
+  await add({ amount: "0.20", category: "travel", spentOn: "2026-10-06" }).expect(201);
+  const res = await request(app).get("/api/expenses/summary?month=2026-10").set("Authorization", auth).expect(200);
+  assert.equal(res.body.totalPaise, 24980);   // no 0.30000000000000004 drift
+});
+```
+
+```bash
+DATABASE_URL="mysql://app:app@localhost:3306/expenses_test" npx prisma migrate deploy
+node --env-file=.env.test --import tsx --test --test-concurrency=1 "test/*.test.ts"
+  # ✔ rejects requests without a token
+  # ✔ stores ₹249.50 as 24950 paise and rejects 3 decimals
+  # ✔ sums a month exactly
+  # ℹ pass 3
+```
+
+## What this project demonstrates
+
+- **Exact money**: integer paise end to end, `en-IN` formatting for display.
+- **Layered safety**: zod field errors, database uniqueness, one error handler.
+- **Authorisation**: every query is scoped to the token's user.
+- **Testability**: `createApp()` apart from `listen()`, tests on a real test DB.
+
+### Try it yourself
+
+- Add `PATCH /api/expenses/:id` and a test proving another user's expense
+  returns 404.
+- Add `GET /api/expenses` with month and category filters and cursor
+  pagination, plus per-category budgets flagged `overBudget` in the summary.
+- Add pino-http with request IDs, `/ready`, graceful shutdown with a hard
+  timeout and a Dockerfile, then deploy behind a proxy with `trust proxy` set.

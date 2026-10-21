@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which kind of Node.js version should you install for real projects?",
+      "options": [
+        "The newest nightly build",
+        "An LTS (Long-Term Support) version",
+        "Whatever version npm suggests",
+        "The oldest version still available"
+      ],
+      "correctIndex": 1,
+      "explanation": "LTS releases are the stable line meant for real projects, which is why the lesson tells you to always pick one."
+    },
+    {
+      "question": "You run node tip.js 2400 4. At which index of process.argv is the value 2400?",
+      "options": [
+        "0",
+        "1",
+        "3",
+        "2"
+      ],
+      "correctIndex": 3,
+      "explanation": "process.argv[0] is the Node binary and process.argv[1] is the script path, so your own arguments start at index 2."
+    },
+    {
+      "question": "What does typing node on its own (with no file name) do?",
+      "options": [
+        "Opens the REPL, where each line runs immediately",
+        "Prints the installed version and exits",
+        "Runs index.js in the current folder",
+        "Installs the latest packages"
+      ],
+      "correctIndex": 0,
+      "explanation": "With no file, node opens the Read-Eval-Print Loop, a scratchpad for testing expressions; .exit leaves it."
+    },
+    {
+      "question": "What does node --watch hello.js do?",
+      "options": [
+        "Runs the script once with extra logging",
+        "Checks the script for syntax errors without running it",
+        "Reruns the script automatically every time you save the file",
+        "Opens the script in the editor"
+      ],
+      "correctIndex": 2,
+      "explanation": "The --watch flag restarts the program whenever the file changes; press Ctrl+C to stop it."
+    }
+  ]
+}

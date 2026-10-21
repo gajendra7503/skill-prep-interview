@@ -1,0 +1,141 @@
+---
+title: "JSON & Generated Columns"
+description: "The native JSON type, path operators, JSON_TABLE, generated columns, functional and multi-valued indexes, and when JSON is the wrong tool."
+module: "Schema Design"
+level: intermediate
+order: 15
+---
+
+MySQL's native `JSON` type lets a relational schema hold semi-structured
+data such as product attributes or API payloads. Interviewers usually probe
+two things: how you query JSON efficiently (you cannot index a JSON column
+directly) and whether you know when a proper column or child table is the
+better design.
+
+## The JSON type
+
+A `JSON` column is validated on write and stored in an optimised binary
+format, so reading one key does not re-parse the whole document. Invalid
+JSON is rejected with an error. Documents are limited by
+`max_allowed_packet`, and a JSON column cannot have a literal default
+(expression defaults like `DEFAULT (JSON_ARRAY())` work since 8.0.13).
+
+```sql
+CREATE TABLE products (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name       VARCHAR(120) NOT NULL,
+  price_inr  DECIMAL(10,2) NOT NULL,
+  attrs      JSON NOT NULL
+);
+
+INSERT INTO products (name, price_inr, attrs) VALUES
+ ('Phone X', 24999.00,
+  '{"brand":"Acme","ram_gb":8,"tags":["5g","dual-sim"]}'),
+ ('Kettle',   1499.00,
+  '{"brand":"HomeCo","litres":1.5,"tags":["kitchen"]}');
+```
+
+## Extracting values
+
+Paths start at `$`. The `->` operator is shorthand for `JSON_EXTRACT()` and
+returns a JSON value (strings keep their quotes); `->>` also applies
+`JSON_UNQUOTE()` and returns plain text.
+
+```sql
+SELECT name,
+       attrs->'$.brand'         AS raw,      -- "Acme"   (JSON string)
+       attrs->>'$.brand'        AS brand,    -- Acme     (text)
+       attrs->>'$.tags[0]'      AS first_tag -- 5g
+FROM products;
+
+SELECT name FROM products WHERE attrs->>'$.brand' = 'Acme';
+```
+
+Other everyday functions: `JSON_CONTAINS()`, `JSON_SET()` / `JSON_REMOVE()`
+for in-place updates (InnoDB can apply these as partial updates), and the
+aggregates `JSON_ARRAYAGG()` and `JSON_OBJECTAGG()`.
+
+## JSON_TABLE: JSON to rows
+
+`JSON_TABLE()` (8.0.4+) turns a JSON array into a derived relational table
+that you can join, filter and group like any other:
+
+```sql
+SELECT p.name, t.tag
+FROM products p,
+     JSON_TABLE(p.attrs, '$.tags[*]'
+                COLUMNS (tag VARCHAR(30) PATH '$')) AS t;
+-- | name    | tag      |
+-- | Phone X | 5g       |
+-- | Phone X | dual-sim |
+-- | Kettle  | kitchen  |
+```
+
+## Generated columns: VIRTUAL vs STORED
+
+A generated column is computed from an expression on other columns.
+
+| | VIRTUAL (default) | STORED |
+| --- | --- | --- |
+| When computed | On read | On INSERT/UPDATE |
+| Disk space in row | None | Yes |
+| Secondary index | Yes (InnoDB) | Yes |
+| Can be PRIMARY KEY | No | Yes |
+| Add column | Instant, metadata only | Rebuilds the table |
+
+Indexing a virtual column materialises its values **in the index only**,
+which is the standard way to make a JSON attribute searchable:
+
+```sql
+ALTER TABLE products
+  ADD COLUMN brand VARCHAR(50) COLLATE utf8mb4_bin
+      GENERATED ALWAYS AS (attrs->>'$.brand') VIRTUAL,
+  ADD INDEX idx_brand (brand);
+
+EXPLAIN SELECT name FROM products WHERE attrs->>'$.brand' = 'Acme';
+-- type: ref, key: idx_brand
+```
+
+The optimizer recognises the matching expression and uses the index even
+when the query does not name the `brand` column, provided the column's type
+and collation match the expression (`->>` yields `utf8mb4_bin` text).
+
+## Functional and multi-valued indexes
+
+Since 8.0.13 you can index an expression directly; MySQL creates a hidden
+virtual column for you. Note the double parentheses, and the `COLLATE`:
+`->>` returns `utf8mb4_bin` while `CAST` uses the default collation, and a
+mismatch stops the index being used.
+
+```sql
+CREATE INDEX idx_brand_fn ON products
+  ((CAST(attrs->>'$.brand' AS CHAR(50)) COLLATE utf8mb4_bin));
+```
+
+A **multi-valued index** (8.0.17+) indexes every element of a JSON array,
+so one row has many index entries. It is used by `MEMBER OF()`,
+`JSON_CONTAINS()` and `JSON_OVERLAPS()`:
+
+```sql
+ALTER TABLE products
+  ADD INDEX idx_tags ((CAST(attrs->'$.tags' AS CHAR(30) ARRAY)));
+
+SELECT name FROM products WHERE '5g' MEMBER OF (attrs->'$.tags');
+```
+
+## When JSON is the wrong choice
+
+Reach for real columns when a field is queried, joined, sorted or
+constrained on every request. JSON keys get no foreign keys, weak typing
+(the brand could be a number in one row), and every new filter needs a new
+generated column or functional index. Repeating groups such as order line
+items belong in a child table. JSON shines for sparse, varying attributes
+and for storing payloads you mostly read back whole.
+
+### Try it yourself
+
+Add a `warranty_months` attribute to some products. Create a STORED
+generated column for it, index it, and confirm with `EXPLAIN` that
+`WHERE warranty_months >= 12` uses the index. Then add a multi-valued index
+on `tags`, query products tagged `'kitchen'` with `JSON_CONTAINS()`, and
+use `JSON_TABLE()` to count products per tag.

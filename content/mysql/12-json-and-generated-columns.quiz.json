@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "For `attrs = '{\"brand\":\"Acme\"}'`, what is the difference between `attrs->'$.brand'` and `attrs->>'$.brand'`?",
+      "options": [
+        "There is no difference; both are aliases of JSON_EXTRACT()",
+        "`->` returns text and `->>` returns a JSON array",
+        "`->` returns the JSON value \"Acme\" with quotes; `->>` also unquotes it to plain text Acme",
+        "`->>` works only on arrays"
+      ],
+      "correctIndex": 2,
+      "explanation": "`->` is JSON_EXTRACT(); `->>` is JSON_UNQUOTE(JSON_EXTRACT()), returning an unquoted string."
+    },
+    {
+      "question": "Which statement about VIRTUAL and STORED generated columns in InnoDB is correct?",
+      "options": [
+        "A VIRTUAL column is computed on read and can still have a secondary index, which materialises its values in the index",
+        "Only STORED columns can be indexed",
+        "VIRTUAL columns take more row space than STORED columns",
+        "A VIRTUAL column can be the PRIMARY KEY"
+      ],
+      "correctIndex": 0,
+      "explanation": "InnoDB supports secondary indexes on virtual columns; the values live in the index while the row stores nothing. Virtual columns cannot be the primary key."
+    },
+    {
+      "question": "Which index type lets `WHERE '5g' MEMBER OF (attrs->'$.tags')` use an index on a JSON array?",
+      "options": [
+        "A FULLTEXT index on the JSON column",
+        "A plain index created directly on the JSON column",
+        "A descending index",
+        "A multi-valued index using `CAST(... AS ... ARRAY)`"
+      ],
+      "correctIndex": 3,
+      "explanation": "Multi-valued indexes (8.0.17+) store one entry per array element and serve MEMBER OF, JSON_CONTAINS and JSON_OVERLAPS. JSON columns cannot be indexed directly."
+    },
+    {
+      "question": "When is storing data in a JSON column usually the wrong design?",
+      "options": [
+        "When attributes are sparse and vary between rows",
+        "When a field is filtered, joined or must reference another table on most queries",
+        "When you mostly read the payload back whole",
+        "When the document is smaller than 1 KB"
+      ],
+      "correctIndex": 1,
+      "explanation": "Frequently queried or related fields belong in typed columns or child tables, which give foreign keys, strong typing and simple indexing."
+    }
+  ]
+}

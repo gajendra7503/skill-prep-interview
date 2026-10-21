@@ -1,0 +1,150 @@
+---
+title: "Scaling a React Native Codebase: Monorepos, Upgrades & CI"
+description: "Structuring a multi-team app, sharing code with web in a monorepo, keeping React Native upgrades routine, and a CI pipeline that knows when a store build is needed."
+module: "Pro Level"
+level: pro
+order: 27
+---
+
+A two-person app can live in one folder with a `components` directory. A
+wealth platform with a mobile app, a web dashboard, an advisor portal and
+five feature teams cannot. At that scale the hard problems are boundaries,
+keeping native dependencies current, and a pipeline that ships safely
+without every PR waiting 40 minutes for builds.
+
+## A monorepo layout that scales
+
+```text
+repo/
+├── apps/
+│   ├── mobile/            # React Native (Expo or CLI) app
+│   └── web/               # Next.js web app
+├── packages/
+│   ├── api-client/        # typed API calls, shared by mobile + web
+│   ├── validation/        # zod schemas (PAN, IFSC, SIP amount rules)
+│   ├── domain/            # pure TS: XIRR, goal maths, formatting
+│   └── ui-tokens/         # colours, spacing, typography values
+├── package.json           # workspaces
+└── turbo.json             # or nx.json — task graph and caching
+```
+
+What to share and what not to:
+
+- **Share freely:** pure TypeScript — API clients, validation schemas,
+  business rules, formatting. A ₹ formatting bug fixed once is fixed on
+  every platform.
+- **Share carefully:** UI components. React Native Web makes it possible,
+  but a component designed for both platforms usually serves neither well.
+  Sharing design tokens is often the better trade.
+- **Never share:** anything importing `react-native` into a web-only
+  package, or DOM APIs into mobile code.
+
+## Monorepo gotchas specific to React Native
+
+Metro, unlike web bundlers, historically didn't follow symlinks or look
+outside the app folder. Recent Expo SDKs configure Metro for workspaces
+automatically; for CLI apps you set `watchFolders` and resolver paths in
+`metro.config.js`:
+
+```js
+// apps/mobile/metro.config.js (React Native CLI app)
+const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
+const path = require("path");
+
+const root = path.resolve(__dirname, "../..");
+
+module.exports = mergeConfig(getDefaultConfig(__dirname), {
+  watchFolders: [root],
+  resolver: {
+    nodeModulesPaths: [
+      path.resolve(__dirname, "node_modules"),
+      path.resolve(root, "node_modules"),
+    ],
+  },
+});
+```
+
+The most common monorepo bug is **two copies of React** (one hoisted, one
+nested), which produces "Invalid hook call" errors. Keep exactly one
+version of `react` and `react-native` across the repo and verify with
+`npm ls react`.
+
+## Enforcing boundaries between teams
+
+Folders alone don't stop the payments team importing the internals of the
+onboarding feature. Make boundaries explicit:
+
+```text
+apps/mobile/src/features/
+├── onboarding/   index.ts ← the only public entry point
+├── portfolio/    index.ts
+└── payments/     index.ts
+```
+
+Then forbid deep imports with lint rules (for example ESLint's
+`no-restricted-imports`, or Nx module-boundary rules), and use CODEOWNERS so
+the owning team reviews changes to its feature.
+
+## Keeping React Native upgrades routine
+
+React Native ships new minor versions regularly, and libraries drop support
+for old versions quickly. Teams that upgrade once every two years face a
+multi-week migration; teams that upgrade every release or two spend a day.
+
+- **Expo projects:** bump the SDK, then let Expo align dependencies:
+
+```bash
+npx expo install expo@latest
+npx expo install --fix      # align library versions with the SDK
+npx expo-doctor             # flag known incompatibilities
+```
+
+- **CLI projects:** use the React Native Upgrade Helper, which shows the
+  exact diff to the template's native files between two versions, and
+  apply it file by file.
+- **Native folders as generated output:** with Expo's prebuild (Continuous
+  Native Generation), `ios`/`android` are regenerated from config, so
+  upgrades don't fight hand-edited native files. Push customisations into
+  config plugins.
+- **Vet dependencies:** check a library's New Architecture support and
+  maintenance activity (React Native Directory lists both) before adding it
+  — every unmaintained native dependency is a future upgrade blocker.
+
+## A CI pipeline that scales
+
+```yaml
+# .github/workflows/mobile.yml (simplified)
+on: [pull_request]
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npx turbo run typecheck lint test --affected
+```
+
+Layer it by cost:
+
+| Stage | Runs on | Purpose |
+|---|---|---|
+| Typecheck, lint, unit tests | Every PR (affected packages only) | Fast feedback |
+| Native build + E2E (Detox/Maestro) | Merge to main, release branches | Catch native breakage |
+| Signed store builds | Release tags | Ship |
+
+A key question for every change: **does it need a new native build, or can
+it ship as an OTA update?** Expo's fingerprinting answers this
+mechanically — with `"runtimeVersion": { "policy": "fingerprint" }`, the
+runtime version is a hash of everything native, so a JS-only change can't
+accidentally be delivered to a binary it's incompatible with.
+
+### Try it yourself
+
+Sketch the monorepo for an app with a mobile client, a web dashboard and a
+shared `validation` package containing a zod schema for a SIP amount
+(minimum ₹500). Import the same schema in both apps, then run
+`npm ls react` to confirm a single React version. Finally, write down which
+of your last five changes would have needed a store build and which could
+have gone out as OTA updates.

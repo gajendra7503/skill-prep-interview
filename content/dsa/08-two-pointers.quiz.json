@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In the opposite-ends pair-sum technique on a sorted array, the current sum is smaller than the target. What should you do?",
+      "options": [
+        "Move right one step left",
+        "Move left one step right",
+        "Move both pointers inward",
+        "Restart the search from the beginning"
+      ],
+      "correctIndex": 1,
+      "explanation": "If the sum is too small, the left element paired with anything at or before right is too small too, so it can be discarded by moving left forward to increase the sum."
+    },
+    {
+      "question": "What is the time complexity of the sort-then-two-pointers solution to 3Sum?",
+      "options": [
+        "O(n)",
+        "O(n log n)",
+        "O(n³)",
+        "O(n²)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Sorting is O(n log n), then each of the n anchors runs an O(n) two-pointer scan, giving O(n²) overall, which dominates the sort."
+    },
+    {
+      "question": "In container with most water, why is it safe to move the pointer at the shorter line?",
+      "options": [
+        "The area is limited by the shorter line, so moving the taller line can only reduce the width without raising that limit",
+        "Because the shorter line is always at the left end",
+        "Because the array must be sorted first",
+        "It is not safe; you must try both moves recursively"
+      ],
+      "correctIndex": 0,
+      "explanation": "Any container using the shorter line with a narrower width is worse than the current one, so the shorter line can be discarded."
+    },
+    {
+      "question": "When removing duplicates in place from a sorted array with read and write pointers, what does the write pointer represent?",
+      "options": [
+        "The index of the largest value seen so far",
+        "The index of the last duplicate found",
+        "The slot where the next unique value should be placed",
+        "The number of duplicates removed"
+      ],
+      "correctIndex": 2,
+      "explanation": "read scans every element; write marks where the next kept (unique) value goes, and its final value is the new length."
+    }
+  ]
+}

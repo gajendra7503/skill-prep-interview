@@ -1,0 +1,187 @@
+---
+title: "Sorting Algorithms"
+description: "Insertion, merge, quick and counting sort, stability, JavaScript's built-in sort pitfalls, and classic interview problems that start by sorting."
+module: "Searching & Sorting"
+level: "intermediate"
+order: 11
+---
+
+You will rarely hand-write a sort at work, but interviewers still ask: merge sort and quicksort are
+the cleanest examples of divide and conquer; knowing their trade-offs
+(stability, memory, worst case) shows depth; and a huge number of problems
+become easy **after** sorting.
+
+## The comparison table to remember
+
+| Algorithm | Best | Average | Worst | Extra space | Stable? |
+|---|---|---|---|---|---|
+| Bubble / selection | O(n²)* | O(n²) | O(n²) | O(1) | bubble yes, selection no |
+| Insertion | O(n) | O(n²) | O(n²) | O(1) | yes |
+| Merge sort | O(n log n) | O(n log n) | O(n log n) | O(n) | yes |
+| Quicksort | O(n log n) | O(n log n) | O(n²) | O(log n) stack | no |
+| Heapsort | O(n log n) | O(n log n) | O(n log n) | O(1) | no |
+| Counting sort | O(n + k) | O(n + k) | O(n + k) | O(k) | yes (prefix-sum version) |
+
+*Bubble sort with an early-exit flag is O(n) on already sorted input.
+`k` is the range of key values. Heapsort builds on the heap from "Heaps &
+Priority Queues".
+
+A key fact interviewers like: **any comparison-based sort needs Ω(n log n)
+comparisons in the worst case.** Counting and radix sort beat that only
+because they do not compare elements — they use the keys as indices.
+
+**Stable** means equal keys keep their original relative order — vital
+when sorting by one key after another (by name, then by city).
+
+## Insertion sort: small or nearly sorted data
+
+Take each element and slide it left until it sits in place — like sorting
+cards in your hand.
+
+```js
+function insertionSort(a) {
+  for (let i = 1; i < a.length; i++) {
+    const cur = a[i];
+    let j = i - 1;
+    while (j >= 0 && a[j] > cur) { a[j + 1] = a[j]; j--; }
+    a[j + 1] = cur;
+  }
+  return a;
+}
+console.log(insertionSort([5, 2, 9, 1, 5, 6])); // [ 1, 2, 5, 5, 6, 9 ]
+```
+
+On nearly sorted data the inner loop barely runs, so it approaches O(n).
+That is why hybrid sorts (such as TimSort) use it for short runs.
+
+## Merge sort: divide, sort, merge
+
+```text
+        [38, 27, 43, 3, 9, 82, 10]
+          /                   \
+   [38, 27, 43]          [3, 9, 82, 10]          split until size 1
+     ...                       ...
+   [27, 38, 43]          [3, 9, 10, 82]          merge sorted halves
+          \                   /
+        [3, 9, 10, 27, 38, 43, 82]
+```
+
+```js
+function mergeSort(a) {
+  if (a.length <= 1) return a;
+  const mid = a.length >> 1;
+  const left = mergeSort(a.slice(0, mid));
+  const right = mergeSort(a.slice(mid));
+  const out = [];
+  let i = 0, j = 0;
+  while (i < left.length && j < right.length) {
+    out.push(left[i] <= right[j] ? left[i++] : right[j++]); // <= keeps it stable
+  }
+  return out.concat(left.slice(i), right.slice(j));
+}
+console.log(mergeSort([38, 27, 43, 3, 9, 82, 10]).join(" ")); // 3 9 10 27 38 43 82
+```
+
+There are log n levels of splitting and each level does O(n) merging work:
+O(n log n) always. The cost is O(n) extra memory. Merge sort is also the
+natural choice for linked lists and for external sorting (data larger than
+RAM).
+
+## Quicksort: partition around a pivot
+
+Pick a pivot, move smaller elements to its left and larger to its right,
+then recurse on both sides. This version uses the Lomuto partition with a
+random pivot.
+
+```js
+function quickSort(a, lo = 0, hi = a.length - 1) {
+  if (lo >= hi) return a;
+  const r = lo + Math.floor(Math.random() * (hi - lo + 1));
+  [a[r], a[hi]] = [a[hi], a[r]];          // random pivot moved to the end
+  const pivot = a[hi];
+  let store = lo;
+  for (let i = lo; i < hi; i++) {
+    if (a[i] < pivot) { [a[i], a[store]] = [a[store], a[i]]; store++; }
+  }
+  [a[store], a[hi]] = [a[hi], a[store]];  // pivot to its final place
+  quickSort(a, lo, store - 1);
+  quickSort(a, store + 1, hi);
+  return a;
+}
+console.log(quickSort([10, 7, 8, 9, 1, 5])); // [ 1, 5, 7, 8, 9, 10 ]
+```
+
+In-place and very fast in practice, but a bad pivot every time (for example,
+always the last element of an already sorted array) gives O(n²). Random
+pivots make that astronomically unlikely. Many duplicates also hurt Lomuto;
+a three-way partition fixes it. The same partition step powers
+**quickselect**, which finds the k-th smallest in O(n) average time.
+
+## Counting sort: when keys are small integers
+
+Sorting 10 lakh exam scores between 0 and 100? Make an array `count` of
+size 101, increment `count[score]` for each score, then write each value
+out `count[v]` times: O(n + k) with `k = 101`, no comparisons at all. It is
+useless when keys span a huge range (such as phone numbers) unless you use
+radix sort, which applies counting sort one digit at a time.
+
+## JavaScript's built-in sort: the traps
+
+```js
+console.log([10, 9, 1, 100].sort());                // [ 1, 10, 100, 9 ]
+console.log([10, 9, 1, 100].sort((a, b) => a - b)); // [ 1, 9, 10, 100 ]
+
+const staff = [
+  { name: "Asha", city: "Pune" }, { name: "Ravi", city: "Delhi" },
+  { name: "Meera", city: "Pune" }, { name: "Kabir", city: "Delhi" },
+];
+const byCity = staff.toSorted((a, b) => a.city.localeCompare(b.city));
+console.log(byCity.map((s) => s.name).join(", ")); // Ravi, Kabir, Asha, Meera
+```
+
+- With no comparator, elements are converted to **strings** and compared,
+  so numbers sort wrongly. Always pass `(a, b) => a - b` for numbers.
+- `sort` **mutates** the array. `toSorted` (recent JavaScript versions,
+  available in Node 20 and later) returns a sorted copy.
+- Since ES2019, `sort` is required to be **stable** — above, Ravi stays
+  before Kabir and Asha before Meera. V8 implements it with TimSort.
+
+## Interview problem: merge overlapping intervals
+
+**Pattern:** sort first, then one linear scan. Given meeting-room bookings
+as `[start, end]` hours, merge any that overlap.
+
+Sort by start time; now any overlap must be with the last merged interval.
+If the current start is at or before its end, extend it; otherwise start a
+new one.
+
+```js
+function mergeIntervals(intervals) {
+  const sorted = intervals.toSorted((a, b) => a[0] - b[0]);
+  const merged = [];
+  for (const [s, e] of sorted) {
+    const last = merged.at(-1);
+    if (last && s <= last[1]) last[1] = Math.max(last[1], e);
+    else merged.push([s, e]);
+  }
+  return merged;
+}
+console.log(JSON.stringify(mergeIntervals([[9, 11], [1, 3], [2, 6], [8, 10]])));
+// [[1,6],[8,11]]
+```
+
+O(n log n) for the sort plus O(n) for the scan. `Math.max` matters: `[1, 10]`
+followed by `[2, 3]` must stay `[1, 10]`.
+
+**Common mistakes:** a comparator that returns a boolean (`a > b`) instead
+of a number; claiming quicksort is always O(n log n); forgetting merge
+sort's O(n) extra space when asked about memory.
+
+### Try it yourself
+
+1. Implement **sort colours**: sort an array of only 0s, 1s and 2s in one
+   pass and O(1) space (three pointers: low, mid, high).
+2. Modify `mergeSort` to count **inversions** — pairs `i` less than `j` with
+   `a[i] > a[j]` — in O(n log n).
+3. Sort a list of products by price ascending, and by name for equal prices,
+   using a single comparator.

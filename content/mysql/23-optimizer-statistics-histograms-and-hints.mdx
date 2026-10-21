@@ -1,0 +1,155 @@
+---
+title: "Optimizer Statistics, Histograms & Hints"
+description: "How MySQL's cost-based optimizer estimates rows, persistent InnoDB statistics, histograms for skewed columns, the optimizer trace, and optimizer hints used safely in production."
+module: "Pro Level"
+level: pro
+order: 24
+---
+
+`EXPLAIN` tells you which plan MySQL picked. The senior-level question is
+_why_ it picked it, and what to do when a query that ran in 5 ms yesterday
+takes 5 seconds today with no code change. The answer almost always lies in
+the optimizer's **row estimates** and the statistics behind them.
+
+## The cost-based optimizer in one paragraph
+
+For each query MySQL enumerates candidate plans (which index for each
+table, which join order, range scan or full scan) and assigns each a
+**cost**, mainly from the estimated number of rows and pages it would
+read, weighted by constants in `mysql.server_cost` and
+`mysql.engine_cost`. It picks the cheapest. The costs are only as good as
+the estimates, and the estimates come from statistics:
+
+- **Index statistics**: how many distinct values each index prefix has
+  (cardinality), which gives "rows per lookup".
+- **Range estimates**: for `WHERE created_at > ...` on an indexed column,
+  InnoDB "dives" into the index to count rows in the range.
+- **Histograms**: value distribution for columns, indexed or not.
+- **Defaults**: with no information, guesses such as 10 percent for an
+  equality filter on an unindexed column.
+
+## Persistent InnoDB statistics
+
+InnoDB computes index statistics by **sampling** random leaf pages, not by
+reading the whole index, and stores them in `mysql.innodb_index_stats`.
+
+```sql
+SELECT @@innodb_stats_persistent,               -- 1: stored on disk
+       @@innodb_stats_persistent_sample_pages,  -- 20 pages sampled per index
+       @@innodb_stats_auto_recalc;              -- 1: recalc after ~10% change
+
+SELECT index_name, stat_name, stat_value
+FROM mysql.innodb_index_stats
+WHERE database_name = 'shop' AND table_name = 'orders';
+-- idx_cust  n_diff_pfx01  500     <- about 500 distinct customer_id values
+```
+
+Twenty sampled pages on a 500 GB table can badly misjudge cardinality.
+Raise sampling per table for skewed big tables, then re-analyze:
+
+```sql
+ALTER TABLE orders STATS_SAMPLE_PAGES = 200;
+ANALYZE TABLE orders;   -- cheap: re-samples statistics, does not rebuild
+```
+
+A classic "plan flip" happens when automatic recalculation lands on an
+unlucky sample after a bulk load. Running `ANALYZE TABLE` after large
+data changes, and checking the stats table, is the first fix to try.
+
+## Histograms for skewed columns
+
+Index statistics assume values are evenly spread. Real data is skewed:
+99 percent of orders are `DELIVERED`, 1 percent `CANCELLED`. Without
+information about an **unindexed** column the optimizer guesses, which
+matters most for **join order**: it decides which table to filter first.
+
+```sql
+EXPLAIN SELECT * FROM orders WHERE status = 'CANCELLED';
+-- type: ALL  rows: 5000  filtered: 10.00   <- a guess
+
+ANALYZE TABLE orders UPDATE HISTOGRAM ON status WITH 16 BUCKETS;
+
+EXPLAIN SELECT * FROM orders WHERE status = 'CANCELLED';
+-- type: ALL  rows: 5000  filtered: 1.00    <- real selectivity
+
+SELECT column_name, histogram->>'$."histogram-type"' AS type
+FROM information_schema.column_statistics WHERE table_name = 'orders';
+-- status  singleton
+```
+
+- **Singleton** histograms (one bucket per distinct value) are built when
+  the distinct count fits in the buckets; otherwise **equi-height**.
+- Histograms are **not** updated automatically. Rebuild them on a
+  schedule, or after big loads. Remove one with
+  `ANALYZE TABLE orders DROP HISTOGRAM ON status;`.
+- A histogram does not make a single-table scan faster; it gives the
+  optimizer better estimates. For a column you filter on alone, an index
+  is still the fix. Histograms shine for low-cardinality columns that are
+  not worth indexing but appear in multi-table joins.
+
+## Seeing the optimizer's reasoning: optimizer trace
+
+When `EXPLAIN` is not enough, the optimizer trace shows every plan it
+considered and its cost:
+
+```sql
+SET optimizer_trace = 'enabled=on';
+SELECT * FROM orders WHERE customer_id = 7 AND created_at > '2026-01-01';
+SELECT JSON_EXTRACT(trace, '$**.chosen_range_access_summary')
+FROM information_schema.optimizer_trace\G
+-- [{"chosen": true, "cost_for_plan": 3.76, "rows_for_plan": 10,
+--   "range_access_plan": {"index": "idx_cust", "ranges": ["customer_id = 7"]}}]
+SET optimizer_trace = 'enabled=off';
+```
+
+Look under `rows_estimation` for the alternatives rejected and why.
+Tracing is per session and costly, so enable it only while investigating.
+
+## Optimizer hints
+
+Hints live in a special comment right after the `SELECT`, `UPDATE` or
+`DELETE` keyword and apply to that one statement:
+
+```sql
+SELECT /*+ INDEX(o idx_cust_created) */ id FROM orders o
+WHERE customer_id = 1001 ORDER BY created_at DESC LIMIT 20;
+
+SELECT /*+ JOIN_ORDER(c, o) */ c.name, o.total_inr
+FROM customers c JOIN orders o ON o.customer_id = c.id
+WHERE c.city = 'Pune';
+
+SELECT /*+ MAX_EXECUTION_TIME(2000) */ COUNT(*) FROM orders;   -- ms, SELECT only
+SELECT /*+ SET_VAR(sort_buffer_size = 16777216) */ * FROM orders ORDER BY total_inr;
+```
+
+| Hint | Use |
+| --- | --- |
+| `INDEX`, `NO_INDEX`, `JOIN_INDEX`, `ORDER_INDEX` | Force or forbid indexes (8.0.20+) |
+| `JOIN_ORDER`, `JOIN_PREFIX`, `JOIN_FIXED_ORDER` | Control join order |
+| `NO_RANGE_OPTIMIZATION`, `SEMIJOIN`, `NO_ICP`, `MRR` | Switch specific strategies on or off |
+| `MAX_EXECUTION_TIME(ms)` | Kill a runaway read-only SELECT |
+| `SET_VAR(var = value)` | Change a session variable for one statement |
+
+An invalid hint is ignored with a warning, not an error, so check
+`SHOW WARNINGS` after adding one. The older `FORCE INDEX` / `USE INDEX`
+syntax still works; prefer hints, which are more precise.
+
+## Hints are a last resort
+
+A hint freezes today's best plan; when data shifts, it can become the worst
+plan, and nobody remembers it is there. Try, in order: fix statistics
+(`ANALYZE TABLE`, more sample pages, histograms), fix the index, rewrite
+the query, and only then hint, with a code comment explaining why. If you
+cannot change the SQL (a third-party app), MySQL's query rewrite plugin can
+inject hints server-side. After every major-version upgrade, re-test
+hinted queries, since cost models change.
+
+### Try it yourself
+
+Build a 1,00,000-row `orders` table where 2 percent of rows are
+`CANCELLED`. Compare `EXPLAIN` for a join between `customers` and `orders`
+filtered on `status = 'CANCELLED'` before and after creating a histogram,
+and note how `filtered` and the join order change. Then add a
+`JOIN_ORDER` hint that forces the worse order, measure both with
+`EXPLAIN ANALYZE`, and write two sentences on when you would accept that
+hint in production.

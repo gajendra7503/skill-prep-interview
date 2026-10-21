@@ -1,0 +1,186 @@
+---
+title: "Getting Help & How Commands Are Built"
+description: "How a command line is structured (options, arguments, quoting, exit codes, chaining) and how to answer your own questions with man, --help, help and type."
+module: "Command-Line Basics"
+level: "beginner"
+order: 5
+---
+
+Nobody memorises every flag of every command. Experienced engineers are
+simply fast at **finding out**. This lesson gives you two things: a mental
+model of how any command line is put together, and the built-in help tools
+that answer most questions without opening a browser.
+
+## Anatomy of a command
+
+```bash
+tail -n 20 --follow /var/log/syslog
+```
+
+| Part | Here | Role |
+| --- | --- | --- |
+| Command | `tail` | The program (or shell built-in) to run |
+| Short option with a value | `-n 20` | One dash, one letter; this one takes a value |
+| Long option | `--follow` | Two dashes, a readable word |
+| Argument | `/var/log/syslog` | What the command acts on |
+
+Conventions that hold for most GNU tools:
+
+```bash
+ls -l -a -h           # three short options...
+ls -lah               # ...can be combined after one dash
+tail -n 2 app.log     # value as a separate word
+tail -n2 app.log      # or attached
+tail --lines=2 app.log  # long form, value after =
+```
+
+All three `tail` commands above print the same two lines. Long options are
+great in scripts because they document themselves; short ones are quicker
+to type.
+
+A lone `--` means "end of options; everything after this is an argument".
+It lets you work with a file whose name starts with a dash, such as
+`rm -- -draft.txt`.
+
+## Quoting: what the shell does before the command runs
+
+The shell rewrites your line before running it: it splits it into words on
+spaces, expands variables and wildcards, then hands the words to the
+command. Quotes control that process:
+
+```bash
+name=Asha
+echo "Hello $name"     # Hello Asha     double quotes: variables expanded
+echo 'Hello $name'     # Hello $name    single quotes: everything literal
+echo "Total: ₹$((1450 + 899))"   # Total: ₹2349   arithmetic expansion
+```
+
+Rule of thumb: wrap anything containing spaces or `$` in quotes, and use
+single quotes when you want the text exactly as typed. Variables are
+covered properly in "Environment Variables, PATH & Shell Configuration".
+
+## Exit status: did it work?
+
+Every command finishes with an **exit status** (exit code): `0` means
+success, anything else means failure. The shell stores the last one in
+`$?`:
+
+```bash
+ls /etc > /dev/null; echo $?    # 0
+ls /nope; echo $?
+```
+
+```text
+ls: cannot access '/nope': No such file or directory
+2
+```
+
+Common values worth recognising:
+
+| Code | Usually means |
+| --- | --- |
+| `0` | Success |
+| `1` | General failure |
+| `2` | Misuse of the command (bad option) or serious trouble |
+| `126` | Found, but not executable (permissions) |
+| `127` | Command not found |
+| `130` | Stopped with Ctrl+C (128 + signal number 2) |
+
+Interviewers often ask: "How does a shell script know whether a command
+succeeded?" The answer is the exit status — `0` for success — which is
+exactly what `if`, `&&` and `||` test.
+
+## Chaining commands
+
+```bash
+mkdir -p build ; cd build        # ; runs the second regardless
+mkdir -p build && cd build       # && runs the second only if the first succeeded
+cd /opt/payroll || echo "missing directory"   # || runs the second only on failure
+```
+
+`&&` is the safe default. Compare `cd /wrong/dir ; rm -r old` with
+`cd /wrong/dir && rm -r old`: with `;`, a failed `cd` means `rm` runs in
+whatever directory you happened to be in.
+
+## Getting help, fastest first
+
+### `--help`
+
+Most programs print a short usage summary:
+
+```text
+$ ls --help
+Usage: ls [OPTION]... [FILE]...
+List information about the FILEs (the current directory by default).
+...
+```
+
+In usage lines, square brackets mean optional and `...` means "may be
+repeated".
+
+### `man`: the manual
+
+```bash
+man ls          # full manual page, opens in less
+man 5 crontab   # section 5: the crontab FILE FORMAT
+man -k archive  # search page names and descriptions (same as apropos)
+```
+
+Manual pages are grouped into numbered **sections**; the ones you will use
+most:
+
+| Section | Contents | Example |
+| --- | --- | --- |
+| 1 | User commands | `man 1 passwd` (the command) |
+| 5 | File formats | `man 5 passwd` (the /etc/passwd file) |
+| 8 | Administration commands | `man 8 useradd` |
+
+Inside `man`, use the `less` keys: `/` to search, `n` for next match, `q`
+to quit. Jump straight to the EXAMPLES section with `/EXAMPLES` — many
+pages have one. Some minimal images (Docker containers, for example) ship
+without man pages; use `--help` there.
+
+### `help`: for shell built-ins
+
+Some commands — `cd`, `echo`, `export`, `alias` — are built into Bash, not
+separate programs. `help` documents those:
+
+```text
+$ help cd
+cd: cd [-L|[-P [-e]]] [-@] [dir]
+    Change the shell working directory.
+```
+
+### `type` and `which`: what will actually run?
+
+```bash
+type cd      # cd is a shell builtin
+type ls      # ls is /usr/bin/ls   (on Ubuntu often: ls is aliased to `ls --color=auto')
+type -a echo # every match: builtin first, then /usr/bin/echo
+which python3   # path of the program found on your PATH
+```
+
+`type` knows about aliases, functions and built-ins; `which` only searches
+for programs. When "the wrong version" of a tool runs, `type -a` shows
+every candidate in the order the shell will try them.
+
+Also handy: `tldr` (`sudo apt install tldr`) shows a few practical
+examples per command.
+
+## History shortcuts
+
+```bash
+!!         # re-run the previous command
+sudo !!    # re-run it with sudo, a classic after "Permission denied"
+```
+
+Press **Ctrl+R** and start typing to search your history — Ctrl+R again
+for older matches, Enter to run, Esc to edit first.
+
+### Try it yourself
+
+1. Use `man` to find out what `ls -t` and `ls -S` do, then try both in
+   `/var/log`. Which `man` section number is the `ls` page in?
+2. Run `type` on `cd`, `ls`, `pwd` and `history`. Which are built-ins?
+3. Run `ls /nope && echo found || echo "not found"` and then `echo $?`.
+   Explain each line of output.

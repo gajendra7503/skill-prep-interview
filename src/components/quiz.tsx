@@ -22,7 +22,7 @@ export function Quiz({ questions }: { questions: QuizQuestion[] }) {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/50 p-6 dark:border-zinc-800 dark:bg-zinc-900/40">
+    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-900/40">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <span
@@ -37,7 +37,7 @@ export function Quiz({ questions }: { questions: QuizQuestion[] }) {
           className={`rounded-full px-3 py-1 text-sm font-medium ${
             allAnswered
               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
-              : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+              : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
           }`}
         >
           {allAnswered ? `Score: ${score}/${questions.length}` : `${answeredCount}/${questions.length} answered`}
@@ -60,7 +60,7 @@ export function Quiz({ questions }: { questions: QuizQuestion[] }) {
                   const isSelected = optIndex === selected;
 
                   let style =
-                    "border-zinc-300 bg-white hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600";
+                    "border-slate-300 bg-white hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600";
                   let icon: string | null = null;
                   if (isAnswered) {
                     if (isCorrect) {
@@ -70,7 +70,7 @@ export function Quiz({ questions }: { questions: QuizQuestion[] }) {
                       style = "border-red-500 bg-red-50 dark:bg-red-950";
                       icon = "✗";
                     } else {
-                      style = "border-zinc-200 bg-white opacity-60 dark:border-zinc-800 dark:bg-zinc-900";
+                      style = "border-slate-200 bg-white opacity-60 dark:border-slate-800 dark:bg-slate-900";
                     }
                   }
 
@@ -97,7 +97,7 @@ export function Quiz({ questions }: { questions: QuizQuestion[] }) {
                 })}
               </div>
               {isAnswered && q.explanation && (
-                <p className="mt-2 rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-400">
+                <p className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-400">
                   {q.explanation}
                 </p>
               )}
@@ -110,7 +110,7 @@ export function Quiz({ questions }: { questions: QuizQuestion[] }) {
         <button
           type="button"
           onClick={retake}
-          className="mt-6 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          className="mt-6 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
         >
           ↻ Retake quiz
         </button>

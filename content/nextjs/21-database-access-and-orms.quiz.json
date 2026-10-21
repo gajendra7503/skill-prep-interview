@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `import \"server-only\"` at the top of a data access module do?",
+      "options": [
+        "It makes the module run on the Edge runtime",
+        "It caches the module's results across requests",
+        "It causes a build error if the module is imported into a Client Component",
+        "It marks every exported function as a Server Action"
+      ],
+      "correctIndex": 2,
+      "explanation": "server-only is a guard: importing the module from client code fails the build, so database clients and secrets cannot leak into the browser bundle."
+    },
+    {
+      "question": "What is the scope of memoization when you wrap an ORM query in React's `cache()`?",
+      "options": [
+        "A single server request; nothing is shared between requests or users",
+        "All requests until the server restarts",
+        "Until `revalidateTag` is called",
+        "The user's browser session"
+      ],
+      "correctIndex": 0,
+      "explanation": "React cache() dedupes calls within one request, so a layout and page calling getCurrentUser() hit the database once. Cross-request caching needs a different tool such as \"use cache\"."
+    },
+    {
+      "question": "Why do serverless deployments often exhaust Postgres connections, and what is the usual fix?",
+      "options": [
+        "Serverless functions cannot use TCP; switch to a REST API",
+        "Each concurrent function instance opens its own connections; route them through a pooler such as PgBouncer and keep per-instance pools small",
+        "Postgres does not support serverless; use MongoDB",
+        "React Server Components keep connections open forever; disable streaming"
+      ],
+      "correctIndex": 1,
+      "explanation": "Many short-lived instances each opening a pool quickly hit the database's connection limit. A pooler multiplexes them onto a small number of real connections."
+    },
+    {
+      "question": "A page awaits three independent queries taking 120ms, 150ms and 90ms one after another. Roughly how long does it take with `Promise.all` instead?",
+      "options": [
+        "360ms",
+        "90ms",
+        "120ms",
+        "About 150ms, the duration of the slowest query"
+      ],
+      "correctIndex": 3,
+      "explanation": "Sequential awaits add up (360ms). Starting them together with Promise.all means the total is bounded by the slowest one."
+    }
+  ]
+}

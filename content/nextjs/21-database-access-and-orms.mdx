@@ -1,0 +1,154 @@
+---
+title: "Database Access & ORMs"
+description: "Querying a database straight from Server Components, choosing between Prisma and Drizzle, pooling connections on serverless, and structuring a data access layer."
+module: "Full-Stack Patterns"
+level: "intermediate"
+order: 10
+---
+
+Server Components run only on the server, so they can talk to your
+database directly — no API route in between. That power comes with
+responsibilities: connection limits, keeping secrets off the client, and
+not firing the same query five times per request.
+
+## Querying from a Server Component
+
+```tsx
+// app/portfolio/page.tsx
+import { getHoldings } from "@/lib/dal/holdings";
+
+export default async function PortfolioPage() {
+  const holdings = await getHoldings();
+  const total = holdings.reduce((sum, h) => sum + h.value, 0);
+
+  return (
+    <section>
+      <h1>Portfolio value: ₹{total.toLocaleString("en-IN")}</h1>
+      {holdings.map((h) => <p key={h.id}>{h.fundName}</p>)}
+    </section>
+  );
+}
+```
+
+No `useEffect`, no loading state, no JSON endpoint — the HTML arrives with
+the data. Mutations go through Server Actions (see Forms & Mutations).
+
+## Prisma vs Drizzle
+
+| | Prisma | Drizzle |
+| --- | --- | --- |
+| Schema | `schema.prisma` DSL, then `prisma generate` | Plain TypeScript tables |
+| Queries | High-level client: `prisma.user.findMany({ include })` | SQL-like builder plus a relational query API |
+| Migrations | `prisma migrate` | `drizzle-kit generate` / `migrate` |
+| Footprint | Heavier; historically shipped a native query engine | Thin, no code generation, edge-friendly drivers |
+| Sweet spot | Teams wanting a batteries-included ORM | Teams who think in SQL and want minimal overhead |
+
+Both are fully typed. A good interview answer is about trade-offs, not
+loyalty: Prisma's abstraction is faster to onboard; Drizzle keeps you close
+to SQL and to the runtime.
+
+```ts
+// lib/db.ts — Drizzle with node-postgres
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import * as schema from "./schema";
+
+const globalForDb = globalThis as unknown as { pool?: Pool };
+
+const pool = globalForDb.pool ?? new Pool({ connectionString: process.env.DATABASE_URL, max: 5 });
+if (process.env.NODE_ENV !== "production") globalForDb.pool = pool;
+
+export const db = drizzle(pool, { schema });
+```
+
+The `globalThis` trick stops hot reload in development from creating a new
+pool on every file save — the same pattern is used for a Prisma client
+singleton.
+
+## Connection pooling on serverless
+
+On a traditional server, one process holds one pool. On serverless, **every
+concurrent function instance** opens its own connections, and Postgres'
+connection limit (often around 100) is exhausted quickly under load. Fixes:
+
+- Point `DATABASE_URL` at a **pooler** — PgBouncer, Supabase's pooler, Neon's
+  pooled endpoint, or Prisma Accelerate — rather than the database directly.
+- Keep the per-instance pool small (`max: 1`–`5`).
+- On the Edge runtime, TCP drivers like `pg` do not work; use an HTTP or
+  WebSocket driver (e.g. Neon serverless) — or keep DB routes on Node.js.
+
+## A data access layer with `server-only`
+
+Don't scatter queries across components. Centralise them in a **Data
+Access Layer** (DAL) that checks authorization and returns only the fields
+the UI needs (a DTO):
+
+```ts
+// lib/dal/holdings.ts
+import "server-only";
+import { cache } from "react";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { holdings } from "@/lib/schema";
+import { getCurrentUser } from "./auth";
+
+export const getHoldings = cache(async () => {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Unauthorized");
+
+  return db
+    .select({ id: holdings.id, fundName: holdings.fundName, value: holdings.value })
+    .from(holdings)
+    .where(eq(holdings.userId, user.id));
+});
+```
+
+- `import "server-only"` makes the **build fail** if this module is ever
+  imported into a Client Component — so the DB client and `DATABASE_URL`
+  can never leak into the browser bundle.
+- Selecting explicit columns means a new `pan_number` column won't silently
+  flow to the client.
+
+## Request deduping with React `cache()`
+
+`fetch` calls are deduplicated automatically, but ORM queries are not.
+Wrapping a function in React's `cache()` memoizes it **for the current
+request only**: the layout, the page and three nested components can all
+call `getCurrentUser()` and the database is hit once. Nothing is shared
+between requests or users. For cross-request caching, that is a different
+tool — `"use cache"` with `cacheTag()` (Cache Components).
+
+## Avoiding waterfalls with `Promise.all`
+
+Sequential `await`s add their latencies together:
+
+```tsx
+export default async function FundPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+
+  // Bad: 120ms + 150ms + 90ms, one after another
+  // const fund = await getFund(id); const navs = await getNavHistory(id); ...
+
+  const [fund, navHistory, peers] = await Promise.all([
+    getFund(id),
+    getNavHistory(id),
+    getPeerFunds(id),
+  ]);  // ~150ms total: the slowest query wins
+
+  return <FundView fund={fund} navHistory={navHistory} peers={peers} />;
+}
+```
+
+If one query fails, `Promise.all` rejects as a whole; use `Promise.allSettled`
+when partial data is acceptable. If one query is much slower, move it into
+its own async component inside `Suspense` so the rest of the page streams
+first.
+
+### Try it yourself
+
+Create a `lib/dal/` folder with `import "server-only"`, a `cache()`-wrapped
+`getCurrentUser()`, and a `getTransactions()` function that returns only
+`id`, `date` and `amount` (in ₹) for the signed-in user. Call
+`getCurrentUser()` from both a layout and a page and confirm (by logging
+inside it) that it runs once per request. Then try importing the DAL from a
+Client Component and read the build error.

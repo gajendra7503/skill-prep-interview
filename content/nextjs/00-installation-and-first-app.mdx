@@ -1,0 +1,147 @@
+---
+title: "Installing Next.js & Your First App"
+description: "Set up Node.js, scaffold a project with create-next-app, run the dev server, and edit your first page."
+module: "Getting Started"
+level: "beginner"
+order: 1
+---
+
+Next.js is a **framework built on top of React**. React gives you
+components; Next.js adds everything around them that a real website needs:
+routing, server rendering, a build pipeline, image and font optimisation,
+and a way to write backend code in the same project. This lesson gets a
+working app running on your machine in about five minutes.
+
+## What you need first
+
+Next.js runs on **Node.js**, the JavaScript runtime that executes code
+outside the browser. Recent versions of Next.js need Node.js **20.9 or
+newer**. Check what you have:
+
+```bash
+node --version
+# v24.x.x   <- any version 20.9 or above is fine
+
+npm --version
+# 11.x.x    <- npm ships with Node.js
+```
+
+If the command is not found, install the LTS version from nodejs.org, then
+open a new terminal and check again. Any modern editor works; VS Code is the
+most common choice and understands TypeScript out of the box.
+
+## Scaffolding a project with `create-next-app`
+
+You don't set up a Next.js project by hand. The official CLI creates the
+folder, installs dependencies and writes sensible defaults:
+
+```bash
+npx create-next-app@latest my-app --yes
+cd my-app
+npm run dev
+# ▲ Next.js 16.x
+# - Local:   http://localhost:3000
+# ✓ Ready in 1.2s
+```
+
+- `npx` downloads and runs the latest `create-next-app` without installing
+  it globally.
+- `--yes` accepts the recommended defaults: **TypeScript, ESLint, Tailwind
+  CSS, the App Router, Turbopack** and the `@/*` import alias. Leave it off
+  and the CLI asks you each question instead.
+- `npm run dev` starts the **development server**. Open
+  `http://localhost:3000` in a browser and you'll see the starter page.
+
+## What got created
+
+```text
+my-app/
+  app/
+    layout.tsx       -> the root layout: <html> and <body> for every page
+    page.tsx         -> the home page, served at /
+    globals.css      -> global styles (Tailwind is imported here)
+  public/            -> static files served as-is, e.g. /logo.svg
+  next.config.ts     -> framework configuration
+  package.json       -> dependencies and npm scripts
+  tsconfig.json      -> TypeScript settings
+```
+
+The folder that matters most is `app/`. In the App Router, **folders become
+URLs** — you'll explore that properly in the App Router Fundamentals lesson.
+
+## Editing your first page
+
+Replace the contents of `app/page.tsx` with a component of your own:
+
+```tsx
+// app/page.tsx
+export default function HomePage() {
+  const fee = 499;
+  return (
+    <main className="p-8">
+      <h1 className="text-3xl font-bold">Hello, Next.js</h1>
+      <p>Course fee: ₹{fee}</p>
+    </main>
+  );
+}
+// Browser shows: "Hello, Next.js" and "Course fee: ₹499"
+```
+
+Save the file and the browser updates **instantly** without a reload. This
+is Fast Refresh: the dev server watches your files and patches only what
+changed, keeping component state where it can.
+
+## Adding a second page
+
+Create a folder with a `page.tsx` inside it:
+
+```tsx
+// app/about/page.tsx
+export default function AboutPage() {
+  return <h1>About us</h1>;
+}
+// Visit http://localhost:3000/about -> "About us"
+```
+
+No router configuration, no list of routes to maintain — the file's
+location *is* the route.
+
+## The four npm scripts
+
+```json
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  }
+}
+```
+
+- `npm run dev` — development server with Fast Refresh and detailed error
+  overlays. Use this while coding.
+- `npm run build` — creates an optimised production build in `.next/`.
+- `npm run start` — serves that production build. Always test a real build
+  before deploying; some behaviour (like caching and prefetching) only
+  happens in production.
+- `npm run lint` — checks your code with ESLint.
+
+Turbopack is the default bundler for both `dev` and `build` in Next.js 16;
+you only need `--webpack` if a project depends on custom webpack config.
+
+## Common first-day errors
+
+- **Port 3000 already in use** — another app is running there. Stop it, or
+  run `npm run dev -- -p 3001`.
+- **"Module not found"** — you imported a file with the wrong path or case.
+  Paths are case-sensitive on Linux servers even if Windows forgives you.
+- **Changes don't appear in `npm run start`** — production mode doesn't
+  watch files. Rebuild with `npm run build` first.
+
+### Try it yourself
+
+Create a new app with `create-next-app`, then add a `/pricing` page that
+lists three plans (Basic ₹299, Pro ₹999, Team ₹2,499) in a list. Run
+`npm run build` followed by `npm run start` and confirm the page works in
+production mode too.

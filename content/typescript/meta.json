@@ -1,0 +1,6 @@
+{
+  "title": "TypeScript",
+  "description": "Typed JavaScript from first annotations to generics, conditional and mapped types, runtime validation and TypeScript at scale.",
+  "icon": "typescript",
+  "accent": "#3178c6"
+}

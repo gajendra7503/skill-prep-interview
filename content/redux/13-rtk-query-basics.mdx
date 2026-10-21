@@ -1,0 +1,189 @@
+---
+title: "RTK Query Basics: createApi & Query Hooks"
+description: "Define an API slice with createApi and fetchBaseQuery, add it to the store, and fetch cached server data with auto-generated query hooks."
+module: "Data Fetching"
+level: "intermediate"
+order: 13
+---
+
+Fetching data with thunks means writing the same code again and again:
+`status`, `error`, pending/fulfilled/rejected cases, de-duplicating
+requests, deciding when to refetch. **RTK Query** is a data fetching and
+caching layer built into Redux Toolkit that does all of this for you. You
+describe your endpoints; it generates the reducer, middleware and React
+hooks.
+
+## Define an API slice
+
+Create one API slice per backend base URL, usually in `services/api.ts`.
+The example uses a fictional mutual fund platform, "Nivesh":
+
+```ts
+// services/fundsApi.ts
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+
+export const fundsApi = createApi({
+  reducerPath: "fundsApi", // key in the root state (default: "api")
+  baseQuery: fetchBaseQuery({ baseUrl: "https://api.nivesh.example" }),
+  endpoints: (build) => ({
+    getFunds: build.query<Fund[], void>({
+      query: () => "/funds",
+    }),
+    getFund: build.query<Fund, number>({
+      query: (id) => `/funds/${id}`,
+      transformResponse: (fund: Fund) => ({
+        ...fund,
+        label: `${fund.name} (NAV ₹${fund.navInr})`,
+      }),
+    }),
+  }),
+});
+
+export const { useGetFundsQuery, useGetFundQuery } = fundsApi;
+```
+
+Key pieces:
+
+| Option | Purpose |
+|---|---|
+| `reducerPath` | where the cache lives in the store |
+| `baseQuery` | how requests are made; `fetchBaseQuery` is a small wrapper around `fetch` |
+| `endpoints` | a builder callback; `build.query` for reads, `build.mutation` for writes |
+| `query` | turns the hook argument into a URL (or `{ url, method, body }`) |
+| `transformResponse` | reshape the response before it is cached |
+
+Import from `@reduxjs/toolkit/query/react` to get hooks (plain
+`@reduxjs/toolkit/query` has no hooks, handy for Node scripts). Hook names
+follow endpoint names: `getFunds` gives `useGetFundsQuery` and
+`useLazyGetFundsQuery`.
+
+## Add it to the store
+
+An API slice brings a reducer **and** a middleware. Forgetting the middleware
+is the most common setup bug: caching, refetching and cache expiry stop
+working.
+
+```ts
+import { configureStore } from "@reduxjs/toolkit";
+import { setupListeners } from "@reduxjs/toolkit/query";
+import { fundsApi } from "../services/fundsApi";
+
+export const store = configureStore({
+  reducer: { [fundsApi.reducerPath]: fundsApi.reducer /* , ...other slices */ },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(fundsApi.middleware),
+});
+
+setupListeners(store.dispatch); // optional: enables refetchOnFocus / refetchOnReconnect
+```
+
+## Use the query hook
+
+```tsx
+function FundList() {
+  const { data: funds, isLoading, isFetching, isError, error, refetch } =
+    useGetFundsQuery();
+
+  if (isLoading) return <Spinner />;
+  if (isError) return <p>Could not load funds.</p>;
+
+  return (
+    <section style={{ opacity: isFetching ? 0.6 : 1 }}>
+      <button onClick={() => refetch()}>Refresh</button>
+      <ul>
+        {funds?.map((f) => <li key={f.id}>{f.name}: ₹{f.navInr}</li>)}
+      </ul>
+    </section>
+  );
+}
+```
+
+No `useEffect`, no slice, no thunk. The hook starts the request on mount and
+re-renders when the cache entry changes.
+
+## isLoading vs isFetching
+
+This is a classic interview question. I rendered two `FundList`-style
+components against a local test server and logged the flags (real output,
+duplicates removed):
+
+```text
+render: { isLoading: true,  isFetching: true,  isSuccess: false, count: undefined }
+render: { isLoading: false, isFetching: false, isSuccess: true,  count: 2 }
+--- refetch()
+render: { isLoading: false, isFetching: true,  isSuccess: true,  count: 2 }
+render: { isLoading: false, isFetching: false, isSuccess: true,  count: 2 }
+server log: [ 'GET /funds', 'GET /funds' ]
+```
+
+- `isLoading`: the **first** load, with no data yet. Show a spinner.
+- `isFetching`: **any** request in flight, including refetches. Old `data`
+  is still available, so dim the list rather than blanking it.
+
+Notice the server got only **one** request on mount even though two
+components used the same hook. That is the next idea.
+
+## How the cache works
+
+Each endpoint plus argument is a **cache entry**, keyed like `getFund(1)`
+(so `getFund(2)` is separate). Components asking for the same entry share
+it:
+
+- **De-duplication.** Two components calling `useGetFundQuery(1)` cause one
+  request; each is a **subscription** to that entry.
+- **Cache lifetime.** After the last subscriber unmounts, data is kept for
+  `keepUnusedDataFor` seconds (default 60). Remount within that window and
+  it appears instantly with no request.
+
+```js
+// Node test with keepUnusedDataFor: 1 against a local server
+const s1 = store.dispatch(api.endpoints.getFunds.initiate()); await s1; s1.unsubscribe();
+const s2 = store.dispatch(api.endpoints.getFunds.initiate()); await s2; s2.unsubscribe();
+console.log(hits);                                   // [ 'GET /funds' ]  (served from cache)
+await new Promise((r) => setTimeout(r, 1500));
+console.log(Object.keys(store.getState().api.queries)); // []  (expired)
+```
+
+You can inspect the cache in Redux DevTools under `reducerPath`.
+
+## Hook options you will use often
+
+```tsx
+// No request until we have an id; status stays "uninitialized"
+const { data } = useGetFundQuery(selectedId ?? skipToken);
+// On mount, refetch if cached data is older than 30s (true = always)
+useGetFundsQuery(undefined, { refetchOnMountOrArgChange: 30 });
+// Refetch when the browser tab regains focus (needs setupListeners)
+useGetFundsQuery(undefined, { refetchOnFocus: true });
+```
+
+Polling and prefetching are covered in "Advanced RTK Query: Optimistic
+Updates, Polling & Code Splitting".
+
+## Errors
+
+`fetchBaseQuery` does not throw. A non-2xx response becomes `error` with
+the HTTP status and parsed body (real output for a missing fund):
+
+```js
+const r = await store.dispatch(fundsApi.endpoints.getFund.initiate(99));
+console.log(r.isError, r.error);
+// true { status: 404, data: { message: 'Fund not found' } }
+```
+
+Network failures produce `status: "FETCH_ERROR"` instead of a number, so
+check the type before showing `error.status` to users.
+
+Interviewers often ask: "When would you use RTK Query instead of
+createAsyncThunk?" RTK Query for server state that should be cached, shared
+and kept fresh; thunks for workflows beyond "fetch and cache", such as
+multi-step checkout logic.
+
+### Try it yourself
+
+1. Create an API slice for `https://jsonplaceholder.typicode.com` with
+   `getUsers` and `getUser(id)` endpoints, and render a user list.
+2. Mount two components that call `useGetUserQuery(1)` and confirm in the
+   Network tab that only one request is sent.
+3. Add a "Refresh" button and show "Updating..." only while `isFetching`
+   is true and `isLoading` is false.

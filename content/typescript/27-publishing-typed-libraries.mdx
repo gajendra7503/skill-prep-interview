@@ -1,0 +1,188 @@
+---
+title: "Publishing Typed Libraries"
+description: "Shipping an npm package whose types work for every consumer: package.json exports and the types condition, ESM versus CommonJS, declaration emit, type tests and API stability."
+module: "Pro Level"
+level: "pro"
+order: 27
+---
+
+Writing a library in TypeScript is easy. Publishing one whose types resolve
+correctly for a Node ESM app, a CommonJS script, a Vite bundle and a Next.js
+project is not. Most "the types are broken" bug reports on popular packages come
+from packaging, not from the types themselves. This lesson assumes you know how
+`.d.ts` files and `@types` work (see "Modules, Declaration Files & @types") and
+focuses on what changes when **you** are the publisher.
+
+## The goal: one `package.json`, every resolver happy
+
+Consumers' TypeScript resolves your package according to their
+`moduleResolution` setting: `nodenext`/`node16` (follows Node's rules, including
+`exports` and the ESM/CJS split), `bundler` (follows `exports` like a bundler
+does), or the legacy `node10` (ignores `exports` entirely; removed in TypeScript 7, but
+consumers on older compilers still use it). A well-built package
+answers correctly for each.
+
+Here is a modern, ESM-only package for a fictional `@fictional/rupee` library:
+
+```json
+{
+  "name": "@fictional/rupee",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".":        { "types": "./dist/index.d.ts",  "default": "./dist/index.js" },
+    "./format": { "types": "./dist/format.d.ts", "default": "./dist/format.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "src"],
+  "sideEffects": false
+}
+```
+
+Key rules:
+
+- **`exports` is the public API.** Anything not listed cannot be imported by
+  consumers using `nodenext` or `bundler`. That is a feature: internals stay private.
+- **`types` comes first** inside each condition object. Conditions are matched
+  in order, so a `types` entry placed after `default` is never reached.
+- **`"type": "module"`** makes `.js` and `.d.ts` files in the package ESM. A
+  CommonJS build needs `.cjs` files with matching `.d.cts` declarations.
+- Include `src` (with `declarationMap`) if you want "Go to definition" to land on
+  your real source instead of a `.d.ts`.
+
+## Compiler settings for a library
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "nodenext",
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "verbatimModuleSyntax": true,
+    "isolatedDeclarations": true,
+    "stripInternal": true,
+    "types": []
+  },
+  "include": ["src"]
+}
+```
+
+`module: "nodenext"` is the safest choice for a published package: it forces
+explicit `.js` extensions on relative imports, which is what Node requires at
+runtime, and output that satisfies Node also satisfies bundlers. `types: []`
+stops ambient `@types` packages from leaking into your build, so you do not
+accidentally depend on, say, Node globals in a browser library.
+`isolatedDeclarations` keeps the public surface explicitly annotated (see
+"TypeScript at Scale: Project References & Compiler Performance").
+
+`stripInternal` drops anything tagged `/** @internal */` from the `.d.ts`:
+
+```ts
+// src/index.ts
+export type Paise = number & { readonly __brand: "Paise" };
+export function paise(rupees: number): Paise {
+  return Math.round(rupees * 100) as Paise;
+}
+/** @internal */
+export function _debug(): string { return "x"; }
+```
+
+```ts
+// dist/index.d.ts (generated)
+export type Paise = number & {
+    readonly __brand: "Paise";
+};
+export declare function paise(rupees: number): Paise;
+//# sourceMappingURL=index.d.ts.map
+```
+
+## ESM, CommonJS, or both?
+
+| Option | Pros | Cons |
+|---|---|---|
+| ESM only | One build, one set of types, no dual-package hazard | Older CommonJS consumers must use `import()` |
+| Dual (ESM + CJS) | Works for every consumer | Two builds, two `.d.ts` flavours, risk of loading two copies |
+| CJS only | Simple for legacy Node | Poor tree-shaking; feels dated |
+
+Recent Node versions can `require()` a synchronous ES module, which takes much of
+the pain out of going ESM-only for new libraries. If you need dual output, use a
+tool built for it (tsup, tshy, tsdown and others) rather than hand-writing two
+configs, and give each format its own declarations:
+
+```json
+"exports": {
+  ".": {
+    "import":  { "types": "./dist/index.d.ts",  "default": "./dist/index.js" },
+    "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+  }
+}
+```
+
+A single `.d.ts` shared by both formats is the classic "masquerading as ESM/CJS"
+bug: TypeScript believes the module format is something it is not.
+
+## Verify before you publish
+
+Run "Are the Types Wrong?" against the packed tarball:
+
+```bash
+npx @arethetypeswrong/cli --pack .
+# "@fictional/rupee"
+# node10:            Resolution failed
+# node16 (from CJS): ESM (dynamic import only)
+# node16 (from ESM): (ESM)  OK
+# bundler:           OK
+```
+
+For an intentionally ESM-only package, `--profile esm-only` treats the first two
+lines as expected. Pair it with `publint` for general packaging mistakes, and
+`npm pack --dry-run` to see exactly which files ship.
+
+## Type tests and API stability
+
+Your types are part of your public API, so test them like code:
+
+```ts
+import { expectTypeOf } from "vitest"; // or the expect-type / tsd packages
+import { paise, type Paise } from "@fictional/rupee";
+
+expectTypeOf(paise(10)).toEqualTypeOf<Paise>();
+// @ts-expect-error: a plain number is not Paise
+const p: Paise = 1000;
+```
+
+Semver for types is stricter than people expect. Treat these as **breaking**:
+removing or renaming an export, narrowing a parameter type, widening a return
+type, adding a required property to an input type, and raising the minimum
+supported TypeScript version. Adding an optional property or a new export is
+usually minor.
+
+- If your public `.d.ts` references types from another package (for example
+  `@types/express`), list that package in `dependencies` or `peerDependencies`,
+  not `devDependencies`, or consumers get `any` or errors.
+- State the TypeScript versions you support, and test the oldest in CI.
+  `typesVersions` in `package.json` can serve different declarations to older
+  compilers if you must.
+- For large APIs, tools such as API Extractor can roll up declarations into one
+  file and fail CI when the public surface changes unexpectedly.
+
+Interviewers often ask: "A user says your package has no types in their project,
+but it works for you. What do you check?" Their `moduleResolution`, your
+`exports` map (is `types` first, does the subpath exist), the file extensions
+(`.d.ts` vs `.d.cts`), whether the declaration files are in `files`, and the
+output of `@arethetypeswrong/cli`.
+
+### Try it yourself
+
+1. Build the `@fictional/rupee` package above with two entry points, run
+   `npm pack --dry-run` and `@arethetypeswrong/cli --pack .`, and explain every line.
+2. Consume it from a second project twice, once with `moduleResolution: "nodenext"`
+   and once with `"bundler"`. Try importing `@fictional/rupee/dist/index.js`
+   directly and read the error.
+3. Add a type test that fails if `formatInr` ever starts accepting a plain
+   `number`, then make that change and watch CI catch it.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `uniq -c` usually follow `sort` in a pipeline?",
+      "options": [
+        "uniq only reads input that has been sorted numerically",
+        "uniq only collapses adjacent duplicate lines, so identical lines must be grouped together first",
+        "sort removes the header line that uniq cannot handle",
+        "uniq -c requires a field separator that sort provides"
+      ],
+      "correctIndex": 1,
+      "explanation": "uniq compares each line only with the previous one. Sorting brings identical lines next to each other so they are counted together."
+    },
+    {
+      "question": "What does `echo \"a-b-c\" | sed 's/-/+/'` print?",
+      "options": [
+        "a+b+c",
+        "a-b-c",
+        "a+b-c",
+        "+a-b-c"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without the g flag, s/// replaces only the first match on each line. s/-/+/g would print a+b+c."
+    },
+    {
+      "question": "Given a comma-separated file whose 3rd column is a department and 5th is a salary, which command prints total salary per department (skipping the header)?",
+      "options": [
+        "awk -F, 'NR>1 {sum[$3]+=$5} END {for (d in sum) print d, sum[d]}' employees.csv",
+        "cut -d, -f3,5 employees.csv | uniq -c",
+        "sort -t, -k5,5n employees.csv | head -1",
+        "sed -n '3,5p' employees.csv"
+      ],
+      "correctIndex": 0,
+      "explanation": "awk accumulates the 5th field into an associative array keyed by the 3rd field and prints the totals in the END block. The other commands do not sum anything."
+    },
+    {
+      "question": "You need to sort a CSV numerically by its 5th column only. Which sort options are correct?",
+      "options": [
+        "sort -k5",
+        "sort -n -k5,5",
+        "sort -u -t, -f5",
+        "sort -t, -k5,5n"
+      ],
+      "correctIndex": 3,
+      "explanation": "-t, sets the comma separator and -k5,5n sorts on field 5 alone, numerically. Without -t, sort splits on whitespace, and -k5 alone means field 5 to the end of the line."
+    }
+  ]
+}

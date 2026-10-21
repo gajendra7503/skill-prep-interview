@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which kernel feature limits how much memory and CPU a container may use?",
+      "options": [
+        "Namespaces",
+        "cgroups",
+        "OverlayFS",
+        "chroot"
+      ],
+      "correctIndex": 1,
+      "explanation": "Namespaces control what a process can see; cgroups (for example memory.max and cpu.max) control how much it can use."
+    },
+    {
+      "question": "Why does `unshare --pid` need `--fork` to give you a shell that is PID 1?",
+      "options": [
+        "Because only fork can mount /proc",
+        "Because PID namespaces require root",
+        "Because the calling process cannot move into the new PID namespace; only its children are created inside it",
+        "Because bash refuses to run without a parent"
+      ],
+      "correctIndex": 2,
+      "explanation": "After unshare(CLONE_NEWPID), the caller stays in its old PID namespace and its next child becomes PID 1 in the new one, so unshare forks."
+    },
+    {
+      "question": "A container modifies a file that came from its image. What does OverlayFS do?",
+      "options": [
+        "Copies the file up into the writable upperdir and modifies the copy, leaving the image layer unchanged",
+        "Edits the file in the shared read-only image layer",
+        "Refuses the write with a read-only error",
+        "Creates a whiteout in the lower layer"
+      ],
+      "correctIndex": 0,
+      "explanation": "Lower layers are never changed. The first write triggers copy-up into upperdir, so other containers sharing the image are unaffected."
+    },
+    {
+      "question": "In cgroup v2, what does `cpu.max` containing `50000 100000` mean?",
+      "options": [
+        "50,000 processes out of 100,000",
+        "50 MB out of 100 MB",
+        "CPU affinity to cores 5 and 10",
+        "The group may use 50 ms of CPU time per 100 ms period, which is half of one CPU"
+      ],
+      "correctIndex": 3,
+      "explanation": "The format is quota and period in microseconds. 50000 of every 100000 microseconds equals 0.5 CPU."
+    }
+  ]
+}

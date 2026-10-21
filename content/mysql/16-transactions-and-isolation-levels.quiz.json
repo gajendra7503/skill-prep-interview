@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the default transaction isolation level for InnoDB in MySQL 8.0/8.4?",
+      "options": [
+        "READ UNCOMMITTED",
+        "READ COMMITTED",
+        "REPEATABLE READ",
+        "SERIALIZABLE"
+      ],
+      "correctIndex": 2,
+      "explanation": "InnoDB defaults to REPEATABLE READ (SELECT @@transaction_isolation returns REPEATABLE-READ)."
+    },
+    {
+      "question": "Inside an open transaction you run `ALTER TABLE orders ADD COLUMN note TEXT`. What happens to your earlier uncommitted UPDATEs?",
+      "options": [
+        "They are implicitly committed before the DDL runs",
+        "They stay pending and can still be rolled back together with the ALTER",
+        "They are automatically rolled back",
+        "The ALTER TABLE is rejected until you commit"
+      ],
+      "correctIndex": 0,
+      "explanation": "DDL causes an implicit commit. MySQL 8.0 DDL is atomic but not transactional, so neither it nor the earlier work can be rolled back afterwards."
+    },
+    {
+      "question": "Under REPEATABLE READ, session A reads a balance of ₹25,000, then session B commits an update to ₹30,000. What does A see for a plain SELECT versus SELECT ... FOR UPDATE?",
+      "options": [
+        "₹30,000 for both",
+        "₹25,000 for both",
+        "The plain SELECT blocks until B commits",
+        "₹25,000 for the plain SELECT (snapshot) and ₹30,000 for FOR UPDATE (latest committed)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Plain SELECTs are consistent nonlocking reads from the transaction's snapshot; locking reads read and lock the latest committed version."
+    },
+    {
+      "question": "In a transaction, the second of two UPDATEs fails a CHECK constraint. What does InnoDB do by default?",
+      "options": [
+        "Rolls back the entire transaction",
+        "Rolls back only the failing statement; the application must decide to ROLLBACK or COMMIT",
+        "Commits the first UPDATE automatically",
+        "Retries the statement until it succeeds"
+      ],
+      "correctIndex": 1,
+      "explanation": "Most errors roll back only the failing statement. Deadlocks are the notable exception, where the whole victim transaction is rolled back."
+    }
+  ]
+}

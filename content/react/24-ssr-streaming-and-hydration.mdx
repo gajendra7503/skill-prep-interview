@@ -1,0 +1,157 @@
+---
+title: "SSR, Streaming & Hydration"
+description: "How React renders on the server, streams HTML with Suspense, hydrates it in the browser, and how to debug hydration mismatches."
+module: "Pro Level"
+level: pro
+order: 25
+---
+
+Frameworks hide this machinery, but when a production page shows a hydration
+error, a slow Time to First Byte, or a button that ignores clicks for two
+seconds, you need to know what is happening underneath. This lesson covers
+the React DOM server APIs and the hydration contract.
+
+## The pipeline
+
+1. **Server render**: React renders the tree to HTML on the server.
+2. **Send HTML**: the browser paints content before any JavaScript runs.
+3. **Load JS**: the client bundle downloads.
+4. **Hydrate**: React renders the same tree in the browser, attaches event
+   handlers to the existing DOM, and takes over. It does not recreate nodes.
+
+Until step 4 finishes for a part of the page, that part is visible but not
+interactive.
+
+## From `renderToString` to streaming
+
+`renderToString` waits for the whole tree and has no real Suspense support:
+it sends the fallback for anything that suspends. Modern apps stream. In
+Node.js use `renderToPipeableStream`; in Web-stream runtimes (Deno, edge
+workers, Bun) use `renderToReadableStream`.
+
+```tsx
+import { renderToPipeableStream } from "react-dom/server";
+
+app.get("*", (req, res) => {
+  let didError = false;
+  const { pipe, abort } = renderToPipeableStream(<App url={req.url} />, {
+    bootstrapScripts: ["/assets/client.js"],
+    onShellReady() {
+      res.statusCode = didError ? 500 : 200;
+      res.setHeader("Content-Type", "text/html");
+      pipe(res); // start sending the shell immediately
+    },
+    onShellError() {
+      res.statusCode = 500;
+      res.send("Something went wrong");
+    },
+    onError(error) {
+      didError = true;
+      console.error(error); // log every server rendering error
+    },
+  });
+  setTimeout(abort, 10_000); // stop waiting for slow data
+});
+```
+
+The **shell** is everything outside the nearest `Suspense` boundaries. It is
+sent as soon as it's ready; each suspended section streams in later as an
+HTML chunk plus a tiny inline script that swaps it into place. For crawlers
+or static generation, wait for `onAllReady` instead of `onShellReady`.
+
+## Choosing Suspense boundaries
+
+```tsx
+<Layout>
+  <Header />                              {/* shell: fast, always ready */}
+  <Suspense fallback={<HoldingsSkeleton />}>
+    <Holdings />                          {/* slow DB query streams later */}
+  </Suspense>
+  <Suspense fallback={<NewsSkeleton />}>
+    <MarketNews />                        {/* independent third-party API */}
+  </Suspense>
+</Layout>
+```
+
+Boundaries are design decisions: too few and one slow query blocks the whole
+page; too many and the page pops in piece by piece.
+
+## Hydrating on the client
+
+```tsx
+import { hydrateRoot } from "react-dom/client";
+
+hydrateRoot(document, <App url={window.location.pathname} />, {
+  onRecoverableError(error) {
+    reportToMonitoring(error); // mismatches and recovered errors land here
+  },
+});
+```
+
+With streaming, hydration is **selective**: each Suspense boundary hydrates
+independently, and if the user clicks inside a boundary that hasn't hydrated
+yet, React prioritises hydrating that one first.
+
+## Hydration mismatches
+
+The first client render must produce **exactly** the HTML the server sent.
+Common causes of mismatches:
+
+```tsx
+// 1. Values that differ between server and client
+<p>Updated {new Date().toLocaleTimeString()}</p>
+<p>Id: {Math.random()}</p>
+
+// 2. Branching on the environment during render
+{typeof window !== "undefined" && <ThemeToggle />}
+
+// 3. Locale or timezone differences
+<p>{amount.toLocaleString()}</p>  // server en-US "1,250,000" vs client en-IN "12,50,000"
+
+// 4. Invalid HTML nesting the browser "repairs", e.g. a div inside a p
+```
+
+Fixes, in order of preference:
+
+```tsx
+// Stable ids that match on both sides
+const id = useId();
+
+// Fixed locale and timezone for formatting
+amount.toLocaleString("en-IN");
+
+// Client-only values: render a placeholder, fill in after hydration
+const [now, setNow] = useState<string | null>(null);
+useEffect(() => setNow(new Date().toLocaleTimeString("en-IN")), []);
+return <p>Updated {now ?? "just now"}</p>;
+
+// Last resort for unavoidable text differences (one level deep only)
+<time suppressHydrationWarning>{new Date().toISOString()}</time>
+```
+
+When a mismatch can't be patched, React falls back to client rendering
+that part of the tree. Users get a slower page, and you get a recoverable
+error report.
+
+## Static prerendering
+
+For pages that can be built ahead of time, React 19 added `prerender` and
+`prerenderToNodeStream` in `react-dom/static`. They wait for all data,
+including Suspense content, and return complete HTML. That is what
+frameworks use for static generation.
+
+## Metrics to watch
+
+- **TTFB** improves with an early shell.
+- **LCP** depends on the largest content being in the shell or streaming in
+  early.
+- **INP** suffers when large bundles keep the main thread busy hydrating.
+  Smaller client bundles (see Server Components) help most.
+
+### Try it yourself
+
+Create a minimal Express server that streams an `App` with one `Suspense`
+boundary around a component that awaits a two-second promise. Watch the
+response in the browser's Network panel to see the shell arrive first. Then
+add `new Date().toLocaleTimeString()` to the shell, observe the mismatch
+report, and fix it with the `useEffect` pattern.

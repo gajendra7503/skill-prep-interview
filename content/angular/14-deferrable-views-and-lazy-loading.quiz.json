@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the default trigger for a `@defer` block when none is specified?",
+      "options": [
+        "on viewport",
+        "on interaction",
+        "on idle",
+        "on immediate"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without an explicit trigger, `@defer` uses `on idle`, loading the deferred chunk once the browser is idle (via requestIdleCallback)."
+    },
+    {
+      "question": "What does `@defer (on interaction; prefetch on hover)` do?",
+      "options": [
+        "Downloads the chunk when the user hovers, and renders the content when they click or press a key",
+        "Renders the content on hover and removes it on click",
+        "Downloads and renders the content on hover; the interaction trigger is ignored",
+        "Prefetches the chunk at build time and renders it on hover"
+      ],
+      "correctIndex": 0,
+      "explanation": "`prefetch` only downloads the chunk. The main trigger (`on interaction`) decides when the content is actually rendered, so the code is usually ready by the time the user clicks."
+    },
+    {
+      "question": "You wrapped a chart component in `@defer`, but the main bundle did not get smaller. What is the most likely cause?",
+      "options": [
+        "`@defer` only works with NgModule-based components",
+        "`@defer` blocks are always bundled eagerly in production builds",
+        "You forgot to add an `@error` block",
+        "The same component is also referenced outside the `@defer` block (in the template or class), so it must stay in the main bundle"
+      ],
+      "correctIndex": 3,
+      "explanation": "Only standalone dependencies used exclusively inside the `@defer` block are split into the lazy chunk. Any other reference in the same component keeps them eager."
+    },
+    {
+      "question": "Which router configuration preloads every lazy route in the background after the app bootstraps?",
+      "options": [
+        "provideRouter(routes, withPreloading(NoPreloading))",
+        "provideRouter(routes, withPreloading(PreloadAllModules))",
+        "provideRouter(routes, withLazyLoading())",
+        "Setting `preload: true` on every route's `loadComponent`"
+      ],
+      "correctIndex": 1,
+      "explanation": "`withPreloading(PreloadAllModules)` fetches all lazy chunks once the app is idle. `NoPreloading` is the default, and a custom PreloadingStrategy can preload selectively."
+    }
+  ]
+}

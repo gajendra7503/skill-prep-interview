@@ -1,0 +1,211 @@
+---
+title: "Real Project: Type-Safe Expense Tracker"
+description: "Build a small expense tracker end to end: branded domain types, discriminated unions, Zod schemas at the API boundary, a generic Result type and a fully typed API client."
+module: "Real-World Project"
+level: "pro"
+order: 28
+---
+
+Time to combine the course into one build: the core of an expense tracker for a
+fictional app, "Fictional Ledger". It fetches expenses from an API, validates
+them, and reports monthly spend per category in ₹. The goal is a codebase where
+the *only* place untrusted data enters is checked, and everything after that is
+fully typed. You will use `as const`, branded types, discriminated unions with
+exhaustive checks, generics with `infer` and variadic tuples, Zod at the
+boundary, and a `Result` type instead of thrown errors.
+
+## Step 0: setup
+
+```bash
+mkdir ledger && cd ledger && npm init -y && npm pkg set type=module
+npm install zod && npm install -D typescript @types/node
+```
+
+Node 24 runs `.ts` files by stripping types, so `tsc` only checks. Create a
+`tsconfig.json` with `"include": ["src"]` and these `compilerOptions`: `target`
+`"ES2022"`, `module` `"nodenext"`, `types` `["node"]`, and `true` for `strict`,
+`noUncheckedIndexedAccess`, `noEmit`, `allowImportingTsExtensions`,
+`erasableSyntaxOnly` and `verbatimModuleSyntax`.
+
+## Step 1: schemas and types from one source
+
+Money is stored as integer **paise** (never floating-point rupees) and branded so
+it cannot mix with other numbers. An expense is one of three kinds, so it is a
+discriminated union on `kind`. Every type is derived from a schema; there are no
+hand-written interfaces to drift out of sync.
+
+```ts
+// src/schemas.ts
+import { z } from "zod";
+
+export const CATEGORIES = ["food", "travel", "rent", "utilities", "shopping"] as const;
+export const Category = z.enum(CATEGORIES);
+export const Paise = z.number().int().nonnegative().brand<"Paise">();
+export const ExpenseId = z.string().min(1).brand<"ExpenseId">();
+
+const base = { title: z.string().min(1), category: Category, date: z.iso.date() };
+const OneOff = z.object({ ...base, kind: z.literal("one-off"), amount: Paise });
+const Recurring = z.object({ ...base, kind: z.literal("recurring"), amount: Paise,
+  every: z.enum(["month", "year"]) });
+const Split = z.object({ ...base, kind: z.literal("split"), total: Paise, myShare: Paise });
+
+export const NewExpense = z.discriminatedUnion("kind", [OneOff, Recurring, Split]);
+export const Expense = z.discriminatedUnion("kind", [
+  OneOff.extend({ id: ExpenseId }), Recurring.extend({ id: ExpenseId }), Split.extend({ id: ExpenseId }),
+]);
+
+// Types share the schema names (values and types live in separate namespaces).
+export type Category = z.infer<typeof Category>;  // "food" | "travel" | ...
+export type Paise = z.infer<typeof Paise>;        // number & z.$brand<"Paise">
+export type Expense = z.infer<typeof Expense>;    // union of three object types
+export type NewExpense = z.input<typeof NewExpense>;
+```
+
+## Step 2: a typed API client
+
+Describe endpoints as data with `as const satisfies`, and let generics derive each
+call's body and response. `BodyArgs` returns a tuple, so an endpoint without a
+body takes no second argument at all.
+
+```ts
+// src/api-client.ts
+import { z } from "zod";
+import { Expense, NewExpense } from "./schemas.ts";
+
+export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
+export type ApiError =
+  | { kind: "network"; message: string }
+  | { kind: "http"; status: number }
+  | { kind: "validation"; issues: string[] };
+
+type Endpoint = { method: "GET" | "POST"; path: string; body?: z.ZodType; response: z.ZodType };
+const endpoints = {
+  listExpenses: { method: "GET", path: "/expenses", response: z.array(Expense) },
+  createExpense: { method: "POST", path: "/expenses", body: NewExpense, response: Expense },
+} as const satisfies Record<string, Endpoint>;
+
+type Endpoints = typeof endpoints;
+type BodyArgs<E> = E extends { body: infer B extends z.ZodType } ? [body: z.input<B>] : [];
+type ResponseOf<E> = E extends { response: infer R extends z.ZodType } ? z.output<R> : never;
+
+export function createClient(baseUrl: string, fetchFn: typeof fetch = fetch) {
+  return async function call<K extends keyof Endpoints>(
+    name: K, ...args: BodyArgs<Endpoints[K]>
+  ): Promise<Result<ResponseOf<Endpoints[K]>, ApiError>> {
+    const ep: Endpoint = endpoints[name];
+    let res: Response;
+    try {
+      res = await fetchFn(baseUrl + ep.path, { method: ep.method,
+        headers: { "content-type": "application/json" },
+        body: args.length ? JSON.stringify(args[0]) : undefined });
+    } catch (e) {
+      return { ok: false, error: { kind: "network", message: String(e) } };
+    }
+    if (!res.ok) return { ok: false, error: { kind: "http", status: res.status } };
+
+    const parsed = ep.response.safeParse(await res.json()); // the boundary
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
+      return { ok: false, error: { kind: "validation", issues } };
+    }
+    return { ok: true, value: parsed.data as ResponseOf<Endpoints[K]> };
+  };
+}
+```
+
+The single cast is contained: `parsed.data` really is the endpoint's response
+type, but TypeScript cannot follow that through the widened `ep`. Callers get
+precise errors:
+
+```ts
+api("listExpenses", {});  // error TS2554: Expected 1 arguments, but got 2
+api("createExpense");     // error TS2554: Expected 2 arguments, but got 1
+api("deleteExpense");     // error TS2345: not assignable to "createExpense" | "listExpenses"
+api("createExpense", { kind: "split", amount: 5 /* ... */ }); // error: 'amount' does not exist
+```
+
+## Step 3: business logic with exhaustive checks
+
+```ts
+// src/report.ts
+import { CATEGORIES, type Category, type Expense } from "./schemas.ts";
+
+function assertNever(x: never): never { throw new Error(`Unhandled: ${JSON.stringify(x)}`); }
+
+export function monthlyCost(e: Expense): number {
+  switch (e.kind) {
+    case "one-off":   return e.amount;
+    case "recurring": return e.every === "month" ? e.amount : Math.round(e.amount / 12);
+    case "split":     return e.myShare;
+    default:          return assertNever(e); // add a 4th kind and this stops compiling
+  }
+}
+
+export function totalsByCategory(expenses: readonly Expense[]): Record<Category, number> {
+  const totals = Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<Category, number>;
+  for (const e of expenses) totals[e.category] += monthlyCost(e);
+  return totals;
+}
+
+const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
+export const formatInr = (paise: number): string => inr.format(paise / 100);
+```
+
+## Step 4: wire it up
+
+For a self-contained run, write `src/fake-server.ts` exporting a
+`fakeFetch: typeof fetch` that serves an in-memory array with `Response.json(...)`:
+rent ₹25,000/month, groceries ₹3,450.50, a ₹48,000 Goa trip split four ways, and
+broadband ₹11,880/year. Add `corruptLastRecord()`, which pushes a record whose
+`amount` is the string `"150.00"`.
+
+```ts
+// src/main.ts
+import { createClient } from "./api-client.ts";
+import { fakeFetch, corruptLastRecord } from "./fake-server.ts";
+import { formatInr, monthlyCost, totalsByCategory } from "./report.ts";
+
+const api = createClient("https://api.fictional-ledger.test", fakeFetch);
+await api("createExpense", { kind: "one-off", title: "Metro card", category: "travel",
+  date: "2026-10-10", amount: 50000 });
+
+const list = await api("listExpenses");
+if (!list.ok) throw new Error(JSON.stringify(list.error));
+for (const e of list.value) console.log(e.title.padEnd(12), formatInr(monthlyCost(e)));
+console.log("Month total:", formatInr(Object.values(totalsByCategory(list.value)).reduce((a, b) => a + b, 0)));
+
+corruptLastRecord();
+const again = await api("listExpenses");
+if (!again.ok) console.log(again.error);
+```
+
+```bash
+npx tsc && node src/main.ts
+# Flat rent    ₹25,000.00
+# Groceries    ₹3,450.50
+# Goa trip     ₹12,000.00
+# Broadband    ₹990.00
+# Metro card   ₹500.00
+# Month total: ₹41,940.50
+# { kind: 'validation', issues: [ '5.amount: Invalid input: expected number, received string' ] }
+```
+
+The bad record never reaches `monthlyCost`: it is stopped at the boundary, with
+the exact path of the problem.
+
+## Extend it
+
+- Add a `RupeesInput` schema that turns form text like `"1,499.50"` into `Paise`
+  with `.transform(...).pipe(Paise)`.
+- Add `updateExpense` (`PATCH /expenses/:id`) and type the path parameter with a
+  template literal type.
+- Add a fourth kind, `"emi"`, and let the compiler list every place to update.
+- Share `schemas.ts` with an Express server via a `shared` package and project references.
+
+### Try it yourself
+
+1. Build the project, write `fake-server.ts`, and reproduce the output above.
+2. Add `budgets: Record<Category, Paise>` and an `overBudget(expenses, budgets)`
+   function that returns a typed list of categories and how far over they are.
+3. Make `createClient` retry once on `{ kind: "network" }` errors without changing
+   its public type, and prove it with an `expectTypeOf` test.

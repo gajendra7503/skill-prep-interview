@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `SELECT name FROM customers WHERE city = NULL` return no rows?",
+      "options": [
+        "NULL is stored as an empty string",
+        "Any comparison with NULL is unknown, so = never matches; IS NULL is required",
+        "The city column must be declared NOT NULL first",
+        "MySQL does not allow NULL in a WHERE clause"
+      ],
+      "correctIndex": 1,
+      "explanation": "NULL means missing or unknown, so comparing it with = yields NULL rather than true. Use IS NULL or IS NOT NULL."
+    },
+    {
+      "question": "Which statement belongs to the DDL family?",
+      "options": [
+        "UPDATE",
+        "GRANT",
+        "COMMIT",
+        "ALTER"
+      ],
+      "correctIndex": 3,
+      "explanation": "DDL defines structure: CREATE, ALTER, DROP, TRUNCATE. UPDATE is DML, GRANT is DCL and COMMIT is TCL."
+    },
+    {
+      "question": "What does the foreign key on orders.customer_id achieve?",
+      "options": [
+        "It makes orders.id unique",
+        "It sorts orders by customer",
+        "MySQL refuses an order for a customer that does not exist",
+        "It copies the customer name into each order"
+      ],
+      "correctIndex": 2,
+      "explanation": "A foreign key points at a primary key in another table, so rows that reference a missing parent are rejected."
+    },
+    {
+      "question": "Why should you not rely on a table returning rows in a particular order?",
+      "options": [
+        "A table has no built-in row order; you must use ORDER BY",
+        "Rows are always returned in random order",
+        "Rows are always sorted by the primary key",
+        "Order is fixed by the column names"
+      ],
+      "correctIndex": 0,
+      "explanation": "Unlike a spreadsheet, a table has no inherent row order, so sorted results must be requested with ORDER BY."
+    }
+  ]
+}

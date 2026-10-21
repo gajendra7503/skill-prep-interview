@@ -1,0 +1,127 @@
+---
+title: "Roles and System Prompts"
+description: "Use system prompts to give the model real context, a clear audience, and persistent rules that stay maintainable as your application grows."
+module: "Core Techniques"
+level: "intermediate"
+order: 9
+---
+
+Most chat interfaces and every LLM API let you send two kinds of text: a
+**system prompt** that frames the whole conversation, and **user messages**
+that carry each individual request. Knowing what belongs in each — and how
+to write a role that actually changes behaviour — is the difference between
+a generic assistant and one that sounds like it works at your company.
+
+## What a system prompt is
+
+The system prompt is text the model reads before any user turn. It sets the
+standing context: who the assistant is, who it is talking to, what it must
+always or never do, and what format it should default to. It persists across
+every turn of the conversation, so it is the natural home for anything that
+should not change from one request to the next.
+
+In the Claude API it is the top-level `system` parameter, separate from the
+`messages` list. In consumer chat apps the equivalent is a project
+instruction or custom-instructions field.
+
+## A role is more than a job title
+
+"You are an expert" is the weakest possible role. It tells the model almost
+nothing about *which* expertise, *for whom*, or *under what constraints*.
+A useful role describes the situation the assistant is operating in.
+
+Weak:
+
+```text
+You are an expert customer support agent.
+```
+
+Improved:
+
+```text
+You are the first-line support assistant for Kavach Home Insurance, a
+fictional insurer used in our internal training portal. You reply to
+policyholders who write in by email, mostly about claim status, document
+requirements, and renewal dates.
+
+Most customers are not familiar with insurance terms, and many write in a
+mix of English and Hindi. They are often anxious because a claim is pending.
+
+Your goal is to give a clear next step in every reply. You cannot approve,
+reject, or promise claim amounts — only the claims team can — so when a
+customer asks about money, explain the process and offer to escalate.
+```
+
+The improved version gives the model the company, the channel, the
+audience, the emotional context, the goal, and the limits of its authority.
+Each detail changes what a good reply looks like.
+
+## Tone and audience
+
+State the audience explicitly rather than describing a tone in the
+abstract. "Friendly but professional" is vague; "write as a senior colleague
+explaining to a new joinee in their first week" is concrete. Compare:
+
+| Instruction | What the model has to guess |
+| --- | --- |
+| Be concise and professional | How short? Professional for whom? |
+| Reply in 3-5 sentences for a branch manager who reads on mobile between meetings | Very little |
+
+Explain *why* when a rule exists. Modern models follow instructions
+literally and generalise from reasons. "Never use ALL CAPS IN REPLIES!!!"
+works worse than "Avoid all-caps and exclamation marks, because customers
+read them as shouting." Calm, explained instructions beat shouting at the
+model in capitals.
+
+## Persistent rules vs per-request instructions
+
+Split your instructions by how often they change:
+
+- **System prompt (persistent):** identity, audience, tone, safety and
+  compliance limits, default output format, escalation rules.
+- **User message (per request):** the specific document, the customer email
+  being answered, the task for this turn, any one-off format change.
+
+```text
+[system]
+You draft replies for the HR helpdesk of Sahyadri Logistics (fictional).
+Employees ask about leave, payroll dates, and reimbursements. Base answers
+only on the policy text supplied in each message. If the policy does not
+cover the question, say so and suggest emailing hr-desk@sahyadri.example.
+
+[user]
+<policy>...leave policy text...</policy>
+Employee question from Ritu Sharma: "Can I carry forward 12 earned leaves
+into next year?"
+```
+
+If you find yourself pasting the same paragraph into every user message, it
+belongs in the system prompt. If the system prompt keeps growing with
+special cases for one task, that content probably belongs in the request.
+
+## Keeping system prompts maintainable
+
+System prompts in production behave like code: they get edited by several
+people, and a careless change can break behaviour silently.
+
+- **Use sections.** Group content under clear headings or XML tags such as
+  `<role>`, `<audience>`, `<rules>`, and `<output_format>`, so a reviewer
+  can find and change one area without rereading everything.
+- **Remove contradictions.** "Always be brief" and "always explain your
+  reasoning in detail" in the same prompt force the model to pick one.
+- **Prefer principles to long lists of cases.** A rule with a reason
+  covers situations you did not anticipate; twenty special cases do not.
+- **Version it.** Keep the prompt in source control and re-run a small set
+  of test inputs whenever it changes.
+- **Do not hide secrets in it.** Users can often coax a model into
+  revealing its system prompt, so never put passwords or API keys there.
+
+### Try it yourself
+
+1. Take a one-line role you have used ("You are a helpful assistant for
+   sales"). Rewrite it to name the organisation, channel, audience,
+   goal, and limits of authority.
+2. List every instruction in an existing prompt and mark each as
+   *persistent* or *per-request*. Move them to the right place.
+3. Find one rule written in capitals or with "NEVER" and rewrite it as a
+   calm sentence that includes the reason for the rule.

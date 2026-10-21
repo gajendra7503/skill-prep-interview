@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which of these is the most testable success criterion for an email-classification prompt?",
+      "options": [
+        "The model should classify emails well",
+        "Category matches the human label on at least 18 of 20 test emails",
+        "Outputs should feel accurate to the team",
+        "The prompt should be as detailed as possible"
+      ],
+      "correctIndex": 1,
+      "explanation": "A testable criterion is measurable against a labelled test set; the others are vague or describe the prompt rather than the output."
+    },
+    {
+      "question": "Your prompt scores 15/20. You add an example, reword two rules and reorder the sections, and it now scores 18/20. What is the main problem?",
+      "options": [
+        "Three points is not a meaningful improvement",
+        "You should have used LLM-as-judge instead",
+        "You cannot tell which change helped, and one may have broken another case",
+        "Prompts should never contain examples"
+      ],
+      "correctIndex": 2,
+      "explanation": "Changing one thing at a time lets you attribute improvements and spot changes that silently cause regressions."
+    },
+    {
+      "question": "Which is a known caveat of LLM-as-judge grading?",
+      "options": [
+        "Judges may favour longer or more confident answers, so their scores should be spot-checked against human grades",
+        "Judges always agree perfectly with human reviewers",
+        "Judges are the best way to verify numeric totals",
+        "Judges cannot follow a rubric"
+      ],
+      "correctIndex": 0,
+      "explanation": "LLM judges can be biased by length, confidence or ordering; validate them on a sample and use code checks for verifiable facts."
+    },
+    {
+      "question": "Before switching your production prompt to a newer model, what should you do?",
+      "options": [
+        "Nothing; newer models are always better on every input",
+        "Test it only on the cases that failed before",
+        "Rewrite the prompt from scratch",
+        "Rerun the full versioned test set as a regression check"
+      ],
+      "correctIndex": 3,
+      "explanation": "Any change, including a model switch, can break previously passing cases, so the full suite should be rerun."
+    }
+  ]
+}

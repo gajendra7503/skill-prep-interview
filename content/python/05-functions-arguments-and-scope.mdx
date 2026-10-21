@@ -1,0 +1,149 @@
+---
+title: "Functions, Arguments & Scope"
+description: "The LEGB rule, global and nonlocal, flexible argument passing, keyword-only and positional-only parameters, and the mutable default trap."
+module: "Core Concepts"
+level: "beginner"
+order: 7
+---
+
+Functions are first-class objects in Python: you can assign them, pass
+them, return them and store them in containers. Interviews focus on two
+things here — how Python resolves a name inside a function, and how its
+very flexible argument system works, including the most famous Python
+gotcha of all, the mutable default argument.
+
+## Name resolution: the LEGB rule
+
+When Python looks up a name, it searches four scopes in order and stops at
+the first hit:
+
+1. **L**ocal — names assigned inside the current function.
+2. **E**nclosing — locals of any enclosing functions (closures).
+3. **G**lobal — names at the top level of the module.
+4. **B**uilt-in — names such as `len`, `print`, `ValueError`.
+
+```python
+x = "global"
+
+def outer():
+    x = "enclosing"
+    def inner():
+        print(x)       # found in Enclosing scope
+    inner()
+
+outer()                # enclosing
+print(len("abc"))      # 3 — found in Built-in scope
+```
+
+Scope is decided at **compile time**: if a function assigns to a name
+anywhere in its body, that name is local for the whole body. Reading it
+before the assignment raises `UnboundLocalError`, even if a global of the
+same name exists.
+
+```python
+count = 0
+
+def bump():
+    print(count)   # UnboundLocalError: cannot access local variable 'count'
+    count = 1      # this assignment makes count local everywhere in bump
+```
+
+## `global` and `nonlocal`
+
+To rebind a module-level name from inside a function, declare it `global`.
+To rebind a name in an enclosing function, declare it `nonlocal`. Neither
+is needed just to *mutate* an object (e.g. `items.append(...)`), only to
+*rebind* the name.
+
+```python
+def make_counter():
+    total = 0
+    def increment():
+        nonlocal total
+        total += 1
+        return total
+    return increment
+
+counter = make_counter()
+print(counter(), counter())   # 1 2
+```
+
+Prefer returning values or using a class over `global`; shared mutable
+module state makes code hard to test.
+
+## `*args` and `**kwargs`
+
+`*args` collects extra positional arguments into a **tuple**; `**kwargs`
+collects extra keyword arguments into a **dict**. The same symbols unpack
+iterables and mappings at the call site.
+
+```python
+def log(level, *args, **kwargs):
+    print(level, args, kwargs)
+
+log("INFO", 1, 2, user="asha")     # INFO (1, 2) {'user': 'asha'}
+
+params = {"user": "ravi", "id": 7}
+log("DEBUG", *[3, 4], **params)    # DEBUG (3, 4) {'user': 'ravi', 'id': 7}
+```
+
+A common use is a wrapper that forwards everything unchanged:
+`return func(*args, **kwargs)`, which is the core of most decorators.
+
+## Keyword-only and positional-only parameters
+
+Parameters after `*` (or after `*args`) are **keyword-only**. Parameters
+before `/` (3.8+) are **positional-only**. The full order is: positional-only,
+`/`, normal, `*` or `*args`, keyword-only, `**kwargs`.
+
+```python
+def transfer(src, dst, /, amount, *, currency="INR", dry_run=False):
+    return f"{src}->{dst} {amount} {currency} dry={dry_run}"
+
+transfer("A", "B", 500, dry_run=True)       # ok
+transfer("A", "B", amount=500)              # ok — amount is normal
+transfer(src="A", dst="B", amount=500)      # TypeError: positional-only
+transfer("A", "B", 500, "USD")              # TypeError: currency is keyword-only
+```
+
+Keyword-only parameters make call sites self-documenting for flags like
+`dry_run`. Positional-only parameters let you rename a parameter later
+without breaking callers, and mirror built-ins such as `len(obj, /)`.
+
+## The mutable default argument trap
+
+Default values are evaluated **once**, when the `def` statement runs, and
+the same object is reused on every call. A mutable default therefore
+accumulates state between calls:
+
+```python
+def add_tag(tag, tags=[]):
+    tags.append(tag)
+    return tags
+
+print(add_tag("a"))   # ['a']
+print(add_tag("b"))   # ['a', 'b']  — same list as the first call!
+print(add_tag.__defaults__)   # (['a', 'b'],)
+```
+
+The idiomatic fix is a `None` sentinel, creating a fresh object inside the
+function:
+
+```python
+def add_tag(tag, tags=None):
+    if tags is None:
+        tags = []
+    tags.append(tag)
+    return tags
+```
+
+The same "evaluated once" rule explains why `def f(ts=time.time())` freezes
+a single timestamp at definition time.
+
+### Try it yourself
+
+Write `make_rate_limiter(limit)` that returns a function `allow()` which
+returns `True` for the first `limit` calls and `False` afterwards, using
+`nonlocal`. Then write `send(to, /, body, *, retries=3, headers=None)` and
+call it in three valid and two invalid ways, explaining each `TypeError`,
+and make sure `headers` does not leak state between calls.

@@ -1,0 +1,145 @@
+---
+title: "Setting Up & Your First Program"
+description: "Install Node.js, use the browser console, run your first .js file, and learn the tools every JavaScript developer uses daily."
+module: "Getting Started"
+level: "beginner"
+order: 1
+---
+
+JavaScript is the only programming language every web browser understands,
+and with Node.js it also runs on servers, laptops and build machines. The
+good news for a beginner: you already have one JavaScript environment
+installed — your browser — and adding a second one takes five minutes.
+
+## Option 1: the browser console (zero setup)
+
+Open any web page in Chrome, Edge or Firefox, press `F12` (or
+`Ctrl+Shift+J` on Windows, `Cmd+Option+J` on a Mac) and click the
+**Console** tab. Type a line and press Enter:
+
+```js
+2 + 3
+// 5
+
+console.log("Namaste, JavaScript!")
+// Namaste, JavaScript!
+```
+
+The console runs each line immediately and prints the result. It is
+perfect for quick experiments, but anything you type disappears when you
+close the tab — real programs live in files.
+
+## Option 2: Node.js (running files on your computer)
+
+Node.js is a JavaScript **runtime**: the same kind of engine that powers
+Chrome (V8), packaged so it can run outside the browser and read files,
+open network connections and so on.
+
+1. Go to the official site, nodejs.org, and download the **LTS**
+   (Long-Term Support) installer for your operating system. LTS versions
+   get bug and security fixes for years, so they are the safe default.
+2. Run the installer with the default options.
+3. Open a new terminal (PowerShell on Windows, Terminal on macOS/Linux)
+   and check that it worked:
+
+```bash
+node -v
+# v24.x.x  (your exact number may differ — any recent LTS is fine)
+
+npm -v
+# prints the npm version — npm is installed together with Node
+```
+
+You also want a code editor. **Visual Studio Code** is free and the most
+common choice; it understands JavaScript out of the box.
+
+## Your first program
+
+Create a folder called `hello-js`, open it in your editor, and add a file
+named `hello.js`:
+
+```js
+// hello.js
+const name = "Asha";
+let price = 499;
+price = price * 2;
+
+console.log(`Hello, ${name}! Your total is ₹${price}`);
+```
+
+Run it from the terminal, inside that folder:
+
+```bash
+node hello.js
+# Hello, Asha! Your total is ₹998
+```
+
+That is the whole loop you will repeat thousands of times: **edit the file,
+save, run, read the output.** `console.log` is your best friend while
+learning — print anything you are unsure about.
+
+## Running JavaScript in a web page
+
+Browsers load JavaScript through a `script` tag in an HTML file. Create
+`index.html` next to your script:
+
+```html
+<!doctype html>
+<html>
+  <body>
+    <h1>My first page</h1>
+    <script src="hello.js"></script>
+  </body>
+</html>
+```
+
+Double-click `index.html` to open it, then open the console with `F12` —
+the same greeting appears there. The language is identical; only the
+environment differs (the browser gives you `document` and `window`, Node
+gives you files and processes).
+
+## Quick one-liners with node -e and -p
+
+```bash
+node -e "console.log(2 ** 10)"
+# 1024
+
+node -p "[1, 2, 3].map(n => n * 2)"
+# [ 2, 4, 6 ]   (-p prints the result for you)
+```
+
+Typing just `node` with no file starts the **REPL** (Read-Eval-Print Loop),
+which behaves like the browser console. Press `Ctrl+C` twice to exit.
+
+## npm: the package manager
+
+npm installs code that other people have published. Every project starts
+with a `package.json` file that records its name, scripts and dependencies:
+
+```bash
+npm init -y
+# creates package.json with default values
+
+npm install dayjs
+# downloads the package into node_modules/ and records it in package.json
+```
+
+You don't need any packages for the next lessons — plain JavaScript and
+`node` are enough — but you will see `package.json` in every real project.
+
+## Common beginner mistakes
+
+- Running `node hello.js` from the wrong folder — the terminal must be in
+  the folder that contains the file (use `cd` to move there).
+- Forgetting to **save** the file before running it again.
+- Smart quotes from a word processor (`“ ”`) instead of plain `"` — always
+  write code in a code editor.
+- Reading only the last line of an error. Node prints the file name and
+  line number at the top of the stack trace — start there.
+
+### Try it yourself
+
+Create `bill.js` that stores three item prices (for example ₹250, ₹120 and
+₹80) in variables, adds them up, and prints `Total: ₹450` using a template
+literal. Run it with `node bill.js`, then change one price, save, and run it
+again to see the new total.

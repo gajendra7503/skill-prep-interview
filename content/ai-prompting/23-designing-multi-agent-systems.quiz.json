@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In the orchestrator-worker pattern, why does context isolation matter?",
+      "options": [
+        "Workers can share raw documents freely",
+        "Each worker reads its sources in its own context and returns only condensed findings, keeping the orchestrator's context small",
+        "It removes the need for a brief",
+        "It lets workers message each other"
+      ],
+      "correctIndex": 1,
+      "explanation": "Workers return a condensed result, so the orchestrator never sees the raw documents and stays focused on synthesis."
+    },
+    {
+      "question": "Roughly how do multi-agent systems compare to a single agent on token use for the same task?",
+      "options": [
+        "They use fewer tokens",
+        "They use about the same",
+        "They typically use several times as many, which you should measure",
+        "They use no extra tokens if cached"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each worker re-reads its brief and sources, so token use is typically several times higher; measure on your own workload."
+    },
+    {
+      "question": "Which is a required ingredient of a sub-agent brief?",
+      "options": [
+        "The orchestrator's full conversation history",
+        "Only a vague objective so the worker can explore",
+        "A list of the other workers' results",
+        "Objective, scope, output format and limits"
+      ],
+      "correctIndex": 3,
+      "explanation": "A worker starts with zero knowledge, so the brief must give objective, scope, output format and limits."
+    },
+    {
+      "question": "Where should budgets and stopping rules such as maximum workers be enforced?",
+      "options": [
+        "In code, not just in the prompt",
+        "Only in the prompt",
+        "Nowhere; the model decides",
+        "Only by the final verifier"
+      ],
+      "correctIndex": 0,
+      "explanation": "The lesson says explicit limits must be set in code, such as caps on workers, iterations, budget and timeouts."
+    }
+  ]
+}

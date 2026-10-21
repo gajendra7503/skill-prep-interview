@@ -1,0 +1,147 @@
+---
+title: "Errors & Process Lifecycle"
+description: "Telling operational errors from programmer errors, handling uncaughtException and unhandledRejection correctly, and shutting down gracefully on SIGINT and SIGTERM."
+module: "Advanced Node"
+level: "advanced"
+order: 18
+---
+
+"What happens when a promise rejects and nobody catches it?" and "How does
+your service shut down during a deploy?" are favourite senior-level
+questions. Good answers show you understand the difference between errors
+you **handle** and errors that mean the process is in an unknown state.
+
+## Operational vs programmer errors
+
+| Operational errors | Programmer errors |
+| --- | --- |
+| Expected failures in a correct program | Bugs in the code |
+| DB timeout, `ECONNREFUSED`, file not found, invalid user input, 404 from an API | `TypeError: cannot read properties of undefined`, wrong argument types, forgotten `await` |
+| Handle them: retry, return 4xx/5xx, fall back, log | Fix the code; at runtime, crash and restart |
+
+```js
+class PaymentError extends Error {
+  constructor(message, { status = 502, cause } = {}) {
+    super(message, { cause });          // error.cause keeps the original error
+    this.name = "PaymentError";
+    this.status = status;
+  }
+}
+
+try {
+  await chargeCard(orderId, 1499);      // ₹1,499
+} catch (err) {
+  throw new PaymentError("Gateway unavailable", { cause: err });
+}
+```
+
+Always throw `Error` objects (not strings) so you get a stack trace, and use
+the `cause` option to wrap low-level errors without losing them.
+
+## uncaughtException: log, then exit
+
+An exception thrown outside any `try`/`catch` — for example inside a timer
+callback — reaches the `uncaughtException` event. Without a listener, Node
+prints the stack and exits with code 1.
+
+```js
+process.on("uncaughtException", (err, origin) => {
+  logger.fatal({ err, origin }, "uncaught exception, exiting");
+  process.exit(1);                      // state may be corrupt — do NOT keep serving
+});
+
+setTimeout(() => { throw new Error("boom"); }, 0);
+// logs the error, process exits with code 1
+```
+
+Adding a listener **prevents** the default crash. Using it to "keep the
+server alive" is a known anti-pattern: half-finished operations, leaked
+handles and inconsistent state remain. Treat it as a last chance to log,
+then exit and let PM2, systemd or Kubernetes restart a clean process.
+
+## unhandledRejection
+
+A rejected promise with no `.catch()` or surrounding `await` in a
+`try`/`catch` triggers `unhandledRejection`. Since Node 15 the default mode
+is `throw`: the rejection is raised as an uncaught exception and the
+process exits with code 1.
+
+```js
+Promise.reject(new Error("boom"));
+// Error: boom ... (process exits with code 1)
+
+process.on("unhandledRejection", (reason) => {
+  logger.fatal({ err: reason }, "unhandled rejection");
+  process.exit(1);
+});
+```
+
+Adding a listener overrides that default, so exit explicitly. The
+`--unhandled-rejections` flag can change the mode (`strict`, `warn`,
+`none` and others), but relying on `warn` in production hides real bugs.
+The fix is almost always a missing `await` or `.catch()`.
+
+## Exit codes and exit events
+
+```js
+process.exitCode = 1;                   // preferred: exit with 1 once work finishes
+process.exit(2);                        // immediate: pending async work is dropped
+
+process.on("beforeExit", () => {});     // loop is empty; may schedule more work
+process.on("exit", (code) => {
+  console.log("exiting with", code);    // synchronous code only — no awaits
+});
+```
+
+Prefer setting `process.exitCode` over calling `process.exit()` in CLI
+tools, because `process.exit()` can cut off buffered `stdout` writes.
+
+## Signals and graceful shutdown
+
+Deploys, `docker stop` and Kubernetes send **SIGTERM**; Ctrl+C sends
+**SIGINT**. A graceful shutdown stops accepting new connections, lets
+in-flight requests finish, closes DB pools, then exits — with a hard
+timeout in case something hangs.
+
+```js
+import http from "node:http";
+
+const server = http.createServer(app).listen(3000);
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received, closing server`);
+
+  setTimeout(() => process.exit(1), 10_000).unref(); // hard stop after 10 s
+
+  server.close(async (err) => {         // waits for in-flight requests
+    await db.end();                     // close pools, flush logs, etc.
+    console.log("clean shutdown");
+    process.exit(err ? 1 : 0);
+  });
+  server.closeIdleConnections();        // drop idle keep-alive sockets (explicit;
+                                        // recent versions also do this in close())
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+// SIGTERM received, closing server
+// clean shutdown
+```
+
+`.unref()` stops the safety timer from keeping the process alive on its
+own. In Kubernetes, make sure the shutdown finishes within the pod's
+termination grace period (30 seconds by default), after which the pod is
+killed with SIGKILL — which cannot be caught. On Windows, SIGTERM is not
+delivered to Node, so test this flow on Linux or in a container.
+
+### Try it yourself
+
+Create an HTTP server whose handler takes 3 seconds to respond (simulating
+a ₹ payment confirmation). Start a request, then press Ctrl+C immediately.
+Without a SIGINT handler the request fails; add the graceful `shutdown()`
+above and confirm the response still arrives before the process exits. Then
+add a deliberate unhandled rejection and observe the exit code with
+`echo $?`.

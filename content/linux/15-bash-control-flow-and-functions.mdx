@@ -1,0 +1,183 @@
+---
+title: "Bash Conditions, Loops & Functions"
+description: "Make Bash scripts decide and repeat: test and [[ ]] conditions, if and case, for and while loops, safe line reading, and reusable functions."
+module: "Shell Scripting"
+level: "intermediate"
+order: 15
+---
+
+A script that only runs commands top to bottom is a glorified alias. Real
+scripts branch on conditions, loop over files and lines, and package logic
+into functions. Bash does all of this with **exit statuses** rather than
+booleans, which is the single idea that makes everything below click.
+
+## Conditions are exit statuses
+
+`if` does not evaluate an expression. It runs a command and checks its exit
+status: `0` means true, anything else means false. So any command can follow
+`if`:
+
+```bash
+if grep -q ERROR logs/app.log; then echo "found errors"; else echo "no errors"; fi
+# no errors
+```
+
+`grep -q` prints nothing and just sets the status. The brackets you usually
+see are commands too: `[` is the `test` builtin, and `[[` is a Bash keyword
+with friendlier rules.
+
+## test, [ ] and [[ ]]
+
+| Test | Meaning |
+|---|---|
+| `-e path` / `-f path` / `-d path` | exists / regular file / directory |
+| `-s path` | exists and is not empty |
+| `-r` / `-w` / `-x path` | readable / writable / executable |
+| `-z "$s"` / `-n "$s"` | string is empty / not empty |
+| `"$a" = "$b"` / `!=` | string equal / not equal |
+| `-eq -ne -lt -le -gt -ge` | integer comparisons |
+
+Prefer `[[ ]]` in Bash scripts. It does not word-split unquoted variables,
+and it adds glob matching, regex matching and `&&` / `||` inside:
+
+```bash
+empty=""
+[ $empty = "x" ]; echo "rc=$?"
+# bash: [: =: unary operator expected
+# rc=2
+[[ $empty = "x" ]]; echo "rc=$?"     # rc=1
+f="report.csv"
+[[ $f == *.csv ]] && echo "csv file"   # csv file
+[[ "2024-01-15" =~ ^([0-9]{4})-([0-9]{2}) ]] && echo "year=${BASH_REMATCH[1]} month=${BASH_REMATCH[2]}"
+# year=2024 month=01
+```
+
+With `[ ]` the empty variable vanished, leaving `[ = x ]`, a syntax error.
+Always quote variables inside `[ ]`. A classic trap: `>` and `<` inside
+`[[ ]]` compare **strings**, not numbers.
+
+```bash
+[[ 10 > 9 ]] && echo true || echo false    # false  ("1" sorts before "9")
+[[ 10 -gt 9 ]] && echo true                # true
+(( 10 > 9 )) && echo true                  # true   (arithmetic context)
+```
+
+For maths, use `(( ))`: C-like expressions, and `$` on names is optional.
+
+## if, elif and case
+
+```bash
+disk_used=87
+if (( disk_used >= 90 )); then
+  echo "CRITICAL"
+elif (( disk_used >= 80 )); then
+  echo "WARNING"
+else
+  echo "OK"
+fi
+# WARNING
+```
+
+When matching one value against several patterns, `case` is cleaner than a
+chain of `elif`s. Each branch ends with `;;` and `*` is the default. It uses
+glob patterns, not regex, and is the idiomatic way to parse a subcommand
+such as `./deploy.sh start`:
+
+```bash
+case "$1" in
+  start|up) echo "starting" ;;
+  stop)     echo "stopping" ;;
+  *.conf)   echo "loading config $1" ;;
+  *)        echo "usage: $0 start|stop" ; exit 1 ;;
+esac
+```
+
+## Loops
+
+```bash
+for i in {1..3}; do echo "i=$i"; done          # i=1 i=2 i=3 (one per line)
+for ((i = 0; i < 3; i++)); do printf '%d ' "$i"; done; echo
+# 0 1 2
+n=0
+while (( n < 3 )); do ((n++)); done; echo "n=$n"   # n=3
+until [[ $n -le 0 ]]; do ((n--)); done; echo "n=$n" # n=0
+```
+
+`break` leaves the loop and `continue` skips to the next iteration. Loop
+over files with globs (never by parsing `ls`), and quote `"${array[@]}"`:
+
+```bash
+files=("my file.txt" "b.txt")
+for f in "${files[@]}"; do echo "<$f>"; done   # <my file.txt> <b.txt>
+for f in ${files[@]}; do echo "<$f>"; done     # unquoted: <my> <file.txt> <b.txt>
+```
+
+If a glob matches nothing, Bash leaves the literal text `*.log`. Turn on
+`shopt -s nullglob` to make it expand to nothing instead.
+
+### Reading a file line by line
+
+```bash
+while IFS= read -r line; do
+  echo "[$line]"
+done < in.txt
+```
+
+`IFS=` keeps leading and trailing spaces, and `-r` stops backslashes being
+treated as escapes. Interviewers often ask why this counter stays at zero:
+
+```bash
+count=0
+printf '1\n2\n' | while read -r l; do ((count++)); done
+echo "$count"     # 0  -- the loop ran in a subshell because of the pipe
+
+count=0
+while read -r l; do ((count++)); done < <(printf '1\n2\n')
+echo "$count"     # 2  -- process substitution keeps the loop in this shell
+```
+
+Each side of a pipeline runs in a subshell, so variable changes are lost.
+Feed the loop with a redirect or process substitution `< <(cmd)` instead.
+
+## Functions
+
+```bash
+greet() {
+  local name=${1:-world}    # first argument, default "world"
+  echo "hello $name"
+}
+greet            # hello world
+greet Asha       # hello Asha
+```
+
+Inside a function, `$1`, `$#` and `"$@"` refer to the function's own
+arguments. Key rules:
+
+- **Variables are global by default.** Use `local` or you will overwrite the
+  caller's variables.
+- **`return` sets an exit status (0-255), not a value.** To "return" data,
+  `echo` it and capture it with `$(...)`.
+- Define a function before the line that calls it.
+- `"$@"` passes arguments on with their word boundaries intact; `$*` joins
+  them into one string. Use `"$@"` almost always.
+
+```bash
+add() { echo $(( $1 + $2 )); }
+total=$(add 2 3); echo "total=$total"               # total=5
+
+is_valid_port() { [[ $1 -ge 1 && $1 -le 65535 ]]; } # status of last command
+if is_valid_port 8080; then echo valid; fi          # valid
+```
+
+Strict error handling (`set -euo pipefail`, traps, option parsing) is
+covered in "Robust Shell Scripts: set -euo pipefail, traps & getopts".
+
+### Try it yourself
+
+1. Write `grade.sh` that takes a score and prints A (90+), B (75+), C (50+)
+   or F using `if`/`elif` and `(( ))`. Reject non-numbers with
+   `[[ $1 =~ ^[0-9]+$ ]]`.
+2. Write a `case`-based script `svc.sh start|stop|status` that prints a
+   message per action and a usage line otherwise.
+3. Write a function `count_errors` that takes a file name and echoes how
+   many lines contain `ERROR`, then call it in a loop over every `*.log` file.

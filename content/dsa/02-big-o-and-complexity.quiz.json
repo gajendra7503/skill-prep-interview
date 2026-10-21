@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A function loops over array `a` (length a) and, inside that loop, over array `b` (length b). What is its time complexity?",
+      "options": [
+        "O(a + b)",
+        "O(a × b)",
+        "O(n²) regardless of sizes",
+        "O(max(a, b))"
+      ],
+      "correctIndex": 1,
+      "explanation": "Nested loops multiply. Because the arrays have different sizes, use separate letters: O(a × b). Sequential loops would add to O(a + b)."
+    },
+    {
+      "question": "Why is `array.push` described as amortised O(1)?",
+      "options": [
+        "It never copies the array",
+        "JavaScript arrays are linked lists",
+        "Occasional resizes copy the array, but capacity grows geometrically so the total copying over n pushes is O(n)",
+        "The engine pre-allocates unlimited memory"
+      ],
+      "correctIndex": 2,
+      "explanation": "A resize is O(n), but it happens rarely because capacity doubles (or grows by a factor). Spread over all pushes, the average cost per push is constant."
+    },
+    {
+      "question": "The input limit says n can be up to 10⁵. Which approach is most likely too slow?",
+      "options": [
+        "O(n log n) sorting followed by one pass",
+        "O(n) single pass with a hash map",
+        "O(log n) binary search per query for a few queries",
+        "O(n²) checking every pair"
+      ],
+      "correctIndex": 3,
+      "explanation": "10⁵ squared is 10¹⁰ operations, far beyond what runs in a second or two. O(n) and O(n log n) fit comfortably."
+    },
+    {
+      "question": "What is the space complexity of `function sumTo(n) { return n === 0 ? 0 : n + sumTo(n - 1); }`?",
+      "options": [
+        "O(n), because n calls are pending on the call stack at the deepest point",
+        "O(1), because it creates no arrays",
+        "O(log n)",
+        "O(n²)"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each recursive call waits for the next one, so up to n stack frames exist at once. That is O(n) extra space even though no array is created."
+    }
+  ]
+}

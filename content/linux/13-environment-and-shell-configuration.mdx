@@ -1,0 +1,179 @@
+---
+title: "Environment Variables, PATH & Shell Configuration"
+description: "Understand shell versus environment variables, how PATH finds commands, and which Bash startup files run when, so your setup behaves predictably."
+module: "System Basics"
+level: "intermediate"
+order: 13
+---
+
+"It works in my terminal but not in cron / under sudo / in the service" is
+one of the most common Linux problems, and it is almost always about the
+**environment**. This lesson explains where variables come from, how `PATH`
+works and which configuration files Bash reads.
+
+## Shell variables vs environment variables
+
+A **shell variable** exists only inside the current shell. An **environment
+variable** is copied into every child process the shell starts. `export`
+turns one into the other:
+
+```bash
+GREETING=hello
+bash -c 'echo "child sees: [$GREETING]"'
+# child sees: []
+export GREETING
+bash -c 'echo "child sees: [$GREETING]"'
+# child sees: [hello]
+```
+
+No spaces around `=`: `GREETING = hello` would try to run a command called
+`GREETING`. To set a variable for **one command only**, put it in front:
+
+```bash
+APP_ENV=staging bash -c 'echo "one-off: $APP_ENV"'
+# one-off: staging
+echo "after: [$APP_ENV]"
+# after: []
+```
+
+### Inheritance flows one way
+
+A child gets a **copy** of its parent's environment. Nothing a child does can
+change the parent. That is why `cd` must be a shell builtin, and why running
+a script that sets variables has no effect on your shell, while `source`
+(or `.`) runs the file **in** the current shell:
+
+```bash
+echo 'export X=1' > env.sh
+bash env.sh;   echo "[$X]"     # []    ran in a child shell
+source env.sh; echo "[$X]"     # [1]   ran in this shell
+```
+
+## Inspecting variables
+
+```bash
+printenv HOME          # one environment variable
+env                    # all environment variables
+declare -p GREETING    # how bash sees it (-x means exported)
+# declare -x GREETING="hello"
+unset GREETING         # remove it
+```
+
+| Variable | Meaning |
+|---|---|
+| `HOME` | your home directory (`~` expands to it) |
+| `USER` | your user name |
+| `PATH` | directories searched for commands |
+| `SHELL` | your login shell |
+| `PWD` | current directory |
+| `LANG` | locale, affects sorting, dates and messages |
+| `EDITOR` | editor used by `git commit`, `crontab -e`, `visudo` |
+| `PS1` | the prompt string |
+
+## How PATH finds commands
+
+`PATH` is a colon-separated list of directories. When you type a command
+name without a `/`, the shell checks aliases, functions and builtins, then
+searches `PATH` **left to right** and runs the first match.
+
+```bash
+echo "$PATH"
+# /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin   (typical)
+type cd
+# cd is a shell builtin
+type -a echo          # every match, in order
+command -v python3    # the path that would run (script-friendly)
+```
+
+On Ubuntu, `type ls` in an interactive shell reports that `ls` is an alias
+for `ls --color=auto`, because the default `~/.bashrc` defines it.
+
+### Adding a directory
+
+```bash
+mkdir -p ~/bin
+mytool                         # mytool: command not found
+export PATH="$HOME/bin:$PATH"  # prepend: your tools win over system ones
+mytool
+# hello from mytool
+```
+
+Prepending means your copy wins; appending (`"$PATH:$HOME/bin"`) means the
+system copy wins. Two rules: always include the existing `$PATH` (assigning
+`PATH=~/bin` alone breaks almost every command in that shell), and never add
+`.` (the current directory) — a malicious file named `ls` in a shared
+directory would run instead of the real one. Bash caches command locations;
+after moving a binary, run `hash -r`.
+
+To make the change permanent, add the `export` line to a startup file.
+
+## Bash startup files
+
+Which files Bash reads depends on whether the shell is a **login** shell
+(SSH session, console login, `bash -l`) and whether it is **interactive**.
+
+| Shell type | Files read |
+|---|---|
+| Interactive login | `/etc/profile` (which runs `/etc/profile.d/*.sh`), then the **first** found of `~/.bash_profile`, `~/.bash_login`, `~/.profile` |
+| Interactive non-login (new terminal tab on a desktop, typing `bash`) | `/etc/bash.bashrc` (Debian/Ubuntu) and `~/.bashrc` |
+| Non-interactive (running a script) | none of the above; only the file named in `BASH_ENV`, if set |
+
+On Ubuntu the default `~/.profile` sources `~/.bashrc` when running Bash,
+and adds `~/bin` and `~/.local/bin` to `PATH` if they exist, so both kinds
+of interactive shell end up with the same setup. A practical convention:
+
+- **`~/.bashrc`**: aliases, functions, prompt, `PATH` additions;
+- **`~/.profile`**: things needed once per login.
+
+Beware: if you create `~/.bash_profile`, Bash stops reading `~/.profile`.
+Make it source `~/.profile` (or `~/.bashrc`) explicitly.
+
+After editing, reload with `source ~/.bashrc` instead of logging out.
+
+```bash
+# ~/.bashrc additions
+export EDITOR=nano
+export PATH="$HOME/.local/bin:$PATH"
+alias ll='ls -alF'
+alias gs='git status'
+```
+
+System-wide settings go in `/etc/profile.d/yourapp.sh` (shell syntax) or
+`/etc/environment`, which is **not** a script: just `KEY=value` lines read
+at login by PAM, with no `$VAR` expansion.
+
+## Why the environment "disappears"
+
+| Context | What happens |
+|---|---|
+| `sudo cmd` | the environment is reset and `PATH` is replaced by the `secure_path` from the sudoers configuration, so tools in `~/bin` are not found. Use the full path; `sudo -E` keeps other variables but does not override `secure_path`. |
+| cron | a minimal environment with a short `PATH`; your `~/.bashrc` is not read (see "Scheduling Jobs with cron") |
+| systemd services | no shell startup files at all; set variables with `Environment=` or `EnvironmentFile=` (see "systemd Services, Timers & journalctl") |
+| Scripts | inherit exported variables, but not aliases or unexported variables |
+
+## Secrets in the environment
+
+Applications commonly read configuration such as `DATABASE_URL` from
+environment variables. Keep real secrets out of `~/.bashrc` and out of
+version control, prefer a `.env` file with restricted permissions or a
+secrets manager, and remember that a process's environment is readable by
+the same user and by root (via `/proc/PID/environ`).
+
+## Interview angles
+
+- **"What does `export` do?"** Marks a variable to be copied into the
+  environment of child processes. It never affects the parent.
+- **"I added a directory to PATH, but `sudo mytool` says command not found."**
+  sudo uses `secure_path`; call it by full path.
+- **"`.bashrc` vs `.bash_profile`?"** Interactive non-login versus login
+  shells; on Ubuntu `~/.profile` plays the login role and sources `.bashrc`.
+
+### Try it yourself
+
+1. Create `~/bin/hello` that prints "hello", make it executable, add `~/bin`
+   to `PATH` in `~/.bashrc`, `source` it and confirm with `command -v hello`.
+2. Set `COLOR=blue` without exporting it, show that `bash -c 'echo $COLOR'`
+   prints nothing, then export it and try again.
+3. Add `echo "bashrc ran"` to `~/.bashrc` and `echo "profile ran"` to
+   `~/.profile`, then compare a new terminal, `bash`, `bash -l` and
+   `ssh localhost`. Remove the lines afterwards.

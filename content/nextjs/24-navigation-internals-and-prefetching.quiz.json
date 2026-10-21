@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "During a client-side navigation from /funds/42 to /funds/77, what does the browser request from the server?",
+      "options": [
+        "A complete new HTML document",
+        "The RSC Payload for the changed segments plus any missing Client Component chunks",
+        "Nothing; everything is rendered in the browser",
+        "The full JavaScript bundle again"
+      ],
+      "correctIndex": 1,
+      "explanation": "Only the first visit returns HTML. Later navigations fetch the RSC Payload for the segments that changed, and shared layouts are reused from the client cache."
+    },
+    {
+      "question": "A dynamic product route has no loading.tsx and uses the default Link prefetch. Why does clicking a link to it feel slow?",
+      "options": [
+        "Dynamic routes are never cached by the server",
+        "Link only prefetches in development",
+        "With the default prefetch, a dynamic route is prefetched only down to the nearest loading.tsx, so with none the click waits for a full server round trip",
+        "The RSC Payload is too large to download"
+      ],
+      "correctIndex": 2,
+      "explanation": "Adding loading.tsx gives the router a boundary to prefetch, so the click shows a skeleton instantly while the rest streams."
+    },
+    {
+      "question": "A Server Component page calls analytics.track(\"fund_viewed\") during render. What is the problem?",
+      "options": [
+        "Prefetching renders the page before anyone visits, so the event fires for every link that scrolls into view",
+        "Server Components cannot make network requests",
+        "The event fires twice in production only because of Strict Mode",
+        "There is no problem"
+      ],
+      "correctIndex": 0,
+      "explanation": "Server Components should be pure. Move page-view tracking into a Client Component's useEffect or a Server Action triggered from the client."
+    },
+    {
+      "question": "What does router.refresh() do?",
+      "options": [
+        "Performs a full browser reload and resets all state",
+        "Invalidates all server-side cache tags",
+        "Clears localStorage",
+        "Re-requests the current route and merges the new RSC Payload, clearing the client cache for that route without invalidating the server cache"
+      ],
+      "correctIndex": 3,
+      "explanation": "refresh keeps client state like useState and scroll position. If the server data itself is cached, you must revalidate on the server to get fresh results."
+    }
+  ]
+}

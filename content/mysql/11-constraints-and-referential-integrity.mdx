@@ -1,0 +1,143 @@
+---
+title: "Constraints & Referential Integrity"
+description: "PRIMARY KEY, UNIQUE, NOT NULL, DEFAULT, CHECK and FOREIGN KEY actions, plus why strict SQL mode matters."
+module: "Schema Design"
+level: intermediate
+order: 14
+---
+
+Constraints push data rules into the database so that every application,
+script and ad-hoc `UPDATE` obeys them. Interviewers like this topic because
+MySQL has several historical quirks: CHECK constraints that were silently
+ignored, UNIQUE indexes that accept many NULLs, and non-strict modes that
+truncate data instead of failing. This lesson covers how each constraint
+behaves in MySQL 8.0/8.4 with InnoDB.
+
+## The running schema
+
+```sql
+CREATE TABLE customers (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  email       VARCHAR(255) NOT NULL,
+  pan         CHAR(10) NULL,
+  city        VARCHAR(80) NOT NULL DEFAULT 'Mumbai',
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uq_customers_email UNIQUE (email),
+  CONSTRAINT uq_customers_pan   UNIQUE (pan)
+);
+
+CREATE TABLE orders (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  customer_id  BIGINT UNSIGNED NULL,
+  status       VARCHAR(20) NOT NULL DEFAULT 'PLACED',
+  total_inr    DECIMAL(12,2) NOT NULL,
+  CONSTRAINT chk_orders_total CHECK (total_inr >= 0),
+  CONSTRAINT chk_orders_status
+    CHECK (status IN ('PLACED','PAID','SHIPPED','CANCELLED')),
+  CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id)
+    REFERENCES customers (id) ON DELETE SET NULL
+);
+```
+
+## PRIMARY KEY, NOT NULL and DEFAULT
+
+A table has at most one PRIMARY KEY; its columns are implicitly `NOT NULL`
+and unique. In InnoDB the primary key is also the **clustered index**: rows
+are physically stored in PK order. If you omit it, InnoDB uses the first
+`UNIQUE` index on all-`NOT NULL` columns, otherwise a hidden 6-byte row ID.
+Since 8.0.30, `sql_generate_invisible_primary_key=ON` adds an invisible
+`my_row_id` column instead, which is useful for replication tooling.
+
+`NOT NULL` rejects NULLs; `DEFAULT` supplies a value when a column is
+omitted. Since 8.0.13 a default can be an expression in parentheses, such
+as `DEFAULT (UUID_TO_BIN(UUID()))`. Literal defaults need no parentheses.
+
+## UNIQUE and the NULL quirk
+
+A UNIQUE constraint is enforced through a unique index. Because NULL is
+not equal to anything, including another NULL, InnoDB allows **any number
+of NULLs** in a nullable unique column:
+
+```sql
+INSERT INTO customers (email, pan) VALUES ('a@x.in', NULL), ('b@x.in', NULL);
+-- OK: two NULL PANs coexist
+INSERT INTO customers (email, pan) VALUES ('a@x.in', 'ABCDE1234F');
+-- ERROR 1062 (23000): Duplicate entry 'a@x.in' for key 'uq_customers_email'
+```
+
+For a composite unique key `(a, b)`, a row is exempt if any column is NULL.
+If "only one NULL" is the real rule, use a NOT NULL sentinel value or a
+generated column.
+
+## CHECK constraints
+
+Before **8.0.16**, MySQL parsed `CHECK` clauses and silently ignored them,
+a classic gotcha. From 8.0.16 they are enforced on `INSERT` and `UPDATE`:
+
+```sql
+INSERT INTO orders (customer_id, total_inr) VALUES (1, -50.00);
+-- ERROR 3819 (HY000): Check constraint 'chk_orders_total' is violated.
+```
+
+A CHECK passes when the expression is TRUE **or NULL**, so pair it with
+`NOT NULL` where needed. Expressions cannot use subqueries, stored
+functions, non-deterministic functions like `NOW()`, or `AUTO_INCREMENT`
+columns. You can declare one `NOT ENFORCED` to keep it as documentation.
+
+## FOREIGN KEY actions
+
+A foreign key ensures every non-NULL child value exists in the parent.
+InnoDB requires an index on the child columns (it creates one if missing)
+and an index on the referenced parent columns; MySQL 8.4 by default
+requires that parent key to be a PRIMARY KEY or UNIQUE key.
+
+| Action | Effect when the parent row is deleted |
+| --- | --- |
+| `RESTRICT` / `NO ACTION` | Delete fails while children exist (default) |
+| `CASCADE` | Child rows are deleted too |
+| `SET NULL` | Child FK column set to NULL (column must be nullable) |
+
+In InnoDB, `RESTRICT` and `NO ACTION` behave identically: the check is
+immediate, not deferred to commit. `ON UPDATE` accepts the same actions.
+
+```sql
+CREATE TABLE order_items (
+  order_id   BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  qty        INT NOT NULL CHECK (qty > 0),
+  PRIMARY KEY (order_id, product_id),
+  FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE RESTRICT
+);
+DELETE FROM orders WHERE id = 42;     -- its order_items vanish too
+DELETE FROM products WHERE id = 7;    -- ERROR 1451 if any item uses it
+```
+
+Two interview points: cascaded changes do **not** fire triggers on the
+child table, and `SET FOREIGN_KEY_CHECKS = 0` (used during bulk loads)
+skips validation entirely, so existing bad rows are not rechecked later.
+
+## Strict SQL mode
+
+Constraints are only as good as the SQL mode. The 8.0 default includes
+`STRICT_TRANS_TABLES`, which turns invalid or out-of-range values into
+errors. Without it, MySQL "adjusts" data and only raises a warning:
+
+```sql
+SET SESSION sql_mode = '';
+INSERT INTO customers (email, pan) VALUES ('c@x.in', 'TOOLONGPAN123');
+-- Query OK, 1 row affected, 1 warning  (pan truncated to 'TOOLONGPAN')
+SET SESSION sql_mode = DEFAULT;       -- strict again: ERROR 1406
+```
+
+Keep strict mode on in production; disabling it to "fix" a legacy app
+trades a visible error for silent corruption.
+
+### Try it yourself
+
+Add a `payments` table referencing `orders` with `ON DELETE RESTRICT`, an
+`amount_inr` column that must be positive, and a `method` column limited to
+`'UPI'`, `'CARD'` or `'NETBANKING'`. Insert a violating row for each rule
+and note the error numbers. Then show that two customers can share a NULL
+PAN but not the same PAN, and explain why `CHECK (amount_inr > 0)` accepts
+a NULL amount.

@@ -1,0 +1,148 @@
+---
+title: "Security Middleware"
+description: "Harden an Express API with helmet, a strict CORS allow-list, rate limiting behind a correctly configured trust proxy, and sensible CSRF defences."
+module: "Auth & Security"
+level: "advanced"
+order: 17
+---
+
+Express is deliberately minimal, so it ships with almost no security
+defaults. A handful of well-known middleware packages close the common gaps.
+In interviews, knowing *why* each one exists matters more than memorising
+options.
+
+## helmet: secure HTTP headers
+
+`helmet` sets a group of response headers that tell browsers to behave more
+safely.
+
+```js
+import express from "express";
+import helmet from "helmet";
+
+const app = express();
+app.use(helmet());
+// Response headers now include, among others:
+// Content-Security-Policy: default-src 'self'; ...
+// Strict-Transport-Security: max-age=31536000; includeSubDomains
+// X-Content-Type-Options: nosniff
+// X-Frame-Options: SAMEORIGIN
+// (and X-Powered-By: Express is removed)
+```
+
+- **Content-Security-Policy** restricts where scripts, styles and images may
+  load from — a strong second line of defence against XSS.
+- **Strict-Transport-Security** tells browsers to use HTTPS only.
+- **X-Content-Type-Options: nosniff** stops MIME-type guessing.
+- Hiding `X-Powered-By` removes a free hint about your stack (you can also
+  call `app.disable("x-powered-by")`).
+
+A pure JSON API needs little CSP tuning; a server that renders HTML with
+third-party scripts will need to adjust the CSP directives.
+
+## CORS: who may call your API from a browser
+
+The browser's same-origin policy blocks a page on `https://app.example.com`
+from reading responses from `https://api.example.com` unless the API opts in
+with CORS headers. CORS does not protect your server from curl or other
+servers — it only controls what browsers let pages read.
+
+```js
+import cors from "cors";
+
+const allowedOrigins = ["https://app.example.com", "https://admin.example.com"];
+
+app.use(cors({
+  origin(origin, callback) {
+    // Requests with no Origin header (curl, server-to-server) are allowed through
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(null, false); // no CORS headers -> browser blocks the response
+  },
+  credentials: true,       // allow cookies / Authorization on cross-origin calls
+  methods: ["GET", "POST", "PATCH", "DELETE"],
+}));
+// Response to https://app.example.com:
+// Access-Control-Allow-Origin: https://app.example.com
+// Access-Control-Allow-Credentials: true
+```
+
+Key rules:
+
+- Use an **explicit allow-list**. Browsers reject a wildcard origin
+  (`Access-Control-Allow-Origin: *`) combined with credentials, and blindly
+  reflecting any `Origin` header with credentials enabled lets every website
+  make authenticated requests as your users.
+- Non-simple requests (JSON bodies, custom headers, PUT or DELETE) trigger a
+  **preflight** `OPTIONS` request; the `cors` middleware answers it for you.
+
+## Rate limiting and trust proxy
+
+`express-rate-limit` caps how many requests one client can make in a time
+window — essential on login, OTP and password-reset routes to slow down
+credential stuffing.
+
+```js
+import { rateLimit } from "express-rate-limit";
+
+// Behind ONE reverse proxy / load balancer (e.g. Nginx, an ALB)
+app.set("trust proxy", 1);
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 5,                 // 5 attempts per IP per window
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many login attempts, try again later" },
+});
+
+app.post("/auth/login", loginLimiter, login);
+// 6th attempt -> 429 { "error": "Too many login attempts, try again later" }
+```
+
+The limiter keys on `req.ip` by default — which is why `trust proxy` must be
+set correctly first:
+
+- **Not set** behind a proxy: every request appears to come from the proxy's
+  IP, so all users share one bucket and one attacker can lock everyone out.
+- **Set to `true`** blindly: Express trusts the whole `X-Forwarded-For`
+  chain, and a client can spoof that header to get a fresh IP per request.
+- **Set to the hop count** (for example `1`) or the proxy's IP/subnet:
+  Express takes the client IP the trusted proxy actually saw.
+
+With multiple app instances, use a shared store (such as Redis) for the
+limiter, otherwise each instance counts separately.
+
+## CSRF considerations
+
+CSRF is a risk whenever the browser attaches credentials automatically —
+that means **cookie-based** auth. An API that only accepts a Bearer token in
+the `Authorization` header is not exposed to classic CSRF, because a
+malicious site cannot make the browser add that header.
+
+For cookie-based auth, layer these defences:
+
+- `sameSite: "lax"` or `"strict"` cookies, which stop cookies being sent on
+  cross-site POSTs.
+- Never change state on `GET` requests.
+- Check the `Origin` header on state-changing requests against your
+  allow-list.
+- For extra protection, a CSRF token (synchroniser or double-submit pattern).
+  The old `csurf` package is deprecated, so pick a maintained alternative.
+
+```js
+function checkOrigin(req, res, next) {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  const origin = req.get("origin");
+  if (origin && !allowedOrigins.includes(origin)) {
+    return res.status(403).json({ error: "Bad origin" });
+  }
+  next();
+}
+```
+
+### Try it yourself
+
+Add helmet, a CORS allow-list and a login rate limiter to an API. From a page
+served on a non-listed origin, call the API with `fetch` and observe the CORS
+error in the console. Then hit the login route six times with curl and check
+the 429 and the `RateLimit` response headers.

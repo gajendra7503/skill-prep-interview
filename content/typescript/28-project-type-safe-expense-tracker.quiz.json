@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does the project store money as branded integer paise instead of rupees as plain numbers?",
+      "options": [
+        "Zod cannot validate decimal numbers",
+        "Integers avoid floating-point rounding errors, and the brand stops plain numbers being passed as money",
+        "Intl.NumberFormat only accepts integers",
+        "Brands make the values faster at runtime"
+      ],
+      "correctIndex": 1,
+      "explanation": "Integer paise keep arithmetic exact; the Paise brand adds nominal-style safety on top of structural typing."
+    },
+    {
+      "question": "With `type BodyArgs<E> = E extends { body: infer B extends z.ZodType } ? [body: z.input<B>] : []`, what happens on `api(\"listExpenses\", {})`?",
+      "options": [
+        "It compiles and sends an empty body",
+        "It compiles but fails validation at runtime",
+        "It is a type error: Expected 1 arguments, but got 2",
+        "It is a type error only with noUncheckedIndexedAccess"
+      ],
+      "correctIndex": 2,
+      "explanation": "listExpenses has no body, so BodyArgs is the empty tuple and the rest parameter accepts no extra argument."
+    },
+    {
+      "question": "What does the `default: return assertNever(e);` branch in `monthlyCost` give you?",
+      "options": [
+        "A compile error if a new expense kind is added but not handled",
+        "Runtime validation of the expense amount",
+        "Automatic handling of unknown kinds",
+        "Faster switch statements"
+      ],
+      "correctIndex": 0,
+      "explanation": "After all kinds are handled, `e` is `never`. A new union member makes `e` non-never there, so the call no longer type-checks."
+    },
+    {
+      "question": "When the fake server returns a record whose `amount` is the string \"150.00\", what does `api(\"listExpenses\")` return?",
+      "options": [
+        "A list where that amount is coerced to 15000",
+        "It throws a ZodError",
+        "A list containing the bad record unchanged",
+        "`{ ok: false, error: { kind: \"validation\", issues: [...] } }` naming the path of the bad field"
+      ],
+      "correctIndex": 3,
+      "explanation": "The client uses safeParse at the boundary and turns failures into a typed Result, so bad data never reaches business logic."
+    }
+  ]
+}

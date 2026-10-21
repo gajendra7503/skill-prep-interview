@@ -1,0 +1,150 @@
+---
+title: "Structured Output and JSON"
+description: "Get machine-readable output by describing a schema, using API-enforced structured outputs, handling missing values honestly, and validating in code."
+module: "Output Control"
+level: "intermediate"
+order: 11
+---
+
+As soon as a model's output feeds into software — a database row, a
+dashboard, a routing rule — free-form prose becomes a liability. You need
+the same fields, with the same names and types, every single time. This
+lesson covers how to ask for structured output and how to make sure you
+actually get it.
+
+## Why structured output
+
+Imagine extracting details from loan enquiry emails at a fictional NBFC,
+Ganga Credit. A human-readable summary is nice, but your CRM needs the
+applicant's name, city, requested amount in rupees, and product type as
+separate fields. Structured output lets you:
+
+- insert results directly into a database or spreadsheet,
+- route records automatically (for example, by product type),
+- test and compare outputs field by field.
+
+## Describe the schema in the prompt
+
+The simplest approach is to show the exact shape you expect, with types
+and allowed values, and explain each field.
+
+Weak:
+
+```text
+Extract the important details from this email as JSON.
+```
+
+Improved:
+
+```text
+Extract the following fields from the email in the <email> tags and return
+a single JSON object with exactly these keys:
+
+- "applicant_name": string, the sender's full name
+- "city": string, or null if not mentioned
+- "amount_inr": integer number of rupees, or null if not mentioned
+  (convert "5 lakh" to 500000 and "1.2 crore" to 12000000)
+- "product": one of "home_loan", "personal_loan", "business_loan", "other"
+- "urgent": true if the sender mentions a deadline within 7 days, else false
+
+Output only the JSON object, with no explanation before or after it.
+
+<email>
+...
+</email>
+```
+
+A matching output looks like:
+
+```json
+{
+  "applicant_name": "Suresh Patil",
+  "city": "Nashik",
+  "amount_inr": 1500000,
+  "product": "business_loan",
+  "urgent": false
+}
+```
+
+Clear instructions like this work well most of the time, but "most of the
+time" is not good enough for a pipeline that runs thousands of times a day.
+
+## API-enforced structured outputs
+
+Many model APIs, including the Claude API, offer **structured outputs**: you
+pass a JSON Schema alongside the request, and the API constrains generation
+so the response is guaranteed to parse and match that schema. This removes a
+whole class of failures — missing braces, extra commentary, wrong key names.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "applicant_name": { "type": "string" },
+    "city": { "type": ["string", "null"] },
+    "amount_inr": { "type": ["integer", "null"] },
+    "product": {
+      "type": "string",
+      "enum": ["home_loan", "personal_loan", "business_loan", "other"]
+    },
+    "urgent": { "type": "boolean" }
+  },
+  "required": ["applicant_name", "city", "amount_inr", "product", "urgent"],
+  "additionalProperties": false
+}
+```
+
+Check your provider's documentation for which schema features are
+supported. Keep the field descriptions in the prompt too: the schema
+guarantees the *shape*, but only your instructions explain the *meaning*.
+
+A note on a legacy trick: older guides suggest "prefilling" the assistant's
+reply with an opening brace to force JSON. Current Claude models do not
+support assistant-message prefill, so use structured outputs or clear
+format instructions instead.
+
+## Missing values: null, not guesses
+
+If a field is absent from the source, a model asked for a value may invent
+a plausible one — a city inferred from a phone code, an amount "rounded"
+from context. Tell it explicitly what to do:
+
+```text
+If a value is not stated in the email, use null. Do not infer or estimate
+values from indirect clues.
+```
+
+Making fields nullable in the schema, as above, gives the model a legitimate
+way to say "not present" instead of guessing.
+
+## Enums for classification
+
+For classification tasks, an enum is far more reliable than an open string.
+Without one you get "Home Loan", "home-loan", and "housing finance" for the
+same category. Include an "other" or "unclear" option so the model is not
+forced into a wrong bucket, and define each label briefly in the prompt.
+
+## Validate in code anyway
+
+Even with schema enforcement, validate the *content* before trusting it:
+
+```python
+import json
+
+data = json.loads(response_text)
+assert data["product"] in {"home_loan", "personal_loan", "business_loan", "other"}
+if data["amount_inr"] is not None and not (10_000 <= data["amount_inr"] <= 50_00_00_000):
+    flag_for_review(data)   # amount outside a sane range: send to a human
+```
+
+Schemas catch shape errors; range checks, cross-field rules, and spot
+checks by people catch wrong values.
+
+### Try it yourself
+
+1. Pick a recurring email type in your team and list 5 fields you would
+   extract. For each, define the type and what to output when it is missing.
+2. Turn that list into a JSON Schema with an enum for at least one field and
+   `additionalProperties` set to false.
+3. Write two validation rules in code that would catch a plausible but wrong
+   value the schema alone would accept.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which JavaScript array operation is O(n) rather than O(1)?",
+      "options": [
+        "arr.push(x)",
+        "arr[i] = x",
+        "arr.shift()",
+        "arr.pop()"
+      ],
+      "correctIndex": 2,
+      "explanation": "Removing the first element requires every remaining element to move one slot left, so shift (and unshift) are O(n). Index access and push/pop at the end are O(1)."
+    },
+    {
+      "question": "In Kadane's algorithm, what is the update for `current` (the best sum of a run ending at index i)?",
+      "options": [
+        "current = Math.max(nums[i], current + nums[i])",
+        "current = current + nums[i]",
+        "current = Math.max(current, nums[i])",
+        "current = Math.max(0, nums[i])"
+      ],
+      "correctIndex": 0,
+      "explanation": "The best run ending at i either extends the previous run or starts fresh at i, whichever is larger."
+    },
+    {
+      "question": "Why does the anagram check with a 26-element count array use O(1) extra space?",
+      "options": [
+        "Because strings are immutable",
+        "Because the counts are stored inside the input strings",
+        "Because charCodeAt is O(1)",
+        "Because the array size is fixed at 26 and does not grow with input length"
+      ],
+      "correctIndex": 3,
+      "explanation": "Space is measured against input size. The counter array stays at 26 slots no matter how long the strings are."
+    },
+    {
+      "question": "You rotate `[1, 2]` right by k = 5 using the reversal trick but forget `k %= n`. What goes wrong?",
+      "options": [
+        "Nothing; the result is still correct",
+        "The reversal ranges use indices outside the array, giving a wrong result",
+        "It throws a RangeError",
+        "It loops forever"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without reducing k modulo n, the second and third reversals use ranges beyond the array length. Rotating by 5 on a length-2 array should equal rotating by 1."
+    }
+  ]
+}

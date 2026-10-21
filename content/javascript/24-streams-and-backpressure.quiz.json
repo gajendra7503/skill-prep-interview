@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A ReadableStream with highWaterMark 2 has a pull() source and nobody has read from it yet. How many times is pull() called?",
+      "options": [
+        "Until the source is exhausted",
+        "Zero — pull only runs after the first read",
+        "Twice — it stops once the internal queue reaches the high-water mark",
+        "Exactly once"
+      ],
+      "correctIndex": 2,
+      "explanation": "The stream calls pull only while its queue is below the high-water mark, so it fills to 2 chunks and then waits for a consumer to make room."
+    },
+    {
+      "question": "What does `await writer.ready` do in a manual write loop?",
+      "options": [
+        "Waits until the sink has room in its queue, applying backpressure to the producer",
+        "Waits until the whole stream is closed",
+        "Locks the stream so no other writer can use it",
+        "Flushes every queued chunk immediately"
+      ],
+      "correctIndex": 0,
+      "explanation": "writer.ready resolves when desiredSize is positive again, so awaiting it before each write keeps the producer from outrunning a slow sink."
+    },
+    {
+      "question": "Why does the line-splitting transform keep a buffer and implement flush()?",
+      "options": [
+        "Because TransformStream requires every transform to have flush()",
+        "To convert bytes into text",
+        "To make the stream run in parallel",
+        "Because chunks can end mid-line, so the incomplete tail must be held and emitted when the input ends"
+      ],
+      "correctIndex": 3,
+      "explanation": "Chunk boundaries are arbitrary; the transform keeps the partial last piece and flush() emits whatever remains once the source closes."
+    },
+    {
+      "question": "In Node, why is `pipeline()` from node:stream/promises preferred over chaining `.pipe()`?",
+      "options": [
+        "pipeline is faster because it skips backpressure",
+        "pipeline forwards errors and destroys all the streams when one fails, while .pipe() does not",
+        ".pipe() only works with Web Streams",
+        "pipeline converts Node streams into Web Streams automatically"
+      ],
+      "correctIndex": 1,
+      "explanation": ".pipe() does not propagate errors or clean up the other streams, which can leak file handles; pipeline handles error propagation and cleanup and returns a promise."
+    }
+  ]
+}

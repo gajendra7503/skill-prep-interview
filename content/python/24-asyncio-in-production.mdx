@@ -1,0 +1,181 @@
+---
+title: "asyncio in Production: Structured Concurrency, Cancellation & Backpressure"
+description: "TaskGroup, timeouts, correct cancellation handling, bounding concurrency with semaphores and queues, and the bugs that only appear under real load."
+module: "Pro Level"
+level: "pro"
+order: 25
+---
+
+The concurrency lesson showed `asyncio.gather` and the event loop. Real
+services need more: what happens when one of fifty requests fails, when a
+downstream API hangs, or when 10,000 jobs arrive at once? These are the
+questions senior interviews and production incidents are made of.
+
+## Structured concurrency with `TaskGroup` (3.11+)
+
+`asyncio.TaskGroup` ties the lifetime of child tasks to a block. The block
+does not exit until every task finishes, and if one fails, the rest are
+**cancelled** and the errors are raised together as an `ExceptionGroup`.
+
+```python
+import asyncio
+
+async def fetch_nav(fund: str) -> float:
+    await asyncio.sleep(0.1)
+    if fund == "BAD":
+        raise ValueError(f"unknown fund {fund}")
+    return 101.5
+
+async def main() -> None:
+    try:
+        async with asyncio.TaskGroup() as tg:
+            t1 = tg.create_task(fetch_nav("EQUITY"))
+            t2 = tg.create_task(fetch_nav("BAD"))
+        print(t1.result(), t2.result())
+    except* ValueError as eg:
+        print("failed:", [str(e) for e in eg.exceptions])
+
+asyncio.run(main())
+# failed: ['unknown fund BAD']
+```
+
+Compare `gather`: by default the first exception propagates but the other
+awaitables **keep running** unsupervised. Prefer `TaskGroup` for new code;
+reach for `gather(..., return_exceptions=True)` only when you genuinely want
+"collect every result or error" semantics.
+
+## Never lose a task
+
+`asyncio.create_task` returns a task the event loop holds only **weakly**.
+A fire-and-forget task with no other reference can be garbage-collected
+mid-flight, and its exceptions vanish with it.
+
+```python
+background: set[asyncio.Task] = set()
+
+def spawn(coro) -> None:
+    task = asyncio.create_task(coro)
+    background.add(task)                       # keep a strong reference
+    task.add_done_callback(background.discard)  # drop it when finished
+```
+
+Better still, run long-lived background work inside a `TaskGroup` owned by
+your application's lifespan.
+
+## Timeouts
+
+Every network call needs a deadline. `asyncio.timeout()` (3.11+) wraps any
+block; on expiry it cancels the work inside and raises `TimeoutError`.
+
+```python
+async def slow_api() -> str:
+    await asyncio.sleep(5)
+    return "ok"
+
+async def main() -> None:
+    try:
+        async with asyncio.timeout(1.0):
+            print(await slow_api())
+    except TimeoutError:
+        print("gave up after 1s")
+
+asyncio.run(main())
+# gave up after 1s
+```
+
+`asyncio.wait_for(coro, timeout)` does the same for a single awaitable.
+
+## Cancellation is an exception — let it through
+
+Cancelling a task raises `asyncio.CancelledError` at its current `await`.
+Since Python 3.8 it inherits from `BaseException`, so `except Exception`
+does not swallow it — but a bare `except:` or `except BaseException:` does,
+which breaks timeouts and `TaskGroup` shutdown.
+
+```python
+async def worker() -> None:
+    conn = await open_connection()
+    try:
+        await conn.process()
+    except asyncio.CancelledError:
+        await conn.rollback()        # clean up...
+        raise                        # ...then ALWAYS re-raise
+    finally:
+        await conn.close()
+```
+
+Rule: clean up in `finally`, and if you catch `CancelledError`, re-raise it.
+
+## Bounding concurrency with a semaphore
+
+Launching 10,000 requests at once will exhaust sockets or trip a partner's
+rate limit. An `asyncio.Semaphore` caps how many run at the same time:
+
+```python
+sem = asyncio.Semaphore(20)
+
+async def fetch_limited(i: int) -> int:
+    async with sem:                  # at most 20 inside this block
+        await asyncio.sleep(0.01)
+        return i
+
+async def main() -> None:
+    async with asyncio.TaskGroup() as tg:
+        tasks = [tg.create_task(fetch_limited(i)) for i in range(1000)]
+    print(sum(t.result() for t in tasks))   # 499500
+
+asyncio.run(main())
+```
+
+This still creates 1,000 task objects up front; for unbounded streams,
+use a queue instead.
+
+## Backpressure with a bounded queue
+
+A producer-consumer pipeline with `asyncio.Queue(maxsize=...)` gives you
+**backpressure**: when consumers fall behind, `await queue.put()` blocks
+the producer instead of letting memory grow without limit.
+
+```python
+async def producer(q: asyncio.Queue) -> None:
+    for txn_id in range(100):
+        await q.put(txn_id)          # waits while the queue is full
+
+async def consumer(q: asyncio.Queue, totals: list[int]) -> None:
+    while True:
+        txn_id = await q.get()
+        totals.append(txn_id)
+        q.task_done()
+
+async def main() -> None:
+    q: asyncio.Queue[int] = asyncio.Queue(maxsize=10)
+    totals: list[int] = []
+    workers = [asyncio.create_task(consumer(q, totals)) for _ in range(4)]
+    await producer(q)
+    await q.join()                   # wait until every item is processed
+    for w in workers:
+        w.cancel()
+    print(len(totals))               # 100
+
+asyncio.run(main())
+```
+
+Recent versions (3.13+) also add `Queue.shutdown()` for a cleaner stop than
+cancelling consumers.
+
+## Finding blocking calls
+
+One synchronous call — `requests.get`, a heavy JSON parse, a sync database
+driver — stalls every task on the loop. Run with `PYTHONASYNCIODEBUG=1` or
+`asyncio.run(main(), debug=True)` and the loop logs any callback that holds
+it for longer than 100 ms. Move unavoidable blocking work off the loop with
+`await asyncio.to_thread(fn, *args)`, or to a process pool if it is
+CPU-bound.
+
+### Try it yourself
+
+Build a NAV fetcher that requests 500 fund codes with at most 25 in flight,
+a 2-second timeout per request, and one failing code. Implement it first
+with `gather` and then with `TaskGroup`, and log which tasks are still
+running when the first error surfaces. Then convert it to a bounded-queue
+pipeline and show that peak queue size never exceeds `maxsize`.

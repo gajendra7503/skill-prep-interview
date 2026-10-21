@@ -1,0 +1,145 @@
+---
+title: "Prompt Caching & Cost"
+description: "Estimate token costs, cut them with prompt caching, count tokens before sending, and pick the right model, effort level and batch strategy."
+module: "Building with the API"
+level: "advanced"
+order: 22
+---
+
+A prompt that costs a fraction of a rupee in testing can cost lakhs a month
+in production. Cost is driven by **tokens** — chunks of text the model reads
+(input) and writes (output) — and by which model you use. This lesson shows
+how to estimate the bill, then the levers that reduce it without hurting
+quality.
+
+## Prices and the basic maths
+
+Prices are quoted in USD per million tokens (MTok). Current list prices
+(they change, so always check the official pricing page before budgeting):
+
+| Model | ID | Input / MTok | Output / MTok |
+| --- | --- | --- | --- |
+| Claude Opus 5.5 | `claude-opus-5-5` | $4 | $20 |
+| Claude Sonnet 5.5 | `claude-sonnet-5-5` | $2 | $10 |
+| Claude Haiku 4.5 | `claude-haiku-4-5` | $1 | $5 |
+
+Worked example for a fictional internal helpdesk bot at "Nirmaan Infra Ltd":
+10,000 requests a day, each with 3,000 input tokens (a long policy system
+prompt plus the question) and 400 output tokens, on Opus 5.5.
+
+```text
+Input:  10,000 x 3,000 = 30 MTok/day x $4  = $120/day
+Output: 10,000 x   400 =  4 MTok/day x $20 = $80/day
+Total:                                       $200/day = $6,000 per 30-day month
+```
+
+At an **assumed** exchange rate of ₹88 per USD (illustrative only; use the
+current rate and your company's billing currency), that is about ₹5,28,000
+a month. Note that output tokens cost five times input tokens, so verbose
+answers are expensive.
+
+## Prompt caching
+
+Most of those 3,000 input tokens are the same policy text on every request.
+Prompt caching stores that prefix so repeat requests read it at roughly
+**0.1x** the input price. Writing to the cache costs about **1.25x** once.
+
+The cache is a **prefix match** in the order tools, then system, then
+messages. Any byte change in the prefix invalidates everything after it. So:
+
+- Put stable content first: tool definitions, system prompt, reference docs.
+- Put volatile content last: today's date, user name, the actual question.
+- Never put a timestamp at the top of the system prompt.
+
+The simplest way to enable it is a top-level `cache_control` on the request:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+response = client.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=16000,
+    cache_control={"type": "ephemeral"},
+    system=POLICY_TEXT,  # large and identical on every call
+    messages=[{"role": "user", "content": question}],
+)
+print(response.usage.cache_read_input_tokens)  # > 0 on a cache hit
+```
+
+You can instead mark a specific system block with
+`"cache_control": {"type": "ephemeral"}`. The default lifetime is 5 minutes,
+refreshed on each hit; add `"ttl": "1h"` for traffic that arrives less often.
+A minimum prefix length applies — very short prompts silently do not cache —
+so always verify with `cache_read_input_tokens` rather than assuming.
+
+Redo the maths with 2,500 of the 3,000 tokens cached (ignoring the small,
+occasional write cost):
+
+```text
+Cached reads: 25 MTok x $0.40 = $10/day
+Uncached:      5 MTok x $4    = $20/day
+Output (unchanged):             $80/day
+Total:                          $110/day, roughly 45% lower
+```
+
+## Count tokens before you send
+
+Estimate with the API's own counter. Don't use another vendor's tokenizer;
+token counts differ between model families.
+
+```python
+count = client.messages.count_tokens(
+    model="claude-opus-5-5",
+    system=POLICY_TEXT,
+    messages=[{"role": "user", "content": question}],
+)
+print(count.input_tokens)
+```
+
+Run this on a sample of real inputs to build your cost estimate.
+
+## Choose the model and effort level
+
+- **Haiku 4.5** for high-volume, simple jobs: classification, routing,
+  extraction. The same helpdesk load costs about $50 a day.
+- **Sonnet 5.5** for most production workloads balancing quality and cost.
+- **Opus 5.5** for hard reasoning, complex code, and agentic tasks.
+
+The `effort` setting trades quality against tokens spent thinking and
+writing:
+
+```python
+response = client.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=16000,
+    output_config={"effort": "low"},  # low | medium | high | xhigh | max
+    messages=[{"role": "user", "content": "Classify: 'Laptop not booting'. Reply with one word."}],
+)
+```
+
+Use `low` for simple classification; reserve `high` and above for problems
+that genuinely need deep reasoning. Measure on your eval set before and
+after any change.
+
+## Batches for non-urgent work
+
+The Message Batches API processes requests asynchronously at a **50%
+discount**. Nightly report summaries, bulk tagging of last month's tickets,
+or running an eval suite rarely need an answer in seconds — batch them.
+
+## Trimming the prompt
+
+- Delete instructions the model follows anyway; test that quality holds.
+- Send only the relevant document sections, not the whole 200-page manual.
+- Ask for concise output and set a sensible format ("three bullets").
+- Summarise long chat histories instead of resending every turn.
+
+### Try it yourself
+
+Take a prompt you use daily. Use `count_tokens` to measure it, estimate the
+monthly cost at 5,000 calls a day on each of the three models, and convert
+to INR at a stated exchange rate. Then restructure it so the stable part
+comes first, enable caching, call it twice within five minutes, and confirm
+`cache_read_input_tokens` is non-zero on the second call.

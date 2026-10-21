@@ -1,0 +1,160 @@
+---
+title: "Buffers and Binary Data"
+description: "How Node represents raw bytes with Buffer, converts between encodings like utf8, base64 and hex, and why byte length differs from string length."
+module: "Working with Data"
+level: "intermediate"
+order: 11
+---
+
+JavaScript strings are text, but files, sockets, images and hashes are
+**bytes**. Node's `Buffer` is the bridge between the two. Interview
+questions here usually test one idea: a string's `.length` is not its size
+on the wire, and converting bytes to text needs the right encoding.
+
+## What a Buffer is
+
+A `Buffer` is a fixed-length sequence of bytes (values 0 to 255).
+`Buffer` is a **subclass of the standard `Uint8Array`** typed array, so
+anything that accepts a `Uint8Array` accepts a Buffer.
+
+```js
+import { Buffer } from "node:buffer"; // also available as a global
+
+const buf = Buffer.from("Pay ₹500");
+console.log(buf);
+// <Buffer 50 61 79 20 e2 82 b9 35 30 30>
+console.log(buf instanceof Uint8Array); // true
+console.log(buf[0]);                    // 80  (the byte for "P")
+```
+
+Ways to create one:
+
+| Call | Result |
+| --- | --- |
+| `Buffer.from("text", "utf8")` | Bytes of a string in an encoding |
+| `Buffer.from([1, 2, 3])` | Bytes from an array of numbers |
+| `Buffer.alloc(16)` | 16 zero-filled bytes (safe) |
+| `Buffer.allocUnsafe(16)` | 16 bytes, **not** cleared — faster, may contain old memory |
+| `Buffer.concat([a, b])` | A new Buffer joining several |
+
+`new Buffer(...)` is deprecated because it could hand out uninitialised
+memory. Only use `allocUnsafe` when you immediately overwrite every byte.
+
+## Buffers and TypedArrays
+
+Every TypedArray (`Uint8Array`, `Int16Array`, `Float64Array` ...) is a
+typed *view* over an `ArrayBuffer` of raw memory. Web-standard APIs that
+Node also ships — `fetch`, `TextEncoder`, `crypto.subtle` — speak
+`Uint8Array` and `ArrayBuffer`, so you often convert:
+
+```js
+const bytes = new TextEncoder().encode("₹"); // Uint8Array [226, 130, 185]
+const asBuf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength); // shares memory
+console.log(new TextDecoder().decode(asBuf));  // ₹
+
+const u8 = new Uint8Array(1);
+u8[0] = 300;
+console.log(u8[0]);                            // 44  (values wrap modulo 256)
+```
+
+Passing an `ArrayBuffer` plus offset and length to `Buffer.from` creates a
+view without copying; passing a TypedArray itself copies the bytes.
+
+## Byte length vs string length
+
+```js
+const s = "Pay ₹500";
+console.log(s.length);               // 8   (UTF-16 code units)
+console.log(Buffer.byteLength(s));   // 10  (UTF-8 bytes)
+
+console.log("héllo".length, Buffer.byteLength("héllo")); // 5 6
+console.log("😀".length, Buffer.byteLength("😀"));        // 2 4
+```
+
+The rupee sign `₹` is one character but **3 bytes** in UTF-8. This matters
+whenever a limit is measured in bytes: a `Content-Length` header, a database
+column sized in bytes, a 1 MB request-body limit. Setting
+`Content-Length: s.length` for non-ASCII text truncates the response —
+always use `Buffer.byteLength(s)`.
+
+## Encodings: utf8, base64, hex
+
+```js
+const buf = Buffer.from("Pay ₹500");        // utf8 is the default
+console.log(buf.toString("hex"));           // 50617920e282b9353030
+console.log(buf.toString("base64"));        // UGF5IOKCuTUwMA==
+console.log(Buffer.from("UGF5IOKCuTUwMA==", "base64").toString()); // Pay ₹500
+console.log(Buffer.from("??>").toString("base64url")); // Pz8-
+```
+
+- **utf8** — text; the default almost everywhere.
+- **base64** — binary safely inside text (JSON, email, data URLs). About
+  33% larger than the raw bytes.
+- **base64url** — base64 with `-` and `_` and no padding, safe in URLs and
+  used by JWTs.
+- **hex** — two characters per byte; common for hashes and debugging.
+- **latin1** / **ascii** — legacy single-byte encodings.
+
+Base64 is an **encoding, not encryption** — anyone can decode it. Also note
+that decoding is lenient: invalid base64 characters are skipped and hex
+decoding stops at the first invalid character, with no error thrown, so
+validate untrusted input yourself.
+
+## Reading and writing numbers
+
+Binary protocols and file formats pack numbers into bytes with a specific
+**endianness** (byte order).
+
+```js
+const header = Buffer.alloc(6);
+header.writeUInt32BE(0xcafebabe, 0); // big-endian, 4 bytes at offset 0
+header.writeUInt16LE(500, 4);        // little-endian, 2 bytes at offset 4
+console.log(header);                  // <Buffer ca fe ba be f4 01>
+console.log(header.readUInt16LE(4));  // 500
+```
+
+## Slices share memory
+
+```js
+const original = Buffer.from("hello");
+const part = original.subarray(0, 2); // a view, no copy
+part[0] = 72;                          // 72 is "H"
+console.log(original.toString());      // Hello
+
+const copy = Buffer.from(original);    // independent copy
+```
+
+`subarray` (and the older `buf.slice`) return views over the same memory,
+which is fast but surprising. A tiny view also keeps a large parent buffer
+alive in memory — copy it if you only need a few bytes long-term.
+
+## Multi-byte characters split across chunks
+
+Streams deliver data in chunks, and a chunk boundary can fall in the middle
+of a 3-byte `₹`:
+
+```js
+const rupee = Buffer.from("₹");
+const a = rupee.subarray(0, 2), b = rupee.subarray(2);
+console.log(a.toString() + b.toString());        // ��  (broken)
+console.log(Buffer.concat([a, b]).toString());   // ₹
+```
+
+Either concatenate all chunks before decoding, use
+`StringDecoder` from `node:string_decoder`, or call
+`stream.setEncoding("utf8")`, which handles split characters for you.
+
+## Comparing and serialising
+
+`a === b` compares object identity, so two Buffers with the same bytes are
+not `===`. Use `a.equals(b)` or `Buffer.compare(a, b)`. For secrets such as
+HMAC signatures, use `crypto.timingSafeEqual` to avoid timing attacks.
+`JSON.stringify(buf)` produces a `type`/`data` object with an array of
+numbers — send base64 strings in JSON instead.
+
+### Try it yourself
+
+Write a function `describe(text)` that prints the character count, UTF-8
+byte count, hex and base64 forms of a string. Try it with `"Total ₹1,499"`
+and an emoji. Then split the Buffer at every possible index and confirm that
+`StringDecoder` always reassembles the original text.

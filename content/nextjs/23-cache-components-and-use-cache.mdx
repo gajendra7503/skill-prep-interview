@@ -1,0 +1,182 @@
+---
+title: "Cache Components & \"use cache\""
+description: "The opt-in caching model of Next.js 16: Partial Prerendering, the use cache directive, cacheLife profiles, cacheTag, and choosing between updateTag and revalidateTag."
+module: "Pro Level"
+level: "pro"
+order: 24
+---
+
+The Caching Deep Dive lesson described the **previous model**: `fetch`
+results cached in the Data Cache, whole routes either static or dynamic,
+and route segment configs like `export const revalidate = 60`. Next.js 16
+ships a second model, **Cache Components**, that flips the default. Data is
+**dynamic unless you say otherwise**, and you cache exactly the functions or
+components you choose. Senior interviews increasingly probe this model,
+because it changes how you design every page.
+
+## Turning it on
+
+```ts
+// next.config.ts
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  cacheComponents: true,
+};
+
+export default nextConfig;
+```
+
+With the flag on, three things change at once:
+
+- `"use cache"`, `cacheLife` and `cacheTag` become available.
+- **Partial Prerendering (PPR)** becomes the default rendering behaviour —
+  the old `experimental.ppr` flag is gone.
+- Route segments that still export `dynamic`, `revalidate` or `fetchCache`
+  now error; the directive replaces them. Cache Components also requires
+  the Node.js runtime, so routes using `runtime = "edge"` must migrate.
+
+## The mental model: a static shell with holes
+
+At build time Next.js renders each route and sorts every component into one
+of three buckets:
+
+| What the component does | What happens |
+| --- | --- |
+| Pure code, module imports, `fs.readFileSync` | Rendered into the **static shell** |
+| Wrapped in `"use cache"` | Result cached and included in the shell |
+| Uncached I/O or `cookies()`/`headers()`/`searchParams` | Must sit inside `Suspense`; its fallback goes in the shell and the content **streams** at request time |
+
+```tsx
+// app/funds/page.tsx
+import { Suspense } from "react";
+import { cookies } from "next/headers";
+import { cacheLife, cacheTag } from "next/cache";
+
+export default function FundsPage() {
+  return (
+    <>
+      <h1>Mutual Funds</h1>                 {/* static */}
+      <FundList />                          {/* cached -> in the shell */}
+      <Suspense fallback={<p>Loading your watchlist…</p>}>
+        <Watchlist />                       {/* per-user -> streams */}
+      </Suspense>
+    </>
+  );
+}
+
+async function FundList() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("funds");
+  const funds = await db.fund.findMany({ orderBy: { aum: "desc" } });
+  return <ul>{funds.map((f) => <li key={f.id}>{f.name}: NAV ₹{f.nav}</li>)}</ul>;
+}
+
+async function Watchlist() {
+  const userId = (await cookies()).get("uid")?.value;
+  const items = await db.watchlist.findMany({ where: { userId } });
+  return <p>{items.length} funds on your watchlist</p>;
+}
+```
+
+The shell (heading, fund list, watchlist fallback) can be served instantly
+from a CDN; only the watchlist waits on the server. If you read uncached
+data **outside** any `Suspense` boundary, Next.js flags it in the dev
+overlay and fails the prerender instead of silently making the whole page
+dynamic — that strictness is the point.
+
+## Cache keys and the closure trap
+
+A cache entry's key is built from the **build ID** (or `deploymentId`), a
+hash of the function's identity, and its **serialised arguments**. Values a
+cached function captures from an outer scope are bound as arguments too, so
+they join the key automatically.
+
+Two rules follow:
+
+- Arguments and return values must be serialisable — no class instances,
+  no `URL` objects. JSX and Server Actions may be **passed through** (e.g.
+  as `children`) as long as the cached function doesn't inspect them.
+- You **cannot** call `cookies()`, `headers()` or read `searchParams` inside
+  a cached scope, even indirectly through a helper. Read them outside and
+  pass the plain value in, where it becomes part of the key:
+
+```tsx
+async function Portfolio() {
+  const uid = (await cookies()).get("uid")?.value ?? "guest";
+  return <Holdings userId={uid} />;   // uid becomes part of the cache key
+}
+
+async function Holdings({ userId }: { userId: string }) {
+  "use cache";
+  cacheLife("minutes");
+  return <Table rows={await getHoldings(userId)} />;
+}
+```
+
+## `cacheLife`: stale, revalidate, expire
+
+Every profile has three timings: `stale` (how long the **browser** reuses it
+without asking), `revalidate` (after this, the next request triggers a
+background refresh) and `expire` (after this with no traffic, the next
+request waits for fresh data).
+
+| Profile | stale | revalidate | expire |
+| --- | --- | --- | --- |
+| `seconds` | 30 s | 1 s | 1 min |
+| `minutes` | 5 min | 1 min | 1 h |
+| `hours` | 5 min | 1 h | 1 day |
+| `days` | 5 min | 1 day | 1 week |
+| `max` | 5 min | 30 days | 1 year |
+
+Omitting `cacheLife` uses the `default` profile (revalidate 15 minutes, never
+expires) — call it explicitly in every scope so the lifetime is visible at
+the call site. Very short lifetimes such as `seconds` are too short to
+prerender, so that part is left as a hole resolved at request time. Custom
+profiles live in `next.config.ts` under `cacheLife`.
+
+## Invalidation: `updateTag` vs `revalidateTag`
+
+```ts
+"use server";
+import { updateTag, revalidateTag } from "next/cache";
+
+export async function updateNav(fundId: string, nav: number) {
+  await db.fund.update({ where: { id: fundId }, data: { nav } });
+  updateTag(`fund-${fundId}`);   // editor sees the new NAV on the next render
+}
+
+export async function nightlyImport() {
+  await importFromAmfiFeed();
+  revalidateTag("funds", "max"); // serve old list while the new one builds
+}
+```
+
+- `updateTag(tag)` — **Server Actions only**. Expires immediately; the next
+  request waits for fresh data. Use it for read-your-own-writes.
+- `revalidateTag(tag, "max")` — Server Actions **and** Route Handlers
+  (webhooks, cron). Stale-while-revalidate. The single-argument form is
+  deprecated.
+
+## `use cache: remote` and `use cache: private`
+
+The default handler stores entries **in memory per process**. On serverless,
+instances are short-lived, so runtime entries are rarely reused.
+`"use cache: remote"` stores output in a shared handler (Redis, KV)
+configured via `cacheHandlers`, at the cost of a network hop — worth it for
+rate-limited APIs or expensive queries behind `Suspense`.
+`"use cache: private"` is the narrow escape hatch for functions that must
+read cookies or headers directly. It is never stored in a server cache
+across requests — only the browser keeps the output for its `stale` time —
+so it exists mainly to make per-user data prefetchable. No server entry
+survives a new deploy, because the build ID is part of every key.
+
+### Try it yourself
+
+Enable `cacheComponents` in a test app and build a product page with a
+cached product description (`cacheLife("days")`, tag `product-<id>`), an
+uncached stock count behind `Suspense`, and a Server Action that edits the
+description. Use `updateTag` in the action, confirm the editor sees the
+change immediately, then explain when you would switch to
+`revalidateTag(tag, "max")` instead.

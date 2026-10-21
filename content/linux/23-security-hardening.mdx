@@ -1,0 +1,176 @@
+---
+title: "Server Security Hardening Basics"
+description: "Reduce a Linux server's attack surface with timely updates, least-privilege users, hardened SSH, a default-deny firewall, fail2ban and regular audits."
+module: "Administration"
+level: "advanced"
+order: 23
+---
+
+A fresh cloud VM with a public IP starts receiving SSH login attempts from
+bots within minutes. Hardening does not make a server unbreakable; it
+**shrinks the attack surface** and makes attacks noisy and slow. Think in
+layers: if one control fails, the next one still stands.
+
+| Layer | Question | Main tools |
+|---|---|---|
+| Patching | Are known holes closed? | `apt`, unattended-upgrades |
+| Accounts | Who can log in, and with what power? | users, groups, `sudo` |
+| Remote access | How do they log in? | `sshd_config`, keys |
+| Network | What is reachable from outside? | `ss`, `ufw` / `firewalld` |
+| Detection | Would we notice an attack? | logs, fail2ban, `last` |
+| Containment | What can a hacked process touch? | permissions, AppArmor / SELinux |
+
+## 1. Patch promptly and automatically
+
+Most real-world compromises use **known, already-fixed** vulnerabilities.
+
+```bash
+sudo apt update && sudo apt upgrade
+sudo apt install unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades   # enable automatic security updates
+ls /var/run/reboot-required 2>/dev/null && echo "reboot needed (kernel/libc update)"
+```
+
+On Fedora/RHEL the equivalent is `sudo dnf upgrade` and the `dnf-automatic`
+package. Kernel updates only take effect after a reboot, so schedule them.
+
+## 2. Least privilege for accounts
+
+- Never work as `root` day to day. Create a named user and give it `sudo`
+  (the `sudo` group on Ubuntu, `wheel` on RHEL).
+- One person, one account: shared logins destroy the audit trail.
+- Services run as their own unprivileged system users (`useradd --system`).
+- Edit sudo rules only with `sudo visudo` (it syntax-checks before saving).
+  `sudo -l` lists what the current user may run.
+
+```bash
+sudo adduser asha
+sudo usermod -aG sudo asha      # -a is essential: without it, other groups are removed
+getent group sudo
+```
+
+```text
+sudo:x:27:ubuntu,asha
+```
+
+Remove or lock accounts when people leave: `sudo usermod -L olduser` and
+`sudo chage -E 0 olduser`.
+
+## 3. Harden SSH
+
+The biggest single win is **keys only, no passwords, no root login**
+(see "SSH Keys, Config & Tunnels" for creating and installing keys).
+Current Ubuntu releases include drop-in files from `/etc/ssh/sshd_config.d/`
+at the top of `sshd_config`, and for most options **the first value sshd
+reads wins**. So a low-numbered drop-in overrides later defaults:
+
+```ini
+# /etc/ssh/sshd_config.d/01-hardening.conf
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+MaxAuthTries 3
+AllowUsers asha deploy
+X11Forwarding no
+```
+
+Validate, check the **effective** settings, then reload:
+
+```bash
+sudo sshd -t                                    # silent means the syntax is valid
+sudo sshd -T | grep -Ei 'permitrootlogin|passwordauthentication'
+sudo systemctl reload ssh                       # the unit is 'sshd' on Fedora/RHEL
+```
+
+```text
+permitrootlogin no
+passwordauthentication no
+```
+
+**Warning:** keep your current SSH session open and test a login from a
+**second** terminal before closing it. A typo in `AllowUsers` or a missing
+key can lock you out, leaving only the cloud provider's console.
+
+Changing the port from 22 only reduces log noise; it is not real security.
+
+## 4. Close what you do not need
+
+First see what is listening:
+
+```bash
+sudo ss -tulpn
+```
+
+```text
+Netid State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+tcp   LISTEN 0      128          0.0.0.0:22        0.0.0.0:*     users:(("sshd",pid=812,fd=3))
+tcp   LISTEN 0      200        127.0.0.1:5432      0.0.0.0:*     users:(("postgres",pid=990,fd=6))
+tcp   LISTEN 0      511          0.0.0.0:80        0.0.0.0:*     users:(("nginx",pid=1104,fd=6))
+```
+
+`127.0.0.1` is reachable only from the machine itself, which is what you
+want for databases and caches. `0.0.0.0` (or `[::]`) means every
+interface. Uninstall or disable services you do not use
+(`sudo systemctl disable --now cups`).
+
+Then add a **default-deny** firewall. On Ubuntu, `ufw` is the simple front end:
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow OpenSSH          # allow SSH BEFORE enabling, or you lock yourself out
+sudo ufw allow 80,443/tcp
+sudo ufw enable
+sudo ufw status verbose
+```
+
+On Fedora/RHEL use firewalld: `sudo firewall-cmd --permanent --add-service=https`
+followed by `sudo firewall-cmd --reload`. Cloud security groups are a
+second, external layer; use both.
+
+## 5. Detect and slow down attackers
+
+`fail2ban` watches logs and temporarily bans IPs with repeated failures.
+The Debian/Ubuntu package enables an `sshd` jail out of the box; local
+changes go in `/etc/fail2ban/jail.local`, never the shipped `jail.conf`.
+
+```bash
+sudo apt install fail2ban
+sudo fail2ban-client status sshd
+```
+
+Know where to look after an incident:
+
+| What | Command |
+|---|---|
+| SSH logins and sudo use | `journalctl -u ssh`, `/var/log/auth.log` (RHEL: `/var/log/secure`) |
+| Recent logins | `last -a`, failed ones with `sudo lastb` |
+| Who is on now | `w` |
+| sudo history | `sudo journalctl _COMM=sudo` |
+
+## 6. Contain the damage
+
+- **File permissions**: `~/.ssh` is `700`, `authorized_keys` and private
+  keys `600`, secrets such as `.env` owned by the service user with `600`.
+  **Never** "fix" a permission error with `chmod 777`.
+- **Find risky files**: `sudo find / -xdev -type f -perm -0002` (world-writable)
+  and `sudo find / -xdev -type f -perm -4000` (SUID binaries; compare with a known-good list).
+- **Mandatory access control**: Ubuntu ships AppArmor (`sudo aa-status`),
+  RHEL ships SELinux (`getenforce`). Leave them enforcing; disabling SELinux
+  to "make things work" is a classic interview red flag.
+- **Audit tools**: `sudo lynis audit system` gives a scored checklist.
+
+Interviewers often ask: "You get a new public server. What are the first
+five things you do?" A solid answer: update, create a sudo user, keys-only
+SSH with root login off, default-deny firewall, and automatic security
+updates, then verify each one.
+
+### Try it yourself
+
+1. On a test VM, write the drop-in above, run `sudo sshd -T` and confirm
+   that password login is off, then prove it with `ssh -o PubkeyAuthentication=no user@host`.
+2. Run `sudo ss -tulpn` and explain, for every listening port, which
+   process owns it and whether it should be public.
+3. Enable `ufw` with only SSH and HTTPS allowed, and check the result from
+   another machine with `nc -zv host 80`.

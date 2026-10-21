@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "After swapping `createStore` for `configureStore`, a legacy reducer starts throwing 'A state mutation was detected inside a dispatch'. What does this mean?",
+      "options": [
+        "configureStore is incompatible with switch reducers",
+        "The reducer has always mutated state; configureStore's development immutability check now reveals it",
+        "Immer is converting the reducer incorrectly",
+        "The action type constant is not a string"
+      ],
+      "correctIndex": 1,
+      "explanation": "configureStore adds an immutability check in development. The mutation bug existed before; it was simply unnoticed."
+    },
+    {
+      "question": "During migration, how can a new slice keep handling actions dispatched with the old `ADD_TODO` constant?",
+      "options": [
+        "Handle it with `builder.addCase(ADD_TODO, ...)` in extraReducers",
+        "Rename the slice to ADD_TODO",
+        "It cannot; every call site must change first",
+        "Use the removed object syntax for extraReducers"
+      ],
+      "correctIndex": 0,
+      "explanation": "extraReducers can respond to any action type string, so old dispatch sites keep working while new code uses slice action creators."
+    },
+    {
+      "question": "A `mapState` returned `{ user, count }`. After converting to `useSelector((s) => ({ user: s.auth.user, count: s.cart.items.length }))`, the component re-renders on every action. Why?",
+      "options": [
+        "useSelector is slower than connect",
+        "Hooks always re-render on every action",
+        "useSelector compares with === by default, and the selector returns a new object each time; connect compared shallowly",
+        "The Provider was removed"
+      ],
+      "correctIndex": 2,
+      "explanation": "connect shallow-compares the mapState result. useSelector uses reference equality, so a new object every time forces a re-render. Use separate useSelector calls or pass shallowEqual."
+    },
+    {
+      "question": "Which statement about the RTK 2 / Redux 5 upgrade is correct?",
+      "options": [
+        "connect was removed from React-Redux 9",
+        "Thunk must be added manually to configureStore",
+        "Action types may be Symbols",
+        "The object syntax for extraReducers was removed; use the builder callback"
+      ],
+      "correctIndex": 3,
+      "explanation": "RTK 2 removed the object syntax for createReducer and extraReducers. connect is still supported, thunk is included by default, and action types must be strings."
+    }
+  ]
+}

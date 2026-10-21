@@ -1,0 +1,109 @@
+{
+  "paths": [
+    {
+      "slug": "frontend-developer",
+      "title": "Frontend Developer",
+      "description": "From semantic markup to production React apps with Redux state and server rendering.",
+      "outcome": "Build and ship modern web front ends.",
+      "courses": [
+        "html-css",
+        "javascript",
+        "typescript",
+        "react",
+        "redux",
+        "nextjs"
+      ]
+    },
+    {
+      "slug": "full-stack-developer",
+      "title": "Full-Stack Developer",
+      "description": "JavaScript, TypeScript and React on the front end, Next.js on the server, MySQL for data.",
+      "outcome": "Own a feature end to end, from UI to database.",
+      "courses": [
+        "javascript",
+        "typescript",
+        "react",
+        "nextjs",
+        "mysql"
+      ]
+    },
+    {
+      "slug": "backend-developer",
+      "title": "Backend Developer",
+      "description": "JavaScript and TypeScript fundamentals, then Node.js and Express to build APIs, with MySQL for data.",
+      "outcome": "Design, build and ship production REST APIs.",
+      "courses": [
+        "javascript",
+        "typescript",
+        "nodejs",
+        "expressjs",
+        "mysql"
+      ]
+    },
+    {
+      "slug": "mobile-developer",
+      "title": "Mobile App Developer",
+      "description": "Use your React and Redux skills to build iOS and Android apps.",
+      "outcome": "Ship cross-platform mobile apps with React Native.",
+      "courses": [
+        "javascript",
+        "react",
+        "redux",
+        "react-native"
+      ]
+    },
+    {
+      "slug": "angular-developer",
+      "title": "Angular Developer",
+      "description": "The web fundamentals and TypeScript, then Angular for enterprise-scale applications.",
+      "outcome": "Build structured, maintainable Angular apps.",
+      "courses": [
+        "html-css",
+        "javascript",
+        "typescript",
+        "angular"
+      ]
+    },
+    {
+      "slug": "backend-and-data",
+      "title": "Backend & Data Foundations",
+      "description": "Python for scripting and APIs, MySQL for storing and querying data.",
+      "outcome": "Write backend services and work confidently with data.",
+      "courses": [
+        "python",
+        "mysql"
+      ]
+    },
+    {
+      "slug": "ai-ready-professional",
+      "title": "AI-Ready Professional",
+      "description": "Get dependable results from AI tools, then automate with Python.",
+      "outcome": "Use AI safely and productively in everyday work.",
+      "courses": [
+        "ai-prompting",
+        "python"
+      ]
+    },
+    {
+      "slug": "coding-interview-prep",
+      "title": "Coding Interview Prep",
+      "description": "Solid JavaScript, then data structures, algorithms and the problem-solving patterns interviewers test.",
+      "outcome": "Solve unseen coding problems confidently in technical interviews.",
+      "courses": [
+        "javascript",
+        "dsa"
+      ]
+    },
+    {
+      "slug": "devops-foundations",
+      "title": "Server & DevOps Foundations",
+      "description": "Linux and the command line first, then Node.js and MySQL on servers you set up and secure yourself.",
+      "outcome": "Deploy, secure and troubleshoot backend apps on Linux servers.",
+      "courses": [
+        "linux",
+        "nodejs",
+        "mysql"
+      ]
+    }
+  ]
+}

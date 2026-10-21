@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "An icon-only Pressable shows a star. What makes it understandable to TalkBack and VoiceOver users?",
+      "options": [
+        "Nothing — screen readers describe icons automatically",
+        "Setting allowFontScaling={false}",
+        "Adding accessibilityRole=\"button\" and an accessibilityLabel such as \"Add to watchlist\"",
+        "Wrapping it in a ScrollView"
+      ],
+      "correctIndex": 2,
+      "explanation": "RN views have no implicit semantics. Role says what the element is, label says what to read, and accessibilityState conveys selected/disabled status."
+    },
+    {
+      "question": "What are the commonly cited minimum touch target sizes?",
+      "options": [
+        "44×44 pt on iOS (Apple HIG) and 48×48 dp on Android (Material)",
+        "24×24 on both platforms",
+        "100×100 on both platforms",
+        "There are no guidelines"
+      ],
+      "correctIndex": 0,
+      "explanation": "Small icons can keep their visual size while expanding the touchable area with hitSlop."
+    },
+    {
+      "question": "Your app calls `I18nManager.forceRTL(true)` when the user picks Arabic. Why doesn't the layout flip immediately?",
+      "options": [
+        "forceRTL only works on iOS",
+        "RTL requires a native rebuild",
+        "It only affects Text components",
+        "Layout direction is read at startup, so the app must be reloaded for it to take effect"
+      ],
+      "correctIndex": 3,
+      "explanation": "RTL direction is applied at app start; a reload (for example Updates.reloadAsync in Expo) is needed after changing it."
+    },
+    {
+      "question": "What does `new Intl.NumberFormat(\"en-IN\", { style: \"currency\", currency: \"INR\" }).format(1234567.5)` produce?",
+      "options": [
+        "\"INR 1,234,567.50\"",
+        "\"₹12,34,567.50\"",
+        "\"₹1.23M\"",
+        "\"1234567.5 ₹\""
+      ],
+      "correctIndex": 1,
+      "explanation": "The en-IN locale uses the Indian grouping system (lakh/crore) and the ₹ symbol, with two decimal places for INR."
+    }
+  ]
+}

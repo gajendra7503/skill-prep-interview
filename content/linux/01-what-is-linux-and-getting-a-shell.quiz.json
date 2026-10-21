@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which statement best describes the relationship between Linux and Ubuntu?",
+      "options": [
+        "Ubuntu is the kernel and Linux is the desktop environment that runs on it",
+        "Linux is the kernel; Ubuntu is a distribution that bundles it with tools, a package manager and defaults",
+        "They are two names for exactly the same thing",
+        "Ubuntu is a shell, like Bash, that runs on top of Linux"
+      ],
+      "correctIndex": 1,
+      "explanation": "Linux is strictly the kernel. A distribution such as Ubuntu packages that kernel with GNU tools, the apt package manager and default configuration."
+    },
+    {
+      "question": "You are using WSL and your project lives under /mnt/c/Users/asha/code. Builds feel slow. What is the usual fix?",
+      "options": [
+        "Switch from Bash to zsh",
+        "Run wsl --shutdown before every build",
+        "Move the project into your Linux home directory (~), because file access across the Windows boundary is slower",
+        "Reinstall WSL with wsl --install -d Debian"
+      ],
+      "correctIndex": 2,
+      "explanation": "Files under /mnt/c live on the Windows file system, and accessing them from Linux is much slower than using the Linux file system in your home directory."
+    },
+    {
+      "question": "Your prompt changes from `asha@devbox:~$` to a prompt ending in `#`. What does that tell you?",
+      "options": [
+        "You are in a directory called #",
+        "The previous command failed",
+        "You are now in a zsh shell instead of Bash",
+        "You are working as root, the administrator account"
+      ],
+      "correctIndex": 3,
+      "explanation": "By convention, $ marks a normal user and # marks root. Root can change or delete anything, so take extra care at a # prompt."
+    },
+    {
+      "question": "Why might a command from this course behave differently in the default macOS Terminal?",
+      "options": [
+        "macOS is Unix-like but not Linux; its core tools come from BSD and some flags differ",
+        "macOS Terminal cannot run Bash at all",
+        "macOS uses the apt package manager with different versions",
+        "macOS runs the Linux kernel but with a different file system"
+      ],
+      "correctIndex": 0,
+      "explanation": "macOS ships BSD versions of tools like sed and ls, so some options differ (for example sed -i). For genuine Linux, use a VM or a container."
+    }
+  ]
+}

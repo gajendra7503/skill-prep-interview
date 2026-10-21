@@ -1,0 +1,369 @@
+---
+title: "Real Project: Team Task Board with RTK Query"
+description: "Build a team task board end to end: a UI slice, an RTK Query API with tags and an optimistic move, a memoised board selector, typed hooks, a React view and automated tests."
+module: "Real-World Project"
+level: "pro"
+order: 28
+---
+
+**Kaamkaaj Labs** (a fictional software firm in Pune) wants a simple task
+board for its delivery teams: three columns (To do, Doing, Done), a filter
+by assignee, a search box, quick task creation, and drag-to-move that feels
+instant even on slow office Wi-Fi. We will build the Redux layer and test it
+from Node, then add the React view.
+
+What each piece practises:
+
+| Requirement | Redux tool |
+|---|---|
+| Filter, search, selected card (client-only) | a `createSlice` UI slice |
+| Load and create tasks | RTK Query `createApi` with tags |
+| Instant moves, with rollback if the server refuses | optimistic `onQueryStarted` |
+| Board columns derived from tasks plus filters | memoised `createSelector` |
+| Type-safe components | `withTypes()` hooks |
+| Confidence | `node:test` against a real HTTP server |
+
+## Step 0: setup
+
+```bash
+npm init -y && npm pkg set type=module
+npm i @reduxjs/toolkit react-redux react react-dom
+```
+
+Files below use explicit `.ts` import extensions so Node 24 can run them
+directly (it strips TypeScript types). In a Vite app, enable
+`allowImportingTsExtensions` in `tsconfig.json` or drop the extensions.
+
+## Step 1: a tiny API server
+
+The server keeps tasks in memory and enforces one business rule: a
+**blocked** task cannot be marked done (HTTP 409). That rule is what will
+exercise our rollback.
+
+```ts
+// server/server.ts — dev/test only
+import { createServer } from "node:http";
+import type { Server } from "node:http";
+
+export function startServer(port = 4317): Promise<Server> {
+  let nextId = 4;
+  const tasks = [
+    { id: 1, title: "Draft KYC checklist", assignee: "asha", status: "todo", blocked: false },
+    { id: 2, title: "Fix SIP date bug", assignee: "ravi", status: "doing", blocked: false },
+    { id: 3, title: "Vendor contract review", assignee: "asha", status: "doing", blocked: true },
+  ];
+  const send = (res, code: number, body?: unknown) => {
+    res.writeHead(code, { "content-type": "application/json" });
+    res.end(body === undefined ? "" : JSON.stringify(body));
+  };
+  const server = createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = raw ? JSON.parse(raw) : {};
+    const match = req.url!.match(/^\/api\/tasks(?:\/(\d+))?$/);
+    if (!match) return send(res, 404, { error: "not found" });
+    if (req.method === "GET") return send(res, 200, tasks);
+    if (req.method === "POST") {
+      const task = { id: nextId++, status: "todo", blocked: false, ...body };
+      tasks.push(task);
+      return send(res, 201, task);
+    }
+    if (req.method === "PATCH") {
+      const task = tasks.find((t) => t.id === Number(match[1]));
+      if (!task) return send(res, 404, { error: "no such task" });
+      if (body.status === "done" && task.blocked)
+        return send(res, 409, { error: "Blocked tasks cannot be marked done" });
+      Object.assign(task, body);
+      return send(res, 200, task);
+    }
+    send(res, 405, { error: "method not allowed" });
+  });
+  return new Promise((resolve) => server.listen(port, () => resolve(server)));
+}
+```
+
+## Step 2: the UI slice
+
+Only client state goes here. Tasks themselves are **server state** and
+belong to RTK Query, never copied into a slice.
+
+```ts
+// src/features/ui/uiSlice.ts
+import { createSlice } from "@reduxjs/toolkit";
+import type { PayloadAction } from "@reduxjs/toolkit";
+
+export interface UiState { assigneeFilter: string; search: string; selectedTaskId: number | null }
+const initialState: UiState = { assigneeFilter: "all", search: "", selectedTaskId: null };
+
+export const uiSlice = createSlice({
+  name: "ui",
+  initialState,
+  reducers: {
+    assigneeFilterChanged(state, action: PayloadAction<string>) { state.assigneeFilter = action.payload; },
+    searchChanged(state, action: PayloadAction<string>) { state.search = action.payload; },
+    taskSelected(state, action: PayloadAction<number | null>) { state.selectedTaskId = action.payload; },
+  },
+  selectors: {
+    selectAssigneeFilter: (ui) => ui.assigneeFilter,
+    selectSearch: (ui) => ui.search,
+  },
+});
+
+export const { assigneeFilterChanged, searchChanged, taskSelected } = uiSlice.actions;
+export const { selectAssigneeFilter, selectSearch } = uiSlice.selectors;
+```
+
+## Step 3: the tasks API with tags and an optimistic move
+
+```ts
+// src/features/tasks/tasksApi.ts
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+
+export type Status = "todo" | "doing" | "done";
+export interface Task { id: number; title: string; assignee: string; status: Status; blocked: boolean }
+
+// Node (demo/tests) sets API_URL; in the browser, Vite proxies /api to the server.
+const API_URL = (typeof process !== "undefined" && process.env.API_URL) || "/api";
+
+export const tasksApi = createApi({
+  reducerPath: "tasksApi",
+  baseQuery: fetchBaseQuery({ baseUrl: API_URL }),
+  tagTypes: ["Task"],
+  endpoints: (build) => ({
+    getTasks: build.query<Task[], void>({
+      query: () => "/tasks",
+      providesTags: (result = []) => [
+        { type: "Task" as const, id: "LIST" },
+        ...result.map((t) => ({ type: "Task" as const, id: t.id })),
+      ],
+    }),
+    addTask: build.mutation<Task, Pick<Task, "title" | "assignee">>({
+      query: (body) => ({ url: "/tasks", method: "POST", body }),
+      invalidatesTags: [{ type: "Task", id: "LIST" }],
+    }),
+    moveTask: build.mutation<Task, { id: number; status: Status }>({
+      query: ({ id, status }) => ({ url: `/tasks/${id}`, method: "PATCH", body: { status } }),
+      async onQueryStarted({ id, status }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          tasksApi.util.updateQueryData("getTasks", undefined, (draft) => {
+            const task = draft.find((t) => t.id === id);
+            if (task) task.status = status;
+          }),
+        );
+        try { await queryFulfilled; } catch { patch.undo(); }
+      },
+      // No invalidatesTags: the patched cache already matches the server.
+    }),
+  }),
+});
+
+export const { useGetTasksQuery, useAddTaskMutation, useMoveTaskMutation } = tasksApi;
+```
+
+`addTask` invalidates the `LIST` tag, so the board refetches and shows the
+new card with its server-assigned ID. `moveTask` skips invalidation: the
+optimistic patch is the final state, so a refetch would only add traffic.
+
+## Step 4: store factory and typed hooks
+
+```ts
+// src/app/store.ts
+import { combineSlices, configureStore } from "@reduxjs/toolkit";
+import { setupListeners } from "@reduxjs/toolkit/query";
+import { uiSlice } from "../features/ui/uiSlice.ts";
+import { tasksApi } from "../features/tasks/tasksApi.ts";
+
+const rootReducer = combineSlices(uiSlice, tasksApi);
+export type RootState = ReturnType<typeof rootReducer>;
+
+export function makeStore(preloadedState?: Partial<RootState>) {   // fresh store per test
+  const store = configureStore({
+    reducer: rootReducer,
+    preloadedState,
+    middleware: (gDM) => gDM().concat(tasksApi.middleware),
+  });
+  setupListeners(store.dispatch);
+  return store;
+}
+export type AppStore = ReturnType<typeof makeStore>;
+export type AppDispatch = AppStore["dispatch"];
+```
+
+```ts
+// src/app/hooks.ts
+import { createSelector } from "@reduxjs/toolkit";
+import { useDispatch, useSelector, useStore } from "react-redux";
+import type { AppDispatch, AppStore, RootState } from "./store.ts";
+
+export const useAppSelector = useSelector.withTypes<RootState>();
+export const useAppDispatch = useDispatch.withTypes<AppDispatch>();
+export const useAppStore = useStore.withTypes<AppStore>();
+export const createAppSelector = createSelector.withTypes<RootState>();
+```
+
+## Step 5: the memoised board selector
+
+```ts
+// src/features/tasks/selectors.ts
+import { createAppSelector } from "../../app/hooks.ts";
+import { selectAssigneeFilter, selectSearch } from "../ui/uiSlice.ts";
+import { tasksApi } from "./tasksApi.ts";
+import type { Status, Task } from "./tasksApi.ts";
+
+const EMPTY: Task[] = [];
+const selectTasksResult = tasksApi.endpoints.getTasks.select();
+const selectAllTasks = createAppSelector([selectTasksResult], (r) => r.data ?? EMPTY);
+
+export const selectBoardColumns = createAppSelector(
+  [selectAllTasks, selectAssigneeFilter, selectSearch],
+  (tasks, assignee, search) => {
+    const q = search.trim().toLowerCase();
+    const columns: Record<Status, Task[]> = { todo: [], doing: [], done: [] };
+    for (const t of tasks) {
+      if (assignee !== "all" && t.assignee !== assignee) continue;
+      if (q && !t.title.toLowerCase().includes(q)) continue;
+      columns[t.status].push(t);
+    }
+    return columns;
+  },
+);
+```
+
+The stable `EMPTY` array matters: `r.data ?? []` would create a new array on
+every call while loading, defeating memoisation.
+
+## Step 6: drive it from Node
+
+```ts
+// demo.ts — run: API_URL=http://localhost:4317/api node demo.ts
+import { startServer } from "./server/server.ts";
+import { makeStore } from "./src/app/store.ts";
+import { tasksApi } from "./src/features/tasks/tasksApi.ts";
+import { assigneeFilterChanged } from "./src/features/ui/uiSlice.ts";
+import { selectBoardColumns } from "./src/features/tasks/selectors.ts";
+
+const server = await startServer(4317);
+const store = makeStore();
+const print = (label: string) => {
+  const cols = selectBoardColumns(store.getState());
+  const fmt = (s: keyof typeof cols) => cols[s].map((t) => t.id).join(",") || "-";
+  console.log(`${label.padEnd(22)} todo[${fmt("todo")}] doing[${fmt("doing")}] done[${fmt("done")}]`);
+};
+const sub = store.dispatch(tasksApi.endpoints.getTasks.initiate());
+await sub;                                                     print("loaded");
+const ok = store.dispatch(tasksApi.endpoints.moveTask.initiate({ id: 2, status: "done" }));
+print("move 2 (optimistic)");  await ok;                      print("move 2 (confirmed)");
+const bad = store.dispatch(tasksApi.endpoints.moveTask.initiate({ id: 3, status: "done" }));
+print("move 3 (optimistic)");  const res = await bad;         print("move 3 (rolled back)");
+console.log("server said:", res.error.status, res.error.data.error);
+await store.dispatch(tasksApi.endpoints.addTask.initiate({ title: "Quarterly audit prep", assignee: "ravi" }));
+await new Promise((r) => setTimeout(r, 50));                   print("after addTask");
+console.log("same reference on re-select:", selectBoardColumns(store.getState()) === selectBoardColumns(store.getState()));
+store.dispatch(assigneeFilterChanged("asha"));                 print("filter = asha");
+console.log("recomputations:", selectBoardColumns.recomputations());
+sub.unsubscribe(); store.dispatch(tasksApi.util.resetApiState()); server.close();
+```
+
+```text
+loaded                 todo[1] doing[2,3] done[-]
+move 2 (optimistic)    todo[1] doing[3] done[2]
+move 2 (confirmed)     todo[1] doing[3] done[2]
+move 3 (optimistic)    todo[1] doing[-] done[2,3]
+move 3 (rolled back)   todo[1] doing[3] done[2]
+server said: 409 Blocked tasks cannot be marked done
+after addTask          todo[1,4] doing[3] done[2]
+same reference on re-select: true
+filter = asha          todo[1] doing[3] done[-]
+recomputations: 6
+```
+
+Six recomputations match exactly six input changes: the load, two
+optimistic patches, the rollback, the refetch after `addTask`, and the filter
+change. Confirming move 2 changed nothing, so nothing recomputed.
+
+## Step 7: the React view
+
+```tsx
+// src/features/board/TaskBoard.tsx
+export function TaskBoard() {
+  const { isLoading, isError } = useGetTasksQuery();     // subscribes to the cache
+  const columns = useAppSelector(selectBoardColumns);
+  const [moveTask] = useMoveTaskMutation();
+  const dispatch = useAppDispatch();
+  if (isLoading) return <p>Loading tasks…</p>;
+  if (isError) return <p role="alert">Could not load tasks.</p>;
+  return (
+    <div className="board">
+      <input placeholder="Search" onChange={(e) => dispatch(searchChanged(e.target.value))} />
+      {(["todo", "doing", "done"] as const).map((status) => (
+        <section key={status} aria-label={status}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => moveTask({ id: Number(e.dataTransfer.getData("id")), status })}>
+          {columns[status].map((t) => (
+            <article key={t.id} draggable onDragStart={(e) => e.dataTransfer.setData("id", String(t.id))}>
+              {t.title} <small>{t.assignee}</small>
+            </article>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
+}
+```
+
+In `main.tsx`, create the store once with `makeStore()` and wrap the app in
+`Provider store={store}`.
+
+## Step 8: tests
+
+```ts
+// tasks.test.ts — run: node --test
+process.env.API_URL = "http://localhost:4318/api";
+const { makeStore } = await import("./src/app/store.ts");   // after API_URL is set
+// ...import tasksApi, selectBoardColumns; start the server in before(), close in after()
+
+test("rolls back an optimistic move the server rejects", async () => {
+  const { store, sub } = await loadedStore();   // makeStore() + await getTasks.initiate()
+  const pending = store.dispatch(tasksApi.endpoints.moveTask.initiate({ id: 3, status: "done" }));
+  assert.deepEqual(ids(selectBoardColumns(store.getState()).done), [3]);   // optimistic
+  const result = await pending;
+  assert.equal(result.error.status, 409);
+  assert.deepEqual(ids(selectBoardColumns(store.getState()).done), []);    // rolled back
+  sub.unsubscribe();
+  store.dispatch(tasksApi.util.resetApiState());   // clears cache timers so the run can exit
+});
+```
+
+```text
+✔ rolls back an optimistic move the server rejects (92.6717ms)
+✔ filters by assignee and memoises the result (5.6093ms)
+ℹ pass 2
+ℹ fail 0
+```
+
+Without `resetApiState`, the unused cache entry's 60-second
+`keepUnusedDataFor` timer kept the test process alive for a minute. For
+component tests with React Testing Library and a mocked network, see
+"Testing Reducers, Thunks & Connected Components".
+
+## Extend it
+
+- **Lazy reports:** add a "Burndown" route whose slice is injected with
+  `combineSlices` (see "Lazy-Loading Slices with combineSlices").
+- **Live board:** stream other users' moves into the `getTasks` cache with
+  `onCacheEntryAdded` (see "Real-Time & Offline Patterns: WebSockets and
+  Streaming Updates").
+- **Undo toast:** keep the last `patch` and offer "Undo" for five seconds.
+- **Per-card selectors:** render cards by ID with a `selectTaskById`
+  selector so moving one card does not re-render the others.
+
+### Try it yourself
+
+1. Add an optimistic `deleteTask` mutation that removes the card instantly
+   and restores it if the server returns an error. Write a test for the
+   failure path.
+2. Make `addTask` optimistic too: insert a card with a temporary negative ID,
+   then replace it with the server's task on success.
+3. Add a `selectCountsByAssignee` memoised selector and show it in a
+   sidebar; prove with `recomputations()` that typing in the search box
+   does not recompute it.

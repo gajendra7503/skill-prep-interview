@@ -1,0 +1,201 @@
+---
+title: "Narrowing & Type Guards"
+description: "How control flow analysis narrows unions with typeof, in, instanceof and equality checks, plus custom type predicates, assertion functions and exhaustiveness checks."
+module: "Core Type System"
+level: "intermediate"
+order: 7
+---
+
+A union type says what a value *might* be. **Narrowing** is how
+TypeScript works out what it *is* at a given line: the compiler follows
+your `if`s, `return`s and `switch`es (**control flow analysis**) and
+refines the type in each branch — a frequent interview probe.
+
+## typeof guards
+
+`typeof` narrows primitives: `"string"`, `"number"`, `"bigint"`,
+`"boolean"`, `"symbol"`, `"undefined"`, `"object"` and `"function"`.
+
+```ts
+function formatAmount(value: string | number | bigint): string {
+  if (typeof value === "string") return value.trim();   // string
+  if (typeof value === "number") return value.toFixed(2); // number
+  return value.toString();                               // bigint
+}
+```
+
+The classic trap: `typeof null === "object"`, so a `typeof` check alone
+does not remove `null`:
+
+```ts
+function keys(input: string[] | object | null) {
+  if (typeof input === "object") {
+    Object.keys(input);
+    // Error: No overload matches this call.
+    // input is still object | string[] | null — null was not removed
+  }
+}
+```
+
+## Truthiness and equality narrowing
+
+Checking a value for truthiness removes `null` and `undefined` (and also
+`""`, `0` and `NaN` at runtime — be careful with numbers):
+
+```ts
+function discountLabel(percent: number | null) {
+  // if (percent) would wrongly treat 0% as "no discount"
+  if (percent !== null) return `${percent}% off`;   // percent: number
+  return "No offer";
+}
+```
+
+`=== null`, `!== undefined`, `== null` (matches both) and comparing two
+values all narrow. Comparing against literals narrows unions of literals,
+and a `switch` on a value works the same way.
+
+## The in operator
+
+`in` checks whether a property exists, and narrows unions of object types
+that differ in their properties:
+
+```ts
+type Admin = { name: string; permissions: string[] };
+type Customer = { name: string; loyaltyPoints: number };
+
+function summary(user: Admin | Customer): string {
+  if ("permissions" in user) {
+    return `${user.name}: ${user.permissions.length} permissions`; // Admin
+  }
+  return `${user.name}: ${user.loyaltyPoints} points`;            // Customer
+}
+```
+
+## instanceof and Array.isArray
+
+`instanceof` narrows to a class type; `Array.isArray` narrows to an array:
+
+```ts
+function toDate(input: Date | string | string[]): Date {
+  if (input instanceof Date) return input;        // Date
+  if (Array.isArray(input)) return new Date(input[0] ?? ""); // string[]
+  return new Date(input);                         // string
+}
+
+try {
+  JSON.parse("{bad json");
+} catch (err) {                 // err: unknown under strict mode
+  if (err instanceof SyntaxError) {
+    console.log(err.message);   // err: SyntaxError
+  }
+}
+```
+
+## Discriminated unions and exhaustiveness
+
+With a shared literal property (introduced in "Union & Literal Types"),
+a `switch` narrows each case. Assigning the leftover value to `never`
+makes the compiler prove you handled every member:
+
+```ts
+type Shape =
+  | { kind: "circle"; radius: number }
+  | { kind: "square"; side: number }
+  | { kind: "rectangle"; width: number; height: number };
+
+function area(s: Shape): number {
+  switch (s.kind) {
+    case "circle":
+      return Math.PI * s.radius ** 2;
+    case "square":
+      return s.side ** 2;
+    default: {
+      const unhandled: never = s;
+      // Error: Type '{ kind: "rectangle"; width: number; height: number; }'
+      // is not assignable to type 'never'.
+      throw new Error(`Unknown shape: ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
+```
+
+Add the `"rectangle"` case and the error disappears. When someone later
+adds `"triangle"` to `Shape`, every such `switch` fails to compile until it
+is updated — a strong argument for discriminated unions.
+
+## Custom type guards (type predicates)
+
+For checks TypeScript cannot understand on its own, write a function whose
+return type is a **type predicate**, `paramName is Type`:
+
+```ts
+type Upi = { upiId: string };
+
+function isUpi(value: unknown): value is Upi {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "upiId" in value &&
+    typeof value.upiId === "string"
+  );
+}
+
+const input: unknown = JSON.parse('{"upiId":"asha@okbank"}');
+if (isUpi(input)) {
+  console.log(input.upiId);   // input: Upi — prints asha@okbank
+}
+```
+
+The compiler **trusts** your predicate: a body of just `return true;`
+compiles happily. Treat predicates as code that needs tests.
+
+Predicates are also how `filter` removes unwanted members:
+
+```ts
+const raw = ["Pune", null, "Delhi", undefined];
+const cities = raw.filter((c): c is string => c != null); // string[]
+```
+
+In recent versions (5.5 and later) TypeScript can **infer** this predicate
+from a simple arrow function such as `(c) => c != null`.
+
+## Assertion functions
+
+An **assertion function** throws instead of returning a boolean, and
+narrows everything after the call:
+
+```ts
+function assertIsDefined<T>(value: T, msg: string): asserts value is NonNullable<T> {
+  if (value === undefined || value === null) throw new Error(msg);
+}
+
+const apiKey = process.env.PAYMENT_API_KEY;   // string | undefined
+assertIsDefined(apiKey, "PAYMENT_API_KEY is missing");
+apiKey.length;                                 // apiKey: string from here on
+```
+
+(`T` and `NonNullable` are covered in "Generics Fundamentals" and
+"Built-in Utility Types".) A plain form, `asserts condition`, is used by
+functions like Node's `assert`.
+
+## Summary
+
+| Guard | Narrows | Watch out for |
+|---|---|---|
+| `typeof` | Primitives, functions | `typeof null` is `"object"` |
+| Truthiness | Removes `null`/`undefined` | Also drops `0` and `""` |
+| `in` | Object unions by property | Optional properties exist on both sides |
+| `instanceof` | Class instances | Does not work for interfaces or type aliases |
+| `x is T` predicate | Anything | Compiler trusts it blindly |
+| `never` check | Proves exhaustiveness | Only works on finite unions |
+
+### Try it yourself
+
+1. Write `isNonEmptyString(v: unknown): v is string` and use it to filter
+   `["", "UPI", 42, "Card", null]` down to `string[]`.
+2. Model `type ApiResult = { status: "ok"; data: number[] } | { status: "error"; message: string } | { status: "loading" }`
+   and write a `render` function with a `never` exhaustiveness check. Then
+   add a `"timeout"` member and watch the error appear.
+3. Write `function assertAmount(v: unknown): asserts v is number` that
+   throws unless `v` is a positive finite number (a withdrawal in ₹). Call
+   it on a value read from a form and hover the variable after the call.

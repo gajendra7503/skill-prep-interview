@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which of these can only be written with a `type` alias, not an `interface`?",
+      "options": [
+        "An object with optional properties",
+        "A union such as `\"active\" | \"closed\"`",
+        "An object with a method",
+        "A shape that a class implements"
+      ],
+      "correctIndex": 1,
+      "explanation": "Interfaces describe object shapes. Unions, tuples, primitives and other non-object types can only be named with type."
+    },
+    {
+      "question": "What happens when you declare `interface AppConfig` twice in the same scope with different properties?",
+      "options": [
+        "A duplicate identifier error",
+        "The second declaration replaces the first",
+        "Only the first declaration is used",
+        "The declarations merge into one interface with all properties"
+      ],
+      "correctIndex": 3,
+      "explanation": "Interfaces support declaration merging. Declaring the same type alias twice is a Duplicate identifier error."
+    },
+    {
+      "question": "Given `interface Base { id: string }`, what is the effect of `type ChildT = Base & { id: number }`?",
+      "options": [
+        "No error at the declaration, but id becomes an impossible type (never), so no value can satisfy it",
+        "An immediate error saying ChildT incorrectly extends Base",
+        "id becomes string | number",
+        "The later id: number overrides the earlier one"
+      ],
+      "correctIndex": 0,
+      "explanation": "Intersections combine property types with &, so id is string & number, which is never. extends would report the conflict immediately instead."
+    },
+    {
+      "question": "Why is declaration merging useful in practice?",
+      "options": [
+        "It makes type checking faster",
+        "It allows unions of interfaces",
+        "It lets you add properties to existing types, such as library types like Window",
+        "It converts interfaces into runtime classes"
+      ],
+      "correctIndex": 2,
+      "explanation": "Merging is how code augments existing declarations, for example adding a custom field to Window or to a framework's request type."
+    }
+  ]
+}

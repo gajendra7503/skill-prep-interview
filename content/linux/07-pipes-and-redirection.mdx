@@ -1,0 +1,186 @@
+---
+title: "Pipes & Redirection"
+description: "The three standard streams, redirecting output and errors to files, the 2>&1 ordering trap, pipes, tee, here-documents and pipeline exit statuses."
+module: "Text Processing"
+level: "intermediate"
+order: 7
+---
+
+The Unix philosophy is "small tools that each do one thing well, connected
+together". The connectors are **redirection** (send a command's input or
+output to a file) and **pipes** (send one command's output straight into
+another command). The text-processing lessons that follow build on them.
+
+## Three standard streams
+
+Every process starts with three open streams, identified by small numbers
+called **file descriptors**:
+
+| FD | Name | Default | Used for |
+| --- | --- | --- | --- |
+| 0 | stdin | Keyboard | Input |
+| 1 | stdout | Terminal | Normal output |
+| 2 | stderr | Terminal | Errors and diagnostics |
+
+## Redirecting output: `>` and `>>`
+
+```bash
+echo "first" > out.txt     # create or TRUNCATE, then write
+echo "second" > out.txt    # out.txt now contains only "second"
+echo "third" >> out.txt    # append
+cat out.txt                # second, third (two lines)
+```
+
+The shell opens (and truncates) the target file **before** the command
+runs. Two consequences worth knowing:
+
+```bash
+ls > listing.txt      # listing.txt appears in its own listing
+sort names.txt > names.txt   # DANGER: names.txt is emptied before sort reads it
+sort -o names.txt names.txt  # safe: sort writes the result itself at the end
+```
+
+With `set -o noclobber`, `>` refuses to overwrite existing files and `>|`
+forces it.
+
+## Redirecting errors: `2>`
+
+```bash
+ls out.txt missing.txt > result.txt
+# ls: cannot access 'missing.txt': No such file or directory
+```
+
+The error still reached the screen because `>` only redirects stdout (FD
+1). Redirect FD 2 separately:
+
+```bash
+ls out.txt missing.txt > result.txt 2> errors.txt   # nothing on screen
+cat result.txt     # out.txt
+cat errors.txt     # ls: cannot access 'missing.txt': No such file or directory
+```
+
+`/dev/null` is a special file that discards everything written to it, so
+`find / -name "*.conf" 2>/dev/null` hides the "Permission denied" noise.
+
+## Both streams to one place, and the ordering trap
+
+```bash
+ls out.txt missing.txt > all.txt 2>&1   # nothing on screen
+cat all.txt
+# ls: cannot access 'missing.txt': No such file or directory
+# out.txt
+```
+
+`2>&1` means "make FD 2 point wherever FD 1 points **right now**".
+Redirections are processed left to right, so order matters:
+
+```bash
+ls out.txt missing.txt 2>&1 > wrong.txt
+# ls: cannot access 'missing.txt': No such file or directory   (still on screen!)
+```
+
+Here stderr was pointed at the terminal (where stdout was at that moment),
+and only then was stdout moved to the file. Bash also offers the shorthand
+`&> file` (and `&>> file` to append) for "both streams to this file".
+
+Interviewers love this one: "What is the difference between `cmd > f 2>&1`
+and `cmd 2>&1 > f`?" Explain the left-to-right processing and that `2>&1`
+copies where FD 1 points at that moment.
+
+## Redirecting input: `<`
+
+```bash
+wc -l < app.log        # 8          (reads stdin, so no file name is printed)
+wc -l app.log          # 8 app.log
+```
+
+## Pipes: `|`
+
+A pipe connects the stdout of the left command to the stdin of the right
+one. Both run **at the same time**, and data streams through without a
+temporary file:
+
+```bash
+cut -d' ' -f3 app.log | sort | uniq -c
+#       1 ERROR
+#       6 INFO
+#       1 WARN
+```
+
+Read it left to right: take the third space-separated field (the log
+level), sort so identical values sit together, then count each group. The
+individual tools are covered in "sed, awk, sort, uniq, cut & Friends"; the
+point here is the plumbing.
+
+Only stdout goes through a pipe. Errors still go to the terminal:
+
+```bash
+ls missing.txt | wc -l      # error on screen, then: 0
+ls missing.txt 2>&1 | wc -l # 1   (error text was counted)
+ls missing.txt |& wc -l     # 1   (Bash shorthand for 2>&1 |)
+yes | head -n 2             # y, y — then yes stops on a "broken pipe"
+```
+
+## `tee`: save and see
+
+`tee` copies its stdin to a file **and** to stdout — like a T-junction in a
+pipe:
+
+```bash
+npm run build 2>&1 | tee build.log      # watch the build and keep a log
+sort -u cities.txt | tee unique.txt | wc -l
+```
+
+`tee` also solves a classic sudo puzzle:
+
+```bash
+sudo echo "10.0.0.5 db.internal" >> /etc/hosts
+# bash: /etc/hosts: Permission denied
+echo "10.0.0.5 db.internal" | sudo tee -a /etc/hosts > /dev/null   # works
+```
+
+The first fails because the redirection is done by **your** shell (not
+root) before `sudo` even runs. In the second, `tee` runs as root and opens
+the file itself.
+
+## Here-documents and here-strings
+
+A **here-document** feeds several lines to a command's stdin — useful for
+writing config files from scripts:
+
+```bash
+cat > config.ini <<'EOF'
+[db]
+host=localhost
+user=$DB_USER
+EOF
+wc -w <<< "one two three"   # here-string: a single string as stdin → 3
+```
+
+With the delimiter quoted (`'EOF'`), the text is literal, so `$DB_USER` is
+written as-is. Unquoted (`EOF`), variables and `$(...)` are expanded.
+
+## Exit status of a pipeline
+
+A pipeline's exit status is that of the **last** command, so earlier
+failures are hidden — unless you enable `pipefail`:
+
+```bash
+ls missing.txt 2>/dev/null | wc -l; echo "status $?"   # 0, then: status 0
+set -o pipefail
+ls missing.txt 2>/dev/null | wc -l; echo "status $?"   # 0, then: status 2
+```
+
+`PIPESTATUS` holds every command's status (`1 0` after `false | true`).
+Using `pipefail` in scripts is covered in "Robust Shell Scripts: set -euo
+pipefail, traps & getopts".
+
+### Try it yourself
+
+1. Run `ls /etc /nope` three ways: errors only to `err.txt`, normal output
+   only to `out.txt`, then both into `all.txt`. Check each file with `cat`.
+2. Using a pipe, count how many entries `/etc` contains (`ls /etc` and
+   `wc -l`), and save the listing to `etc.txt` at the same time with `tee`.
+3. Predict, then verify, what `echo hi 2>&1 > /dev/null` and
+   `echo oops >&2 2>/dev/null` print. Explain both using left-to-right
+   processing.

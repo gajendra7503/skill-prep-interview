@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "You run `GREETING=hello` and then `bash -c 'echo $GREETING'`. It prints an empty line. Why?",
+      "options": [
+        "Variables cannot contain lowercase values",
+        "GREETING is a shell variable; it must be exported to reach child processes",
+        "bash -c ignores all variables",
+        "The variable needs spaces around ="
+      ],
+      "correctIndex": 1,
+      "explanation": "Only exported (environment) variables are copied into child processes. export GREETING makes it visible to the child shell."
+    },
+    {
+      "question": "Your PATH is `/home/asha/bin:/usr/local/bin:/usr/bin` and a program called `deploy` exists in both /home/asha/bin and /usr/bin. Which runs when you type `deploy`?",
+      "options": [
+        "/home/asha/bin/deploy, because PATH is searched left to right and the first match wins",
+        "/usr/bin/deploy, because system directories always take priority",
+        "Both run, one after the other",
+        "Neither; the shell reports an ambiguity error"
+      ],
+      "correctIndex": 0,
+      "explanation": "The shell searches PATH directories in order and runs the first match. That is why prepending a directory makes your version win."
+    },
+    {
+      "question": "You added ~/bin to PATH in ~/.bashrc. `mytool` works, but `sudo mytool` says command not found. What is the most likely reason?",
+      "options": [
+        "~/.bashrc is only read by login shells",
+        "mytool is not executable",
+        "sudo resets the environment and uses secure_path from the sudoers configuration instead of your PATH",
+        "sudo only runs shell builtins"
+      ],
+      "correctIndex": 2,
+      "explanation": "On Ubuntu sudo replaces PATH with secure_path, so directories you added are not searched. Call the tool by its full path."
+    },
+    {
+      "question": "Why does running `bash env.sh` (where env.sh contains `export X=1`) leave X unset in your terminal, while `source env.sh` sets it?",
+      "options": [
+        "bash ignores export statements",
+        "source runs the file with root privileges",
+        "X is only set after you log out and back in",
+        "bash env.sh runs in a child process, which cannot change its parent's environment; source runs it in the current shell"
+      ],
+      "correctIndex": 3,
+      "explanation": "A child gets a copy of the parent's environment, and changes never flow back. source (or .) executes the file inside the current shell."
+    }
+  ]
+}

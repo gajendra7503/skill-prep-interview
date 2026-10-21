@@ -1,0 +1,151 @@
+---
+title: "Handling Request Bodies and Uploads"
+description: "Parsing JSON and form bodies with size limits, debugging an undefined req.body, raw bodies for webhooks, and safe file uploads with multer."
+module: "Core Concepts"
+level: "intermediate"
+order: 8
+---
+
+Express does not parse request bodies unless you ask it to. Body parsing
+questions are popular in interviews because the bugs are so common:
+`req.body` is `undefined`, a large payload is rejected with a confusing
+error, or an upload endpoint accepts a 2 GB file named `invoice.pdf.exe`.
+
+## Built-in body parsers
+
+```js
+import express from "express";
+
+const app = express();
+
+app.use(express.json({ limit: "100kb" }));                      // application/json
+app.use(express.urlencoded({ extended: false, limit: "100kb" })); // HTML form posts
+
+app.post("/payments", (req, res) => {
+  const { payee, amount } = req.body;
+  res.status(201).json({ payee, amount, display: `₹${amount}` });
+});
+```
+
+```bash
+curl -X POST localhost:3000/payments \
+  -H "Content-Type: application/json" -d '{"payee":"ravi@okbank","amount":1500}'
+#> {"payee":"ravi@okbank","amount":1500,"display":"₹1500"}
+
+curl -X POST localhost:3000/payments -d "payee=ravi@okbank&amount=1500"
+#> {"payee":"ravi@okbank","amount":"1500","display":"₹1500"}   (form values are strings)
+```
+
+- Each parser only runs when the request's `Content-Type` matches its
+  `type` option (`application/json` for `express.json()` by default).
+- `limit` caps the body size (the default is `100kb`). Larger bodies are
+  rejected with **413 Payload Too Large** before your handler runs. Keep it
+  small for JSON APIs; it is a cheap defence against memory abuse.
+- Malformed JSON produces a **400** error with `err.type` set to
+  `entity.parse.failed`, which your error handler can turn into a friendly
+  message.
+- In Express 5, `express.urlencoded()` defaults to `extended: false`, which
+  uses a simple parser without nested objects. Pass `extended: true` only if
+  you really need bracket syntax like `address[city]=Pune`.
+
+## Why is `req.body` undefined?
+
+In Express 5, `req.body` stays `undefined` when no parser handled the
+request, so `const { amount } = req.body` throws a `TypeError`. Check, in
+order:
+
+1. **No parser registered**: you forgot `app.use(express.json())`.
+2. **Registered too late**: the parser is added after the route, so the
+   route runs first.
+3. **Wrong Content-Type**: the client sent JSON without
+   `Content-Type: application/json` (a frequent `fetch` mistake), or sent
+   `text/plain`.
+4. **Multipart form**: `multipart/form-data` (file upload forms) is not
+   handled by `express.json()` or `express.urlencoded()`; you need multer.
+5. **No body at all**: GET requests usually have none.
+
+A defensive pattern is `const { amount } = req.body ?? {}`, followed by real
+validation (covered in the zod lesson).
+
+## Raw bodies for webhooks
+
+Payment gateways sign the exact bytes they send. Verifying the signature on
+a re-serialised object fails, so give the webhook route the raw body:
+
+```js
+app.post(
+  "/webhooks/payments",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  (req, res) => {
+    const rawBody = req.body; // a Buffer, exactly as sent
+    const signature = req.get("x-signature");
+    // verify HMAC of rawBody with your webhook secret, then JSON.parse(rawBody)
+    res.sendStatus(200);
+  },
+);
+```
+
+Register this route **before** a global `express.json()`, otherwise the JSON
+parser consumes the stream first and `req.body` is no longer a Buffer.
+
+## File uploads with multer
+
+```bash
+npm install multer
+```
+
+```js
+import multer from "multer";
+
+const ALLOWED = new Set(["image/png", "image/jpeg", "application/pdf"]);
+
+const upload = multer({
+  storage: multer.memoryStorage(),            // or multer.diskStorage({...})
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 }, // 2 MB, one file
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED.has(file.mimetype)) return cb(null, true);
+    const err = new Error("Only PNG, JPEG or PDF files are allowed");
+    err.status = 400; // Express uses err.status for the response code
+    cb(err);
+  },
+});
+
+app.post("/kyc/documents", upload.single("document"), (req, res) => {
+  // req.file: { fieldname, originalname, mimetype, size, buffer }
+  // req.body: the text fields from the same form
+  res.status(201).json({ name: req.file.originalname, bytes: req.file.size });
+});
+
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+    return res.status(status).json({ error: err.code });
+  }
+  next(err);
+});
+```
+
+```bash
+curl -F "document=@pan-card.pdf" -F "customerId=42" localhost:3000/kyc/documents
+#> {"name":"pan-card.pdf","bytes":184233}
+```
+
+Use `upload.single(field)` for one file, `upload.array(field, max)` for many
+in one field, and `upload.fields([...])` for several named fields. Points
+interviewers look for:
+
+- **Always set `limits.fileSize`**. Without it, multer accepts any size.
+- `file.mimetype` comes from the client and can be faked. For sensitive
+  uploads, check the file's magic bytes after upload and scan it.
+- Never build a disk path from `originalname`; generate your own file name to
+  avoid path traversal and overwrites.
+- Memory storage is simple but keeps whole files in RAM, so pair it with a
+  small limit or stream large files to disk or object storage.
+
+### Try it yourself
+
+Build `POST /expenses` that accepts JSON with a 10 kb limit and returns a
+clear 400 for malformed JSON and 413 for oversized bodies. Then add
+`POST /expenses/:id/receipt` using multer that accepts one JPEG or PDF up to
+1 MB and responds with the file size in bytes. Test it with `curl -F`,
+including a 5 MB file and a `.txt` file, and confirm the status codes.

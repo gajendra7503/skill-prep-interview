@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why must you call httpServer.listen() rather than app.listen() when using Socket.IO with Express?",
+      "options": [
+        "app.listen() is removed in Express 5",
+        "Socket.IO is attached to the http.Server you created; app.listen() would start a separate server without Socket.IO",
+        "app.listen() does not support HTTP routes",
+        "httpServer.listen() automatically enables HTTPS"
+      ],
+      "correctIndex": 1,
+      "explanation": "app.listen() creates a new http.Server internally. Socket.IO must share the same server instance as Express, so you create it with createServer(app) and listen on that."
+    },
+    {
+      "question": "Where is the best place to authenticate a Socket.IO client?",
+      "options": [
+        "In every emit call on the client",
+        "Only in the disconnect handler",
+        "In io.use() middleware during the handshake, e.g. verifying a token from socket.handshake.auth",
+        "Socket.IO connections cannot be authenticated"
+      ],
+      "correctIndex": 2,
+      "explanation": "Handshake middleware rejects unauthenticated clients before any event handler runs. Per-event authorisation is still needed for data access."
+    },
+    {
+      "question": "Which call sends an event to everyone in room \"order:42\" except the socket that triggered it?",
+      "options": [
+        "socket.to(\"order:42\").emit(...)",
+        "io.emit(...)",
+        "io.to(\"order:42\").emit(...)",
+        "socket.emit(...)"
+      ],
+      "correctIndex": 0,
+      "explanation": "socket.to(room).emit excludes the sender. io.to(room).emit includes everyone in the room, io.emit reaches all clients, and socket.emit replies only to that one client."
+    },
+    {
+      "question": "You scale a Socket.IO app to three instances and room broadcasts only reach some users. What is missing?",
+      "options": [
+        "A larger thread pool",
+        "helmet middleware",
+        "Calling socket.join twice",
+        "An adapter such as the Redis adapter so instances share broadcasts (plus sticky sessions if long polling is used)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each instance only knows its own sockets. An adapter relays broadcasts between instances, and sticky sessions keep long-polling requests on one instance."
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+---
+title: "npm and Package Management"
+description: "package.json, semver ranges, lockfiles, scripts and the npm commands interviewers expect you to explain."
+module: "Fundamentals"
+level: "beginner"
+order: 5
+---
+
+Almost every Node project depends on packages from the npm registry, and
+dependency problems ("works on my machine", a broken build after a
+reinstall, a vulnerable transitive package) are a common interview topic.
+This lesson covers what each file and command actually does.
+
+## package.json
+
+`npm init -y` creates a `package.json`, the manifest for your project:
+
+```json
+{
+  "name": "invoice-service",
+  "version": "1.4.2",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}
+```
+
+- **dependencies** — needed at runtime (`npm install express`).
+- **devDependencies** — needed only to develop, test or build
+  (`npm install -D eslint`). Production installs can skip them with
+  `npm ci --omit=dev`.
+- **peerDependencies** — used by plugins and libraries to say "the host
+  app must provide this package", for example a React component library
+  declaring `react` as a peer.
+
+## Semantic versioning and ranges
+
+A version is `MAJOR.MINOR.PATCH`: breaking changes bump MAJOR, new
+backward-compatible features bump MINOR, and bug fixes bump PATCH.
+
+| Range | Allows | Example matches for 1.4.2 |
+|---|---|---|
+| `^1.4.2` (default) | same major | 1.4.3, 1.9.0, not 2.0.0 |
+| `~1.4.2` | same minor | 1.4.9, not 1.5.0 |
+| `1.4.2` | exact | only 1.4.2 |
+| `>=1.4.2 <2.0.0` | explicit range | same as the caret here |
+
+A common trick question: for versions below 1.0.0 the caret is stricter.
+`^0.3.1` allows `0.3.x` only, because in `0.x` releases a minor bump is
+treated as potentially breaking.
+
+## Lockfiles and npm ci vs npm install
+
+`package.json` holds **ranges**; `package-lock.json` records the **exact
+version and integrity hash of every package in the tree**, including
+transitive dependencies. Commit the lockfile so everyone and every CI run
+gets the same tree.
+
+```bash
+npm install            # resolves ranges, may update package-lock.json
+npm install lodash     # adds a dependency and updates both files
+npm ci                 # clean install exactly from the lockfile
+npm update             # upgrades within the allowed ranges
+npm outdated           # shows what newer versions exist
+```
+
+`npm ci` is the right choice for CI and Docker builds because it:
+
+- deletes `node_modules` first and installs **exactly** what the lockfile
+  says;
+- **fails** if `package.json` and `package-lock.json` disagree instead of
+  silently changing the lockfile;
+- never writes to `package.json` or the lockfile.
+
+## npm scripts
+
+```bash
+npm run dev        # runs the "dev" script
+npm start          # shortcuts exist for start and test
+npm test
+npm run lint -- --fix   # everything after -- is passed to the script
+```
+
+Scripts run with `node_modules/.bin` on the `PATH`, so `"lint": "eslint ."`
+works without a global install. `pre` and `post` hooks also exist: a
+`pretest` script runs automatically before `test`.
+
+## npx
+
+`npx` runs a package's binary without adding it to your scripts first. It
+uses the local copy in `node_modules/.bin` if one exists, otherwise it
+downloads the package temporarily.
+
+```bash
+npx eslint --init
+npx create-next-app@latest my-app
+```
+
+Only `npx` packages you trust, and prefer pinning a version for anything
+that runs in CI.
+
+## npm audit and dependency hygiene
+
+```bash
+npm audit                 # list known vulnerabilities in the tree
+npm audit fix             # apply compatible (non-breaking) upgrades
+npm audit --omit=dev      # focus on what ships to production
+npm ls lodash             # why is this package in my tree?
+```
+
+Not every advisory is exploitable in your app, so read the report rather
+than blindly running `npm audit fix --force`, which can install breaking
+major versions. In interviews, mention also: keep the dependency count low,
+review new packages before adding them, and be cautious of install scripts
+from unknown packages.
+
+### Try it yourself
+
+1. Create a project, install `express` and `eslint -D`, and inspect how both
+   files changed.
+2. Change a dependency's version in `package.json` without updating the
+   lockfile and run `npm ci`. Read the error it prints.
+3. Work out which of `0.3.5`, `0.4.0` and `1.0.0` satisfy `^0.3.1`, then
+   check your answer with `npx semver -r "^0.3.1" 0.3.5 0.4.0 1.0.0`.

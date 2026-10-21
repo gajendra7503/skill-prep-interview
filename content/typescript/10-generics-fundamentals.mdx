@@ -1,0 +1,186 @@
+---
+title: "Generics Fundamentals"
+description: "Write reusable functions, interfaces and classes with type parameters, understand how TypeScript infers them, and avoid the common misuse of generics."
+module: "Generics"
+level: "intermediate"
+order: 10
+---
+
+Generics let you write code that works with many types **without losing
+track of which type** it is working with. They power `Array`, `Promise`,
+`Map`, React's `useState` and almost every library you use.
+
+## The problem generics solve
+
+Suppose you want a function that returns the first element of an array:
+
+```ts
+function firstAny(items: any[]): any {
+  return items[0];
+}
+
+const n = firstAny([10, 20]);   // type: any
+n.toUpperCase();                // no error — crashes at runtime
+```
+
+Using `any` throws the type away. Writing `firstNumber`, `firstString` and
+so on duplicates code. A **type parameter** solves both:
+
+```ts
+function first<T>(items: T[]): T | undefined {
+  return items[0];
+}
+
+const a = first([10, 20]);        // type: number | undefined
+const b = first(["UPI", "CARD"]); // type: string | undefined
+const c = first<boolean>([true]); // explicit type argument
+```
+
+`T` is a placeholder filled in at each call. You rarely write it
+explicitly; TypeScript **infers** it from the arguments, just as it infers
+the type of a variable from its value.
+
+## Several type parameters
+
+Type parameters relate inputs to outputs. A typed `map` needs two:
+
+```ts
+function mapArray<T, U>(items: T[], fn: (item: T) => U): U[] {
+  const out: U[] = [];
+  for (const item of items) out.push(fn(item));
+  return out;
+}
+
+const prices = [499, 1499, 9999];
+const labels = mapArray(prices, (p) => `₹${p.toLocaleString("en-IN")}`);
+// T = number, U = string → labels: string[]
+console.log(labels); // [ '₹499', '₹1,499', '₹9,999' ]
+```
+
+Notice that `p` was typed as `number` without any annotation: TypeScript
+inferred `T` from `prices` and then used it to type the callback.
+Conventional names are `T` (type), `U` (second type), `K`/`V` (key/value)
+and `E` (element), but descriptive names like `TItem` are fine too.
+
+## Generic interfaces and type aliases
+
+Data shapes can take type parameters as well. A typical API envelope:
+
+```ts
+interface ApiResponse<T> {
+  ok: boolean;
+  data: T;
+  fetchedAt: string;
+}
+
+type Loan = { id: string; amountRupees: number };
+
+const res: ApiResponse<Loan[]> = {
+  ok: true,
+  data: [{ id: "L-1", amountRupees: 500000 }],
+  fetchedAt: new Date().toISOString(),
+};
+
+res.data[0].amountRupees; // number
+```
+
+For a type you must pass the argument explicitly (`ApiResponse<Loan[]>`);
+there is no call to infer it from. You already use built-in generic types
+daily:
+
+| Type | Meaning |
+|---|---|
+| `Array<T>` or `T[]` | Array of `T` |
+| `Promise<T>` | A promise resolving to `T` |
+| `Map<K, V>` / `Set<T>` | Typed collections |
+| `Record<K, V>` | Object with keys `K` and values `V` |
+
+## Generic functions that return promises
+
+```ts
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  return (await res.json()) as T;
+}
+
+const loans = await fetchJson<Loan[]>("/api/loans"); // Loan[]
+```
+
+Interviewers often ask what is wrong here. The answer: `as T` is an
+assertion, not a check — the server could return anything. Generics describe
+types; they do not validate data. See "Runtime Validation & Type-Safe
+Boundaries (Zod)" for the safe version.
+
+## Generic classes
+
+```ts
+class Repository<T extends { id: string }> {
+  private items = new Map<string, T>();
+
+  save(item: T): void {
+    this.items.set(item.id, item);
+  }
+
+  findById(id: string): T | undefined {
+    return this.items.get(id);
+  }
+}
+
+const loanRepo = new Repository<Loan>();
+loanRepo.save({ id: "L-7", amountRupees: 1200000 });
+console.log(loanRepo.findById("L-7")?.amountRupees); // 1200000
+```
+
+The `extends { id: string }` part is a constraint — it is what lets the
+class read `item.id`. Constraints get their own lesson, "Generic
+Constraints & Defaults". Note that static members cannot use the class's
+type parameter, because statics belong to the class, not to an instance.
+
+## When inference gives up
+
+If nothing at the call site mentions `T`, inference has nothing to work
+with and falls back to `unknown`:
+
+```ts
+function emptyList<T>(): T[] {
+  return [];
+}
+
+const x = emptyList();          // unknown[]
+const y = emptyList<string>();  // string[]
+```
+
+A related trap: `useState([])` in React infers `never[]` from the empty
+array, so write `useState<string[]>([])` instead. In `.tsx` files, a generic arrow function needs a
+trailing comma — `const id = <T,>(x: T) => x;` — so the parser does not
+mistake `<T>` for a JSX tag.
+
+## Don't over-generify
+
+A useful rule: **a type parameter should appear at least twice** — typically
+once in an input and once in the output. If it appears only once, it is not
+relating anything and a plain type would do:
+
+```ts
+// Pointless: T is used once, so it is just an awkward 'unknown'
+function logValue<T>(value: T): void {
+  console.log(value);
+}
+
+// Better
+function logValue2(value: unknown): void {
+  console.log(value);
+}
+```
+
+Over-generic code is harder to read and gives worse error messages. Add a
+type parameter when you need to **preserve** a relationship between types.
+
+### Try it yourself
+
+1. Write `last<T>(items: T[]): T | undefined` and check the inferred types
+   for an array of numbers and an array of objects.
+2. Write `groupBy<T>(items: T[], keyFn: (item: T) => string): Record<string, T[]>`
+   and use it to group loans by city.
+3. Create a generic `Stack<T>` class with `push`, `pop` and `peek`, then
+   confirm that pushing a string onto a `Stack<number>` is a compile error.

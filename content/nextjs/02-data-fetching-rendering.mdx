@@ -2,7 +2,8 @@
 title: "Data Fetching & Rendering Strategies"
 description: "Static rendering, dynamic rendering, and incremental static regeneration explained with fetch."
 module: "Rendering"
-order: 2
+level: "beginner"
+order: 4
 ---
 
 Next.js extends the native `fetch` API with caching semantics that decide
@@ -13,7 +14,7 @@ between.
 
 ```tsx
 async function getPosts() {
-  const res = await fetch("https://api.example.com/posts"); // cached indefinitely by default
+  const res = await fetch("https://api.example.com/posts"); // not cached by default, but prerendered at build
   return res.json();
 }
 

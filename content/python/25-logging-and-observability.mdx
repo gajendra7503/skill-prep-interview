@@ -1,0 +1,176 @@
+---
+title: "Production Logging, contextvars & Observability"
+description: "The logging module's hierarchy done right, dictConfig, structured JSON logs, request IDs with contextvars, non-blocking QueueHandler, and where metrics and tracing fit."
+module: "Pro Level"
+level: "pro"
+order: 26
+---
+
+`print()` debugging stops working the day your code runs on twenty servers.
+In production, logs are how you reconstruct what happened during a failed
+payment at 2 a.m. This lesson covers the `logging` module the way senior
+engineers use it, plus `contextvars` — the tool that lets every log line
+carry a request ID, even across `async` code.
+
+## The logger hierarchy
+
+Loggers form a tree keyed by dotted names. `getLogger("payments.upi")` is a
+child of `getLogger("payments")`, which is a child of the **root** logger.
+Records **propagate** upwards, so handlers are usually attached once, near
+the root.
+
+```python
+import logging
+
+log = logging.getLogger(__name__)   # e.g. "payments.upi" - mirrors the module path
+
+def charge(amount: int) -> None:
+    log.info("charging %s paise", amount)   # lazy formatting, see below
+```
+
+Three rules that separate library code from application code:
+
+- **Libraries** only call `getLogger(__name__)`. They never call
+  `basicConfig` or add handlers (at most a `logging.NullHandler`).
+- **Applications** configure logging once, at start-up.
+- Use `%s`-style arguments, not f-strings, in log calls: the string is only
+  built if the record is actually emitted, and aggregators can group lines
+  by their unformatted template.
+
+## Configure once with `dictConfig`
+
+```python
+import logging.config
+
+logging.config.dictConfig({
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "plain": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "plain"},
+    },
+    "loggers": {
+        "payments": {"level": "DEBUG"},       # verbose for our own code
+        "urllib3": {"level": "WARNING"},      # quiet a noisy dependency
+    },
+    "root": {"level": "INFO", "handlers": ["console"]},
+})
+```
+
+`disable_existing_loggers: False` matters: the default `True` silences
+loggers created at import time, a classic "where did my logs go?" bug.
+
+## Log exceptions with their traceback
+
+```python
+try:
+    1 / 0
+except ZeroDivisionError:
+    log.exception("settlement failed for batch %s", "B-42")
+# ERROR payments settlement failed for batch B-42
+# Traceback (most recent call last): ...
+```
+
+`log.exception` logs at `ERROR` and attaches the traceback; use it only
+inside an `except` block. Never log secrets — PANs, card numbers, OTPs,
+tokens — and mask identifiers you must log.
+
+## Structured (JSON) logs
+
+Log platforms search and aggregate fields far better than free text. A
+small custom formatter emits one JSON object per line:
+
+```python
+import json, logging
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "ts": self.formatTime(record),
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
+            "request_id": getattr(record, "request_id", None),
+        }
+        if record.exc_info:
+            payload["exc"] = self.formatException(record.exc_info)
+        return json.dumps(payload)
+```
+
+Extra fields can be passed per call with `log.info("ok", extra={"order_id": 7})`;
+they become attributes on the record.
+
+## Request IDs with `contextvars`
+
+You want every line logged while handling a request to carry that request's
+ID, without threading it through every function. A thread-local breaks
+under `asyncio`, where many requests share one thread. A `ContextVar` is
+scoped to the current **context**, and each asyncio task gets its own copy:
+
+```python
+import asyncio, contextvars, logging
+
+request_id: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
+
+class RequestIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = request_id.get()
+        return True                      # never drop the record
+
+handler = logging.StreamHandler()
+handler.addFilter(RequestIdFilter())
+handler.setFormatter(logging.Formatter("[%(request_id)s] %(message)s"))
+logging.basicConfig(level=logging.INFO, handlers=[handler])
+log = logging.getLogger("api")
+
+async def handle(rid: str) -> None:
+    request_id.set(rid)
+    await asyncio.sleep(0.01)            # other tasks run here
+    log.info("processed")
+
+async def main() -> None:
+    await asyncio.gather(handle("req-1"), handle("req-2"))
+
+asyncio.run(main())
+# [req-1] processed
+# [req-2] processed
+```
+
+Each task sees only its own value, even though they interleave. Web
+frameworks set the variable in middleware; `contextvars.copy_context()` lets
+you carry it into thread pools explicitly.
+
+## Don't let logging block the hot path
+
+A handler that writes to a slow disk or network blocks the thread that
+logged. `QueueHandler` plus `QueueListener` moves the slow I/O to a
+background thread:
+
+```python
+import logging, logging.handlers, queue
+
+q: queue.Queue = queue.Queue(-1)                 # unbounded
+file_handler = logging.FileHandler("app.log")
+listener = logging.handlers.QueueListener(q, file_handler)
+logging.getLogger().addHandler(logging.handlers.QueueHandler(q))
+listener.start()
+# ... application runs; call listener.stop() at shutdown to flush
+```
+
+## Logs, metrics and traces
+
+Logs answer "what happened to this request?". **Metrics** (counters,
+latency histograms) answer "how is the system doing overall?" and drive
+alerts. **Distributed traces** follow one request across services. In
+Python, OpenTelemetry is the vendor-neutral standard for all three; a mature
+setup puts the trace ID into every log record so you can jump between them.
+
+### Try it yourself
+
+Configure a `dictConfig` with a JSON formatter for production and a plain
+one for local development, chosen by an environment variable. Add a
+`ContextVar` for `customer_id` that a fake middleware sets, mask all but the
+last four characters of any PAN before it is logged, and prove with
+`asyncio.gather` that ten concurrent requests never mix up their IDs.

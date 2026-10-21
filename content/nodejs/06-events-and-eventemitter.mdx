@@ -1,0 +1,159 @@
+---
+title: "Events and EventEmitter"
+description: "How EventEmitter works, why unhandled error events crash the process, and how to avoid listener leaks."
+module: "Core Concepts"
+level: "intermediate"
+order: 9
+---
+
+`EventEmitter` is the publish/subscribe building block behind much of Node:
+HTTP servers, streams, sockets and `process` itself are all emitters.
+Interviewers like it because it tests both API knowledge and an important
+misconception — emitting an event is **synchronous**.
+
+## The basics
+
+```js
+import { EventEmitter } from "node:events";
+
+const orders = new EventEmitter();
+
+orders.on("placed", (order) => {
+  console.log(`Email: order ${order.id} for ₹${order.total}`);
+});
+orders.on("placed", (order) => {
+  console.log(`Stock: reserve items for ${order.id}`);
+});
+
+console.log("before emit");
+orders.emit("placed", { id: "A101", total: 1299 });
+console.log("after emit");
+
+// before emit
+// Email: order A101 for ₹1299
+// Stock: reserve items for A101
+// after emit
+```
+
+Key facts:
+
+- `emit` calls every listener **synchronously, in the order they were
+  added**, and returns `true` if there were listeners.
+- If a listener throws, `emit` throws too and later listeners are skipped.
+- Listeners receive whatever extra arguments you pass to `emit`.
+- To defer work, the listener itself can use `setImmediate` or a promise.
+
+## on, once, off
+
+```js
+function onReady() {
+  console.log("ready");
+}
+
+orders.on("ready", onReady);       // every time (alias: addListener)
+orders.once("connected", () => {}); // first time only, then removed
+orders.off("ready", onReady);      // remove (alias: removeListener)
+orders.prependListener("ready", onReady); // run before existing listeners
+
+console.log(orders.listenerCount("ready")); // 1
+orders.removeAllListeners("ready");
+```
+
+`off` needs a reference to the **same function** you passed to `on`, so an
+inline arrow function cannot be removed later. Keep a named reference.
+
+## The special "error" event
+
+If an emitter emits `"error"` and **nobody is listening**, Node throws the
+error — in a server that usually means the process crashes.
+
+```js
+const conn = new EventEmitter();
+
+try {
+  conn.emit("error", new Error("connection reset"));
+} catch (err) {
+  console.log("thrown:", err.message); // thrown: connection reset
+}
+
+conn.on("error", (err) => console.error("handled:", err.message));
+conn.emit("error", new Error("timeout")); // handled: timeout
+```
+
+Rule of thumb: **always attach an `error` listener** to streams, sockets
+and your own emitters.
+
+## The memory-leak warning
+
+By default an emitter warns when more than **10** listeners are added for a
+single event:
+
+```bash
+(node:39252) MaxListenersExceededWarning: Possible EventEmitter memory leak
+detected. 11 x listeners added to [EventEmitter]. MaxListeners is 10.
+Use emitter.setMaxListeners() to increase limit
+```
+
+This is a warning, not an error, and it usually points at a real bug —
+for example adding a listener on every HTTP request and never removing it.
+Fix the leak (use `once`, or `off` when done) rather than silencing it.
+Only raise the limit with `emitter.setMaxListeners(n)` when many listeners
+are genuinely intended.
+
+## Awaiting an event with events.once
+
+`events.once` returns a **promise** that resolves with the event's
+arguments as an array, and rejects if `"error"` is emitted first:
+
+```js
+import { EventEmitter, once } from "node:events";
+
+const db = new EventEmitter();
+setTimeout(() => db.emit("ready", 42, "ok"), 10);
+
+const args = await once(db, "ready");
+console.log(args); // [ 42, 'ok' ]
+
+// With a timeout
+await once(db, "ready", { signal: AbortSignal.timeout(5000) });
+```
+
+`events.on(emitter, name)` similarly returns an async iterator you can
+consume with `for await...of`.
+
+## Building a custom emitter
+
+Extend `EventEmitter` to give your own class an event API:
+
+```js
+import { EventEmitter } from "node:events";
+
+class PaymentProcessor extends EventEmitter {
+  async charge(amount) {
+    this.emit("started", amount);
+    try {
+      // ... call the payment gateway
+      this.emit("success", { amount, id: "pay_123" });
+    } catch (err) {
+      this.emit("error", err);
+    }
+  }
+}
+
+const payments = new PaymentProcessor();
+payments.on("success", (p) => console.log(`Paid ₹${p.amount}`));
+payments.on("error", (err) => console.error(err.message));
+await payments.charge(750); // Paid ₹750
+```
+
+Emitters suit "many things may happen, many parties may care" (lifecycle
+events, progress updates). For a single result, a promise is simpler.
+
+### Try it yourself
+
+1. Create a `Timer` class extending `EventEmitter` that emits `tick` every
+   second and `done` after five ticks. Use `once` for `done`.
+2. Add 11 listeners for the same event and read the warning. Then fix it
+   properly instead of raising the limit.
+3. Emit `"error"` without a listener inside a small HTTP server request
+   handler and observe what happens to the process.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which analogy does the lesson use for an AI assistant?",
+      "options": [
+        "A calculator that never makes mistakes",
+        "A very well-read new colleague who knows nothing about your company unless you tell them",
+        "A search engine that only returns links",
+        "A senior manager who knows your customers"
+      ],
+      "correctIndex": 1,
+      "explanation": "The lesson compares the assistant to a well-read colleague who joined today: quick and broadly informed, but without knowledge of your company, customers or deadline."
+    },
+    {
+      "question": "What is a hallucination?",
+      "options": [
+        "A response that is too long",
+        "A file the model cannot open",
+        "A prompt with spelling mistakes",
+        "A confident-sounding answer that is false or made up"
+      ],
+      "correctIndex": 3,
+      "explanation": "The vocabulary table defines hallucination as a confident-sounding answer that is false or made up, which is why facts must be checked."
+    },
+    {
+      "question": "In the Kaveri Home Loans example, what small error did the model make?",
+      "options": [
+        "It wrote the email in the wrong language",
+        "It left out the subject line",
+        "It guessed that 5 November is a Wednesday",
+        "It addressed the email to customers"
+      ],
+      "correctIndex": 2,
+      "explanation": "The model invented a weekday for 5 November, a detail that may not match the actual year and must be checked before sending."
+    },
+    {
+      "question": "Which is the right rule before pasting information into an AI tool at work?",
+      "options": [
+        "Use only approved tools and never paste confidential data unless policy allows it",
+        "Any free public tool is fine for drafts",
+        "Paste customer PAN details if it saves time",
+        "Delete the chat afterwards and it is safe"
+      ],
+      "correctIndex": 0,
+      "explanation": "The rules of the road say to use approved tools and avoid confidential data such as PAN, Aadhaar, salaries or passwords unless company policy explicitly allows it."
+    }
+  ]
+}

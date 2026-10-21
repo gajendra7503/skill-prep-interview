@@ -1,0 +1,161 @@
+---
+title: "Installing Angular & Your First App"
+description: "Set up Node.js and the Angular CLI, generate a new project, run it locally, and make your first change."
+module: "Getting Started"
+level: "beginner"
+order: 1
+---
+
+Before writing any Angular code you need two things on your machine:
+**Node.js** (which runs the build tools) and the **Angular CLI** (the `ng`
+command that creates, serves, tests and builds projects). This lesson gets
+you from an empty folder to a running app you have edited yourself.
+
+## Step 1: Install Node.js
+
+Angular's tooling runs on Node.js. Install a current **LTS** (long-term
+support) release from nodejs.org, then confirm it worked:
+
+```bash
+node --version
+# v22.x.x or v24.x.x (any currently supported LTS line)
+
+npm --version
+# 10.x.x or newer — npm ships with Node
+```
+
+Each Angular major version supports a specific range of Node versions. If
+`ng` later complains about your Node version, check the version
+compatibility table in the official Angular docs and upgrade Node rather
+than downgrading Angular.
+
+## Step 2: Install the Angular CLI
+
+The CLI is an npm package installed globally so the `ng` command is
+available in any terminal:
+
+```bash
+npm install -g @angular/cli
+
+ng version
+# Prints the Angular CLI version, Node version and OS
+```
+
+On Windows PowerShell, if you see an error about script execution being
+disabled, run PowerShell as administrator once and allow signed local
+scripts with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+## Step 3: Create a project
+
+```bash
+ng new rupee-tracker
+```
+
+The CLI asks a few questions — which stylesheet format to use (plain CSS is
+fine to start) and whether to enable server-side rendering (answer **No**
+for now; a later lesson covers SSR). It then creates the folder, writes the
+starter files and runs `npm install` for you.
+
+## What the CLI generated
+
+```text
+rupee-tracker/
+├── angular.json        # build and serve configuration for the CLI
+├── package.json        # dependencies and npm scripts
+├── tsconfig.json       # TypeScript compiler settings
+├── public/             # static files copied as-is (favicon, images)
+└── src/
+    ├── index.html      # the single HTML page the app runs inside
+    ├── main.ts         # entry point: bootstraps the root component
+    ├── styles.css      # global styles
+    └── app/
+        ├── app.ts          # the root component class
+        ├── app.html        # the root component's template
+        ├── app.css         # styles scoped to the root component
+        ├── app.config.ts   # app-wide providers (router, HTTP, ...)
+        └── app.routes.ts   # the route table
+```
+
+Recent CLI versions use short file names like `app.ts`. Projects created
+with older versions use `app.component.ts`, `app.component.html` and a class
+named `AppComponent` — same idea, longer names. You will see both styles in
+real codebases.
+
+## Step 4: Run it
+
+```bash
+cd rupee-tracker
+ng serve
+# Local: http://localhost:4200/
+# Watch mode enabled. Watching for file changes...
+```
+
+Open `http://localhost:4200` in your browser and you will see the starter
+page. `ng serve` compiles the app in memory and **rebuilds on every save**,
+so the browser updates as you edit. Stop it with `Ctrl+C`.
+
+## Step 5: Make your first change
+
+Replace everything in `src/app/app.html` with:
+
+```html
+<main>
+  <h1>Hello, {{ name }}!</h1>
+  <p>Your monthly budget is {{ budget }}.</p>
+</main>
+```
+
+Then give the class in `src/app/app.ts` the two properties the template
+uses:
+
+```ts
+import { Component } from "@angular/core";
+
+@Component({
+  selector: "app-root",
+  templateUrl: "./app.html",
+  styleUrl: "./app.css",
+})
+export class App {
+  name = "Priya";
+  budget = "₹25,000";
+}
+```
+
+Save both files. The browser refreshes and shows
+"Hello, Priya! Your monthly budget is ₹25,000." The double curly braces in
+the template are **interpolation**: Angular replaces them with the value of
+the matching class property.
+
+## Step 6: Generate a component
+
+Writing files by hand is fine, but the CLI can scaffold them:
+
+```bash
+ng generate component expense-list
+# CREATE src/app/expense-list/expense-list.ts
+# CREATE src/app/expense-list/expense-list.html
+# CREATE src/app/expense-list/expense-list.css
+# CREATE src/app/expense-list/expense-list.spec.ts
+```
+
+`ng g c expense-list` is the short form. The `.spec.ts` file is a ready-made
+unit test you will learn to use later.
+
+## Commands you will use every day
+
+| Command | What it does |
+| --- | --- |
+| `ng serve` | Dev server with live reload |
+| `ng generate component name` | Scaffold a component (also `service`, `pipe`, `guard`...) |
+| `ng build` | Optimised production build into `dist/` |
+| `ng test` | Run unit tests |
+| `ng update` | Upgrade Angular and run automatic code migrations |
+
+### Try it yourself
+
+Create a new project, generate a `salary-card` component, and give it a
+`salary` property set to `"₹12,00,000"`. Show it in the root template by
+adding the component's selector (for example `app-salary-card`) to
+`app.html` and listing the component class in the root component's
+`imports` array. Confirm the value appears at `localhost:4200`.

@@ -1,0 +1,170 @@
+---
+title: "How Angular Works: The Mental Model"
+description: "The core vocabulary — components, templates, bindings, services, dependency injection, signals and the compiler — and how they fit together."
+module: "Getting Started"
+level: "beginner"
+order: 2
+---
+
+Angular is a **framework**, not just a library: it ships opinions about how
+an app is structured, how pieces find each other, and how the screen stays
+in sync with your data. Learning a handful of words up front makes every
+later lesson easier to follow.
+
+## An app is a tree of components
+
+Everything you see on screen belongs to a **component**. Components nest
+inside each other, forming a tree with one **root component** at the top:
+
+```text
+App (root)
+├── Navbar
+├── ExpenseList
+│   ├── ExpenseRow   (one per expense)
+│   └── ExpenseRow
+└── Footer
+```
+
+Each component owns a rectangle of the page and the logic behind it. Big
+screens are built by composing small components, the same way a sentence
+is built from words.
+
+## A component = class + template + styles
+
+```ts
+import { Component } from "@angular/core";
+
+@Component({
+  selector: "app-expense-row",          // the HTML tag that places it
+  template: `<p>{{ label }}: ₹{{ amount }}</p>`,
+  styles: `p { margin: 0; }`,           // scoped to this component only
+})
+export class ExpenseRow {
+  label = "Groceries";
+  amount = 2400;
+}
+// Rendered output: Groceries: ₹2400
+```
+
+- The **class** holds data (properties) and behaviour (methods).
+- The **template** is HTML extended with Angular syntax.
+- The `@Component` **decorator** is metadata: it tells Angular "this class
+  is a component, here is its tag name and template".
+- The **selector** is how other templates use it: writing
+  `<app-expense-row />` in a parent's template renders this component.
+
+## Bindings connect the class to the template
+
+You never call `document.querySelector` to update the page. Instead you
+declare **bindings** and Angular keeps the DOM in sync:
+
+```html
+<!-- Interpolation: class value -> text -->
+<h2>{{ title }}</h2>
+
+<!-- Property binding: class value -> DOM property -->
+<button [disabled]="isSaving">Save</button>
+
+<!-- Event binding: DOM event -> class method -->
+<button (click)="addExpense()">Add</button>
+```
+
+Square brackets push data **into** the DOM; parentheses listen for events
+coming **out** of it. This declarative style is the heart of Angular.
+
+## Data flows down, events flow up
+
+Parents pass data to children through **inputs**, and children notify
+parents through **outputs** (events). A child never reaches up and edits
+its parent's data directly. This one-way flow makes bugs easier to trace:
+if a value is wrong, look at whoever passed it in.
+
+## Services hold shared logic
+
+Components should focus on what the user sees. Fetching data, calculating
+totals or remembering the logged-in user belongs in a **service** — a plain
+class marked `@Injectable`:
+
+```ts
+import { Injectable } from "@angular/core";
+
+@Injectable({ providedIn: "root" })
+export class ExpenseService {
+  private expenses = [{ label: "Rent", amount: 18000 }];
+
+  total() {
+    return this.expenses.reduce((sum, e) => sum + e.amount, 0);
+  }
+}
+```
+
+## Dependency injection hands you what you need
+
+A component does not create its own service with `new`. It **asks** for it,
+and Angular's **dependency injection** (DI) system supplies a shared
+instance:
+
+```ts
+import { Component, inject } from "@angular/core";
+import { ExpenseService } from "./expense.service";
+
+@Component({
+  selector: "app-summary",
+  template: `<p>Total spent: ₹{{ expenses.total() }}</p>`,
+})
+export class Summary {
+  expenses = inject(ExpenseService);
+}
+// Rendered output: Total spent: ₹18000
+```
+
+Because services are injected rather than constructed, tests can swap in a
+fake version easily, and every component that injects `ExpenseService`
+shares the same data.
+
+## Signals tell Angular what changed
+
+A **signal** is a value that notifies Angular when it changes, so only the
+parts of the page that read it are updated:
+
+```ts
+import { signal, computed } from "@angular/core";
+
+const count = signal(0);
+const doubled = computed(() => count() * 2);
+
+count.set(5);
+console.log(doubled()); // 10
+```
+
+You read a signal by calling it like a function, and change it with `set`
+or `update`. Modern Angular uses signals throughout, so expect to see them
+in almost every component.
+
+## The compiler and the CLI
+
+Browsers do not understand decorators or template syntax. The Angular
+**compiler** turns your templates into efficient JavaScript ahead of time,
+and the **CLI** wraps the compiler, dev server, test runner and bundler
+behind the single `ng` command.
+
+## Vocabulary cheat sheet
+
+| Term | One-line meaning |
+| --- | --- |
+| Component | Class + template that controls part of the screen |
+| Template | HTML with Angular bindings and control flow |
+| Directive | Adds behaviour to existing elements |
+| Pipe | Formats a value in a template (dates, currency) |
+| Service | Class for shared logic or data |
+| Dependency injection | Angular supplies the objects a class asks for |
+| Signal | Reactive value that tells Angular what changed |
+| Router | Maps URLs to components |
+
+### Try it yourself
+
+Sketch the component tree for a simple "Monthly Budget" page with a header,
+a list of expense categories (each showing a name and an amount in ₹), and
+a total at the bottom. Mark which piece of data each component needs as an
+input, and decide which logic should live in a service instead of a
+component.

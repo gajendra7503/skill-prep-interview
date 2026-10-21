@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "By default, what kind of component is a file inside the app/ directory?",
+      "options": [
+        "A Client Component",
+        "A Server Component",
+        "A Route Handler",
+        "A static HTML file"
+      ],
+      "correctIndex": 1,
+      "explanation": "Components in app/ are Server Components unless the file starts with \"use client\". Their JavaScript is never sent to the browser."
+    },
+    {
+      "question": "What does hydration mean?",
+      "options": [
+        "Compressing images before they are sent",
+        "Re-running database queries in the browser",
+        "React attaching event handlers to server-rendered HTML so it becomes interactive",
+        "Refreshing the cache every 60 seconds"
+      ],
+      "correctIndex": 2,
+      "explanation": "The server sends HTML first for a fast paint; the browser then loads Client Component JavaScript and React hydrates the existing markup."
+    },
+    {
+      "question": "Which of these needs the \"use client\" directive?",
+      "options": [
+        "A component that uses useState and an onClick handler",
+        "A component that awaits fetch() and renders a list",
+        "A layout that renders a header and children",
+        "A component that reads a database with a secret key"
+      ],
+      "correctIndex": 0,
+      "explanation": "State, effects and event handlers only work in the browser, so they require a Client Component. Data fetching and secrets belong on the server."
+    },
+    {
+      "question": "In the URL /courses/react, what are `courses` and `react`?",
+      "options": [
+        "Two Route Handlers",
+        "Two Server Actions",
+        "Query parameters",
+        "Two route segments, each mapping to a folder in app/"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each part of the path is a segment, and each segment corresponds to a folder under app/, whose special files (page, layout, loading, error) define its behaviour."
+    }
+  ]
+}

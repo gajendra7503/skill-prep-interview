@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does the REPL do that running a .py script does not?",
+      "options": [
+        "It compiles your code to machine code",
+        "It automatically prints the value of each expression you type",
+        "It lets you use Python 2 syntax",
+        "It installs packages for you"
+      ],
+      "correctIndex": 1,
+      "explanation": "The REPL (Read, Evaluate, Print, Loop) echoes the value of an expression straight away. In a script you must call print() to see output."
+    },
+    {
+      "question": "On Windows, typing `python --version` opens the Microsoft Store instead of printing a version. What is the most likely cause?",
+      "options": [
+        "Python 3 does not support Windows",
+        "The script has a syntax error",
+        "You need to reinstall the REPL separately",
+        "Python is not on your PATH"
+      ],
+      "correctIndex": 3,
+      "explanation": "If the interpreter is not on PATH, Windows falls back to a Store alias. Re-run the installer with the PATH option enabled, or use the py launcher."
+    },
+    {
+      "question": "What type of value does `input()` return?",
+      "options": [
+        "Always a string",
+        "An int if the user types digits",
+        "A float if the user types a decimal point",
+        "None until the user presses Enter twice"
+      ],
+      "correctIndex": 0,
+      "explanation": "input() always returns a str. Convert it with int() or float() before doing arithmetic."
+    },
+    {
+      "question": "How should you read a Python traceback?",
+      "options": [
+        "Top line first, because it names the error",
+        "Only the middle lines matter",
+        "From the bottom up: the last line names the error type and reason",
+        "Tracebacks are only useful in the REPL"
+      ],
+      "correctIndex": 2,
+      "explanation": "The final line gives the exception type and message; the lines above show where in the code it happened."
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+---
+title: "Fetch and Calling APIs"
+description: "Calling HTTP APIs from Node with the built-in fetch — checking status, timeouts with AbortSignal.timeout, retries with backoff, streaming responses and robust error handling."
+module: "Networking"
+level: "intermediate"
+order: 14
+---
+
+Modern Node ships the same `fetch` as browsers (implemented by the `undici`
+library), so `axios` or `node-fetch` are no longer required for most work.
+Interviewers rarely ask "how do you call fetch?" — they ask what happens on a
+404, how you stop a request hanging forever, and when retrying is safe.
+
+## The basics
+
+```js
+const res = await fetch("https://api.example.com/funds/123", {
+  headers: { Accept: "application/json", Authorization: `Bearer ${process.env.API_TOKEN}` },
+});
+const fund = await res.json();
+console.log(fund.name, `₹${fund.nav}`);
+
+const created = await fetch("https://api.example.com/orders", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ fundId: 123, amount: 5000 }),
+});
+console.log(created.status); // 201
+```
+
+A response body can be read **once**, via `res.json()`, `res.text()`,
+`res.arrayBuffer()` or the `res.body` stream. Calling `res.json()` twice
+throws. If you do not need the body, call `await res.body?.cancel()` so the
+connection can be reused.
+
+## fetch does not reject on HTTP errors
+
+This is the number one fetch interview question.
+
+```js
+const res = await fetch(`${base}/missing`);
+console.log(res.ok, res.status, res.statusText); // false 404 Not Found
+```
+
+`fetch` only rejects when **no HTTP response arrives**: DNS failure,
+refused connection, TLS errors, or an abort. A 404 or 500 is a successful
+fetch of an error response. Always check `res.ok` (true for 200 to 299):
+
+```js
+class HttpError extends Error {
+  constructor(res, body) {
+    super(`HTTP ${res.status} ${res.statusText}`);
+    this.status = res.status;
+    this.body = body;
+  }
+}
+
+async function getJson(url, init) {
+  const res = await fetch(url, init);
+  if (!res.ok) throw new HttpError(res, await res.text());
+  return res.json();
+}
+```
+
+Network-level failures surface as `TypeError: fetch failed` with the real
+reason in `err.cause`:
+
+```js
+try {
+  await fetch("http://no-such-host.invalid/");
+} catch (err) {
+  console.log(err.message, err.cause?.code); // fetch failed ENOTFOUND
+}
+```
+
+## Timeouts with AbortSignal.timeout
+
+`fetch` has no `timeout` option, and a slow server can keep a request
+waiting for a very long time. Pass a signal:
+
+```js
+try {
+  const res = await fetch(`${base}/slow`, { signal: AbortSignal.timeout(2000) });
+} catch (err) {
+  if (err.name === "TimeoutError") console.log("gave up after 2 s");
+  else if (err.name === "AbortError") console.log("cancelled by caller");
+  else throw err;
+}
+```
+
+`AbortSignal.timeout(ms)` aborts with a `TimeoutError`; a manual
+`controller.abort()` gives an `AbortError`. To honour both a caller's
+cancellation and your own timeout, combine them with
+`AbortSignal.any([callerSignal, AbortSignal.timeout(2000)])`.
+
+## Retries with exponential backoff
+
+Retry only what is likely to succeed next time: network errors, timeouts,
+`429 Too Many Requests` and `5xx`. Never retry `400`, `401`, `404` or `422` —
+the request itself is wrong.
+
+```js
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const RETRYABLE = new Set([408, 429, 500, 502, 503, 504]);
+
+async function fetchWithRetry(url, init = {}, { retries = 3, baseMs = 300 } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(5000) });
+      if (res.ok || !RETRYABLE.has(res.status) || attempt === retries) return res;
+      await res.body?.cancel();                        // free the connection
+      const retryAfter = Number(res.headers.get("retry-after")) * 1000;
+      await sleep(retryAfter || backoff(attempt, baseMs));
+    } catch (err) {
+      if (attempt === retries) throw err;              // network error or timeout
+      await sleep(backoff(attempt, baseMs));
+    }
+  }
+}
+
+// 300, 600, 1200 ms ... plus random jitter so clients don't retry in sync
+const backoff = (n, base) => base * 2 ** n + Math.random() * base;
+```
+
+**Idempotency matters.** Retrying `GET`, `PUT` or `DELETE` is safe because
+repeating them has the same effect. Retrying a `POST /payments` after a
+timeout may charge the customer ₹5,000 twice — the first request might have
+succeeded. Payment APIs solve this with an **idempotency key** header that
+lets the server recognise and ignore duplicates.
+
+## Streaming responses
+
+`res.body` is a web `ReadableStream`, which is async-iterable in Node. Use it
+to download large files or consume streamed output (like AI token streams)
+without buffering everything.
+
+```js
+import { createWriteStream } from "node:fs";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+
+const res = await fetch("https://example.com/big-report.csv");
+if (!res.ok) throw new Error(`HTTP ${res.status}`);
+await pipeline(Readable.fromWeb(res.body), createWriteStream("report.csv"));
+
+// Or process text chunks as they arrive
+const decoder = new TextDecoder();
+for await (const chunk of (await fetch(`${base}/stream`)).body) {
+  process.stdout.write(decoder.decode(chunk, { stream: true }));
+}
+```
+
+`{ stream: true }` tells `TextDecoder` to keep partial multi-byte characters
+between chunks, the same problem `StringDecoder` solves for Buffers.
+
+## A checklist for production API calls
+
+- Check `res.ok` and turn error responses into typed errors.
+- Always set a timeout; never let a request wait indefinitely.
+- Retry only transient failures, with backoff, jitter and a cap.
+- Respect `Retry-After` on `429` and `503`.
+- Never log tokens or full request headers.
+- Run independent calls concurrently with `Promise.all`, but limit
+  concurrency when calling a rate-limited API.
+
+### Try it yourself
+
+Start a local `node:http` server that randomly returns `503`, delays some
+responses by 3 seconds, and otherwise returns `{"nav": 152.37}`. Point
+`fetchWithRetry` at it, log each attempt and its delay, and print the NAV as
+`₹152.37`. Then add a test where the server returns `404` and confirm no
+retry happens.

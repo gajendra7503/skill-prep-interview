@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the recommended logging practice inside a reusable library?",
+      "options": [
+        "Call logging.basicConfig() at import time",
+        "Use getLogger(__name__) and leave handler configuration to the application",
+        "Use print() so output is always visible",
+        "Attach a FileHandler to the root logger"
+      ],
+      "correctIndex": 1,
+      "explanation": "Libraries should only create loggers (optionally with a NullHandler); the application configures handlers and levels once at start-up."
+    },
+    {
+      "question": "Why is `log.info(\"charging %s paise\", amount)` preferred over an f-string in the call?",
+      "options": [
+        "f-strings are not allowed in logging calls",
+        "It is required for JSON output",
+        "The message is only formatted if the record is emitted, and the unformatted template can be grouped by log tools",
+        "It makes the log level higher"
+      ],
+      "correctIndex": 2,
+      "explanation": "Lazy %-style arguments avoid formatting cost for filtered records and keep a stable template for aggregation."
+    },
+    {
+      "question": "Why is a ContextVar better than a thread-local for request IDs in asyncio code?",
+      "options": [
+        "Each asyncio task runs in its own copy of the context, while many tasks share one thread",
+        "ContextVars are faster to read than any other variable",
+        "Thread-locals cannot store strings",
+        "ContextVars are automatically sent to OpenTelemetry"
+      ],
+      "correctIndex": 0,
+      "explanation": "Many concurrent requests can run on the same event-loop thread, so a thread-local would be shared; each task gets its own context copy for ContextVars."
+    },
+    {
+      "question": "What does pairing QueueHandler with QueueListener achieve?",
+      "options": [
+        "It deduplicates identical log lines",
+        "It encrypts log records",
+        "It sends logs to multiple processes",
+        "It moves slow handler I/O to a background thread so logging calls do not block the caller"
+      ],
+      "correctIndex": 3,
+      "explanation": "The QueueHandler just enqueues records; the QueueListener's thread performs the slow writes."
+    }
+  ]
+}

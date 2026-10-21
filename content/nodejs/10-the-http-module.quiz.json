@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In a raw `node:http` server, how do you get the parsed JSON body of a POST request?",
+      "options": [
+        "Read req.body, which Node fills in automatically",
+        "Call req.json()",
+        "Collect the chunks from the req readable stream (with a size limit), concatenate them, then JSON.parse the result",
+        "Read it from req.headers['body']"
+      ],
+      "correctIndex": 2,
+      "explanation": "node:http does no body parsing. req is a readable stream, so you gather its chunks yourself; frameworks like Express add req.body through body-parsing middleware."
+    },
+    {
+      "question": "What causes the error `ERR_HTTP_HEADERS_SENT`?",
+      "options": [
+        "Trying to set a header or status after the response body has started being sent",
+        "Sending more than 100 headers",
+        "Using lowercase header names",
+        "Calling res.end() with no arguments"
+      ],
+      "correctIndex": 0,
+      "explanation": "Headers go out before the body. Once write or end has started the body, setHeader or writeHead throws, often because two code paths both try to respond."
+    },
+    {
+      "question": "Behind a load balancer you see occasional 502 errors on reused connections. Which Node setting is the usual fix?",
+      "options": [
+        "Lower server.keepAliveTimeout to 0",
+        "Raise server.keepAliveTimeout above the load balancer's idle timeout (and headersTimeout above that)",
+        "Disable HTTP/1.1",
+        "Set Content-Length to 0 on every response"
+      ],
+      "correctIndex": 1,
+      "explanation": "If Node closes an idle keep-alive socket just as the load balancer reuses it, the balancer returns a 502. Node's timeout must outlast the balancer's."
+    },
+    {
+      "question": "Why should `Content-Length` be set with `Buffer.byteLength(body)` rather than `body.length`?",
+      "options": [
+        "body.length is always undefined for strings",
+        "Buffer.byteLength also compresses the body",
+        "Content-Length must be in kilobytes",
+        "Content-Length is measured in bytes, and characters like ₹ take more than one byte in UTF-8"
+      ],
+      "correctIndex": 3,
+      "explanation": "String length counts UTF-16 code units, not bytes. Using it for non-ASCII text under-reports the size and truncates the response."
+    }
+  ]
+}

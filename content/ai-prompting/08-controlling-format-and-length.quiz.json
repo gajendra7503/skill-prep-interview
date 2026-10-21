@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which length instruction is the most reliable?",
+      "options": [
+        "Keep it brief",
+        "Give exactly 5 bullets, one line each",
+        "Don't write too much",
+        "Be as concise as an expert would be"
+      ],
+      "correctIndex": 1,
+      "explanation": "Countable units such as words, bullets, or sections remove guesswork. Vague words like \"brief\" mean different things to different readers."
+    },
+    {
+      "question": "You want plain paragraphs with minimal formatting, but your prompt is a long bulleted Markdown spec. What is likely to happen?",
+      "options": [
+        "The model will always ignore the prompt's own formatting",
+        "The model will refuse to answer",
+        "The output tends to mirror the prompt and come back as bulleted Markdown",
+        "The model will switch to JSON automatically"
+      ],
+      "correctIndex": 2,
+      "explanation": "Prompt style influences output style. Reducing formatting in your own prompt helps get less formatted output."
+    },
+    {
+      "question": "Why might a reply drafted with Markdown headings and double-asterisk bold look wrong when pasted into an email?",
+      "options": [
+        "Email clients automatically translate Markdown into another language",
+        "Markdown makes the email longer than the word limit",
+        "Email servers reject messages containing asterisks",
+        "Many email clients do not render Markdown, so the symbols appear literally"
+      ],
+      "correctIndex": 3,
+      "explanation": "Destinations differ: many email clients and WhatsApp do not render standard Markdown, so you should name the destination and ask for suitable formatting."
+    },
+    {
+      "question": "What is the best way to stop the model adding \"Sure, here is your summary!\" before output you plan to paste into a CRM?",
+      "options": [
+        "Explicitly ask for only the output (for example, only the filled template) with no preamble or explanation",
+        "Increase the word limit",
+        "Ask for the answer in bullets",
+        "Use a longer role description"
+      ],
+      "correctIndex": 0,
+      "explanation": "Telling the model exactly what to output, and what to leave out (preambles, explanations, alternatives), keeps the result paste-ready."
+    }
+  ]
+}

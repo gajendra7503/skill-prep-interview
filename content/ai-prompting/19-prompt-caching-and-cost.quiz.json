@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A bot handles 10,000 requests a day with 3,000 input and 400 output tokens each on Opus 5.5 ($4 input, $20 output per MTok). What is the daily cost before caching?",
+      "options": [
+        "$120",
+        "$80",
+        "$200",
+        "$2,000"
+      ],
+      "correctIndex": 2,
+      "explanation": "30 MTok of input x $4 = $120, plus 4 MTok of output x $20 = $80, giving $200 a day."
+    },
+    {
+      "question": "Why should you avoid putting the current timestamp at the start of the system prompt?",
+      "options": [
+        "The model cannot read timestamps",
+        "Caching is a prefix match, so a changing value early in the prompt invalidates the cache for everything after it",
+        "Timestamps count as output tokens",
+        "It makes the request fail validation"
+      ],
+      "correctIndex": 1,
+      "explanation": "Any byte change in the prefix breaks the cache; put volatile content like dates and the user question last."
+    },
+    {
+      "question": "How do you confirm that prompt caching is actually working?",
+      "options": [
+        "Check that response.usage.cache_read_input_tokens is greater than zero on repeat calls",
+        "Assume it works once cache_control is set",
+        "Compare the response text between two calls",
+        "Count tokens with another vendor's tokenizer"
+      ],
+      "correctIndex": 0,
+      "explanation": "Prompts below the minimum prefix length silently don't cache, so verify using cache_read_input_tokens."
+    },
+    {
+      "question": "You need to tag 50,000 old support tickets by category and the results are needed by tomorrow. Which combination is most cost-effective?",
+      "options": [
+        "Opus 5.5 with effort max, sent one by one",
+        "Sonnet 5.5 with a very long prompt and no caching",
+        "Opus 5.5 using forced tool choice",
+        "Haiku 4.5 with low effort, submitted through the Batches API"
+      ],
+      "correctIndex": 3,
+      "explanation": "Simple classification suits a small model at low effort, and non-urgent bulk work gets a 50% discount via batches."
+    }
+  ]
+}

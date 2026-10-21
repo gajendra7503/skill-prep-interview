@@ -1,0 +1,191 @@
+---
+title: "Hash Maps & Sets"
+description: "How hash tables give average O(1) lookups, when to use Map, Set or a plain object in JavaScript, and the hashing patterns behind Two Sum and grouping problems."
+module: "Linear Structures"
+level: "beginner"
+order: 4
+---
+
+If arrays are the most common structure in interviews, hash maps are the
+most common *tool*. A huge number of O(n²) brute-force solutions become O(n)
+the moment you ask: "What if I remembered what I have already seen?"
+
+## How a hash table works
+
+A hash table stores key-value pairs in an array of **buckets**. A **hash
+function** turns the key into a number, and that number (modulo the bucket
+count) picks the bucket. The bucket numbers below are illustrative:
+
+```text
+hash("Delhi")  % 8 = 3   ->  bucket 3: [ ["Delhi", 110001] ]
+hash("Mumbai") % 8 = 6   ->  bucket 6: [ ["Mumbai", 400001] ]
+hash("Pune")   % 8 = 3   ->  bucket 3: [ ["Delhi", ...], ["Pune", ...] ]  collision
+```
+
+Two keys landing in the same bucket is a **collision**. One common fix is
+*chaining*: each bucket holds a small list. When the table gets too full
+(the **load factor**, entries divided by buckets, crosses a threshold), it
+doubles the bucket array and re-inserts everything. A toy version:
+
+```js
+class HashTable {
+  constructor(capacity = 8) {
+    this.buckets = Array.from({ length: capacity }, () => []);
+    this.size = 0;
+  }
+  #hash(key) {
+    let h = 0;
+    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+    return h % this.buckets.length;
+  }
+  set(key, value) {
+    const bucket = this.buckets[this.#hash(key)];
+    for (const pair of bucket) if (pair[0] === key) { pair[1] = value; return; }
+    bucket.push([key, value]);
+    this.size++;
+    if (this.size / this.buckets.length > 0.75) this.#resize();
+  }
+  get(key) {
+    for (const [k, v] of this.buckets[this.#hash(key)]) if (k === key) return v;
+    return undefined;
+  }
+  #resize() {
+    const old = this.buckets.flat();
+    this.buckets = Array.from({ length: this.buckets.length * 2 }, () => []);
+    this.size = 0;
+    for (const [k, v] of old) this.set(k, v);
+  }
+}
+const pins = new HashTable();
+pins.set("Delhi", 110001); pins.set("Mumbai", 400001);
+console.log(pins.get("Mumbai"), pins.get("Pune")); // 400001 undefined
+```
+
+With a good hash function, buckets stay short, so `get`, `set` and `delete`
+are **O(1) on average**; if every key collides they degrade to O(n).
+Resizing is O(n) but rare, so inserts are amortised O(1). This is exactly
+what to explain when asked "How does a HashMap work internally?"
+
+## Map, Set and plain objects in JavaScript
+
+| | `Map` | `Set` | Plain object `{}` |
+|---|---|---|---|
+| Stores | key → value | unique values | string/symbol key → value |
+| Key types | any (numbers, objects...) | any | converted to strings |
+| Size | `m.size` O(1) | `s.size` | `Object.keys(o).length` O(n) |
+| Insertion order | kept | kept | mostly (integer-like keys come first) |
+| Inherited keys | none | none | prototype keys like `toString` |
+
+```js
+const obj = {};
+obj[1] = "a"; obj["1"] = "b";
+console.log(obj);                       // { '1': 'b' }  (1 became "1")
+const k1 = { id: 1 };
+const o2 = {}; o2[k1] = "x";
+console.log(Object.keys(o2));           // [ '[object Object]' ]
+console.log("toString" in {});          // true  (inherited!)
+
+const m = new Map();
+m.set(1, "num").set("1", "str").set(k1, "obj");
+console.log(m.size, m.get(1), m.get("1"), m.get(k1)); // 3 num str obj
+console.log(m.get({ id: 1 }));          // undefined (objects compare by reference)
+console.log(new Set([NaN, NaN, 0, -0]).size); // 2
+```
+
+For DSA problems, prefer `Map` and `Set`. Keys are compared with
+"SameValueZero" — like `===`, except `NaN` equals `NaN`. Objects and arrays
+are compared **by reference**, so to key by a pair like a grid cell, build a
+string: `` `${row},${col}` ``.
+
+The most common one-liner in this whole course is frequency counting:
+`freq.set(w, (freq.get(w) ?? 0) + 1)`.
+
+## Problem: Two Sum (complement lookup)
+
+A customer has a ₹650 gift card and wants exactly two items from prices
+`[400, 150, 700, 250]`. Return their indices.
+
+Brute force checks every pair: O(n²). Instead, for each price ask: "Have I
+already seen `650 - price`?" Store each value's index as you go.
+
+```js
+function twoSum(nums, target) {
+  const indexOf = new Map(); // value -> index
+  for (let i = 0; i < nums.length; i++) {
+    const need = target - nums[i];
+    if (indexOf.has(need)) return [indexOf.get(need), i];
+    indexOf.set(nums[i], i);
+  }
+  return [];
+}
+console.log(twoSum([400, 150, 700, 250], 650)); // [ 0, 3 ]
+console.log(twoSum([300, 300], 600));           // [ 0, 1 ]
+console.log(twoSum([100, 200], 1000));          // []
+```
+
+Time O(n), space O(n). Checking *before* inserting is what makes `[300, 300]`
+work without pairing an element with itself. If the array were sorted, "The
+Two-Pointer Technique" solves it in O(1) space.
+
+## Problem: group anagrams (canonical key)
+
+Group words that are anagrams of each other. The trick is choosing a key
+that is identical for every member of a group — here, the sorted letters.
+
+```js
+function groupAnagrams(words) {
+  const groups = new Map();
+  for (const w of words) {
+    const key = [...w].sort().join("");
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(w);
+  }
+  return [...groups.values()];
+}
+console.log(groupAnagrams(["eat", "tea", "tan", "ate", "nat", "bat"]));
+// [ [ 'eat', 'tea', 'ate' ], [ 'tan', 'nat' ], [ 'bat' ] ]
+```
+
+Time O(n × k log k) for n words of length up to k. A 26-letter count string
+as the key brings that to O(n × k).
+
+## Problem: longest consecutive sequence (Set membership)
+
+Given `[100, 4, 200, 1, 3, 2]`, the longest run of consecutive integers is
+1, 2, 3, 4 (length 4). Sorting gives O(n log n); a Set gives O(n):
+
+```js
+function longestConsecutive(nums) {
+  const set = new Set(nums);
+  let best = 0;
+  for (const x of set) {
+    if (set.has(x - 1)) continue;      // only start counting at a run's start
+    let len = 1;
+    while (set.has(x + len)) len++;
+    best = Math.max(best, len);
+  }
+  return best;
+}
+console.log(longestConsecutive([100, 4, 200, 1, 3, 2])); // 4
+console.log(longestConsecutive([]));                     // 0
+```
+
+The `continue` line is the key insight: each number is visited by the inner
+`while` at most once overall, so the total work is O(n) despite the nested
+loop. Interviewers love asking why this is not O(n²).
+
+## Common mistakes
+
+- Using a plain object and getting bitten by key stringification or
+  inherited keys like `constructor`.
+- Using an array or object as a `Map` key and expecting lookup by value.
+- Calling hash map operations "always O(1)" — say "O(1) average", and
+  count the O(n) extra space the map adds.
+
+### Try it yourself
+
+1. Write `containsNearbyDuplicate(nums, k)`: return true if two equal values
+   sit at most `k` indices apart. Aim for O(n) with a `Map`.
+2. Rewrite `groupAnagrams` to use a 26-count key such as `"1#0#0#..."`.
+3. Given two arrays of order IDs, return the IDs present in both, without
+   duplicates, in O(a + b).

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A graph has non-negative edge weights of varying sizes. Which algorithm is the standard choice for single-source shortest paths?",
+      "options": [
+        "Plain BFS",
+        "Bellman-Ford",
+        "Dijkstra with a min-heap",
+        "DFS with memoisation"
+      ],
+      "correctIndex": 2,
+      "explanation": "Dijkstra with a priority queue runs in O((V + E) log V) and is correct for non-negative weights. BFS only handles equal weights; Bellman-Ford works but is slower at O(V x E)."
+    },
+    {
+      "question": "In the lazy-deletion version of Dijkstra, what does the check `if (d > dist.get(node)) continue;` do?",
+      "options": [
+        "Skips heap entries that are outdated because a shorter distance to that node was found later",
+        "Detects negative cycles",
+        "Stops the algorithm once the target is reached",
+        "Prevents nodes with zero-weight edges from being processed"
+      ],
+      "correctIndex": 0,
+      "explanation": "The heap cannot decrease a key, so a new entry is pushed whenever a distance improves. Older entries for the same node carry larger distances and are ignored when popped."
+    },
+    {
+      "question": "How does Bellman-Ford detect a negative cycle?",
+      "options": [
+        "It finds a node with no outgoing edges",
+        "The heap becomes empty before all nodes are visited",
+        "A node is visited twice during DFS",
+        "After V - 1 rounds of relaxation, some edge can still reduce a distance"
+      ],
+      "correctIndex": 3,
+      "explanation": "Without negative cycles, all shortest paths use at most V - 1 edges and are settled after V - 1 rounds. If an extra pass still improves a distance, a negative cycle is reachable."
+    },
+    {
+      "question": "In the cheapest-flight-with-at-most-K-stops problem, why does each Bellman-Ford round copy the cost array?",
+      "options": [
+        "To avoid mutating the input",
+        "So each round extends paths by exactly one edge, respecting the stop limit",
+        "Because JavaScript arrays cannot be updated inside a for...of loop",
+        "To make the algorithm run in O(V + E)"
+      ],
+      "correctIndex": 1,
+      "explanation": "Reading from the previous round's array and writing to a new one means a single round cannot chain several flights. K stops means at most K + 1 edges, so K + 1 rounds give the correct answer."
+    }
+  ]
+}

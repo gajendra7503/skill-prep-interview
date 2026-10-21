@@ -1,0 +1,192 @@
+---
+title: "Graphs: Representation, BFS & DFS"
+description: "Adjacency lists versus matrices, breadth-first search for fewest-hop paths, depth-first search, grid flood fill and cycle detection in JavaScript."
+module: "Graphs"
+level: "advanced"
+order: 17
+---
+
+A graph is a set of **vertices** (nodes) joined by **edges**. Unlike trees,
+general graphs can have cycles, disconnected pieces, directions (one-way
+roads) and weights (distances, fares). Flight networks, friend lists, package
+dependencies and 2D grids are all graphs; in interviews the hard part is
+usually *recognising* the graph, not the traversal.
+
+## Representing a graph
+
+| Representation | Space | Check edge u-v | List neighbours of u | Best for |
+|---|---|---|---|---|
+| Adjacency list (`Map` of arrays) | O(V + E) | O(degree) | O(degree) | most interview problems (sparse) |
+| Adjacency matrix (V x V) | O(V^2) | O(1) | O(V) | dense graphs, small V |
+| Edge list (`[u, v]` pairs) | O(E) | O(E) | O(E) | input format; Union-Find, Bellman-Ford |
+
+Interviews usually give an edge list; convert it to an adjacency list first.
+
+```js
+function buildGraph(edges) {
+  const graph = new Map();
+  for (const [a, b] of edges) {
+    if (!graph.has(a)) graph.set(a, []);
+    if (!graph.has(b)) graph.set(b, []);
+    graph.get(a).push(b);
+    graph.get(b).push(a); // undirected: add both directions
+  }
+  return graph;
+}
+
+const routes = [
+  ["Delhi", "Jaipur"], ["Delhi", "Lucknow"], ["Jaipur", "Ahmedabad"],
+  ["Ahmedabad", "Mumbai"], ["Lucknow", "Kolkata"], ["Mumbai", "Pune"],
+  ["Mumbai", "Bengaluru"], ["Pune", "Bengaluru"], ["Bengaluru", "Chennai"],
+];
+const graph = buildGraph(routes);
+console.log(graph.get("Mumbai")); // [ 'Ahmedabad', 'Pune', 'Bengaluru' ]
+```
+
+```text
+ Kolkata - Lucknow - Delhi - Jaipur - Ahmedabad - Mumbai - Pune
+                                                     \      /
+                                                    Bengaluru - Chennai
+```
+
+## Breadth-first search (BFS)
+
+BFS explores in **rings** using a FIFO queue: the start, then everything one
+edge away, then two edges away. Nodes are reached in order of distance, so
+the first arrival at a node is via a path with the **fewest edges**: BFS gives
+shortest paths in **unweighted** graphs. Mark nodes as seen **when
+enqueued**, not when dequeued, or they enter the queue repeatedly. Avoid
+`shift()` (it can be O(n)); use a moving `head` index, as below, or a proper
+queue (see "Stacks & Queues"). A `parent` map rebuilds the route:
+
+```js
+function shortestHops(graph, start, goal) {
+  const parent = new Map([[start, null]]); // doubles as the "seen" set
+  const queue = [start];
+  let head = 0;
+  while (head < queue.length) {
+    const city = queue[head++];
+    if (city === goal) break;
+    for (const next of graph.get(city)) {
+      if (!parent.has(next)) {
+        parent.set(next, city);   // mark on enqueue
+        queue.push(next);
+      }
+    }
+  }
+  if (!parent.has(goal)) return null;
+  const path = [];
+  for (let c = goal; c !== null; c = parent.get(c)) path.push(c);
+  return path.reverse();
+}
+console.log(shortestHops(graph, "Delhi", "Chennai"));
+// [ 'Delhi', 'Jaipur', 'Ahmedabad', 'Mumbai', 'Bengaluru', 'Chennai' ]
+```
+
+## Depth-first search (DFS)
+
+DFS goes as **deep** as possible along one branch before backing up. It suits
+reachability, connected components, cycle detection and topological order:
+
+```js
+function dfs(graph, start) {
+  const visited = new Set(), order = [];
+  function visit(node) {
+    visited.add(node);
+    order.push(node);
+    for (const next of graph.get(node)) {
+      if (!visited.has(next)) visit(next);
+    }
+  }
+  visit(start);
+  return order;
+}
+console.log(dfs(graph, "Delhi"));
+// [ 'Delhi', 'Jaipur', 'Ahmedabad', 'Mumbai', 'Pune', 'Bengaluru', 'Chennai', 'Lucknow', 'Kolkata' ]
+```
+
+With lakhs of nodes in a long chain, recursion can overflow the call stack
+(`RangeError: Maximum call stack size exceeded`). Use an explicit stack
+instead: push neighbours inside a `while (stack.length)` loop and skip nodes
+already visited when popped. The order differs, but every node is visited once.
+
+| | BFS | DFS |
+|---|---|---|
+| Data structure | queue | stack (or recursion) |
+| Time / extra space | O(V + E) / O(V) | O(V + E) / O(V) |
+| Fewest-edge paths | yes (unweighted) | no |
+| Typical uses | levels, nearest X, min moves | components, cycles, topological sort, backtracking |
+
+## Problem 1: Number of islands (grid as an implicit graph)
+
+Count islands of `"1"` (land) connected up, down, left or right in a grid of
+`"0"` (water). Each cell is a vertex and its four neighbours are its edges, so
+no adjacency list is needed. Scan; on unvisited land, count it and flood-fill.
+
+```js
+function countIslands(grid) {
+  const rows = grid.length, cols = grid[0].length;
+  let islands = 0;
+  function sink(r, c) {
+    if (r < 0 || c < 0 || r >= rows || c >= cols || grid[r][c] !== "1") return;
+    grid[r][c] = "0"; // mark visited by sinking the land
+    sink(r + 1, c); sink(r - 1, c); sink(r, c + 1); sink(r, c - 1);
+  }
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (grid[r][c] === "1") { islands++; sink(r, c); }
+    }
+  }
+  return islands;
+}
+const map = ["11000", "11001", "00101", "00000"].map((row) => [...row]);
+console.log(countIslands(map)); // 3
+```
+
+O(rows x cols) time and space (worst-case recursion depth). It mutates the
+input; say so and offer a `visited` set. For "minimum steps in a grid", use BFS.
+
+## Problem 2: Cycle detection in an undirected graph
+
+In DFS, reaching a visited neighbour that is **not the node you came from**
+means a cycle.
+
+```js
+function hasCycle(graph) {
+  const visited = new Set();
+  function visit(node, parent) {
+    visited.add(node);
+    for (const next of graph.get(node)) {
+      if (next === parent) continue;       // the edge we just used
+      if (visited.has(next) || visit(next, node)) return true;
+    }
+    return false;
+  }
+  for (const node of graph.keys()) {       // cover every component
+    if (!visited.has(node) && visit(node, null)) return true;
+  }
+  return false;
+}
+console.log(hasCycle(graph)); // true (Mumbai - Pune - Bengaluru)
+console.log(hasCycle(buildGraph([["A", "B"], ["B", "C"], ["C", "D"]]))); // false
+```
+
+Directed graphs need a different check; see "Topological Sort & Union-Find".
+
+## Common mistakes
+
+- **Forgetting disconnected components.** Start a traversal from every
+  unvisited vertex.
+- **Marking visited too late in BFS**, causing duplicates in the queue.
+- **Using BFS on weighted graphs.** Fewest edges is not least cost; see
+  "Shortest Paths: Dijkstra, Bellman-Ford & 0-1 BFS".
+- **Isolated vertices missing from the map**, so `graph.get(x)` returns
+  `undefined`. Initialise all n vertices when they are numbered 0 to n - 1.
+
+### Try it yourself
+
+1. Count the connected components of an undirected graph (vertices 0 to
+   n - 1, given as an edge list), then rewrite `dfs` iteratively.
+2. Rotting oranges: each minute, rotten oranges (2) infect fresh neighbours
+   (1). Use multi-source BFS (enqueue all rotten ones first) to find the
+   minutes until all rot, or -1 if some never do.

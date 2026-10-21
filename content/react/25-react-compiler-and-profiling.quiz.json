@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What happens when the React Compiler finds a component that mutates its props?",
+      "options": [
+        "The build fails",
+        "It rewrites the code to clone the props",
+        "It throws an error at runtime",
+        "It skips optimising that component and leaves it as written"
+      ],
+      "correctIndex": 3,
+      "explanation": "The compiler relies on the Rules of React. When it detects a violation it bails out of that component rather than risk changing behaviour."
+    },
+    {
+      "question": "Why should you profile a production or profiling build rather than a development build?",
+      "options": [
+        "Development builds include extra checks that make timings much slower and misleading",
+        "The Profiler tab does not exist in development",
+        "Production builds render twice",
+        "Development builds disable memoisation"
+      ],
+      "correctIndex": 0,
+      "explanation": "Development mode adds warnings and checks, so render times don't reflect what users experience."
+    },
+    {
+      "question": "In the Profiler component's onRender callback, what does baseDuration represent?",
+      "options": [
+        "The time the browser spent painting",
+        "The time since the app started",
+        "An estimate of re-rendering the whole subtree without any memoisation",
+        "The network time to load the component"
+      ],
+      "correctIndex": 2,
+      "explanation": "actualDuration is the time spent this commit; baseDuration estimates the full subtree cost. A big gap shows memoisation is helping."
+    },
+    {
+      "question": "Which Core Web Vital is most directly affected by slow React rendering in response to user input?",
+      "options": [
+        "CLS",
+        "INP",
+        "TTFB",
+        "LCP"
+      ],
+      "correctIndex": 1,
+      "explanation": "Interaction to Next Paint measures how quickly the page responds to interactions, which long renders and hydration work delay."
+    }
+  ]
+}

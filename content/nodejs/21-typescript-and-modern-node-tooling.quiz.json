@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "You run `node app.ts` with built-in type stripping and the file contains a type error. What happens?",
+      "options": [
+        "Node prints the type error and exits with code 1",
+        "Node prints a warning but still runs the code",
+        "The code runs normally, because Node only erases types and never type-checks",
+        "Node falls back to running tsc automatically"
+      ],
+      "correctIndex": 2,
+      "explanation": "Type stripping removes annotations and executes the remaining JavaScript. Type checking still needs tsc --noEmit or your editor."
+    },
+    {
+      "question": "Which TypeScript feature fails under Node's default strip-only mode?",
+      "options": [
+        "An enum declaration",
+        "An interface declaration",
+        "A generic function signature",
+        "A type alias using a union type"
+      ],
+      "correctIndex": 0,
+      "explanation": "Enums generate runtime code, so they cannot simply be erased and fail with ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX. Interfaces, generics and type aliases are fully erasable."
+    },
+    {
+      "question": "`import { User } from \"./types.ts\"` fails at runtime under type stripping, where User is an interface. What is the fix?",
+      "options": [
+        "Remove the .ts extension from the import path",
+        "Rename types.ts to types.d.ts",
+        "Add types.ts to tsconfig.json include",
+        "Write import type { User } so the import is erased"
+      ],
+      "correctIndex": 3,
+      "explanation": "Without the type keyword, Node keeps the import and looks for a runtime export named User, which does not exist. verbatimModuleSyntax makes tsc enforce this."
+    },
+    {
+      "question": "Which pairing of an old npm package and its modern Node built-in replacement is correct?",
+      "options": [
+        "uuid replaced by structuredClone()",
+        "nodemon replaced by node --watch",
+        "dotenv replaced by util.parseArgs()",
+        "rimraf replaced by node --run"
+      ],
+      "correctIndex": 1,
+      "explanation": "node --watch restarts the process on file changes like nodemon. uuid maps to crypto.randomUUID(), dotenv to --env-file, and rimraf to fs.rm with recursive: true."
+    }
+  ]
+}

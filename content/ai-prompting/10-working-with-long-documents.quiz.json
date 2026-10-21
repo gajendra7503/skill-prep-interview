@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "For a prompt containing an 80-page policy and one question, what ordering is recommended?",
+      "options": [
+        "Question first, then the document, so the model knows what to look for",
+        "Document first, then the instructions and question at the end",
+        "Split the question into halves placed before and after the document",
+        "Order does not matter for long documents"
+      ],
+      "correctIndex": 1,
+      "explanation": "For long inputs, placing documents at the top and the question at the end tends to produce better answers."
+    },
+    {
+      "question": "What does the context window have to hold?",
+      "options": [
+        "Only the documents you paste in",
+        "Only the model's response",
+        "Only the system prompt",
+        "The system prompt, documents, conversation so far, and the response being generated"
+      ],
+      "correctIndex": 3,
+      "explanation": "Everything the model considers and produces counts against the context window, so you must leave room for the output."
+    },
+    {
+      "question": "What is the main benefit of asking the model to extract relevant quotes before answering?",
+      "options": [
+        "It grounds the answer in the source text and gives you an audit trail to check",
+        "It makes the response shorter",
+        "It lets the model use knowledge outside the documents",
+        "It removes the need for any human review"
+      ],
+      "correctIndex": 0,
+      "explanation": "Quote-then-answer focuses the model on relevant passages and lets you verify each quote against the original quickly."
+    },
+    {
+      "question": "In map-reduce summarisation of a document larger than the context window, what happens in the \"reduce\" step?",
+      "options": [
+        "The document is compressed into a zip file",
+        "Each chunk is summarised with a different prompt",
+        "The per-chunk outputs are merged, de-duplicated, and summarised in a final prompt",
+        "The least relevant chunks are deleted without being read"
+      ],
+      "correctIndex": 2,
+      "explanation": "Map runs the same prompt on each chunk; reduce combines those outputs into a single result, ideally keeping each chunk's location for citations."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In the Expense dataclass, what is the purpose of `__post_init__`?",
+      "options": [
+        "It converts the dataclass to a dict for JSON",
+        "It runs after the generated __init__ to validate fields, e.g. rejecting non-positive amounts",
+        "It makes the dataclass immutable",
+        "It registers the class with argparse"
+      ],
+      "correctIndex": 1,
+      "explanation": "__post_init__ is called by the generated __init__, so validation runs whenever an Expense is created, including when loading from JSON via Expense(**item)."
+    },
+    {
+      "question": "Why does `main` accept an optional `argv` parameter instead of always reading sys.argv?",
+      "options": [
+        "argparse cannot read sys.argv on Windows",
+        "It is required by the match statement",
+        "It lets tests call main([...]) directly with custom arguments",
+        "It makes the CLI run faster"
+      ],
+      "correctIndex": 2,
+      "explanation": "parse_args(None) falls back to sys.argv, while tests can pass an explicit list, making the CLI testable end to end without a subprocess."
+    },
+    {
+      "question": "Which built-in pytest fixture lets the tests write the JSON file without touching the user's real data?",
+      "options": [
+        "tmp_path",
+        "capsys",
+        "monkeypatch",
+        "conftest"
+      ],
+      "correctIndex": 0,
+      "explanation": "tmp_path provides a fresh temporary pathlib.Path per test; capsys captures printed output instead."
+    },
+    {
+      "question": "Why is `Counter` a good fit for the per-category summary?",
+      "options": [
+        "It stores items in insertion order only",
+        "It automatically formats values as INR",
+        "It prevents duplicate categories from being added",
+        "Missing keys default to 0 and most_common() sorts categories by total"
+      ],
+      "correctIndex": 3,
+      "explanation": "Counter lets you write totals[category] += amount without initialising keys, and most_common() returns entries sorted highest first."
+    }
+  ]
+}

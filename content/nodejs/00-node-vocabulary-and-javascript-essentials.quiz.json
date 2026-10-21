@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which statement about const is correct?",
+      "options": [
+        "A const variable cannot be reassigned, but the contents of a const object or array can still change",
+        "A const object can never be modified in any way",
+        "const behaves exactly like var",
+        "const variables can be reassigned inside functions"
+      ],
+      "correctIndex": 0,
+      "explanation": "const prevents reassignment of the variable itself; properties of an object or elements of an array it holds can still be changed."
+    },
+    {
+      "question": "What does [120, 450, 80, 990].filter((p) => p > 100) return?",
+      "options": [
+        "[240, 900, 160, 1980]",
+        "1640",
+        "[120, 450, 990]",
+        "[80]"
+      ],
+      "correctIndex": 2,
+      "explanation": "filter keeps only the elements for which the callback returns true, so 80 is removed."
+    },
+    {
+      "question": "What happens if JSON.parse is given invalid text?",
+      "options": [
+        "It returns null",
+        "It returns an empty object",
+        "It returns the text unchanged",
+        "It throws an error, so untrusted input should be wrapped in try/catch"
+      ],
+      "correctIndex": 3,
+      "explanation": "JSON.parse throws on invalid input, which is why the lesson recommends try/catch for untrusted text."
+    },
+    {
+      "question": "In import { readFile } from \"node:fs/promises\", what does the node: prefix indicate?",
+      "options": [
+        "The module must be downloaded from npm first",
+        "It is a built-in module that ships with Node",
+        "The file uses CommonJS",
+        "The import only works in the REPL"
+      ],
+      "correctIndex": 1,
+      "explanation": "The node: prefix marks a built-in module, so it is clearly distinguished from packages installed from npm."
+    }
+  ]
+}

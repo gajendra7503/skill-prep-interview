@@ -1,0 +1,130 @@
+---
+title: "Working with Long Documents"
+description: "Budget the context window, order long prompts correctly, label multiple sources, ground answers in quotes, and use map-reduce when a document will not fit."
+module: "Output Control"
+level: "intermediate"
+order: 12
+---
+
+Policy manuals, annual reports, contracts, and months of customer tickets
+are where LLMs save the most time — and where careless prompting produces
+the most confident mistakes. A few structural habits make long-document
+work far more reliable.
+
+## Budget the context window
+
+The **context window** is the total amount of text, measured in tokens, the
+model can consider at once: your system prompt, all documents, the
+conversation so far, *and* the response it writes. A rough rule of thumb
+for English is that one token is about three-quarters of a word; Hindi and
+other Indian-language scripts usually use more tokens per word.
+
+Before pasting a 300-page document, ask:
+
+- **Does it all need to be there?** Strip cover pages, repeated headers,
+  tables of contents, and annexures irrelevant to the question.
+- **Is there room for the answer?** Reserve space for the output, especially
+  if you want a long report back.
+- **Will quality hold?** Even when text fits, models attend less precisely to
+  details buried in a huge prompt. Less, more relevant text often beats more.
+
+## Put documents first, question last
+
+For long inputs, place the documents at the top of the prompt and your
+instructions and question at the end. Questions placed after the material
+tend to get noticeably better answers than questions placed before it,
+because the model reads the task with all the content fresh in context.
+
+Weak ordering:
+
+```text
+What is the notice period for a manager-grade employee? Here is the HR
+policy: ...80 pages...
+```
+
+Improved ordering:
+
+```text
+<document>
+...80 pages of the HR policy...
+</document>
+
+Using only the policy above, what is the notice period for a manager-grade
+employee who resigns during probation?
+```
+
+## Wrap multiple documents with source metadata
+
+When you supply several documents, wrap each one in XML tags and include
+metadata such as the source name and date. Claude in particular responds
+well to XML tags as delimiters, and labelled sources let the model — and
+you — say exactly where a fact came from.
+
+```text
+<documents>
+  <document index="1">
+    <source>Travel_Policy_v3.pdf</source>
+    <date>2026-04-01</date>
+    <document_content>
+    ...
+    </document_content>
+  </document>
+  <document index="2">
+    <source>Travel_Policy_Circular_July.pdf</source>
+    <date>2026-07-15</date>
+    <document_content>
+    ...
+    </document_content>
+  </document>
+</documents>
+
+The July circular amends parts of the main policy. Where they conflict,
+the later document wins. What is the daily hotel limit for a Grade M2
+employee travelling to a Tier-1 city? Name the document you relied on.
+```
+
+The dates and the explicit "later document wins" rule prevent the model
+from quietly blending two versions of the truth.
+
+## Quote first, then answer
+
+A powerful grounding technique: ask the model to first extract the passages
+relevant to the question, and only then answer based on those passages.
+
+```text
+First, find the passages in the documents that are relevant to the
+question and copy them word for word inside <quotes> tags, with the
+document index for each. If no passage is relevant, write "No relevant
+passage found" inside the tags.
+
+Then answer the question inside <answer> tags, using only the quoted
+passages.
+```
+
+This cuts through the noise of a long document, and it gives you an
+audit trail: you can check each quote against the source in seconds.
+
+## Map-reduce for documents bigger than the window
+
+When a document will not fit — or fits but is too large for reliable
+attention — split the work:
+
+1. **Map:** break the document into chunks (for example, by chapter or
+   every 20 pages) and run the same prompt on each chunk, such as "list
+   every clause about penalties, with page numbers".
+2. **Reduce:** combine the per-chunk outputs in a final prompt that merges,
+   de-duplicates, and summarises them.
+
+Keep the map prompt identical across chunks so outputs are consistent, and
+ask each chunk's output to carry its location (chapter, page range) so the
+final summary can still cite sources. Chunks can be processed in parallel,
+which also makes the job faster.
+
+### Try it yourself
+
+1. Take a prompt where you asked a question about a pasted document, and
+   reorder it so the document comes first and the question last.
+2. Wrap two versions of the same policy in `<document>` tags with source
+   and date, and ask a question whose answer changed between versions.
+3. Add a quote-first step to a document question and check every quote
+   against the original text.

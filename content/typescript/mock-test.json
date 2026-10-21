@@ -1,0 +1,824 @@
+{
+  "title": "TypeScript Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "ts-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-why-typescript-and-setup",
+      "question": "You run `node greet.ts` using Node's built-in type stripping, and the file contains a type error (a number passed where a string is expected). What happens?",
+      "options": [
+        "Node refuses to start and prints the TypeScript error",
+        "Node prints a warning with the error code, then runs the file",
+        "Node deletes the type annotations and runs the code without reporting the type error",
+        "Node compiles the file with tsc first, so the error is reported"
+      ],
+      "correctIndex": 2,
+      "explanation": "Type stripping only removes the annotations; Node never type-checks. The call simply runs as JavaScript. That is why `tsc --noEmit` (or the editor) is still needed to catch type errors. Node does not invoke tsc or print type diagnostics."
+    },
+    {
+      "id": "ts-02",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "01-why-typescript-and-setup",
+      "question": "Which `tsc` flag type-checks the project but writes no output files (the usual choice in CI)?",
+      "answerHint": "Type the flag",
+      "acceptedAnswers": [
+        "--noEmit",
+        "noEmit",
+        "tsc --noEmit",
+        "npx tsc --noEmit"
+      ],
+      "caseSensitive": false,
+      "explanation": "`tsc --noEmit` runs the full type check and emits nothing. By default `tsc` writes JavaScript even when there are errors, so CI usually runs `tsc --noEmit` and fails the build on any error."
+    },
+    {
+      "id": "ts-03",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-basic-types-and-inference",
+      "question": "What type does TypeScript infer for `gst`?",
+      "code": "const gst = 0.18;",
+      "codeLanguage": "ts",
+      "options": [
+        "0.18",
+        "number",
+        "any",
+        "const number"
+      ],
+      "correctIndex": 0,
+      "explanation": "A `const` can never be reassigned, so TypeScript keeps the exact literal type `0.18`. With `let gst = 0.18` the type would widen to `number`, because a `let` may later hold another number."
+    },
+    {
+      "id": "ts-04",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "02-basic-types-and-inference",
+      "question": "Compiling this with `--strict` reports one error. What is its error code?",
+      "code": "let v: unknown = \"hi\";\nv.toUpperCase();",
+      "codeLanguage": "ts",
+      "answerHint": "Type the code, e.g. TS1234",
+      "acceptedAnswers": [
+        "TS18046",
+        "18046",
+        "error TS18046"
+      ],
+      "caseSensitive": false,
+      "explanation": "`unknown` accepts any value but cannot be used until you narrow it, so calling a method on it fails with TS18046: \"'v' is of type 'unknown'\". With `any` instead of `unknown`, the line would compile and could crash at runtime."
+    },
+    {
+      "id": "ts-05",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "03-functions-and-annotations",
+      "question": "Given these overloads, what happens on the last line?",
+      "code": "function parseInput(value: string): number;\nfunction parseInput(value: string[]): number[];\nfunction parseInput(value: string | string[]): number | number[] {\n  return Array.isArray(value) ? value.map(Number) : Number(value);\n}\n\ndeclare const raw: string | string[];\nconst r = parseInput(raw);",
+      "codeLanguage": "ts",
+      "options": [
+        "`r` is typed `number | number[]`, matching the implementation signature",
+        "`r` is typed `number`, because the first overload is chosen",
+        "`r` is typed `any`",
+        "Compile error: no overload matches this call"
+      ],
+      "correctIndex": 3,
+      "explanation": "Callers only see the overload signatures, never the implementation signature. A `string | string[]` argument fits neither `(value: string)` nor `(value: string[])` on its own, so the compiler reports TS2769 \"No overload matches this call\". The implementation's `string | string[]` parameter is not callable from outside."
+    },
+    {
+      "id": "ts-06",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "04-objects-arrays-and-tuples",
+      "question": "Which line(s) cause a compile error?",
+      "code": "type Order = { id: string; amount: number };\n\nconst o1: Order = { id: \"ORD-1\", amount: 500, coupon: \"DIWALI\" }; // A\n\nconst draft = { id: \"ORD-2\", amount: 500, coupon: \"DIWALI\" };\nconst o2: Order = draft;                                        // B",
+      "codeLanguage": "ts",
+      "options": [
+        "Only line A",
+        "Only line B",
+        "Both A and B",
+        "Neither"
+      ],
+      "correctIndex": 0,
+      "explanation": "Excess property checking applies only to fresh object literals, so line A fails: 'coupon' does not exist in type 'Order'. Line B assigns a variable; ordinary assignability is structural and only needs `id` and `amount`, so the extra property is allowed."
+    },
+    {
+      "id": "ts-07",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "04-objects-arrays-and-tuples",
+      "question": "What type does TypeScript infer for `pair`?",
+      "code": "const pair = [\"Rent\", 25000];",
+      "codeLanguage": "ts",
+      "answerHint": "Type the type exactly as TypeScript would show it",
+      "acceptedAnswers": [
+        "(string | number)[]",
+        "(number | string)[]",
+        "(string|number)[]",
+        "(number|string)[]",
+        "Array<string | number>",
+        "Array<number | string>",
+        "Array<string|number>",
+        "Array<number|string>"
+      ],
+      "caseSensitive": false,
+      "explanation": "An array literal without an annotation is inferred as an array, not a tuple, so the element type is the union `string | number`. To get a tuple, annotate it (`[string, number]`) or use `as const`."
+    },
+    {
+      "id": "ts-08",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "05-interfaces-and-type-aliases",
+      "question": "Which of these can be written with a `type` alias but NOT with an `interface`?",
+      "options": [
+        "An object with optional properties",
+        "An object with a method",
+        "A union such as `\"active\" | \"suspended\" | \"closed\"`",
+        "An object with an index signature"
+      ],
+      "correctIndex": 2,
+      "explanation": "An interface can only describe an object shape. A type alias can name any type, including unions, tuples and primitives. Optional properties, methods and index signatures work in both."
+    },
+    {
+      "id": "ts-09",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-interfaces-and-type-aliases",
+      "question": "What is the type of `ChildT[\"id\"]`?",
+      "code": "interface Base { id: string }\ntype ChildT = Base & { id: number };",
+      "codeLanguage": "ts",
+      "options": [
+        "string",
+        "number",
+        "string | number",
+        "never"
+      ],
+      "correctIndex": 3,
+      "explanation": "An intersection requires both shapes at once, so `id` becomes `string & number`, which is impossible and reduces to `never`. Unlike `interface Child extends Base { id: number }`, which errors immediately, `&` silently produces the impossible type. It is not `string | number`; that would be a union."
+    },
+    {
+      "id": "ts-10",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "06-union-and-literal-types",
+      "question": "Which call is a compile error?",
+      "code": "type PaymentStatus = \"pending\" | \"paid\" | \"failed\" | \"refunded\";\nfunction badgeColour(status: PaymentStatus): string { return status; }\n\nconst s1 = \"paid\";\nlet s2 = \"paid\";\nbadgeColour(s1);\nbadgeColour(s2);",
+      "codeLanguage": "ts",
+      "options": [
+        "`badgeColour(s2)`",
+        "`badgeColour(s1)`",
+        "Both calls",
+        "Neither call"
+      ],
+      "correctIndex": 0,
+      "explanation": "`const s1 = \"paid\"` keeps the literal type `\"paid\"`, which fits `PaymentStatus`. `let s2 = \"paid\"` is widened to `string` because it could be reassigned, and a general `string` is not assignable to the literal union."
+    },
+    {
+      "id": "ts-11",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-narrowing-and-type-guards",
+      "question": "Inside the `if` block, what is the type of `input`?",
+      "code": "function keys(input: string[] | object | null) {\n  if (typeof input === \"object\") {\n    // what is input here?\n  }\n}",
+      "codeLanguage": "ts",
+      "options": [
+        "`object | string[]`",
+        "`string[] | object | null`",
+        "`object`",
+        "`never`"
+      ],
+      "correctIndex": 1,
+      "explanation": "`typeof null === \"object\"`, so a `typeof` check alone does not remove `null`; the narrowed type still includes it, and calling `Object.keys(input)` would fail. You also need `input !== null` (or a truthiness check). `object | string[]` is the tempting answer, but it forgets that classic trap."
+    },
+    {
+      "id": "ts-12",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "07-narrowing-and-type-guards",
+      "question": "The `rectangle` case was forgotten. What error code does the compiler report on the `const unhandled: never = s;` line?",
+      "code": "type Shape =\n  | { kind: \"circle\"; radius: number }\n  | { kind: \"square\"; side: number }\n  | { kind: \"rectangle\"; width: number; height: number };\n\nfunction area(s: Shape): number {\n  switch (s.kind) {\n    case \"circle\": return Math.PI * s.radius ** 2;\n    case \"square\": return s.side ** 2;\n    default: {\n      const unhandled: never = s;\n      throw new Error(\"Unknown shape\");\n    }\n  }\n}",
+      "codeLanguage": "ts",
+      "answerHint": "Type the code, e.g. TS1234",
+      "acceptedAnswers": [
+        "TS2322",
+        "2322",
+        "error TS2322"
+      ],
+      "caseSensitive": false,
+      "explanation": "After the handled cases are narrowed away, `s` is still the rectangle member. Assigning it to `never` fails with TS2322 (\"Type '{ kind: \"rectangle\"; ... }' is not assignable to type 'never'\"). That is the exhaustiveness check: add the missing case and the error disappears."
+    },
+    {
+      "id": "ts-13",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "08-enums-as-const-and-satisfies",
+      "question": "What does this print?",
+      "code": "enum OrderStatus { Pending, Shipped, Delivered }\nconsole.log(OrderStatus[1]);",
+      "codeLanguage": "ts",
+      "options": [
+        "1",
+        "\"Shipped\"",
+        "undefined",
+        "It is a compile error"
+      ],
+      "correctIndex": 1,
+      "explanation": "Numeric enums are numbered from 0 and compile to a real object that maps both ways, so `OrderStatus[1]` is the reverse lookup `\"Shipped\"`. `OrderStatus.Shipped` would print 1. String enums have no reverse mapping."
+    },
+    {
+      "id": "ts-14",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "08-enums-as-const-and-satisfies",
+      "question": "What is the type of `cap`?",
+      "code": "type FeeRule = { percent: number; capRupees: number };\n\nconst FEES = {\n  UPI: { percent: 0, capRupees: 0 },\n  CARD: { percent: 1.8, capRupees: 2500 },\n} as const satisfies Record<string, FeeRule>;\n\nconst cap = FEES.CARD.capRupees;",
+      "codeLanguage": "ts",
+      "answerHint": "Type the type",
+      "acceptedAnswers": [
+        "2500"
+      ],
+      "caseSensitive": false,
+      "explanation": "`as const` infers the narrowest literal types and makes everything readonly, and `satisfies` checks the shape without widening it. So `FEES.CARD.capRupees` keeps the literal type `2500`. With a plain `Record<string, FeeRule>` annotation it would be `number`."
+    },
+    {
+      "id": "ts-15",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "08-enums-as-const-and-satisfies",
+      "question": "With the annotation below, what is `keyof typeof FEES`?",
+      "code": "type FeeRule = { percent: number; capRupees: number };\n\nconst FEES: Record<string, FeeRule> = {\n  UPI: { percent: 0, capRupees: 0 },\n  CARD: { percent: 1.8, capRupees: 2500 },\n};\n\ntype Method = keyof typeof FEES;",
+      "codeLanguage": "ts",
+      "options": [
+        "`\"UPI\" | \"CARD\"`",
+        "`never`",
+        "`FeeRule`",
+        "`string`"
+      ],
+      "correctIndex": 3,
+      "explanation": "An annotation makes the variable become the annotated type, so `typeof FEES` is just `Record<string, FeeRule>` and its keys are `string`. The specific keys are lost. Using `satisfies Record<string, FeeRule>` instead keeps the inferred type, and then `keyof typeof FEES` would be `\"UPI\" | \"CARD\"`."
+    },
+    {
+      "id": "ts-16",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "09-classes-in-typescript",
+      "question": "What does the last line print?",
+      "code": "class Vault {\n  private secret = \"tsPrivate\";\n  #hidden = \"jsPrivate\";\n  reveal() { return this.#hidden; }\n}\n\nconsole.log(JSON.stringify(new Vault()));",
+      "codeLanguage": "ts",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "{\"secret\":\"tsPrivate\"}"
+      ],
+      "caseSensitive": false,
+      "explanation": "TypeScript's `private` is a compile-time check only; the emitted JavaScript has a normal `secret` property, so `JSON.stringify` includes it. `#hidden` is a real JavaScript private field and is invisible to `JSON.stringify`, `Object.keys` and bracket access."
+    },
+    {
+      "id": "ts-17",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "09-classes-in-typescript",
+      "question": "Which statement is true of an abstract class but NOT of an interface?",
+      "options": [
+        "It exists at runtime and works with `instanceof`",
+        "A class can implement several of them at once",
+        "It can declare method signatures",
+        "It is checked structurally"
+      ],
+      "correctIndex": 0,
+      "explanation": "An abstract class is a real JavaScript class, so it exists at runtime, can hold shared implementation, and works with `instanceof`. Interfaces are erased. A class can `implements` several interfaces but can `extends` only one class, so the second option describes interfaces, not abstract classes."
+    },
+    {
+      "id": "ts-18",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "10-generics-fundamentals",
+      "question": "What is the type of `a`?",
+      "code": "function first<T>(items: T[]): T | undefined {\n  return items[0];\n}\n\nconst a = first([10, 20]);",
+      "codeLanguage": "ts",
+      "options": [
+        "`number[]`",
+        "`any`",
+        "`number | undefined`",
+        "`unknown`"
+      ],
+      "correctIndex": 2,
+      "explanation": "`T` is inferred from the argument as `number`, and the declared return type is `T | undefined`, so `a` is `number | undefined`. Inference keeps the element type, which is the point of using a type parameter instead of `any`."
+    },
+    {
+      "id": "ts-19",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "10-generics-fundamentals",
+      "question": "What is the type of `x`?",
+      "code": "function emptyList<T>(): T[] {\n  return [];\n}\n\nconst x = emptyList();",
+      "codeLanguage": "ts",
+      "answerHint": "Type the type exactly as TypeScript would show it",
+      "acceptedAnswers": [
+        "unknown[]",
+        "Array<unknown>"
+      ],
+      "caseSensitive": false,
+      "explanation": "Nothing at the call site mentions `T`, so inference has nothing to work with and falls back to `unknown`, giving `unknown[]`. Pass the type explicitly, as in `emptyList<string>()`, to get `string[]`."
+    },
+    {
+      "id": "ts-20",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "11-generic-constraints-and-defaults",
+      "question": "What is the type of `amt`?",
+      "code": "function getProp<T, K extends keyof T>(obj: T, key: K): T[K] {\n  return obj[key];\n}\n\nconst loan = { id: \"L-1\", amountRupees: 500000, city: \"Indore\" };\nconst amt = getProp(loan, \"amountRupees\");",
+      "codeLanguage": "ts",
+      "options": [
+        "`number`",
+        "`string | number`",
+        "`unknown`",
+        "`\"amountRupees\"`"
+      ],
+      "correctIndex": 0,
+      "explanation": "`K` is inferred as the literal `\"amountRupees\"`, and the return type `T[K]` looks up that property's type, `number`. If the signature used `key: keyof T` with return type `T[keyof T]`, every call would return `string | number`; the separate `K` remembers which key was passed."
+    },
+    {
+      "id": "ts-21",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "11-generic-constraints-and-defaults",
+      "question": "Why does the `return` line fail to compile?",
+      "code": "function emptyOf<T extends { length: number }>(sample: T): T {\n  return { length: 0 };\n}",
+      "codeLanguage": "ts",
+      "options": [
+        "`{ length: 0 }` does not satisfy the constraint `{ length: number }`",
+        "Generic functions cannot return object literals",
+        "The constraint should use `implements` instead of `extends`",
+        "The caller chooses `T`; it could be a different subtype such as `string`, and `{ length: 0 }` is not that type"
+      ],
+      "correctIndex": 3,
+      "explanation": "Satisfying the constraint is not the same as being `T`. If someone calls `emptyOf(\"abc\")`, `T` is `string`, and `{ length: 0 }` is not a string, hence TS2322 \"'T' could be instantiated with a different subtype of constraint\". The object literal does satisfy the constraint, so the first option is wrong."
+    },
+    {
+      "id": "ts-22",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "12-utility-types",
+      "question": "Which utility type filters the members of a union type (rather than the keys of an object type)?",
+      "options": [
+        "`Omit`",
+        "`Pick`",
+        "`Exclude`",
+        "`Partial`"
+      ],
+      "correctIndex": 2,
+      "explanation": "`Exclude<U, X>` removes union members assignable to `X` (and `Extract` keeps them). `Pick` and `Omit` work on the keys of an object type, and `Partial` changes property modifiers."
+    },
+    {
+      "id": "ts-23",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-utility-types",
+      "question": "Does the last line compile, and why?",
+      "code": "type Upi = { kind: \"upi\"; vpa: string; id: string };\ntype Card = { kind: \"card\"; last4: string; id: string };\n\ntype NoId = Omit<Upi | Card, \"id\">;\nconst bad: NoId = { kind: \"upi\" };",
+      "codeLanguage": "ts",
+      "options": [
+        "No: `vpa` is required for the upi variant",
+        "Yes: `Omit` on a union keeps only the keys shared by all members, so `vpa` is lost",
+        "No: `Omit` cannot be applied to a union",
+        "Yes: `Omit` makes all remaining properties optional"
+      ],
+      "correctIndex": 1,
+      "explanation": "`Omit` does not distribute over a union. It works on the keys common to every member (`kind` and `id`), so the result is `{ kind: \"upi\" | \"card\" }` and variant-specific fields like `vpa` disappear. `Omit` does not make properties optional; it simply dropped them. The fix is a distributive helper built with a conditional type."
+    },
+    {
+      "id": "ts-24",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "13-modules-and-declaration-files",
+      "question": "A project compiles with `tsc` using `\"module\": \"nodenext\"` and runs the emitted `.js`. How should `checkout.ts` import from `money.ts` in the same folder?",
+      "options": [
+        "`import { withGst } from \"./money.js\";`",
+        "`import { withGst } from \"./money\";`",
+        "`import { withGst } from \"./money.ts\";` with no extra options",
+        "`import { withGst } from \"money\";`"
+      ],
+      "correctIndex": 0,
+      "explanation": "Under `nodenext`, TypeScript follows Node's ES module rules, which need full file extensions, and you write the extension of the output file that will exist at runtime. TypeScript maps `./money.js` back to `money.ts` while checking. Leaving the extension off gives error TS2835; `./money.ts` needs options such as `allowImportingTsExtensions` or `rewriteRelativeImportExtensions`."
+    },
+    {
+      "id": "ts-25",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "13-modules-and-declaration-files",
+      "question": "In a `.d.ts` file, which keyword in front of a function or const means \"this exists at runtime; trust me about its type\" (it has no implementation)?",
+      "answerHint": "Type the keyword",
+      "acceptedAnswers": [
+        "declare"
+      ],
+      "caseSensitive": false,
+      "explanation": "`declare` introduces an ambient declaration: a type for JavaScript that exists elsewhere, with no implementation. Generated declaration files contain lines like `export declare function withGst(amountRupees: number): number;`."
+    },
+    {
+      "id": "ts-26",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "14-tsconfig-and-strict-mode",
+      "question": "A project sets `\"target\": \"es2015\"` and uses `Array.prototype.at`. Which statement is correct?",
+      "options": [
+        "`target` adds a polyfill for `at`, so it works on old browsers",
+        "`target` and `lib` are two names for the same setting",
+        "`target` makes the compiler reject any API newer than ES2015 at runtime",
+        "`target` controls the emitted syntax; `lib` controls which built-in APIs are typed, and neither adds polyfills"
+      ],
+      "correctIndex": 3,
+      "explanation": "`target` decides which JavaScript syntax is emitted (newer syntax is down-levelled); `lib` decides which built-in APIs the checker knows about. TypeScript never polyfills runtime methods such as `Array.prototype.at`, so the first option is a common misconception."
+    },
+    {
+      "id": "ts-27",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "14-tsconfig-and-strict-mode",
+      "question": "Which comment directive suppresses the error on the next line but itself becomes an error once that line no longer has an error?",
+      "answerHint": "Type the directive",
+      "acceptedAnswers": [
+        "@ts-expect-error",
+        "// @ts-expect-error",
+        "ts-expect-error"
+      ],
+      "caseSensitive": false,
+      "explanation": "`// @ts-expect-error` is preferred over `// @ts-ignore` because it reports an unused directive when the problem is fixed, so stale suppressions do not pile up. `@ts-ignore` silently stays forever."
+    },
+    {
+      "id": "ts-28",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "15-typescript-with-react",
+      "question": "Which type is the usual choice for a component's `children` prop, accepting elements, strings, numbers, `null` and arrays of these?",
+      "options": [
+        "`JSX.Element`",
+        "`ReactNode`",
+        "`ReactElement`",
+        "`HTMLElement`"
+      ],
+      "correctIndex": 1,
+      "explanation": "`ReactNode` is the widest renderable type and fits `children`. `JSX.Element` and `ReactElement` mean a single JSX element only, so they reject plain strings or `null`. `HTMLElement` is a DOM type, not a React one."
+    },
+    {
+      "id": "ts-29",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-typescript-with-react",
+      "question": "Without `as const`, what type does this custom hook return?",
+      "code": "function useToggle(initial = false) {\n  const [on, setOn] = useState(initial);\n  const toggle = () => setOn((v) => !v);\n  return [on, toggle];\n}",
+      "codeLanguage": "tsx",
+      "options": [
+        "`[boolean, () => void]`",
+        "`readonly [boolean, () => void]`",
+        "`(boolean | (() => void))[]`",
+        "`any[]`"
+      ],
+      "correctIndex": 2,
+      "explanation": "A returned array literal is inferred as an array of the union of its element types, so callers destructuring `[isOpen, toggle]` get `boolean | (() => void)` for both and cannot call `toggle`. Adding `as const` gives the tuple `readonly [boolean, () => void]`."
+    },
+    {
+      "id": "ts-30",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "16-typescript-on-the-server",
+      "question": "An Express handler is typed `Request<{}, FundResponse, CreateFundBody>`. A client posts `{ \"navInr\": \"lots\" }`. What happens?",
+      "options": [
+        "Nothing checks it at runtime: the code receives the bad value even though `req.body` is typed `CreateFundBody`",
+        "Express rejects the request with 400 because the body does not match the type",
+        "TypeScript throws a runtime TypeError when `req.body` is read",
+        "The body is automatically converted to match `CreateFundBody`"
+      ],
+      "correctIndex": 0,
+      "explanation": "Types are erased, so the annotation is only a claim made to the compiler. Neither Express nor TypeScript validates it. Treat body, query, params and headers as untrusted and validate at the boundary, for example with a Zod schema."
+    },
+    {
+      "id": "ts-31",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "17-keyof-typeof-and-indexed-access",
+      "question": "What is `DictKey`?",
+      "code": "type Dict = { [key: string]: number };\ntype DictKey = keyof Dict;",
+      "codeLanguage": "ts",
+      "answerHint": "Type the resulting type",
+      "acceptedAnswers": [
+        "string | number",
+        "string|number",
+        "number | string",
+        "number|string"
+      ],
+      "caseSensitive": false,
+      "explanation": "For a string index signature, `keyof` gives `string | number`, because JavaScript converts numeric property keys to strings: `dict[5]` is the same as `dict[\"5\"]`, so number keys are accepted too. A number index signature alone gives just `number`."
+    },
+    {
+      "id": "ts-32",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "17-keyof-typeof-and-indexed-access",
+      "question": "Why does `Object.keys(investor)` return `string[]` rather than `(keyof Investor)[]`?",
+      "options": [
+        "Because `Object.keys` is written in JavaScript and has no types",
+        "Because `keyof` only works on interfaces",
+        "Because numeric keys must be converted to strings first",
+        "Because typing is structural: a value of type `Investor` may carry extra properties at runtime, so claiming exactly its known keys would be unsafe"
+      ],
+      "correctIndex": 3,
+      "explanation": "Any object with at least `Investor`'s properties is assignable to `Investor`, so at runtime it may have more keys. Typing the result as `(keyof Investor)[]` would be a lie. Numeric-key conversion is real, but it is not the reason; cast deliberately when you know the object is exact."
+    },
+    {
+      "id": "ts-33",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "18-conditional-types-and-infer",
+      "question": "What is `Arrs`?",
+      "code": "type ToArray<T> = T extends unknown ? T[] : never;\ntype Arrs = ToArray<string | number>;",
+      "codeLanguage": "ts",
+      "answerHint": "Type the resulting type",
+      "acceptedAnswers": [
+        "string[] | number[]",
+        "string[]|number[]",
+        "number[] | string[]",
+        "number[]|string[]",
+        "Array<string> | Array<number>",
+        "Array<string>|Array<number>",
+        "Array<number> | Array<string>",
+        "Array<number>|Array<string>"
+      ],
+      "caseSensitive": false,
+      "explanation": "`T` is a naked type parameter, so the conditional distributes over the union: `ToArray<string> | ToArray<number>`, which is `string[] | number[]`. Wrapping both sides in a tuple (`[T] extends [unknown]`) switches distribution off and gives `(string | number)[]`."
+    },
+    {
+      "id": "ts-34",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "18-conditional-types-and-infer",
+      "question": "What is `N`?",
+      "code": "type IsString<T> = T extends string ? \"yes\" : \"no\";\ntype N = IsString<never>;",
+      "codeLanguage": "ts",
+      "options": [
+        "`\"no\"`",
+        "`never`",
+        "`\"yes\"`",
+        "`\"yes\" | \"no\"`"
+      ],
+      "correctIndex": 1,
+      "explanation": "`never` is the empty union. A distributive conditional over a naked type parameter has no members to iterate, so the result is `never` whatever the branches say. To test for `never`, wrap both sides: `[T] extends [never] ? true : false`."
+    },
+    {
+      "id": "ts-35",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "18-conditional-types-and-infer",
+      "question": "What is `P`?",
+      "code": "declare function parse(x: string): string;\ndeclare function parse(x: number): number;\n\ntype P = ReturnType<typeof parse>;",
+      "codeLanguage": "ts",
+      "options": [
+        "`string`",
+        "`string | number`",
+        "`number`",
+        "`never`"
+      ],
+      "correctIndex": 2,
+      "explanation": "When `infer` (and therefore `ReturnType`) is applied to an overloaded function, only the last overload signature is used. Here that is `(x: number): number`, so `P` is `number`. It does not union the overloads."
+    },
+    {
+      "id": "ts-36",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "19-mapped-types-and-key-remapping",
+      "question": "How do `Picked` and `Literal` differ?",
+      "code": "type Fund = { readonly code: string; name: string; navInr?: number };\n\ntype MyPick<T, K extends keyof T> = { [P in K]: T[P] };\ntype Picked = MyPick<Fund, \"code\" | \"navInr\">;\n\ntype Literal = { [P in \"code\" | \"navInr\"]: Fund[P] };",
+      "codeLanguage": "ts",
+      "options": [
+        "`Picked` keeps `readonly code` and optional `navInr?`; `Literal` loses both modifiers",
+        "They are identical",
+        "`Literal` keeps the modifiers; `Picked` loses them",
+        "`Picked` is an error because `K` is not `keyof T`"
+      ],
+      "correctIndex": 0,
+      "explanation": "A mapped type over `K extends keyof T` is homomorphic and copies the original `readonly` and `?` modifiers, giving `{ readonly code: string; navInr?: number }`. Mapping over a plain union of literals does not, giving `{ code: string; navInr: number | undefined }`. That is why the built-in `Pick` uses `K extends keyof T`."
+    },
+    {
+      "id": "ts-37",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "19-mapped-types-and-key-remapping",
+      "question": "Fill in the blank so that `Mutable<T>` removes the `readonly` modifier from every property: `type Mutable<T> = { ___ [K in keyof T]: T[K] };`",
+      "answerHint": "Type what goes in the blank",
+      "acceptedAnswers": [
+        "-readonly"
+      ],
+      "caseSensitive": false,
+      "explanation": "A `-` prefix removes a modifier in a mapped type: `-readonly` strips readonly and `-?` strips optionality. A plain `readonly` (or `+readonly`) adds it. There is no built-in `Mutable`, which makes this a common interview exercise."
+    },
+    {
+      "id": "ts-38",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "20-template-literal-types",
+      "question": "What is `HandlerName`?",
+      "code": "type DomEvent = \"click\" | \"focus\";\ntype HandlerName = `on${Capitalize<DomEvent>}`;",
+      "codeLanguage": "ts",
+      "answerHint": "Type the resulting type",
+      "acceptedAnswers": [
+        "\"onClick\" | \"onFocus\"",
+        "'onClick' | 'onFocus'",
+        "\"onClick\"|\"onFocus\"",
+        "'onClick'|'onFocus'",
+        "\"onFocus\" | \"onClick\"",
+        "'onFocus' | 'onClick'",
+        "\"onFocus\"|\"onClick\"",
+        "'onFocus'|'onClick'"
+      ],
+      "caseSensitive": false,
+      "explanation": "`Capitalize` distributes over the union, giving `\"Click\" | \"Focus\"`, and the template literal type then prefixes each member with `on`. With several union placeholders, the result is the cross product of all combinations."
+    },
+    {
+      "id": "ts-39",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "20-template-literal-types",
+      "question": "What is `C`?",
+      "code": "type SplitOnce<S extends string> =\n  S extends `${infer Head}.${infer Tail}` ? [Head, Tail] : [S];\n\ntype C = SplitOnce<\"funds.equity.large\">;",
+      "codeLanguage": "ts",
+      "options": [
+        "`[\"funds.equity\", \"large\"]`",
+        "`[\"funds\", \"equity\", \"large\"]`",
+        "`[\"funds.equity.large\"]`",
+        "`[\"funds\", \"equity.large\"]`"
+      ],
+      "correctIndex": 3,
+      "explanation": "When two `infer` placeholders sit around a delimiter, the first is matched as short as possible, so `Head` is `\"funds\"` and `Tail` takes the rest, `\"equity.large\"`. The type is not recursive, so it splits only once rather than into three parts."
+    },
+    {
+      "id": "ts-40",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "21-discriminated-unions-and-state",
+      "question": "What happens on the last line?",
+      "code": "type Payment =\n  | { status: \"draft\"; amountInr: number }\n  | { status: \"pending\"; amountInr: number; txnId: string }\n  | { status: \"settled\"; amountInr: number; txnId: string; settledAt: Date };\n\ntype Draft = Extract<Payment, { status: \"draft\" }>;\ntype Pending = Extract<Payment, { status: \"pending\" }>;\n\nfunction submit(p: Draft, txnId: string): Pending {\n  return { status: \"pending\", amountInr: p.amountInr, txnId };\n}\n\nconst settled: Payment = { status: \"settled\", amountInr: 25000, txnId: \"T9\", settledAt: new Date() };\nsubmit(settled, \"T10\");",
+      "codeLanguage": "ts",
+      "options": [
+        "It compiles, because `settled` is a `Payment`",
+        "It compiles but throws at runtime",
+        "Compile error: a settled payment is not assignable to `Draft`",
+        "Compile error: `Extract` cannot be used on a union"
+      ],
+      "correctIndex": 2,
+      "explanation": "`Extract<Payment, { status: \"draft\" }>` names just the draft member, so `submit` only accepts drafts. A settled payment's `status` is `\"settled\"`, which is not `\"draft\"`, so the call fails to compile. That is how unions restrict which operations apply in which state."
+    },
+    {
+      "id": "ts-41",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "22-runtime-validation-and-boundaries",
+      "question": "How does Zod's `safeParse` differ from `parse`?",
+      "options": [
+        "`safeParse` is faster because it skips nested objects",
+        "`safeParse` never throws; it returns a discriminated union you narrow on `success` to reach `data` or `error`",
+        "`safeParse` returns the input unchanged when it is invalid",
+        "`safeParse` only checks types at compile time"
+      ],
+      "correctIndex": 1,
+      "explanation": "`parse` returns typed data or throws a `ZodError`. `safeParse` returns `{ success: true, data }` or `{ success: false, error }`, which you narrow on `success`, making it suited to user input where failure is expected. It still validates the whole value at runtime."
+    },
+    {
+      "id": "ts-42",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "22-runtime-validation-and-boundaries",
+      "question": "What are `In` and `Out`?",
+      "code": "import { z } from \"zod\";\n\nconst Rupees = z.string()\n  .regex(/^\\d+(\\.\\d{1,2})?$/)\n  .transform((s) => Math.round(Number(s) * 100));\n\ntype In = z.input<typeof Rupees>;\ntype Out = z.output<typeof Rupees>;",
+      "codeLanguage": "ts",
+      "options": [
+        "`In` is `string`, `Out` is `number`",
+        "Both are `string`",
+        "Both are `number`",
+        "`In` is `unknown`, `Out` is `number`"
+      ],
+      "correctIndex": 0,
+      "explanation": "`z.input` is the type the schema accepts and `z.output` (the same as `z.infer`) is the type it produces. The schema starts as `z.string()` and the transform turns the string into integer paise, so the input is `string` and the output is `number`. This is \"parse, don't validate\"."
+    },
+    {
+      "id": "ts-43",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "23-decorators",
+      "question": "A NestJS-style decorator on a constructor parameter (`constructor(@Inject(TOKEN) svc: Svc)`) fails in a project using standard decorators. Why?",
+      "options": [
+        "Standard decorators must be written in lowercase",
+        "Constructor parameters cannot have types",
+        "Standard decorators only run at runtime in Node 24",
+        "Parameter decorators (and `emitDecoratorMetadata`) exist only in the legacy `experimentalDecorators` system"
+      ],
+      "correctIndex": 3,
+      "explanation": "Standard (TC39) decorators use a `(value, context)` signature and support methods, fields, accessors, getters, setters and classes, but not parameters. Parameter decorators and `emitDecoratorMetadata` belong to the legacy `experimentalDecorators` system, which Angular and NestJS rely on."
+    },
+    {
+      "id": "ts-44",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "23-decorators",
+      "question": "With standard decorators, what does the last line print?",
+      "code": "function clamp(min: number, max: number) {\n  return function <This>(_: undefined, _ctx: ClassFieldDecoratorContext<This, number>) {\n    return (initial: number) => Math.min(max, Math.max(min, initial));\n  };\n}\n\nclass Account {\n  @clamp(0, 50) discountPercent = 80;\n}\n\nconsole.log(new Account().discountPercent);",
+      "codeLanguage": "ts",
+      "answerHint": "Type the exact output",
+      "acceptedAnswers": [
+        "50"
+      ],
+      "caseSensitive": false,
+      "explanation": "A field decorator receives `undefined` as its value and may return a function that transforms the initial value. Here the initializer `80` is passed through `Math.min(50, Math.max(0, 80))`, so the field starts as `50`."
+    },
+    {
+      "id": "ts-45",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "24-type-level-programming",
+      "question": "What is `Seven`?",
+      "code": "type BuildTuple<N extends number, Acc extends unknown[] = []> =\n  Acc[\"length\"] extends N ? Acc : BuildTuple<N, [...Acc, unknown]>;\n\ntype Add<A extends number, B extends number> =\n  [...BuildTuple<A>, ...BuildTuple<B>][\"length\"];\n\ntype Seven = Add<3, 4>;",
+      "codeLanguage": "ts",
+      "answerHint": "Type the resulting type",
+      "acceptedAnswers": [
+        "7"
+      ],
+      "caseSensitive": false,
+      "explanation": "`BuildTuple<N>` grows an accumulator tuple until its `length` equals `N`. Spreading a 3-element and a 4-element tuple together gives a 7-element tuple, and its `length` is the numeric literal type `7`. Tuple length is how the type system counts."
+    },
+    {
+      "id": "ts-46",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "25-structural-typing-variance-and-soundness",
+      "question": "Under `strict`, which assignment is a compile error?",
+      "code": "class Animal { name = \"a\"; }\nclass Dog extends Animal { bark() { return \"woof\"; } }\n\ninterface WithMethod { handle(a: Animal): void }\ninterface WithProp   { handle: (a: Animal) => void }\n\nconst m: WithMethod = { handle(d: Dog) { d.bark(); } };\nconst pr: WithProp = { handle: (d: Dog) => d.bark() };",
+      "codeLanguage": "ts",
+      "options": [
+        "`m` (method syntax)",
+        "Both `m` and `pr`",
+        "`pr` (property syntax)",
+        "Neither"
+      ],
+      "correctIndex": 2,
+      "explanation": "`strictFunctionTypes` checks function-typed properties contravariantly, so a handler that only accepts `Dog` cannot be used where any `Animal` may be passed: `pr` errors. Method-shorthand parameters stay bivariant, so `m` compiles, a known soundness hole. Prefer property syntax when you want the strict check."
+    },
+    {
+      "id": "ts-47",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "26-typescript-at-scale",
+      "question": "In a repo using project references, which setting must every referenced project have?",
+      "options": [
+        "`skipLibCheck: true`",
+        "`composite: true`",
+        "`noEmit: true`",
+        "`isolatedModules: true`"
+      ],
+      "correctIndex": 1,
+      "explanation": "`composite: true` is required on any referenced project. It forces `declaration` on, requires every source file to be matched by `include`/`files`, and enables incremental `.tsbuildinfo` output so `tsc -b` can skip up-to-date projects. `noEmit` would defeat the purpose, since downstream projects consume the emitted `.d.ts` files."
+    },
+    {
+      "id": "ts-48",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "27-publishing-typed-libraries",
+      "question": "Inside an `exports` condition object in `package.json`, why must `\"types\"` come before `\"default\"`?",
+      "options": [
+        "npm sorts keys alphabetically when publishing",
+        "Conditions are matched in order, so a `types` entry after `default` is never reached",
+        "`default` is ignored by TypeScript",
+        "JSON objects require keys in alphabetical order"
+      ],
+      "correctIndex": 1,
+      "explanation": "Resolvers walk the condition keys in order and stop at the first match. `default` always matches, so a `types` entry placed after it is never used and consumers may see no types. Key order in JSON is significant here; nothing is sorted alphabetically."
+    },
+    {
+      "id": "ts-49",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "27-publishing-typed-libraries",
+      "question": "For a published library, which change to its public types should be treated as a breaking (major) change?",
+      "options": [
+        "Adding a new named export",
+        "Adding an optional property to an input type",
+        "Adding a JSDoc comment to a function",
+        "Widening a function's return type (e.g. from `string` to `string | null`)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Consumers rely on the old, narrower return type; code that used the result as a `string` stops compiling once it may be `null`. Narrowing a parameter type, removing exports, adding a required input property and raising the minimum TypeScript version are also breaking. Adding an optional property or a new export is usually minor."
+    },
+    {
+      "id": "ts-50",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "28-project-type-safe-expense-tracker",
+      "question": "In the typed API client, why is `api(\"listExpenses\", {})` a compile error?",
+      "code": "type BodyArgs<E> = E extends { body: infer B extends z.ZodType } ? [body: z.input<B>] : [];\n\nconst endpoints = {\n  listExpenses: { method: \"GET\", path: \"/expenses\", response: z.array(Expense) },\n  createExpense: { method: \"POST\", path: \"/expenses\", body: NewExpense, response: Expense },\n} as const satisfies Record<string, Endpoint>;\n\ntype Endpoints = typeof endpoints;\n\n// call<K extends keyof Endpoints>(name: K, ...args: BodyArgs<Endpoints[K]>)\napi(\"listExpenses\", {});",
+      "codeLanguage": "ts",
+      "options": [
+        "`listExpenses` is not a key of `Endpoints`",
+        "Zod rejects the empty object at compile time",
+        "`BodyArgs` resolves to the empty tuple `[]` for an endpoint without a `body`, so the rest parameter accepts no extra argument (TS2554)",
+        "`as const satisfies` makes every endpoint read-only, so it cannot be called"
+      ],
+      "correctIndex": 2,
+      "explanation": "`listExpenses` has no `body`, so the conditional type `BodyArgs` takes its false branch and produces `[]`. Typing the rest parameter `...args` as `[]` means the call takes exactly one argument, and passing two gives TS2554 \"Expected 1 arguments, but got 2\". For `createExpense` it produces `[body: ...]`, so omitting the body fails the same way."
+    }
+  ]
+}

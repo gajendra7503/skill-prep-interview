@@ -1,0 +1,139 @@
+---
+title: "InnoDB Internals"
+description: "Pages, the buffer pool, redo and undo logs, the doublewrite buffer, MVCC read views, the change buffer and durability settings."
+module: "Performance"
+level: pro
+order: 23
+---
+
+Senior MySQL interviews often go below SQL: "What happens on disk when you
+commit?", "How can a reader see old data while a writer changes it?",
+"What do you lose if you set `innodb_flush_log_at_trx_commit = 2`?". This
+lesson maps out the InnoDB machinery behind those answers.
+
+## InnoDB vs MyISAM
+
+InnoDB has been the default engine since MySQL 5.5, and in 8.0 even the
+data dictionary uses it.
+
+| | InnoDB | MyISAM |
+| --- | --- | --- |
+| Transactions / rollback | Yes | No |
+| Locking | Row-level | Table-level |
+| Foreign keys | Yes | No |
+| Crash recovery | Automatic, via redo log | Can corrupt; needs repair |
+| Data layout | Clustered on primary key | Heap; indexes point to row offsets |
+| MVCC (non-blocking reads) | Yes | No |
+
+MyISAM survives mainly in legacy systems; there is little reason to choose
+it for new tables.
+
+## Pages and the buffer pool
+
+InnoDB stores everything in **pages**, 16 KB by default
+(`innodb_page_size`), grouped into 1 MB extents. Index B+tree nodes are
+pages, and all reads and writes happen page at a time.
+
+The **buffer pool** caches pages in memory. Reads that hit it avoid disk
+entirely; writes modify the page in memory, marking it **dirty**, and
+background page-cleaner threads flush dirty pages to disk later. On a
+dedicated database server it is typically sized at 50 to 75 percent of RAM.
+
+```sql
+SHOW VARIABLES LIKE 'innodb_buffer_pool_size';
+SHOW ENGINE INNODB STATUS\G   -- "BUFFER POOL AND MEMORY" section
+-- Buffer pool hit rate 999 / 1000  ... aim to keep this near 1000
+```
+
+Pages are managed by an LRU list with **midpoint insertion**: newly read
+pages enter the "old" sublist (about 3/8 of the list) and are promoted
+only if accessed again, so a one-off full table scan cannot flush out the
+hot working set.
+
+## Redo log: durability with write-ahead logging
+
+Flushing every changed 16 KB page at commit would be slow and random. So
+InnoDB uses **write-ahead logging**: at commit it writes a compact record
+of the physical page changes to the **redo log**, which is sequential and
+cheap. Dirty pages can then be flushed lazily. After a crash, InnoDB
+replays the redo log from the last checkpoint to rebuild changes that never
+reached the data files.
+
+The redo log is a fixed-size circular space; since 8.0.30 it is sized with
+`innodb_redo_log_capacity`. If it fills up faster than checkpoints
+advance, writes stall while dirty pages are flushed, so write-heavy systems
+need enough capacity.
+
+## Undo log: rollback and old versions
+
+Before modifying a row, InnoDB writes the old version to the **undo log**,
+stored in undo tablespaces. Undo serves two purposes: `ROLLBACK`, and
+providing older row versions to concurrent readers (MVCC). **Purge**
+threads remove undo records once no transaction needs them. A long-running
+transaction blocks purge, so the history list length grows and queries slow
+down: a common production issue.
+
+## MVCC and read views
+
+Every clustered index record carries hidden columns: `DB_TRX_ID` (the last
+transaction that changed it) and `DB_ROLL_PTR` (a pointer to its previous
+version in undo). A consistent read takes a **read view**: a snapshot of
+which transactions were committed at that moment. When a reader meets a row
+changed by a transaction invisible to its view, it follows the roll pointer
+back through undo until it finds a visible version. Readers never block
+writers and vice versa.
+
+```sql
+-- Session A (REPEATABLE READ, the default)
+START TRANSACTION;
+SELECT total_inr FROM orders WHERE id = 7;   -- 1500.00, read view created
+
+-- Session B
+UPDATE orders SET total_inr = 1800.00 WHERE id = 7; COMMIT;
+
+-- Session A
+SELECT total_inr FROM orders WHERE id = 7;   -- still 1500.00
+```
+
+Under REPEATABLE READ the read view is created at the first consistent read
+and reused for the whole transaction; under READ COMMITTED a fresh view is
+taken for **each statement**, so session A would see 1800.00.
+
+## Doublewrite buffer
+
+A 16 KB page write may be split into smaller OS or disk writes; a power cut
+mid-write leaves a **torn page** that the redo log cannot fix, since redo
+records assume an intact page. InnoDB therefore writes pages first to the
+**doublewrite buffer** (separate `.dblwr` files since 8.0.20), then to
+their real location. On recovery, a torn page is restored from its
+doublewrite copy before redo is applied.
+
+## Change buffer
+
+When a non-unique secondary index page is not in the buffer pool, InnoDB
+can record the change in the **change buffer** and merge it when the page
+is next read, avoiding random reads on insert-heavy workloads. Unique
+indexes cannot use it, since uniqueness must be checked immediately. Note
+that MySQL 8.4 changed the default `innodb_change_buffering` from `all` to
+`none`, as modern SSDs make the saving smaller.
+
+## innodb_flush_log_at_trx_commit
+
+| Value | At each commit | Risk |
+| --- | --- | --- |
+| `1` (default) | Write and fsync redo | None; fully durable (ACID) |
+| `2` | Write to OS cache; fsync about once per second | Up to ~1 s lost on OS crash or power loss |
+| `0` | Nothing; write and fsync about once per second | Up to ~1 s lost even if only mysqld crashes |
+
+Values 0 and 2 raise write throughput by batching fsyncs, which can be
+acceptable for replicas or rebuildable data. For financial data keep
+`1`, together with `sync_binlog = 1` so the binary log is equally durable.
+
+### Try it yourself
+
+Open two sessions and reproduce the read view example under REPEATABLE
+READ, then repeat it after `SET TRANSACTION ISOLATION LEVEL READ
+COMMITTED`. Next, leave session A's transaction open while running many
+updates from session B, and watch `History list length` grow in
+`SHOW ENGINE INNODB STATUS`. Commit session A, watch the value fall as
+purge catches up, and explain why.

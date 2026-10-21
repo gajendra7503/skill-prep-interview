@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Several workers poll a jobs table and must never pick the same job, without waiting on each other. Which query fits best?",
+      "options": [
+        "SELECT ... LIMIT 1 FOR SHARE",
+        "SELECT ... LIMIT 1 FOR UPDATE SKIP LOCKED",
+        "SELECT ... LIMIT 1 (plain consistent read)",
+        "SELECT ... LIMIT 1 FOR UPDATE NOWAIT"
+      ],
+      "correctIndex": 1,
+      "explanation": "SKIP LOCKED skips rows already locked by other workers, so each worker claims a different job immediately. NOWAIT would just raise an error."
+    },
+    {
+      "question": "Under REPEATABLE READ, why can `UPDATE orders SET status = 'cancelled' WHERE coupon_code = 'DIWALI50'` block almost all other writes when coupon_code is unindexed?",
+      "options": [
+        "MySQL escalates row locks to a table lock after 1,000 rows",
+        "UPDATE always takes a table-level metadata write lock",
+        "InnoDB scans the clustered index and sets next-key locks on every row it examines, not just the matches",
+        "Unindexed columns are stored in a separate locked page"
+      ],
+      "correctIndex": 2,
+      "explanation": "InnoDB locks index records it scans. Without an index the whole clustered index is scanned and locked; InnoDB does not do lock escalation."
+    },
+    {
+      "question": "What does a gap lock block?",
+      "options": [
+        "Inserts into the gap between index records",
+        "All reads of the neighbouring rows",
+        "Other gap locks on the same gap",
+        "Plain consistent SELECTs"
+      ],
+      "correctIndex": 0,
+      "explanation": "Gap locks exist to prevent inserts (and so phantoms); they are compatible with each other and do not block MVCC reads."
+    },
+    {
+      "question": "Your application receives ERROR 1213 (Deadlock found when trying to get lock). What is the correct response?",
+      "options": [
+        "Retry only the last statement that failed",
+        "Increase innodb_lock_wait_timeout",
+        "Disable innodb_deadlock_detect",
+        "Retry the entire transaction (bounded, with backoff), and fix lock ordering if it recurs"
+      ],
+      "correctIndex": 3,
+      "explanation": "InnoDB rolls back the whole victim transaction on a deadlock, so the full transaction must be rerun. Consistent lock ordering reduces how often it happens."
+    }
+  ]
+}

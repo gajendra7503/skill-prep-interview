@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A hand-written reducer does `state.user.city = \"Mumbai\"; return state;`. Why does the UI often fail to update?",
+      "options": [
+        "Reducers are not allowed to read nested fields",
+        "The returned state has the same reference, so === checks report no change",
+        "Redux automatically reverts mutations",
+        "The action payload was not serialisable"
+      ],
+      "correctIndex": 1,
+      "explanation": "React-Redux and combineReducers detect changes with reference equality. Mutating and returning the same object makes them think nothing changed."
+    },
+    {
+      "question": "Inside a createSlice reducer, which of these is a bug?",
+      "options": [
+        "`(state, action) => { state.items.push(action.payload); }`",
+        "`(state) => { state.count += 1; }`",
+        "`(state, action) => state.items.push(action.payload)`",
+        "`() => ({ items: [] })`"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without braces the arrow function returns push's result (a number) while also modifying the draft. Immer throws because you both mutated and returned a value."
+    },
+    {
+      "question": "Which code is allowed inside a pure reducer?",
+      "options": [
+        "Computing a total from state.items and action.payload",
+        "Calling Date.now() to timestamp a new item",
+        "Saving the new state to localStorage",
+        "Dispatching a follow-up action"
+      ],
+      "correctIndex": 0,
+      "explanation": "Reducers may only compute the next state from state and action. Timestamps, storage and dispatching are side effects or non-deterministic, so they belong elsewhere."
+    },
+    {
+      "question": "In a createSlice reducer, `wrongReset(state) { state = { items: [] }; }` leaves the state unchanged. What is the correct way to replace the whole slice state?",
+      "options": [
+        "Call Object.assign(state, undefined)",
+        "Use current(state) = { items: [] }",
+        "Set state.items = undefined and dispatch again",
+        "Return the new value: `return { items: [] }`"
+      ],
+      "correctIndex": 3,
+      "explanation": "Reassigning the state parameter only rebinds a local variable. Immer uses a returned value as the replacement state."
+    }
+  ]
+}

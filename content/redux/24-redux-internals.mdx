@@ -1,0 +1,225 @@
+---
+title: "Redux Internals: Build a Mini Redux from Scratch"
+description: "Implement createStore, combineReducers, compose, applyMiddleware, a thunk middleware and a useSelector hook in under 100 lines to understand exactly how Redux works."
+module: "Pro Level"
+level: "pro"
+order: 24
+---
+
+Redux core is small. Writing it yourself is the fastest way to answer the
+deep interview questions: why reducers cannot dispatch, how middleware
+receives `dispatch`, why unchanged slices keep their references, and how
+`useSelector` decides to re-render. We will build each piece, run it with
+Node 24, and compare it with the real Redux 5 source.
+
+## createStore: state, listeners, dispatch
+
+```js
+// mini-redux.mjs
+export function createStore(reducer, preloadedState, enhancer) {
+  if (typeof enhancer === "function") return enhancer(createStore)(reducer, preloadedState);
+  let state = preloadedState;
+  let listeners = [];
+  let isDispatching = false;
+
+  function getState() {
+    if (isDispatching) throw new Error("Cannot call getState() while the reducer is executing");
+    return state;
+  }
+  function subscribe(listener) {
+    listeners.push(listener);
+    let subscribed = true;
+    return function unsubscribe() {
+      if (!subscribed) return;
+      subscribed = false;
+      listeners = listeners.filter((l) => l !== listener);
+    };
+  }
+  function dispatch(action) {
+    if (typeof action !== "object" || action === null || Array.isArray(action))
+      throw new Error("Actions must be plain objects. Use middleware for functions.");
+    if (typeof action.type !== "string") throw new Error('Actions need a string "type"');
+    if (isDispatching) throw new Error("Reducers may not dispatch actions.");
+    try { isDispatching = true; state = reducer(state, action); }
+    finally { isDispatching = false; }
+    const snapshot = listeners;          // a listener added during notify waits for the next dispatch
+    for (const l of snapshot) l();
+    return action;
+  }
+  dispatch({ type: "@@mini/INIT" });     // lets every reducer return its initial state
+  return { getState, subscribe, dispatch };
+}
+```
+
+Key design points:
+
+- **The `isDispatching` guard** is why reducers must be pure: a reducer that
+  dispatched would re-enter itself with half-computed state.
+- **Listeners get no arguments.** They call `getState()` themselves. This
+  keeps the store ignorant of what each subscriber cares about; selecting is
+  the subscriber's job.
+- **The snapshot** prevents subscribe and unsubscribe calls made inside a
+  listener from affecting the current notification loop. Real Redux uses two
+  `Map`s, `currentListeners` and `nextListeners`, and copies on write.
+- **The INIT action.** Real Redux dispatches `@@redux/INIT` plus a random
+  suffix, so no reducer can special-case it.
+
+## combineReducers: preserve references when nothing changed
+
+```js
+export function combineReducers(reducers) {
+  const keys = Object.keys(reducers);
+  return function combination(state = {}, action) {
+    let changed = false;
+    const next = {};
+    for (const key of keys) {
+      next[key] = reducers[key](state[key], action);
+      if (next[key] === undefined) throw new Error(`Reducer "${key}" returned undefined`);
+      changed = changed || next[key] !== state[key];
+    }
+    changed = changed || keys.length !== Object.keys(state).length;
+    return changed ? next : state;
+  };
+}
+```
+
+Every reducer sees every action, but if all of them return the same
+reference, the root state object is reused. That reference equality is what
+lets `useSelector` and memoised selectors skip work. The real implementation
+also probes each reducer at creation time with random action types to catch
+reducers that return `undefined`.
+
+## compose and applyMiddleware
+
+```js
+export const compose = (...fns) => (x) => fns.reduceRight((acc, f) => f(acc), x);
+
+export function applyMiddleware(...middlewares) {
+  return (createStore) => (reducer, preloaded) => {
+    const store = createStore(reducer, preloaded);
+    let dispatch = () => { throw new Error("Dispatching while constructing middleware"); };
+    const api = { getState: store.getState, dispatch: (a, ...rest) => dispatch(a, ...rest) };
+    const chain = middlewares.map((mw) => mw(api));   // each returns next => action => ...
+    dispatch = compose(...chain)(store.dispatch);
+    return { ...store, dispatch };
+  };
+}
+```
+
+Two subtle points interviewers like:
+
+1. `api.dispatch` is a **wrapper** that calls the *final* `dispatch`
+   variable. So a middleware that calls `api.dispatch` sends the action back
+   through the **whole chain** from the top, while `next` passes it to the
+   next middleware only.
+2. `compose(f, g, h)(x)` is `f(g(h(x)))`, so the **first** middleware in the
+   list is the outermost: it sees each action first.
+
+## A thunk and a logger
+
+```js
+const thunk = ({ dispatch, getState }) => (next) => (action) =>
+  typeof action === "function" ? action(dispatch, getState) : next(action);
+
+const logger = ({ getState }) => (next) => (action) => {
+  console.log("  ->", action.type);
+  const result = next(action);
+  console.log("  <-", JSON.stringify(getState()));
+  return result;
+};
+```
+
+That is the entire idea behind `redux-thunk`: intercept functions before
+they reach the plain-object check in `dispatch`.
+
+## Run it
+
+```js
+const counter = (state = 0, action) => (action.type === "inc" ? state + 1 : state);
+const todos = (state = [], action) => (action.type === "add" ? [...state, action.text] : state);
+const root = combineReducers({ counter, todos });
+
+const store = createStore(root, undefined, applyMiddleware(thunk, logger));
+console.log("initial:", store.getState());
+const unsub = store.subscribe(() => console.log("listener saw counter =", store.getState().counter));
+store.dispatch({ type: "inc" });
+unsub();
+store.dispatch((dispatch, getState) => { if (getState().counter < 5) dispatch({ type: "add", text: "KYC" }); });
+const before = store.getState();
+store.dispatch({ type: "unknown" });
+console.log("unknown action keeps reference:", before === store.getState());
+try { createStore(root).dispatch(() => {}); } catch (e) { console.log("no thunk:", e.message); }
+```
+
+```text
+initial: { counter: 0, todos: [] }
+  -> inc
+listener saw counter = 1
+  <- {"counter":1,"todos":[]}
+  -> add
+  <- {"counter":1,"todos":["KYC"]}
+  -> unknown
+  <- {"counter":1,"todos":["KYC"]}
+unknown action keeps reference: true
+no thunk: Actions must be plain objects. Use middleware for functions.
+```
+
+Notice that the listener logged **before** the logger's `<-` line:
+subscribers are notified inside the base `dispatch`, before control returns
+up the middleware chain.
+
+## A minimal useSelector
+
+React-Redux 9 builds on React's `useSyncExternalStore`, which exists for
+exactly this: subscribing to an external mutable source without tearing in
+concurrent rendering.
+
+```tsx
+const StoreContext = createContext(null);
+
+export function Provider({ store, children }) {
+  return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
+}
+
+export function useSelector(selector) {
+  const store = useContext(StoreContext);
+  return useSyncExternalStore(store.subscribe, () => selector(store.getState()));
+}
+```
+
+React calls the snapshot function after every store notification and
+re-renders only if the result changed by `Object.is`. It also expects the
+snapshot to be **stable**: calling it twice with no store change must give
+the same value. A selector like `(s) => s.todos.filter((t) => t.done)`
+returns a new array on every call, so this naive hook loops and React warns
+that "the result of getSnapshot should be cached".
+
+The real `useSelector` uses `useSyncExternalStoreWithSelector` (from the
+`use-sync-external-store` package), which caches the selector result per
+store state and accepts an equality function. That removes the loop, but the
+classic bug remains: the filtered array is still new after **every** state
+change, so the component re-renders on every action. React-Redux also runs
+development-only `stabilityCheck` and `identityFunctionCheck` warnings to
+catch such selectors.
+
+## Mini vs real Redux
+
+| Concern | Mini version | Redux 5 / RTK |
+|---|---|---|
+| Plain-object check | `typeof` test | `isPlainObject` (prototype check) |
+| Listener bookkeeping | array snapshot | `currentListeners` / `nextListeners` maps |
+| Enhancers | one function | `compose`d enhancers; RTK adds auto-batching by default |
+| Dev checks | none | immutability and serializability middleware in `configureStore` |
+| React binding | `useSyncExternalStore` directly | same, plus nested subscriptions and memoisation |
+
+### Try it yourself
+
+1. Add `replaceReducer(next)` to the mini store: swap the reducer and
+   dispatch an internal action so new slices initialise. Use it to add a
+   `settings` reducer at runtime.
+2. Write a `crashReporter` middleware that wraps `next(action)` in
+   `try/catch`, logs the action type and rethrows. Place it first and last
+   in the chain and explain the difference.
+3. Make `subscribe` throw if called while a reducer is running, and write a
+   test proving that unsubscribing a listener from inside another listener
+   does not skip any listener in the current loop.

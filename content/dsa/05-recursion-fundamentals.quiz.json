@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is the space complexity of naive recursive Fibonacci, `fib(n) = fib(n - 1) + fib(n - 2)`?",
+      "options": [
+        "O(2ⁿ), the same as its time",
+        "O(1)",
+        "O(n), because the stack only holds one root-to-leaf path at a time",
+        "O(n²)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Although there are exponentially many calls in total, at most n frames are on the stack at once, so stack space is O(n)."
+    },
+    {
+      "question": "Why is `const half = power(x, Math.floor(n / 2))` followed by `half * half` important in fast exponentiation?",
+      "options": [
+        "Computing the half once keeps it to one recursive call per level, giving O(log n) instead of O(n)",
+        "It avoids floating-point errors",
+        "It is required for negative exponents",
+        "It enables tail-call optimisation"
+      ],
+      "correctIndex": 0,
+      "explanation": "Calling power(x, n/2) twice per level doubles the calls at every level, which cancels the halving and makes the total O(n)."
+    },
+    {
+      "question": "Why does `sum(arr.slice(1))` make a recursive array sum slower than passing an index?",
+      "options": [
+        "slice is not allowed in recursion",
+        "It causes infinite recursion",
+        "It changes the original array",
+        "slice copies the array at every level, making the total time O(n²)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each slice costs O(n), done n times. Passing an index keeps each call O(1) and the total O(n)."
+    },
+    {
+      "question": "How many moves does the Tower of Hanoi solution make for 10 discs?",
+      "options": [
+        "100",
+        "1023",
+        "1024",
+        "20"
+      ],
+      "correctIndex": 1,
+      "explanation": "The solution makes 2ⁿ - 1 moves, so for n = 10 that is 1023."
+    }
+  ]
+}

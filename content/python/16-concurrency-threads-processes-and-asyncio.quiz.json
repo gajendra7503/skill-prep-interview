@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does adding threads usually NOT speed up CPU-bound pure-Python code in standard CPython?",
+      "options": [
+        "Threads are disabled by default in CPython",
+        "The GIL allows only one thread to execute Python bytecode at a time per process",
+        "Threads always run on a single CPU core due to the operating system",
+        "Python threads are actually separate processes"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Global Interpreter Lock serialises bytecode execution, so CPU-bound threads just take turns. Threads still help I/O-bound work because the GIL is released while waiting."
+    },
+    {
+      "question": "Which statement about Python 3.13's free-threaded build is accurate?",
+      "options": [
+        "It removed the GIL for all Python installations",
+        "It made multiprocessing obsolete",
+        "It is the default interpreter from 3.13 onward",
+        "It is an optional, experimental separate build with the GIL disabled"
+      ],
+      "correctIndex": 3,
+      "explanation": "PEP 703's free-threaded build (python3.13t) is optional and experimental; the default CPython build still has the GIL."
+    },
+    {
+      "question": "What does `asyncio.gather(fetch(1), fetch(2), fetch(3))` return when awaited?",
+      "options": [
+        "A list of results in the same order as the arguments",
+        "A list of results in the order the coroutines finished",
+        "Only the result of the first coroutine to finish",
+        "A set of Future objects that must be awaited individually"
+      ],
+      "correctIndex": 0,
+      "explanation": "gather runs the awaitables concurrently and returns their results in argument order, regardless of completion order."
+    },
+    {
+      "question": "You need to resize 10,000 images using a pure-Python algorithm and want to use all CPU cores. What is the best fit?",
+      "options": [
+        "asyncio with asyncio.gather",
+        "ThreadPoolExecutor",
+        "ProcessPoolExecutor or multiprocessing.Pool",
+        "A single thread with time.sleep between images"
+      ],
+      "correctIndex": 2,
+      "explanation": "CPU-bound work needs separate processes, each with its own interpreter and GIL, to achieve true parallelism."
+    }
+  ]
+}

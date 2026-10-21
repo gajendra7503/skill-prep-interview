@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "`SELECT * FROM customers WHERE id NOT IN (SELECT customer_id FROM orders)` returns no rows, even though some customers have never ordered. What is the most likely cause?",
+      "options": [
+        "NOT IN cannot be used with subqueries in MySQL",
+        "The subquery returns at least one NULL customer_id, making every NOT IN comparison UNKNOWN",
+        "The orders table has no index on customer_id",
+        "NOT IN only works with literal lists"
+      ],
+      "correctIndex": 1,
+      "explanation": "x NOT IN (..., NULL) expands to a chain of <> comparisons ending in x <> NULL, which is UNKNOWN, so no row qualifies. NOT EXISTS is NULL-safe."
+    },
+    {
+      "question": "How do you get FULL OUTER JOIN semantics in MySQL exactly, without collapsing genuinely duplicate rows?",
+      "options": [
+        "Use the FULL OUTER JOIN keyword, supported since MySQL 8.0",
+        "Use a CROSS JOIN with a WHERE clause",
+        "LEFT JOIN UNION ALL the RIGHT JOIN rows where the left key IS NULL",
+        "Use two INNER JOINs combined with INTERSECT"
+      ],
+      "correctIndex": 2,
+      "explanation": "MySQL has no FULL OUTER JOIN. A LEFT JOIN plus only the unmatched rows from a RIGHT JOIN, combined with UNION ALL, is exact and avoids UNION's deduplication."
+    },
+    {
+      "question": "A query does `customers c LEFT JOIN orders o ON o.customer_id = c.id WHERE o.total > 1000`. What happens to customers with no orders?",
+      "options": [
+        "They are dropped, because o.total is NULL for them and the WHERE condition is not true",
+        "They appear with NULL order columns",
+        "They appear once per order in the table",
+        "The query raises an error"
+      ],
+      "correctIndex": 0,
+      "explanation": "WHERE filters after the join; a null-rejecting condition on the right table effectively turns the LEFT JOIN into an inner join. Move the filter into ON to keep them."
+    },
+    {
+      "question": "Which statement about joins in MySQL is correct?",
+      "options": [
+        "RIGHT JOIN is not supported",
+        "A self join requires a separate copy of the table",
+        "CROSS JOIN cannot take an ON clause",
+        "JOIN, INNER JOIN and CROSS JOIN are syntactic equivalents in MySQL"
+      ],
+      "correctIndex": 3,
+      "explanation": "In MySQL these three keywords are interchangeable; the presence of a join condition determines whether you get a filtered join or a Cartesian product."
+    }
+  ]
+}

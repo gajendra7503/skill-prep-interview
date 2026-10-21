@@ -1,0 +1,38 @@
+{
+  "questions": [
+    {
+      "question": "Which part of a component tells Angular the HTML tag used to place it in another template?",
+      "options": ["The template", "The selector", "The styles", "The constructor"],
+      "correctIndex": 1,
+      "explanation": "The `selector` in the `@Component` metadata (for example `app-expense-row`) is the tag other templates use to render the component."
+    },
+    {
+      "question": "In `<button (click)=\"addExpense()\">`, what kind of binding is `(click)`?",
+      "options": [
+        "Property binding",
+        "Interpolation",
+        "Two-way binding",
+        "Event binding"
+      ],
+      "correctIndex": 3,
+      "explanation": "Parentheses listen for an event coming out of the DOM and call a class method; square brackets push data into the DOM."
+    },
+    {
+      "question": "Why does a component call `inject(ExpenseService)` instead of `new ExpenseService()`?",
+      "options": [
+        "So Angular's dependency injection supplies a shared instance that tests can easily replace",
+        "Because `new` is not allowed in TypeScript",
+        "Because services cannot have constructors",
+        "So the service runs on the server"
+      ],
+      "correctIndex": 0,
+      "explanation": "DI hands out a shared instance (here app-wide via providedIn root) and makes swapping in a fake for tests straightforward."
+    },
+    {
+      "question": "Given `const count = signal(0); const doubled = computed(() => count() * 2); count.set(5);`, what does `doubled()` return?",
+      "options": ["0", "5", "10", "undefined"],
+      "correctIndex": 2,
+      "explanation": "`computed` re-derives its value from the signals it reads, so after `count` becomes 5, `doubled()` returns 10."
+    }
+  ]
+}

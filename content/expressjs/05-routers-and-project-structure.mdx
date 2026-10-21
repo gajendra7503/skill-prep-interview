@@ -1,0 +1,156 @@
+---
+title: "Routers and Project Structure"
+description: "Using express.Router to split routes into modules, mounting and nested params, and organising an app into routes, controllers and services."
+module: "Core Concepts"
+level: "intermediate"
+order: 7
+---
+
+A single `server.js` with fifty routes works until the second developer
+joins. `express.Router` lets you split an app into mini-apps, and a clear
+folder layout keeps HTTP concerns away from business logic. Interviewers
+often ask "how would you structure an Express project?" to judge whether
+you have maintained a real codebase.
+
+## `express.Router`
+
+A router is an isolated instance of middleware and routes. It has the same
+`get`, `post`, `use` and `route` methods as `app`, but it does nothing until
+it is mounted.
+
+```js
+// src/routes/accounts.routes.js
+import { Router } from "express";
+
+const router = Router();
+
+router.get("/", (req, res) => res.json([{ id: 1, holder: "Asha" }]));
+router.get("/:id", (req, res) => res.json({ id: req.params.id }));
+router.post("/", (req, res) => res.status(201).json(req.body));
+
+export default router;
+```
+
+```js
+// src/app.js
+import express from "express";
+import accountsRouter from "./routes/accounts.routes.js";
+
+const app = express();
+app.use(express.json());
+app.use("/api/v1/accounts", accountsRouter); // mount at a prefix
+
+export default app;
+```
+
+```bash
+curl localhost:3000/api/v1/accounts/7   # {"id":"7"}
+```
+
+Paths inside the router are relative to the mount point, so the same
+router can be mounted at `/api/v1/accounts` today and `/api/v2/accounts`
+later without changing it.
+
+## Nested routers and `mergeParams`
+
+```js
+// src/routes/txns.routes.js
+import { Router } from "express";
+
+const router = Router({ mergeParams: true }); // see the parent's :accountId
+
+router.get("/", (req, res) => {
+  res.json({ accountId: req.params.accountId, txns: [] });
+});
+
+export default router;
+
+// in accounts.routes.js
+// router.use("/:accountId/txns", txnsRouter);
+// GET /api/v1/accounts/42/txns  ->  {"accountId":"42","txns":[]}
+```
+
+Without `mergeParams: true`, `req.params.accountId` is `undefined` inside the
+child router, because each router keeps its own params by default. This is
+a classic interview gotcha.
+
+## Separating `app` from `server`
+
+```js
+// src/server.js
+import app from "./app.js";
+
+const PORT = process.env.PORT ?? 3000;
+app.listen(PORT, () => console.log(`API on :${PORT}`));
+```
+
+Exporting `app` without calling `listen()` lets tests import it directly
+(for example with supertest) without opening a real port, and keeps startup
+concerns such as config loading and graceful shutdown in one place.
+
+## Routes, controllers and services
+
+```js
+// src/services/accounts.service.js — business logic, no req/res
+const accounts = new Map([[1, { id: 1, holder: "Asha", balance: 25000 }]]);
+
+export async function getAccount(id) {
+  return accounts.get(id) ?? null;
+}
+
+// src/controllers/accounts.controller.js — HTTP in, HTTP out
+import * as accountsService from "../services/accounts.service.js";
+
+export async function show(req, res) {
+  const account = await accountsService.getAccount(Number(req.params.id));
+  if (!account) return res.status(404).json({ error: "Account not found" });
+  res.json(account);
+}
+
+// src/routes/accounts.routes.js — wiring only
+import { Router } from "express";
+import * as accounts from "../controllers/accounts.controller.js";
+
+const router = Router();
+router.get("/:id", accounts.show);
+export default router;
+```
+
+- **Routes** map URLs and middleware to controller functions.
+- **Controllers** read `req`, call a service, and shape the response.
+- **Services** hold business rules (for example "a transfer above ₹2,00,000
+  needs extra checks") and know nothing about HTTP, so they can be reused
+  from a CLI, a queue worker or tests.
+- A **data layer** (repository or ORM client) talks to the database.
+
+Because Express 5 forwards rejected promises, an `async` controller that
+throws reaches your error handler without a wrapper.
+
+## A typical folder layout
+
+```bash
+src/
+  app.js          # builds and exports the Express app
+  server.js       # calls app.listen()
+  config/         # env parsing and validation
+  routes/         # one router per resource, plus routes/index.js
+  controllers/    # request/response handling
+  services/       # business logic
+  middleware/     # auth, validation, error handler, request id
+  lib/            # db client, logger, shared helpers
+tests/            # API tests against the exported app
+```
+
+Grouping **by layer** (as above) is common for small and medium APIs.
+Larger codebases often group **by feature** instead, for example
+`src/modules/accounts/` holding that feature's routes, controller, service
+and tests together. Either is defensible in an interview; what matters is
+that the boundaries are consistent.
+
+### Try it yourself
+
+Restructure a single-file API into `app.js`, `server.js`, an accounts
+router, a controller and a service. Add a nested `txns` router mounted at
+`/:accountId/txns` and check what `req.params` looks like with and without
+`mergeParams`. Finally, mount the same accounts router under both
+`/api/v1` and `/api/v2` and confirm both work.

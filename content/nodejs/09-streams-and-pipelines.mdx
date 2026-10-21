@@ -1,0 +1,161 @@
+---
+title: "Streams and Pipelines"
+description: "Processing data piece by piece with readable, writable, transform and duplex streams, handling backpressure, and wiring them safely with stream.pipeline."
+module: "Working with Data"
+level: "intermediate"
+order: 12
+---
+
+`readFile` on a 5 GB log file either crashes the process or eats all its
+memory. Streams process data in small chunks, so memory stays flat no matter
+how big the input is. HTTP requests and responses, files, sockets, `zlib`
+and `crypto` are all streams, which is why "explain backpressure" is one of
+the most common senior Node interview questions.
+
+## The four stream types
+
+| Type | Role | Examples |
+| --- | --- | --- |
+| **Readable** | A source you read from | `fs.createReadStream`, an HTTP request on the server, `process.stdin` |
+| **Writable** | A destination you write to | `fs.createWriteStream`, an HTTP response, `process.stdout` |
+| **Duplex** | Readable and writable, independent sides | A TCP socket |
+| **Transform** | Duplex where output is computed from input | `zlib.createGzip()`, a CSV parser |
+
+All streams are `EventEmitter`s. Readables emit `data`, `end` and
+`error`; writables emit `drain`, `finish` and `error`. Data moves as
+`Buffer` chunks by default, or as any JavaScript value in **object mode**.
+
+## Reading: async iteration
+
+The simplest modern way to consume a readable is `for await`:
+
+```js
+import { createReadStream } from "node:fs";
+
+let bytes = 0;
+for await (const chunk of createReadStream("big.log")) {
+  bytes += chunk.length;          // chunk is a Buffer, 64 KiB by default for files
+}
+console.log(`read ${bytes} bytes`);
+```
+
+Async iteration respects backpressure automatically: the next chunk is not
+pulled until your loop body finishes.
+
+## Processing a large file line by line
+
+```js
+import { createReadStream } from "node:fs";
+import { createInterface } from "node:readline";
+
+const rl = createInterface({
+  input: createReadStream("access.log", { encoding: "utf8" }),
+  crlfDelay: Infinity,            // treat \r\n as a single line break
+});
+
+let errors = 0;
+for await (const line of rl) {
+  if (line.includes(" 500 ")) errors++;
+}
+console.log({ errors });          // { errors: 42 }
+```
+
+This handles files far larger than RAM with constant memory, and is the
+standard answer to "how would you count matching lines in a 10 GB file?".
+
+## Backpressure
+
+Backpressure happens when the producer is faster than the consumer — for
+example, reading from a fast disk and writing to a slow network client.
+Every stream has an internal buffer limited by `highWaterMark`. When a
+writable's buffer is full, `write()` **returns `false`**: stop writing and
+wait for `drain`.
+
+```js
+import { createWriteStream } from "node:fs";
+import { once } from "node:events";
+
+const out = createWriteStream("numbers.txt");
+for (let i = 0; i < 1_000_000; i++) {
+  if (!out.write(`${i}\n`)) {
+    await once(out, "drain");     // pause until the buffer empties
+  }
+}
+out.end();
+```
+
+Ignoring the return value still "works", but Node buffers everything in
+memory — the classic cause of a memory spike under load. `pipe()` and
+`pipeline()` handle this for you.
+
+## stream.pipeline: the right way to connect streams
+
+```js
+import { createReadStream, createWriteStream } from "node:fs";
+import { createGzip } from "node:zlib";
+import { pipeline } from "node:stream/promises";
+
+await pipeline(
+  createReadStream("access.log"),
+  createGzip(),
+  createWriteStream("access.log.gz"),
+);
+console.log("compressed");
+```
+
+Why not `a.pipe(b).pipe(c)`? With `pipe`, an error in one stream is **not
+forwarded** and the other streams are not closed, leaking file descriptors.
+`pipeline` propagates the first error, destroys every stream in the chain,
+and (from `node:stream/promises`) returns a promise you can `await`. It also
+accepts a `signal` option for cancellation with `AbortController`.
+
+## Writing your own transform
+
+```js
+import { Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
+
+const upper = new Transform({
+  transform(chunk, encoding, callback) {
+    callback(null, chunk.toString().toUpperCase()); // (error, output)
+  },
+});
+
+await pipeline(process.stdin, upper, process.stdout);
+// echo "₹500 paid" | node upper.mjs  ->  ₹500 PAID
+```
+
+`pipeline` also accepts **async generator functions** as steps, which is
+often simpler than a class:
+
+```js
+import { Readable } from "node:stream";
+
+await pipeline(
+  Readable.from(["a", "b", "c"]),           // array -> readable stream
+  async function* (source) {
+    for await (const item of source) yield `${item.toUpperCase()}\n`;
+  },
+  process.stdout,
+);
+// A
+// B
+// C
+```
+
+## Common pitfalls
+
+- Forgetting an `error` listener on a bare stream — an unhandled `error`
+  event crashes the process. `pipeline` and `for await` avoid this.
+- Calling `toString()` on each chunk of multi-byte text; use
+  `{ encoding: "utf8" }` or `setEncoding` so split characters are handled.
+- Mixing `data` listeners and `for await` on the same stream.
+- Reading the whole stream into an array "just to be safe", which throws
+  away the memory benefit.
+
+### Try it yourself
+
+Generate a 200 MB file of fake transactions like `2026-10-14,UPI,₹1250`.
+Using `readline` and a `pipeline`, stream it, keep only `UPI` rows, convert
+each to a JSON line, and gzip the output. Watch the process with
+`process.memoryUsage().rss` and confirm memory stays flat.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does BFS find the path with the fewest edges in an unweighted graph?",
+      "options": [
+        "It always explores the neighbour with the smallest label first",
+        "It uses recursion, which naturally finds short paths",
+        "It visits nodes in order of their distance (in edges) from the start, so the first time it reaches a node is via a shortest path",
+        "It tries every possible path and keeps the shortest"
+      ],
+      "correctIndex": 2,
+      "explanation": "BFS processes nodes ring by ring using a FIFO queue: all nodes at distance 1, then distance 2, and so on. The first arrival at any node is therefore along a fewest-edge path."
+    },
+    {
+      "question": "In BFS, when should you mark a node as visited?",
+      "options": [
+        "When it is added to the queue",
+        "When it is removed from the queue",
+        "After all its neighbours have been processed",
+        "Only when it is the goal node"
+      ],
+      "correctIndex": 0,
+      "explanation": "Marking on enqueue prevents the same node from being added to the queue multiple times by different neighbours."
+    },
+    {
+      "question": "What are the time and space costs of an adjacency matrix for a graph with V vertices and E edges?",
+      "options": [
+        "O(V + E) space; O(degree) to check an edge",
+        "O(V^2) space; O(1) to check whether an edge exists",
+        "O(E) space; O(E) to check an edge",
+        "O(V) space; O(log V) to check an edge"
+      ],
+      "correctIndex": 1,
+      "explanation": "A V x V matrix always uses O(V^2) space regardless of E, but answers 'is there an edge u-v?' in O(1). Adjacency lists use O(V + E) and suit sparse graphs."
+    },
+    {
+      "question": "During DFS on an undirected graph, which observation indicates a cycle?",
+      "options": [
+        "A node has more than two neighbours",
+        "The recursion depth exceeds V",
+        "A neighbour is unvisited",
+        "A neighbour is already visited and is not the parent you arrived from"
+      ],
+      "correctIndex": 3,
+      "explanation": "In an undirected graph every edge appears in both directions, so the parent is always a visited neighbour. Any other visited neighbour means a second route back, which forms a cycle."
+    }
+  ]
+}

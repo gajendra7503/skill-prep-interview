@@ -1,0 +1,180 @@
+---
+title: "Mapped Types & Key Remapping"
+description: "Transform every property of a type with mapped types, add or remove readonly and optional modifiers, and rename or filter keys with the as clause."
+module: "Advanced Types"
+level: "advanced"
+order: 19
+---
+
+A mapped type is a loop over keys that produces a new object type. `Partial`,
+`Readonly`, `Pick` and `Record` are all mapped types, and writing your own lets
+you generate form state, validator maps and handler maps from one source type.
+It builds on `keyof` and `T[K]` from "keyof, typeof & Indexed Access Types".
+
+## The basic shape
+
+```ts
+type Flags = { darkMode: boolean; beta: boolean };
+type FlagLabels = { [K in keyof Flags]: string };
+// { darkMode: string; beta: string }
+```
+
+Read `[K in keyof Flags]` as "for each key `K` in the union of keys". The type
+after the colon is the new property type, and it can use `K`, most often
+through `T[K]`:
+
+```ts
+type Validators<T> = { [K in keyof T]: (value: T[K]) => boolean };
+
+const signupRules: Validators<{ name: string; age: number }> = {
+  name: (s) => s.length > 0, // s: string
+  age: (n) => n >= 18,       // n: number
+};
+```
+
+Add a property to the source type and the compiler immediately demands a new
+validator. That is the real value: types that stay in sync automatically.
+
+## Modifiers: readonly and ?
+
+Mapped types can add or remove the `readonly` and optional modifiers. A plain
+modifier (or `+`) adds it; a `-` prefix removes it.
+
+```ts
+type MyPartial<T>  = { [K in keyof T]?: T[K] };
+type MyReadonly<T> = { readonly [K in keyof T]: T[K] };
+type Mutable<T>    = { -readonly [K in keyof T]: T[K] };
+type MyRequired<T> = { [K in keyof T]-?: T[K] };
+type Fund = { readonly code: string; name: string; navInr?: number };
+
+type EditableFund = Mutable<Fund>;
+// { code: string; name: string; navInr?: number }
+
+type CompleteFund = MyRequired<Fund>;
+// { readonly code: string; name: string; navInr: number }
+```
+
+There is no built-in `Mutable`, which makes it a popular "write a utility
+type" interview exercise. Notice that `-?` also strips `undefined` that came
+from the optional modifier, so `navInr` becomes plain `number`.
+
+| Syntax | Effect |
+|---|---|
+| `readonly [K in ...]` or `+readonly` | add readonly |
+| `-readonly [K in ...]` | remove readonly |
+| `[K in ...]?` or `+?` | make optional |
+| `[K in ...]-?` | make required |
+
+## Homomorphic mapped types keep modifiers
+
+A mapped type over `keyof T` (or over `K extends keyof T`) is called
+**homomorphic**: it copies the original `readonly` and `?` modifiers unless you
+change them. Mapping over a plain union of string literals does not:
+
+```ts
+type MyPick<T, K extends keyof T> = { [P in K]: T[P] };
+type Picked = MyPick<Fund, "code" | "navInr">;
+// { readonly code: string; navInr?: number }       modifiers preserved
+
+type Literal = { [P in "code" | "navInr"]: Fund[P] };
+// { code: string; navInr: number | undefined }     modifiers lost
+```
+
+This is why the built-in `Pick` is written with `K extends keyof T`, and why
+`Record` (written over any key union) never produces optional properties.
+
+### Mapping arrays and tuples
+
+Homomorphic mapped types applied to arrays and tuples produce arrays and
+tuples, not objects with numeric keys:
+
+```ts
+type Boxed<T> = { [K in keyof T]: { value: T[K] } };
+type B1 = Boxed<[string, number]>; // [{ value: string }, { value: number }]
+type B2 = Boxed<string[]>;         // { value: string }[]
+```
+
+## Key remapping with as
+
+Since TypeScript 4.1, an `as` clause lets you compute a *new key* for each
+property. Combined with template literal types (covered in depth in "Template
+Literal Types"), it generates names:
+
+```ts
+type Getters<T> = {
+  [K in keyof T as `get${Capitalize<string & K>}`]: () => T[K];
+};
+type InvestorGetters = Getters<{ name: string; age: number }>;
+// { getName: () => string; getAge: () => number }
+```
+
+`string & K` is needed because `keyof T` can include `number` and `symbol`
+keys, and `Capitalize` only accepts strings. The intersection keeps just the
+string keys.
+
+### Filtering keys
+
+If the `as` clause produces `never`, that key is dropped. This gives you
+filtering by key or by value type, which `Pick` and `Omit` cannot do:
+
+```ts
+type Investor = { id: number; name: string; city: string; active: boolean };
+
+type PickByValue<T, V> = {
+  [K in keyof T as T[K] extends V ? K : never]: T[K];
+};
+type TextFields = PickByValue<Investor, string>; // { name: string; city: string }
+
+type OmitKeys<T, K> = { [P in keyof T as P extends K ? never : P]: T[P] };
+type NoId = OmitKeys<Investor, "id">; // { name: string; city: string; active: boolean }
+```
+
+`PickByValue` uses a conditional type inside the `as` clause; see "Conditional
+Types & infer" if that syntax is unfamiliar.
+
+### Mapping over a union of objects
+
+The `in` clause can iterate any union, not just keys. Iterate a union of event
+objects and remap each to its own `kind`, and you get a fully typed handler map:
+
+```ts
+type SipEvent =
+  | { kind: "sipCreated"; amountInr: number }
+  | { kind: "sipCancelled"; reason: string };
+type Handlers = { [E in SipEvent as E["kind"]]: (event: E) => void };
+
+const handlers: Handlers = {
+  sipCreated: (e) => console.log(`New SIP of ₹${e.amountInr}`), // e narrowed
+  sipCancelled: (e) => console.log(e.reason),
+};
+```
+
+Each handler receives exactly the matching event type, with no casting. This
+pattern appears in event buses, Redux-style reducers and websocket clients.
+
+## A realistic example: form state
+
+```ts
+type FormState<T> = {
+  values: T;
+  errors: { [K in keyof T]?: string };
+  touched: { [K in keyof T]?: boolean };
+};
+const sipForm: FormState<{ email: string; amountInr: number }> = {
+  values: { email: "", amountInr: 500 },
+  errors: { email: "Required" }, // only known field names allowed
+  touched: {},
+};
+```
+
+Rename `amountInr` in the values type and every `errors` and `touched` usage
+that refers to the old name becomes a compile error.
+
+### Try it yourself
+
+1. Write `DeepReadonlyOneLevel<T>` that makes `T` readonly and also makes each
+   object-valued property readonly (one level deep is enough).
+2. Write `Setters<T>` that turns `{ name: string }` into
+   `{ setName: (value: string) => void }`.
+3. Write `FunctionKeys<T>`: the union of keys whose values are functions. Hint:
+   build a filtered mapped type, then index it with `keyof`.

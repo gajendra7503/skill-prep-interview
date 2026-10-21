@@ -1,0 +1,174 @@
+---
+title: "Viewing & Editing Text Files (less, nano, vim basics)"
+description: "Reading files and logs with cat, less, head, tail and wc, and editing configuration safely in nano or with just enough vim to survive."
+module: "Command-Line Basics"
+level: "beginner"
+order: 4
+---
+
+On Linux, almost everything you care about is a text file: configuration in
+`/etc`, application logs in `/var/log`, scripts, `.env` files, cron tables.
+There is usually no graphical editor on a server, so you need terminal tools
+to read and change text. This lesson uses a small application log,
+`app.log`:
+
+```text
+2026-10-15 09:58:12 INFO  server started on port 8080
+2026-10-15 09:58:40 INFO  order 1001 placed amount=1450
+2026-10-15 09:59:03 INFO  order 1002 placed amount=899
+2026-10-15 09:59:47 WARN  slow query took 2300ms
+2026-10-15 10:00:15 INFO  order 1003 placed amount=12500
+2026-10-15 10:01:02 ERROR payment gateway timeout order=1003
+2026-10-15 10:01:30 INFO  order 1004 placed amount=640
+2026-10-15 10:02:11 INFO  order 1005 placed amount=3200
+```
+
+## `cat`: print a whole file
+
+`cat` prints the entire file to the terminal. Fine for short files, useless
+for a 2 GB log (it scrolls past in a blur).
+
+```bash
+cat db.conf          # print one file
+cat -n app.log       # with line numbers
+cat a.txt b.txt      # print several files one after another
+```
+
+The name comes from "concatenate" — joining files together is its real
+job.
+
+## `head` and `tail`: the start and the end
+
+```bash
+head app.log          # first 10 lines (the default)
+head -n 3 app.log     # first 3 lines
+tail -n 2 app.log     # last 2 lines
+tail -n +7 app.log    # from line 7 to the end
+```
+
+```text
+$ tail -n 2 app.log
+2026-10-15 10:01:30 INFO  order 1004 placed amount=640
+2026-10-15 10:02:11 INFO  order 1005 placed amount=3200
+```
+
+The most useful command for a backend developer on a server:
+
+```bash
+tail -f /var/log/nginx/access.log
+```
+
+`-f` (follow) keeps the file open and prints new lines as they are
+written, so you can reproduce a bug in the browser and watch the log in real
+time. Press **Ctrl+C** to stop. Use `tail -F` for logs that get rotated
+(renamed and recreated): it re-opens the file by name when that happens.
+
+## `wc`: counting
+
+```bash
+wc app.log        # lines, words, bytes
+wc -l app.log     # just lines
+```
+
+```text
+  8  57 443 app.log
+8 app.log
+```
+
+## `less`: the pager you will use every day
+
+`less` shows a file one screen at a time and lets you scroll and search
+without loading the whole file into memory, so it handles huge logs well.
+
+```bash
+less app.log
+less +G app.log     # open at the end of the file
+less -N app.log     # show line numbers
+less -S app.log     # don't wrap long lines (scroll sideways instead)
+```
+
+Inside `less`:
+
+| Key | Action |
+| --- | --- |
+| Space / `b` | Page down / page up |
+| Up / Down arrows (or `j` / `k`) | One line at a time |
+| `g` / `G` | Jump to start / end |
+| `/ERROR` then Enter | Search forward for "ERROR" |
+| `?timeout` then Enter | Search backward |
+| `n` / `N` | Next / previous match |
+| `F` | Follow new lines like `tail -f` (Ctrl+C to stop following) |
+| `q` | Quit |
+
+`man` pages open in `less` too, so these keys pay off twice (see "Getting
+Help & How Commands Are Built").
+
+Interviewers often ask: "How would you check the most recent errors in a
+large log file on a server?" A solid answer: open it with `less +G` and
+search backwards with `?ERROR`, or use `tail` to watch it live — and
+mention `grep` for filtering (see "grep & Regular Expressions").
+
+## `nano`: the friendly editor
+
+`nano` is installed on Ubuntu by default and shows its shortcuts at the
+bottom of the screen. `^` means Ctrl, so `^X` is Ctrl+X; `M-` means Alt.
+
+```bash
+nano notes.txt              # opens (or creates) the file
+sudo nano /etc/hosts        # system files need sudo to save
+```
+
+| Shortcut | Action |
+| --- | --- |
+| Ctrl+O, then Enter | Save ("write Out") |
+| Ctrl+X | Exit (asks to save if there are changes) |
+| Ctrl+W | Search ("Where is") |
+| Ctrl+K / Ctrl+U | Cut the current line / paste it |
+| Alt+U | Undo |
+| Ctrl+G | Help |
+
+Before editing important configuration, keep a copy:
+`sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak`. If your edit
+breaks something, you can put the original back in seconds.
+
+## `vim`: just enough to survive
+
+`vim` (or plain `vi`) is on virtually every Unix-like system, including
+minimal servers where `nano` may be missing. Tools such as `git commit`
+and `crontab -e` may open it for you. Its big idea is **modes**:
+
+- **Normal mode** (where you start): keys are commands, not text.
+- **Insert mode**: keys type text. Press `i` to enter it, **Esc** to leave.
+- **Command-line mode**: press `:` in normal mode to type commands such as
+  save and quit.
+
+The survival kit:
+
+| In normal mode | Does |
+| --- | --- |
+| `i` | Start inserting before the cursor |
+| Esc | Back to normal mode (press it whenever you are lost) |
+| `:w` | Save |
+| `:q` | Quit (refuses if there are unsaved changes) |
+| `:wq` or `:x` | Save and quit |
+| `:q!` | Quit and **discard** changes |
+| `dd` | Delete (cut) the current line |
+| `yy` / `p` | Copy the current line / paste below |
+| `u` / Ctrl+R | Undo / redo |
+| `/word` then `n` | Search, then jump to the next match |
+| `gg` / `G` | First line / last line |
+| `:set number` | Show line numbers |
+
+A typical edit: `vim app.conf`, move to the line, press `i`, type, press
+Esc, type `:wq`, Enter. The famous "how do I exit vim?" answer is: press
+Esc, then type `:q!` to quit without saving.
+
+### Try it yourself
+
+1. Create `app.log` with the eight lines above (use `nano`). Show only
+   lines 6 to 8 with `tail`, then count its lines with `wc -l`.
+2. Open the file in `less`, search for `order 1003`, press `n` to find the
+   second match, and quit.
+3. Open the same file in `vim`, delete the `WARN` line with `dd`, undo with
+   `u`, then quit without saving using `:q!`. Confirm with `wc -l` that the
+   file still has 8 lines.

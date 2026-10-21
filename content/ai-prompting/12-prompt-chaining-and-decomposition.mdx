@@ -1,0 +1,122 @@
+---
+title: "Prompt Chaining and Decomposition"
+description: "Split complex tasks into focused steps, pass outputs between prompts, run independent sub-tasks in parallel, and know when a single prompt is enough."
+module: "Reliability"
+level: "advanced"
+order: 18
+---
+
+When one prompt tries to do everything — read a contract, spot risks,
+compare it with company policy, draft an email, and check its own tone —
+quality drops on every part, and when something goes wrong you cannot tell
+which part failed. **Prompt chaining** breaks a big task into a sequence of
+smaller prompts, each with one clear job, where the output of one becomes
+the input to the next.
+
+## Why decompose
+
+- **Focus:** each prompt gets the model's full attention on one sub-task.
+- **Debuggability:** you can inspect the output of every step and find
+  exactly where an error entered.
+- **Reuse and control:** steps can be tested, improved, or swapped
+  independently, and you can insert code or a human check between them.
+- **Different settings per step:** a cheap, fast model for extraction and a
+  more capable one for drafting, or structured output for one step and
+  prose for another.
+
+## Passing outputs between prompts
+
+Wrap the previous step's output in XML tags when you hand it to the next
+prompt, so the model can tell the material apart from the instructions.
+
+```text
+Step 1 prompt:
+<contract>
+...vendor agreement with Meghdoot IT Services (fictional)...
+</contract>
+
+List every clause about payment terms, penalties, termination, and data
+handling. For each, give the clause number and a word-for-word quote.
+Output them inside <clauses> tags.
+```
+
+```text
+Step 2 prompt:
+<clauses>
+...output of step 1...
+</clauses>
+
+<policy>
+...our vendor procurement policy...
+</policy>
+
+For each clause, say whether it complies with the policy. Flag any clause
+where the penalty exceeds 10% of contract value or payment terms exceed 45
+days. Output a table: clause number, issue, policy reference, severity
+(High / Medium / Low).
+```
+
+Using structured output (JSON) for intermediate steps makes it easy for
+code to check or transform results before the next prompt runs.
+
+## A common pipeline: extract, analyse, draft, review
+
+Many business tasks fit the same four-step shape:
+
+| Step | Job | Example output |
+| --- | --- | --- |
+| Extract | Pull the relevant facts from raw input | Clauses with quotes |
+| Analyse | Apply rules or judgement to those facts | Risk table with severity |
+| Draft | Turn the analysis into the deliverable | Email to the vendor manager |
+| Review | Check the draft against the facts and requirements | List of corrections, then final draft |
+
+The review step is a separate prompt that receives the draft *and* the
+earlier outputs, so it can catch claims in the email that the analysis does
+not support.
+
+```text
+<analysis>...</analysis>
+<draft_email>...</draft_email>
+
+Review the draft email against the analysis. List any statement in the
+email that is not supported by the analysis, any High-severity issue the
+email omits, and any tone problem for an external vendor. Then output a
+corrected email inside <final_email> tags.
+```
+
+## Parallel sub-tasks
+
+Not every chain is a straight line. When sub-tasks do not depend on each
+other, run them at the same time and combine the results:
+
+- Summarise 40 branch audit reports — one prompt per report, run in
+  parallel — then one prompt to compare them.
+- Review a product note for legal, compliance, and brand tone with three
+  separate reviewer prompts, then merge the feedback.
+
+Parallel runs are faster and keep each prompt narrowly focused. The final
+combining step should receive clearly labelled inputs, for example each
+report wrapped in its own tag with the branch name.
+
+## When one prompt is enough
+
+Chaining adds latency, cost, and code to maintain. Keep a single prompt
+when:
+
+- the task is simple or short (rewrite this paragraph, classify this
+  email),
+- the steps are tightly intertwined and splitting them loses context,
+- one well-structured prompt already gives reliable results in testing.
+
+A good rule: start with one clear prompt, test it, and split only at the
+point where you see it failing. Often a single prompt that asks the model
+to work in stages — extract quotes in one set of tags, then answer in
+another — gets most of the benefit without a full chain.
+
+### Try it yourself
+
+1. Pick a multi-part task you do weekly and write it as an extract, analyse,
+   draft, review chain. Define the exact output of each step.
+2. Identify which steps in your chain could run in parallel.
+3. Run the whole task once as a single prompt and once as a chain, and
+   note which steps actually improved. Keep only the splits that helped.

@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is `exec(\"convert \" + userFile + \" out.png\")` a security risk while `execFile(\"convert\", [userFile, \"out.png\"])` is not?",
+      "options": [
+        "exec is slower, which enables timing attacks",
+        "exec runs the string through a shell, so metacharacters like ; or && in user input can run extra commands",
+        "execFile runs inside a sandbox with no file system access",
+        "exec cannot read stdout, so errors are hidden"
+      ],
+      "correctIndex": 1,
+      "explanation": "exec spawns a shell and parses the whole command string, enabling command injection. execFile (and spawn without shell: true) pass arguments as an array directly to the binary, so they are never interpreted by a shell."
+    },
+    {
+      "question": "Your API hashes large uploads with a CPU-heavy algorithm and all other requests stall during hashing. What is the most appropriate fix within one Node service?",
+      "options": [
+        "Wrap the hashing in setTimeout(fn, 0)",
+        "Convert the hashing function to async/await",
+        "Increase UV_THREADPOOL_SIZE",
+        "Run the hashing in a pool of worker_threads"
+      ],
+      "correctIndex": 3,
+      "explanation": "CPU-bound JavaScript blocks the single event-loop thread no matter how it is scheduled. worker_threads run JavaScript in parallel with their own event loop, so the main thread stays free to serve requests."
+    },
+    {
+      "question": "You spawn a binary that is not installed. How does Node report this?",
+      "options": [
+        "The child process emits an 'error' event with code ENOENT",
+        "The 'close' event fires with exit code 127",
+        "spawn returns null",
+        "Node silently ignores it"
+      ],
+      "correctIndex": 0,
+      "explanation": "A process that fails to start emits 'error' (for example ENOENT). Always listen for 'error' in addition to 'close' or 'exit', otherwise an unhandled 'error' event will crash the parent."
+    },
+    {
+      "question": "Which statement about worker_threads is correct?",
+      "options": [
+        "They make fs and network I/O significantly faster",
+        "Workers share all JavaScript objects with the main thread by reference",
+        "Messages are structured-cloned by default, but ArrayBuffers can be transferred and SharedArrayBuffers shared",
+        "Each worker is a separate OS process with its own PID"
+      ],
+      "correctIndex": 2,
+      "explanation": "postMessage copies data via structured clone. Transferring an ArrayBuffer moves it without copying, and SharedArrayBuffer gives shared memory coordinated with Atomics. Workers live in the same process and do not speed up I/O, which libuv already handles off the main thread."
+    }
+  ]
+}

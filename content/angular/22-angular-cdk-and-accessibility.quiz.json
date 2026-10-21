@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does the CDK `Overlay` render content into a container attached to `document.body`?",
+      "options": [
+        "To make the content load lazily",
+        "So floating UI escapes parent `overflow: hidden` and z-index stacking contexts",
+        "Because overlays cannot use Angular templates",
+        "To avoid running change detection on it"
+      ],
+      "correctIndex": 1,
+      "explanation": "Dropdowns, tooltips and dialogs get clipped or hidden by ancestor styles; rendering them in a body-level overlay container avoids that."
+    },
+    {
+      "question": "After a filter runs, you want screen readers to announce '42 transactions found' without moving focus. Which CDK service fits?",
+      "options": [
+        "FocusMonitor",
+        "FocusTrapFactory",
+        "ListKeyManager",
+        "LiveAnnouncer"
+      ],
+      "correctIndex": 3,
+      "explanation": "LiveAnnouncer writes the message into a visually hidden aria-live region, which screen readers announce."
+    },
+    {
+      "question": "Which statement about CDK virtual scrolling is correct?",
+      "options": [
+        "It uses the `*cdkVirtualFor` directive inside a `cdk-virtual-scroll-viewport` that has a fixed height",
+        "It works with the built-in `@for` block automatically",
+        "It renders all rows but hides off-screen ones with CSS",
+        "It requires Angular Material to be installed"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only rows near the viewport are rendered. The viewport needs a fixed CSS height and an `itemSize`, and iteration uses `*cdkVirtualFor`, not `@for`."
+    },
+    {
+      "question": "Which of these is NOT a requirement for an accessible modal dialog?",
+      "options": [
+        "Focus is trapped inside the dialog while it is open",
+        "Focus returns to the triggering element when the dialog closes",
+        "The dialog must be rendered with `@defer`",
+        "The container has `role=\"dialog\"`, `aria-modal=\"true\"` and an accessible name via `aria-labelledby`"
+      ],
+      "correctIndex": 2,
+      "explanation": "Deferring has nothing to do with accessibility. The real requirements are role/aria attributes, focus trapping, Escape to close, focus restoration and hiding background content."
+    }
+  ]
+}

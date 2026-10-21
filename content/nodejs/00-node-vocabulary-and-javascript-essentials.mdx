@@ -1,0 +1,153 @@
+---
+title: "Node Vocabulary and JavaScript Essentials"
+description: "The words every Node lesson uses — runtime, module, package, server, synchronous and asynchronous — plus the modern JavaScript syntax you need before going further."
+module: "Getting Started"
+level: "beginner"
+order: 2
+---
+
+Node tutorials assume a shared vocabulary and a handful of modern
+JavaScript features. If words like "module", "callback" or "await" feel
+fuzzy, this lesson fixes that first, so the rest of the course reads
+smoothly.
+
+## The core vocabulary
+
+| Term | Meaning in one line |
+| --- | --- |
+| Runtime | A program that executes code — Node is a JavaScript runtime |
+| Script | A `.js` file you run with `node file.js` |
+| Module | One file of code that exports values for other files to import |
+| Package | A folder of modules with a `package.json`, usually installed from npm |
+| Dependency | A package your project needs in order to run |
+| Server | A long-running program that waits for requests and sends responses |
+| Client | The program making the request — a browser, a mobile app, another server |
+| Synchronous | Each line waits for the previous one to finish |
+| Asynchronous | Start a slow task, carry on, and handle the result when it is ready |
+| I/O | Input/output: reading files, network calls, database queries |
+
+The last three rows are the heart of Node. Reading a file or calling an API
+is **slow** compared with running JavaScript, so Node starts the I/O,
+keeps doing other work, and runs your code again when the result arrives.
+
+## Variables: const and let
+
+```js
+const gstRate = 0.18;   // cannot be reassigned — use by default
+let total = 1000;       // can be reassigned
+total = total + total * gstRate;
+console.log(total);     // 1180
+```
+
+Avoid the old `var`; it has confusing scoping rules. `const` stops
+reassignment, but the contents of a `const` object or array can still change.
+
+## Functions and arrow functions
+
+```js
+function addGst(amount) {
+  return amount * 1.18;
+}
+
+const addGstArrow = (amount) => amount * 1.18;   // same thing, shorter
+
+console.log(addGst(500), addGstArrow(500));      // 590 590
+```
+
+Arrow functions are everywhere in Node code, especially as **callbacks** —
+functions you pass to another function so it can call them later.
+
+## Objects, arrays and destructuring
+
+```js
+const order = { id: 42, customer: "Ravi", items: ["tea", "samosa"], amount: 180 };
+
+const { customer, amount } = order;          // pull properties into variables
+const [firstItem] = order.items;             // pull the first array element
+console.log(customer, amount, firstItem);    // Ravi 180 tea
+
+const updated = { ...order, amount: 200 };   // copy with one field changed
+console.log(order.amount, updated.amount);   // 180 200
+```
+
+Array methods replace most hand-written loops:
+
+```js
+const prices = [120, 450, 80, 990];
+console.log(prices.map((p) => p * 2));          // [ 240, 900, 160, 1980 ]
+console.log(prices.filter((p) => p > 100));     // [ 120, 450, 990 ]
+console.log(prices.reduce((sum, p) => sum + p, 0)); // 1640
+```
+
+## JSON: the data format of the web
+
+APIs and config files speak **JSON**. Convert between JSON text and
+JavaScript objects with two built-in functions:
+
+```js
+const text = '{"name":"Asha","balance":2500}';
+const user = JSON.parse(text);               // text -> object
+console.log(user.balance + 500);             // 3000
+
+console.log(JSON.stringify({ ok: true, items: 3 }));  // {"ok":true,"items":3}
+```
+
+`JSON.parse` throws an error on invalid text, so wrap untrusted input in
+`try`/`catch`.
+
+## Callbacks, promises and async/await
+
+Node has three ways to deal with "the result is not ready yet". Here is the
+same task — wait, then produce a value — in all three styles:
+
+```js
+// 1. Callback: pass a function to call later
+setTimeout(() => console.log("callback done"), 100);
+
+// 2. Promise: an object representing a future value
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+wait(200).then(() => console.log("promise done"));
+
+// 3. async/await: promise code that reads top to bottom
+async function main() {
+  await wait(300);
+  console.log("await done");
+}
+main();
+// callback done
+// promise done
+// await done
+```
+
+Modern Node APIs return promises, so you will mostly write `async`
+functions and `await` their results. Errors from an awaited promise are
+caught with an ordinary `try`/`catch`.
+
+## Importing and exporting
+
+Files share code through modules. You will see two syntaxes; this course
+prefers the modern one, called **ES modules**:
+
+```js
+// math.mjs
+export const square = (n) => n * n;
+
+// app.mjs
+import { square } from "./math.mjs";
+import { readFile } from "node:fs/promises";   // a built-in module
+console.log(square(12));                        // 144
+```
+
+The `node:` prefix marks a **built-in** module that ships with Node. The
+older `require()` syntax and how the two systems differ are covered in the
+modules lesson.
+
+### Try it yourself
+
+1. Write `cart.mjs` with an array of three items, each with a `name` and a
+   `price` in ₹. Use `reduce` to print the total and `filter` to list items
+   above ₹500.
+2. Export a function `formatRupees(n)` from one file and import it in
+   another.
+3. Rewrite the `main()` example so it waits for two different timers one
+   after the other and logs how many milliseconds passed in total.

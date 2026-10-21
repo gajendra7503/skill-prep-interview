@@ -1,0 +1,149 @@
+---
+title: "Few-Shot Examples"
+description: "Zero-, one- and few-shot prompting, choosing diverse representative examples, avoiding surface-level over-fitting, and formatting examples with tags."
+module: "Core Techniques"
+level: "beginner"
+order: 6
+---
+
+Describing what you want in words works well, but sometimes showing is
+faster and more precise than telling. Examples are one of the most reliable
+ways to control format, tone and edge-case handling. They are also easy to
+misuse, because models copy examples very faithfully, including the parts
+you did not mean them to copy.
+
+## Zero-, one- and few-shot
+
+| Style | What you give | Good for |
+| --- | --- | --- |
+| Zero-shot | Instructions only | Common tasks the model already does well |
+| One-shot | Instructions plus one example | Showing a specific format or tone |
+| Few-shot | Instructions plus several examples (typically 3 to 5) | Classification, extraction, consistent style, tricky edge cases |
+
+Start with zero-shot and clear instructions. Add examples when the output
+format drifts, when the tone is hard to describe, or when the model keeps
+mishandling a particular kind of input.
+
+## A few-shot classification prompt
+
+Suppose a fictional bank's support team wants incoming emails tagged by
+category.
+
+```text
+Classify each customer email into exactly one category: ACCOUNT_ACCESS,
+CARD_ISSUE, LOAN_QUERY, COMPLAINT or OTHER. Respond with the category only.
+
+<examples>
+<example>
+<input>I've been locked out of net banking after three wrong passwords.</input>
+<output>ACCOUNT_ACCESS</output>
+</example>
+<example>
+<input>My EMI for the home loan went up this month, why? Loan no. HL-20931.</input>
+<output>LOAN_QUERY</output>
+</example>
+<example>
+<input>Third time I'm writing. Nobody from the Andheri branch has called back.
+This is unacceptable.</input>
+<output>COMPLAINT</output>
+</example>
+<example>
+<input>Can you send me a form for updating my address?</input>
+<output>OTHER</output>
+</example>
+</examples>
+
+<email>
+[new email here]
+</email>
+```
+
+Notice the structure: each example sits inside an `<example>` tag, and each
+has a clearly labelled `<input>` and `<output>`. The wrapper `<examples>`
+separates demonstrations from the real input in the `<email>` tag, so the
+model never confuses an example with the thing it should classify.
+
+## Choose diverse, representative examples
+
+Good examples cover the **range** of inputs the model will actually see.
+
+- **Vary length and style.** Include a one-line email and a rambling one, a
+  polite one and an angry one, English and Hinglish if your customers write
+  that way.
+- **Cover every category** or output type at least once, especially the
+  rare ones.
+- **Include hard cases.** An angry email about a card being blocked is
+  CARD_ISSUE, not COMPLAINT, if that is your rule. Show that boundary.
+- **Use realistic data.** Examples copied from real (anonymised) traffic
+  teach more than tidy invented ones.
+
+## Over-fitting to surface features
+
+Models pick up patterns you did not intend. If all your examples share a
+surface feature, the model may treat that feature as part of the rule.
+
+Common traps:
+
+- Every example output starts with "Dear Sir/Madam", so every reply does,
+  even to a customer who signed off with her first name.
+- All positive-sentiment examples are short and all negative ones are long,
+  so the model starts judging sentiment by length.
+- Every example summary has exactly three bullets, so a document with seven
+  important points still gets three.
+- The examples all mention Mumbai, so the model inserts Mumbai where a city
+  is missing.
+
+Fixes:
+
+1. Vary the incidental features across examples, so only the intended
+   pattern is consistent.
+2. Say explicitly which aspects to copy: "Match the tone and structure of
+   these examples, but adapt the length and greeting to each customer."
+3. Test with inputs that differ from all your examples and check for
+   copying.
+
+## Examples plus instructions, not instead of them
+
+Examples work best alongside a clear description of the task. Instructions
+explain the rule; examples show how the rule applies at the edges. If an
+example contradicts your instructions, the model will often follow the
+example, so check them for consistency.
+
+A weak prompt that relies on a single example:
+
+```text
+Rewrite like this: "Your KYC is pending" -> "Please complete your KYC
+verification to continue using your account."
+
+Now rewrite: "Payment failed"
+```
+
+An improved version:
+
+```text
+Rewrite short system alerts into polite, complete sentences for customers.
+Explain what happened and the next step, in under 25 words. Keep any
+reference numbers exactly as given.
+
+<example>
+<input>KYC pending</input>
+<output>Your KYC verification is incomplete. Please upload your documents
+in the app to continue using your account.</output>
+</example>
+<example>
+<input>Txn TX8812 failed - insufficient balance</input>
+<output>Transaction TX8812 could not be completed due to insufficient
+balance. Please add funds and try again.</output>
+</example>
+
+<input>Payment failed</input>
+```
+
+### Try it yourself
+
+Write a few-shot prompt that extracts the customer name, policy number and
+requested action from insurance service emails for a fictional insurer. Use
+four examples wrapped in `<example>` tags with labelled input and output.
+Deliberately make the examples vary in length, language mix and formality.
+Then test with an email unlike any example, and check whether the model
+copied anything it should not have.

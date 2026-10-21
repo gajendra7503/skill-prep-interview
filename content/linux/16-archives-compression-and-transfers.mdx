@@ -1,0 +1,179 @@
+---
+title: "Archives, Compression & File Transfer (tar, rsync, scp)"
+description: "Bundle and compress files with tar, gzip, bzip2 and xz, verify them with checksums, and copy data between machines using scp and rsync."
+module: "Shell Scripting"
+level: "intermediate"
+order: 16
+---
+
+Shipping a build to a server, taking a backup before a risky change, or
+pulling logs off a production box all come down to two jobs: **packing**
+files into one archive and **moving** data between machines. On Linux that
+means `tar`, a compressor, and `scp` or `rsync`.
+
+## Archiving vs compressing
+
+These are two separate ideas, and Unix keeps them in separate tools:
+
+- **Archiving** joins many files and directories (with names, permissions
+  and timestamps) into a single stream. That is `tar` ("tape archive").
+- **Compressing** shrinks one stream of bytes. That is `gzip`, `bzip2`,
+  `xz` or `zstd`.
+
+A `.tar.gz` (also `.tgz`) is a tar archive that was then gzipped. Modern
+GNU `tar` can call the compressor for you with a single flag.
+
+## tar: the flags you actually need
+
+| Flag | Meaning |
+|---|---|
+| `-c` | create an archive |
+| `-x` | extract |
+| `-t` | list contents |
+| `-f file` | archive file name (use `-` for stdin/stdout) |
+| `-v` | verbose: print each file |
+| `-z` / `-j` / `-J` | gzip / bzip2 / xz |
+| `-C dir` | change to `dir` first |
+
+Mnemonic: **c**reate, e**x**tract, **t**ell; `f` always comes last in the
+cluster because the next word is the file name.
+
+```bash
+tar -czf project.tar.gz project        # create, gzip
+tar -tzf project.tar.gz                # list without extracting
+# project/
+# project/data.txt
+# project/node_modules/
+# project/node_modules/x/
+# project/node_modules/x/i.js
+# project/src/
+# project/src/app.js
+```
+
+Always **list before you extract** an archive from someone else, so you know
+whether it unpacks into one tidy folder or sprays files into your current
+directory.
+
+```bash
+tar -czf release.tar.gz --exclude='node_modules' project   # skip a directory
+mkdir -p /tmp/out && tar -xzf project.tar.gz -C /tmp/out    # extract elsewhere
+tar -xzf project.tar.gz project/src/app.js                  # extract one file
+tar -xzf project.tar.gz --strip-components=1 -C site        # drop "project/"
+```
+
+When you give `tar` an absolute path, it strips the leading slash so that
+extraction cannot overwrite system files by accident:
+
+```text
+tar: Removing leading `/' from member names
+```
+
+On recent GNU `tar`, `-x` also auto-detects the compression, so
+`tar -xf file.tar.xz` works without `-J`. Being explicit is still common in
+scripts.
+
+## Choosing a compressor
+
+Real numbers from the same small project (a 108 KB text file plus source):
+`project.tar.gz` came out at 45,515 bytes and `project.tar.bz2` at 25,725.
+
+| Tool | Extension | Speed | Ratio | Typical use |
+|---|---|---|---|---|
+| gzip | `.gz` | fast | good | default everywhere, logs, HTTP |
+| bzip2 | `.bz2` | slow | better | older source tarballs |
+| xz | `.xz` | slowest to compress | best | distro packages, release tarballs |
+| zstd | `.zst` | very fast | very good | modern backups, packages |
+
+`zstd` may need installing (`sudo apt install zstd`); GNU tar supports it
+with `--zstd`. Compressing already-compressed data (JPEGs, `.zip`, video)
+gains almost nothing.
+
+Single files can be compressed directly:
+
+```bash
+gzip -k data.txt          # -k keeps the original; creates data.txt.gz
+gzip -l data.txt.gz       # compressed 45013, uncompressed 108894, ratio 58.7%
+gunzip -c data.txt.gz | tail -1   # decompress to stdout, file untouched
+zcat app.log.gz | grep ERROR      # read rotated logs without unpacking
+```
+
+`unzip` and `zip` handle `.zip` files from Windows users; install them with
+`apt` if missing.
+
+## Verifying with checksums
+
+Before deploying a downloaded or transferred archive, check it arrived
+intact:
+
+```bash
+sha256sum project.tar.gz > project.tar.gz.sha256
+sha256sum -c project.tar.gz.sha256
+# project.tar.gz: OK
+```
+
+## scp: quick copies over SSH
+
+`scp` copies files over an SSH connection using `user@host:path` syntax:
+
+```bash
+scp release.tar.gz deploy@203.0.113.10:/opt/app/      # upload
+scp deploy@203.0.113.10:/var/log/app.log .             # download
+scp -r ./config deploy@203.0.113.10:/etc/myapp/        # whole directory
+scp -P 2222 file.txt deploy@203.0.113.10:~             # non-standard port
+```
+
+Note that `scp` uses capital `-P` for the port, while `ssh` uses `-p`.
+Recent OpenSSH releases run `scp` over the SFTP protocol internally; the
+command line is unchanged. Keys and `~/.ssh/config` aliases (see "SSH Keys,
+Config & Tunnels") work with `scp` and `rsync` too.
+
+## rsync: incremental, resumable sync
+
+`rsync` compares source and destination and sends only what changed, which
+makes it the right tool for deployments, backups and large transfers. It
+must be installed on **both** ends.
+
+```bash
+rsync -avz --progress ./dist/ deploy@203.0.113.10:/var/www/shop/
+```
+
+- `-a` archive mode: recurse and preserve permissions, times, symlinks,
+  owner and group (owner only when run as root).
+- `-v` verbose, `-z` compress in transit, `--progress` show progress.
+- `-n` / `--dry-run` shows what **would** happen. Use it first.
+
+The **trailing slash** on the source is the classic interview question:
+
+| Command | Result on the destination |
+|---|---|
+| `rsync -a dist/ server:/var/www/shop/` | contents of `dist` go into `shop/` |
+| `rsync -a dist server:/var/www/shop/` | creates `shop/dist/` |
+
+A slash on the destination makes no difference; only the source matters.
+
+To make the destination an exact mirror, add `--delete`, which removes
+files that no longer exist in the source. **Warning:** a wrong path with
+`--delete` can wipe a directory, so always run with `-n` first:
+
+```bash
+rsync -avn --delete --exclude='.env' ./dist/ deploy@203.0.113.10:/var/www/shop/
+```
+
+## Streaming without temp files
+
+Because `tar` can write to stdout, you can archive on one machine and
+extract on another in one pipeline, never writing the archive to disk:
+
+```bash
+tar -czf - project | ssh deploy@203.0.113.10 'tar -xzf - -C /opt'
+```
+
+### Try it yourself
+
+1. Create a folder with a few files and a `node_modules` subfolder, then
+   make `release.tar.gz` that excludes `node_modules`. Verify with `tar -tzf`.
+2. Extract it into a new directory with `--strip-components=1` and confirm
+   the top-level folder disappeared.
+3. Write the `rsync` command (with `--dry-run`) that would mirror a local
+   `build/` directory's contents into `/srv/app/` on a server, deleting
+   stale files but keeping `/srv/app/uploads`.

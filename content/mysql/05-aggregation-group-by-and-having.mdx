@@ -1,0 +1,156 @@
+---
+title: "Aggregation, GROUP BY & HAVING"
+description: "COUNT variants, grouping rules under ONLY_FULL_GROUP_BY, HAVING vs WHERE, subtotals with WITH ROLLUP, and GROUP_CONCAT limits."
+module: "Core SQL"
+level: intermediate
+order: 7
+---
+
+Reporting queries — revenue per city, orders per month, top categories —
+are all built on aggregation. Interviewers use them to check whether you
+understand how NULLs are counted, what may appear in a `SELECT` next to a
+`GROUP BY`, and where a filter belongs. Examples use the `customers`,
+`orders`, `order_items` and `products` tables from the "Relational Basics & Data Types" lesson.
+
+## COUNT(*) vs COUNT(col) vs COUNT(DISTINCT col)
+
+| Expression | Counts |
+| --- | --- |
+| `COUNT(*)` | all rows, NULLs included |
+| `COUNT(col)` | rows where `col` is not NULL |
+| `COUNT(DISTINCT col)` | distinct non-NULL values of `col` |
+
+```sql
+-- customers.city: 'Pune', 'Pune', 'Delhi', NULL
+SELECT COUNT(*), COUNT(city), COUNT(DISTINCT city) FROM customers;
+-- 4 | 3 | 2
+```
+
+`COUNT(1)` is identical to `COUNT(*)` in MySQL; neither is faster. Other
+aggregates (`SUM`, `AVG`, `MIN`, `MAX`) also ignore NULLs, which matters for
+`AVG`: the average of 100, NULL and 200 is 150, not 100. On an empty input
+`COUNT` returns 0 but `SUM` returns `NULL`, so wrap it as
+`COALESCE(SUM(total), 0)` in reports.
+
+## GROUP BY
+
+`GROUP BY` collapses rows that share the same key values into one output
+row per group, and aggregates are computed per group:
+
+```sql
+SELECT c.city, COUNT(*) AS orders, SUM(o.total) AS revenue
+FROM orders o
+JOIN customers c ON c.id = o.customer_id
+WHERE o.status = 'delivered'
+GROUP BY c.city;
+```
+
+| city | orders | revenue |
+| --- | --- | --- |
+| Pune | 2 | 3148.00 |
+| Delhi | 1 | 1999.00 |
+
+Since MySQL 8.0, `GROUP BY` no longer sorts its output implicitly, and the
+`GROUP BY col DESC` syntax was removed in 8.0.13. If you need order, add an
+explicit `ORDER BY`.
+
+## ONLY_FULL_GROUP_BY
+
+This SQL mode, enabled by default since MySQL 5.7.5, rejects queries whose
+`SELECT`, `HAVING` or `ORDER BY` reference a non-aggregated column that is
+not determined by the `GROUP BY` columns:
+
+```sql
+SELECT c.city, c.name, COUNT(*) FROM customers c GROUP BY c.city;
+-- ERROR 1055: Expression #2 of SELECT list is not in GROUP BY clause
+-- and contains nonaggregated column 'shop.c.name' ...
+```
+
+Which `name` should a city with five customers show? Without the mode,
+MySQL picked an arbitrary one, a long-standing source of silent bugs.
+MySQL does detect **functional dependence**: grouping by a primary key lets
+you select any other column of that table.
+
+```sql
+SELECT c.id, c.name, c.city, COUNT(o.id) AS orders   -- allowed
+FROM customers c LEFT JOIN orders o ON o.customer_id = c.id
+GROUP BY c.id;
+```
+
+If you genuinely do not care which value appears, say so with
+`ANY_VALUE(c.name)` rather than disabling the mode.
+
+## HAVING vs WHERE
+
+`WHERE` filters **rows before grouping**; `HAVING` filters **groups after
+aggregation**. Aggregates are not allowed in `WHERE`.
+
+```sql
+SELECT customer_id, SUM(total) AS spent
+FROM orders
+WHERE status <> 'cancelled'          -- row filter
+GROUP BY customer_id
+HAVING SUM(total) >= 10000;          -- group filter: ₹10,000+ customers
+```
+
+Put every condition that does not need an aggregate in `WHERE`: it shrinks
+the data before grouping and can use indexes. A condition like
+`HAVING status <> 'cancelled'` is either an error under ONLY_FULL_GROUP_BY
+or wasted work. MySQL also lets `HAVING` refer to a `SELECT` alias, e.g.
+`HAVING spent >= 10000`.
+
+## Subtotals with WITH ROLLUP
+
+`WITH ROLLUP` adds super-aggregate rows: a subtotal for each higher level
+and a grand total.
+
+```sql
+SELECT p.category, YEAR(o.created_at) AS yr,
+       SUM(oi.quantity * oi.unit_price) AS revenue,
+       GROUPING(p.category) AS is_total
+FROM order_items oi
+JOIN orders o   ON o.id = oi.order_id
+JOIN products p ON p.id = oi.product_id
+GROUP BY p.category, yr WITH ROLLUP;
+```
+
+| category | yr | revenue | is_total |
+| --- | --- | --- | --- |
+| Grocery | 2024 | 12980.00 | 0 |
+| Grocery | 2025 | 6490.00 | 0 |
+| Grocery | NULL | 19470.00 | 0 |
+| NULL | NULL | 19470.00 | 1 |
+
+Rollup rows show `NULL` in the rolled-up columns. Because real data can
+also contain NULL, use the `GROUPING()` function (MySQL 8.0.1+), which
+returns 1 for a super-aggregate column, to label them, e.g.
+`IF(GROUPING(p.category), 'All categories', p.category)`. Since 8.0.12
+`ORDER BY` can be combined with `WITH ROLLUP`.
+
+## GROUP_CONCAT
+
+`GROUP_CONCAT` joins a group's values into one string, with its own
+`DISTINCT`, `ORDER BY` and `SEPARATOR`:
+
+```sql
+SELECT o.id,
+       GROUP_CONCAT(p.name ORDER BY p.name SEPARATOR ', ') AS items
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.id
+JOIN products p     ON p.id = oi.product_id
+GROUP BY o.id;
+-- 101 | Basmati Rice 5 kg, Steel Tiffin
+```
+
+The result is silently truncated at `group_concat_max_len`, which defaults
+to **1,024 bytes**; MySQL only raises a warning. Raise it per session
+(`SET SESSION group_concat_max_len = 1000000`) before building long lists
+— a favourite interview gotcha.
+
+### Try it yourself
+
+For each city, report the number of customers, the number who have placed
+at least one order, total delivered revenue in INR (0 when none), and a
+comma-separated list of distinct product categories bought, sorted
+alphabetically. Keep only cities with revenue of ₹50,000 or more, and add
+a grand-total row labelled with `GROUPING()`.

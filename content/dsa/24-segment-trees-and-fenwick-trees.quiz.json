@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which query can a segment tree handle directly that a Fenwick tree cannot?",
+      "options": [
+        "Range sum",
+        "Prefix sum",
+        "Range minimum with point updates",
+        "Point update of a sum"
+      ],
+      "correctIndex": 2,
+      "explanation": "A Fenwick tree answers ranges by subtracting prefixes, which needs an invertible operation. Min has no inverse, so a segment tree is used."
+    },
+    {
+      "question": "In a range-minimum segment tree, what should a node completely outside the query range return?",
+      "options": [
+        "Infinity",
+        "0",
+        "-Infinity",
+        "null"
+      ],
+      "correctIndex": 0,
+      "explanation": "The value must be the identity for min, which is Infinity; returning 0 would corrupt answers for positive values."
+    },
+    {
+      "question": "What does i & -i compute in a Fenwick tree?",
+      "options": [
+        "The highest set bit of i",
+        "The number of set bits in i",
+        "i modulo 2",
+        "The lowest set bit of i"
+      ],
+      "correctIndex": 3,
+      "explanation": "In two's complement, i & -i isolates the lowest set bit, which is the length of the block stored at index i. For 12 (binary 1100) it is 4."
+    },
+    {
+      "question": "What problem does lazy propagation solve?",
+      "options": [
+        "It builds the tree in O(1)",
+        "It makes range updates O(log n) instead of touching every leaf",
+        "It reduces memory to O(1)",
+        "It allows string keys"
+      ],
+      "correctIndex": 1,
+      "explanation": "A lazy tag records a pending update on a fully covered node and pushes it to the children only when a later operation needs them."
+    }
+  ]
+}

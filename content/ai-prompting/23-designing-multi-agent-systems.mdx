@@ -1,0 +1,165 @@
+---
+title: "Designing Multi-Agent Systems"
+description: "When one agent is not enough: orchestrator-worker architecture, writing sub-agent briefs, context isolation, model and effort routing per role, budgets and stopping rules, and the failure modes that make multi-agent systems expensive."
+module: "Pro Level"
+level: "pro"
+order: 24
+---
+
+The tool-use lesson ended with a single agent: one model, one loop, a handful
+of tools. Some tasks outgrow that shape. Reviewing 400 vendor contracts,
+researching a market across dozens of sources, or auditing every branch's
+monthly MIS pack would fill one agent's context with reading long before it
+finishes thinking. **Multi-agent systems** split the work across several
+model instances. Done well, they are faster and more accurate; done badly,
+they multiply cost and confusion. This lesson is about the design decisions.
+
+## Start with the case against
+
+Every extra agent adds tokens, latency and places for information to get
+lost. Before splitting, check:
+
+| Question | If the answer is no |
+| --- | --- |
+| Does the work naturally divide into independent pieces? | Use one agent or a fixed chain |
+| Would one agent's context overflow, or degrade, with all the reading? | One agent is fine |
+| Is the value high enough to pay several times the tokens? | Use a cheaper design |
+| Can you verify the combined result? | Fix evaluation first |
+
+Multi-agent systems typically use **several times** the tokens of a single
+agent on the same task, because each worker re-reads its brief and its own
+sources. Measure that on your workload rather than assuming.
+
+## The orchestrator-worker pattern
+
+The most reliable architecture has one **orchestrator** that plans, delegates
+and synthesises, and several **workers** that each do one bounded job and
+report back.
+
+```text
+                 Orchestrator (plans, merges, decides when done)
+                 /            |              \
+        Worker A          Worker B          Worker C
+   (contracts 1-50)   (contracts 51-100)  (contracts 101-150)
+        |                  |                  |
+   condensed findings  condensed findings  condensed findings
+```
+
+Key property: **context isolation**. Each worker reads its 50 contracts in
+its own fresh context and returns only a condensed result — say 300 tokens
+of structured findings. The orchestrator never sees the raw documents, so
+its context stays small and focused on synthesis.
+
+Avoid peer-to-peer designs where workers message each other freely. They are
+hard to debug, hard to bound, and tend to loop.
+
+## Writing the sub-agent brief
+
+A worker starts with **zero** knowledge of the wider task. The brief the
+orchestrator writes is the worker's whole world, so it needs the same
+ingredients as any good prompt, plus boundaries:
+
+```text
+<objective>
+Review the 50 vendor contracts in <documents> for Ganga Logistics (a
+fictional company) and flag auto-renewal and unlimited-liability clauses.
+</objective>
+
+<scope>
+Only these 50 contracts. Do not assess pricing; another worker does that.
+</scope>
+
+<output_format>
+JSON list: contract_id, clause_type, exact_quote, page. Empty list if none.
+</output_format>
+
+<limits>
+Stop after one pass. If a contract is unreadable, record contract_id with
+clause_type "unreadable" rather than guessing.
+</limits>
+```
+
+Common brief failures: vague objectives ("look into the contracts"), missing
+scope so two workers duplicate effort, and no output format so the
+orchestrator receives ten differently shaped essays.
+
+## Routing models and effort per role
+
+Different roles need different capability. A typical split:
+
+| Role | Model | Effort | Why |
+| --- | --- | --- | --- |
+| Orchestrator | `claude-opus-5-5` | `high` | Planning and synthesis are the hard part |
+| Reading-heavy workers | `claude-haiku-5-5` or `claude-sonnet-5-5` | `low` to `medium` | Bounded extraction at volume |
+| Final verifier | `claude-opus-5-5` | `high` | Catches merge errors |
+
+Before building a cascade, measure the simpler alternative: the most capable
+model at lower effort for every role. Fewer models also means fewer separate
+prompt caches, since caches are model-specific.
+
+## A minimal orchestrator in Python
+
+Workers are independent, so run them concurrently. The orchestrator then
+merges structured results in code where it can, and uses a model only for
+judgement.
+
+```python
+import asyncio, json
+import anthropic
+
+client = anthropic.AsyncAnthropic()  # reads ANTHROPIC_API_KEY
+
+async def run_worker(brief: str, docs: str) -> list:
+    resp = await client.messages.create(
+        model="claude-haiku-5-5",
+        max_tokens=8000,
+        output_config={"effort": "low"},
+        system=brief,
+        messages=[{"role": "user", "content": f"<documents>{docs}</documents>"}],
+    )
+    if resp.stop_reason != "end_turn":
+        return [{"error": f"worker stopped: {resp.stop_reason}"}]
+    text = "".join(b.text for b in resp.content if b.type == "text")
+    return json.loads(text)  # validate against a schema in real code
+
+async def orchestrate(batches: list[str], brief: str) -> list:
+    results = await asyncio.gather(*(run_worker(brief, b) for b in batches))
+    findings = [f for batch in results for f in batch]
+    return findings  # hand to a verifier or a synthesis call next
+
+# findings = asyncio.run(orchestrate(contract_batches, BRIEF))
+```
+
+In production, prefer API-enforced structured outputs over `json.loads` on
+free text, cap concurrency to stay within rate limits, and log every
+worker's input and output for debugging.
+
+## Budgets and stopping rules
+
+Agents that decide for themselves when to stop need explicit limits, set in
+**code**, not just in the prompt:
+
+- A maximum number of workers per task and loop iterations per worker.
+- A token or rupee budget per task, checked after every call.
+- A wall-clock timeout, with partial results returned rather than nothing.
+- A rule for the orchestrator: "If two rounds of delegation add no new
+  findings, synthesise what you have."
+
+## Failure modes to design against
+
+| Failure | Symptom | Mitigation |
+| --- | --- | --- |
+| Lossy hand-offs | Orchestrator's summary drops a key finding | Workers return structured data with quotes |
+| Duplicate work | Two workers analyse the same item | Partition inputs in code, not by the model |
+| Runaway spawning | Costs spike on hard tasks | Hard caps on workers and iterations |
+| Compounding errors | One worker's mistake becomes the "fact" | Verifier step that re-checks quotes against sources |
+| Silent partial failure | One batch errors, report looks complete | Track every batch's status; report gaps |
+
+### Try it yourself
+
+Take a task you would give a single agent — for example, summarising risks
+across 20 fictional supplier agreements. Design it as orchestrator-worker on
+paper: write the partition rule, one worker brief with objective, scope,
+output format and limits, and the orchestrator's stopping rule. Then
+estimate token use for the single-agent and multi-agent versions, and write
+one sentence on which you would ship and why.

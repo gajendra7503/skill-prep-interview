@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why give each feature folder an index.ts public API?",
+      "options": [
+        "Bundlers require an index file in every folder",
+        "It makes every file in the feature importable from anywhere",
+        "Other code imports only the stable surface, so the owning team can refactor internals freely",
+        "It disables tree-shaking for that feature"
+      ],
+      "correctIndex": 2,
+      "explanation": "A public API hides internal files. Combined with lint rules against deep imports, it keeps features decoupled."
+    },
+    {
+      "question": "In a Module Federation setup, why should react and react-dom be shared as singletons?",
+      "options": [
+        "Two copies of React on one page break hooks and Context",
+        "It makes each remote load faster than a monolith",
+        "Singletons are required for TypeScript",
+        "It lets each remote use a different major React version"
+      ],
+      "correctIndex": 0,
+      "explanation": "Hooks and Context rely on a single React instance. Duplicate copies cause invalid hook call errors and missing context values."
+    },
+    {
+      "question": "What is the main reason to adopt micro-frontends?",
+      "options": [
+        "They always reduce total JavaScript payload",
+        "They remove the need for a design system",
+        "They make end-to-end testing simpler",
+        "Separate teams need to build and deploy parts of the UI independently"
+      ],
+      "correctIndex": 3,
+      "explanation": "Micro-frontends are an organisational scaling tool. They usually add payload, version skew and integration risk."
+    },
+    {
+      "question": "Which dependency direction is healthy in a feature-based structure?",
+      "options": [
+        "shared/ imports from features/",
+        "app/ uses features/, and both use shared/, with no feature-to-feature deep imports",
+        "Every feature imports every other feature's internals",
+        "features/ import from app/"
+      ],
+      "correctIndex": 1,
+      "explanation": "Dependencies should flow one way toward shared/. shared/ must stay free of feature knowledge, and cycles between features signal misplaced code."
+    }
+  ]
+}

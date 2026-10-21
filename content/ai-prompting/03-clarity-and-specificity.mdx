@@ -1,0 +1,141 @@
+---
+title: "Clarity and Specificity"
+description: "Replace vague requests with precise ones, explain the why behind instructions, phrase them positively, remove contradictions, and prefer calm wording to shouting."
+module: "Foundations"
+level: "beginner"
+order: 5
+---
+
+Modern models follow instructions **literally and precisely**. That is a
+strength when your instructions are clear and a liability when they are
+vague, contradictory or exaggerated. This lesson covers five habits that make
+prompts behave predictably.
+
+## Vague vs specific
+
+Vague words like "short", "professional", "detailed" or "improve" mean
+different things to different people. The model has to guess, and its guess
+may not match yours.
+
+```text
+Summarise this report. Keep it short.
+```
+
+```text
+Summarise this quarterly operations report for the regional head, who has
+two minutes before a meeting. Use exactly five bullet points, each under 20
+words. Lead with the single most important change since last quarter.
+Include figures in lakh or crore as they appear in the report.
+```
+
+Specific prompts replace adjectives with **measurable targets**: a word
+count, a number of items, a named reader, a concrete ordering rule.
+
+A quick checklist for specificity:
+
+- Could two people read this instruction and produce very different outputs?
+- Is every adjective ("brief", "formal") backed by something concrete?
+- Have I said what to do with edge cases, such as missing data?
+
+## Explain the why
+
+An instruction with a reason generalises better than a bare rule. When the
+model understands the purpose, it can apply the spirit of the rule to cases
+you did not anticipate.
+
+```text
+Never use abbreviations.
+```
+
+```text
+Avoid abbreviations such as "KYC" or "TAT" unless you spell them out first,
+because this FAQ will be read by first-time customers who do not know our
+internal terms.
+```
+
+The second version tells the model that the real goal is readability for
+newcomers. It will now also avoid jargon you did not list, and it knows that
+spelling out a term first is acceptable.
+
+## Say what to do, not only what not to do
+
+Negative instructions ("don't use bullet points", "don't be wordy") tell the
+model what to avoid but leave it guessing about what you want instead. They
+can also draw attention to the very thing you are trying to avoid.
+
+| Negative only | Positive and specific |
+| --- | --- |
+| Don't use markdown. | Write in plain flowing paragraphs suitable for pasting into an email. |
+| Don't be too technical. | Explain as you would to a branch manager with no IT background. |
+| Don't make it long. | Keep it under 120 words. |
+
+You can keep a negative instruction when it matters, but pair it with the
+behaviour you want.
+
+## Avoid contradictions
+
+Long prompts written over several edits often contain instructions that
+pull against each other, and the model has to choose which one to obey.
+
+```text
+Be concise. Cover every clause of the leave policy in detail.
+Use a friendly, casual tone. Write formally for the HR committee.
+```
+
+When you find a conflict, decide which goal wins and say so, or explain how
+both apply:
+
+```text
+Write for the HR committee in a formal tone. Cover only the three clauses
+that changed in the 2026 leave policy revision, in two to three sentences
+each. If an unchanged clause is needed for context, mention it in one line.
+```
+
+Re-read long system prompts specifically looking for conflicts. They are the
+most common cause of "inconsistent" behaviour.
+
+## Calm wording beats shouting
+
+Older models sometimes ignored instructions, so prompt writers learned to
+shout:
+
+```text
+CRITICAL!!! YOU MUST ALWAYS RESPOND IN JSON. NEVER EVER ADD ANY OTHER TEXT.
+THIS IS EXTREMELY IMPORTANT!!!
+```
+
+Current models, including Claude, pay close attention to instructions
+already. Aggressive emphasis tends to cause **over-application**: the model
+treats the shouted rule as more important than everything else and applies
+it rigidly, even where it no longer makes sense. For example, a shouted "NEVER
+mention competitors" can make a model refuse to discuss a customer's
+comparison question at all.
+
+A calm, explained version works better:
+
+```text
+Respond with a single JSON object and no surrounding text, because your
+output is parsed directly by our ticketing system and any extra characters
+will cause the import to fail.
+```
+
+Use emphasis sparingly, and when one instruction genuinely matters more than
+others, explain why rather than adding capital letters.
+
+## Putting it together
+
+Before you send a prompt, read it once with these questions in mind:
+
+1. Is each instruction specific enough to check?
+2. Does each important rule carry its reason?
+3. Have I said what I want, not just what I do not want?
+4. Do any two instructions conflict?
+5. Is the tone calm and explanatory?
+
+### Try it yourself
+
+Find a prompt you or your team uses regularly, ideally one that sometimes
+produces odd results. Mark every vague adjective, every bare rule without a
+reason, every negative-only instruction, and every pair of conflicting
+instructions. Rewrite it using the five habits, then run both versions on
+the same three inputs and compare the consistency of the results.

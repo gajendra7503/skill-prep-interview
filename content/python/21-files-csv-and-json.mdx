@@ -1,0 +1,157 @@
+---
+title: "Files, CSV & JSON"
+description: "Reading and writing files correctly — modes, encodings, pathlib, csv and json, streaming large files, tempfile and the atomic write pattern."
+module: "Practical Python"
+level: "intermediate"
+order: 17
+---
+
+File handling looks trivial until a CSV opens as mojibake in Excel, a
+2 GB log exhausts memory, or a crash leaves a half-written config file.
+Interviewers use these scenarios to separate people who have shipped
+data pipelines from people who have only read tutorials.
+
+## `open()`: modes and encoding
+
+```python
+with open("notes.txt", "w", encoding="utf-8") as f:   # create/truncate
+    f.write("Fees: ₹1,200\n")
+
+with open("notes.txt", encoding="utf-8") as f:        # default mode "r"
+    for line in f:                                     # lazy, line by line
+        print(line.rstrip("\n"))
+```
+
+| Mode | Meaning |
+| --- | --- |
+| `r` | Read (default); file must exist |
+| `w` | Write; truncates or creates |
+| `a` | Append; writes always go to the end |
+| `x` | Exclusive create; `FileExistsError` if it exists |
+| `b` | Binary — bytes in and out, no encoding |
+| `+` | Read and write (e.g. `r+`) |
+
+Always pass `encoding` in text mode. Without it Python uses the
+locale's preferred encoding — often `cp1252` on Windows — so the same
+code can crash on `₹` on one machine and work on another. PEP 686 makes
+UTF-8 the default in Python 3.15, but explicit is still safer for code
+that runs on older versions. Use `encoding="utf-8-sig"` to write CSVs
+that Excel recognises as UTF-8 (it adds a BOM) and to read files that
+start with one.
+
+## `pathlib` for file operations
+
+```python
+from pathlib import Path
+
+data_dir = Path("data")
+data_dir.mkdir(parents=True, exist_ok=True)
+report = data_dir / "report.txt"
+report.write_text("ok\n", encoding="utf-8")   # open, write, close in one call
+size = report.stat().st_size
+for csv_file in sorted(data_dir.glob("*.csv")):
+    print(csv_file.name)
+```
+
+`read_text`/`write_text` are perfect for small files; use
+`path.open(...)` when you need streaming.
+
+## `csv`: DictReader and DictWriter
+
+```python
+import csv
+
+with open("txns.csv", newline="", encoding="utf-8") as f:
+    reader = csv.DictReader(f)                 # first row becomes the keys
+    total = sum(float(row["amount"]) for row in reader)
+
+rows = [{"name": "Asha", "amount": 1500}, {"name": "Ravi, Jr.", "amount": 820}]
+with open("out.csv", "w", newline="", encoding="utf-8") as f:
+    writer = csv.DictWriter(f, fieldnames=["name", "amount"])
+    writer.writeheader()
+    writer.writerows(rows)                     # "Ravi, Jr." is quoted for you
+```
+
+Open CSV files with `newline=""`; otherwise the `csv` module and the
+text layer both translate line endings and you get blank rows on
+Windows. Never split on commas yourself — quoted fields can contain
+commas and newlines. Every value is read back as a `str`.
+
+## `json`: dump/load and custom types
+
+```python
+import json
+from datetime import date
+from decimal import Decimal
+
+def to_json(obj):
+    if isinstance(obj, Decimal):
+        return str(obj)              # keep exact money values
+    if isinstance(obj, date):
+        return obj.isoformat()
+    raise TypeError(f"{type(obj).__name__} is not JSON serializable")
+
+payload = {"amount": Decimal("1499.50"), "on": date(2026, 10, 12), "cur": "₹"}
+text = json.dumps(payload, default=to_json, ensure_ascii=False, indent=2)
+data = json.loads(text)              # Decimal and date come back as str
+```
+
+`dump`/`load` work with file objects; `dumps`/`loads` with strings.
+`default=` is called for any object `json` cannot handle (subclassing
+`json.JSONEncoder` and overriding `default` is equivalent), and
+`object_hook=` customises decoding. `ensure_ascii=False` writes `₹`
+as-is rather than `₹`. JSON has no tuple, set, date or `Decimal`
+type, and dict keys always become strings.
+
+## Streaming large files
+
+```python
+def errors(path):
+    with open(path, encoding="utf-8") as f:
+        for line in f:                         # constant memory
+            if " ERROR " in line:
+                yield line
+
+def iter_chunks(path, size=1 << 20):          # binary, 1 MiB at a time
+    with open(path, "rb") as f:
+        while chunk := f.read(size):
+            yield chunk
+```
+
+`f.read()` and `json.load` pull the whole file into memory. For huge
+datasets prefer **JSON Lines** (one JSON object per line), which you can
+process one `json.loads(line)` at a time.
+
+## `tempfile` and the atomic write pattern
+
+```python
+import os, tempfile
+
+def atomic_write_json(path: Path, data) -> None:
+    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())               # force bytes to disk
+        os.replace(tmp, path)                  # atomic swap
+    except BaseException:
+        os.unlink(tmp)
+        raise
+```
+
+Writing directly to `config.json` means a crash mid-write leaves a
+truncated file. Writing to a temp file **in the same directory** and
+then calling `os.replace` means readers see either the old file or the
+new one, never a mix — `os.replace` is atomic on the same filesystem
+and overwrites on Windows too (unlike `os.rename`). For scratch space,
+`tempfile.TemporaryDirectory()` and `NamedTemporaryFile()` clean up
+automatically when used as context managers.
+
+### Try it yourself
+
+Write a script that streams a large `txns.csv` with `DictReader`,
+totals amounts per category in ₹ using `Decimal`, and saves the summary
+with `atomic_write_json`. Test it with `TemporaryDirectory` and confirm
+that a simulated exception before `os.replace` leaves the old summary
+intact.

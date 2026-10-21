@@ -1,0 +1,163 @@
+---
+title: "Large-Scale React Architecture"
+description: "Structuring a React codebase for many teams: feature modules, enforced boundaries, monorepos, design systems, code splitting, and when micro-frontends are worth it."
+module: "Pro Level"
+level: pro
+order: 27
+---
+
+A 20-component app can live in any folder structure. A 2,000-component app
+worked on by eight teams cannot. Senior and staff interviews often end with
+"How would you structure this app so it scales?" There's no single right
+answer, but there are well-understood trade-offs you should be able to
+defend.
+
+## Organise by feature, not by file type
+
+Grouping by type (`components/`, `hooks/`, `utils/`) scatters every feature
+across the tree. Grouping by **feature** keeps everything that changes
+together in one place:
+
+```text
+src/
+├── app/                 # routing, providers, app shell
+├── features/
+│   ├── portfolio/
+│   │   ├── api/         # queries and mutations for this feature
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── portfolio.test.tsx
+│   │   └── index.ts     # the feature's PUBLIC API
+│   ├── sip/
+│   └── kyc/
+└── shared/              # ui kit, utilities, no feature knowledge
+```
+
+## Give each feature a public API
+
+```ts
+// features/portfolio/index.ts
+export { PortfolioSummary } from "./components/PortfolioSummary";
+export { usePortfolioValue } from "./hooks/usePortfolioValue";
+export type { Holding } from "./types";
+// Everything else in this folder is private to the feature.
+```
+
+Other features import from `@/features/portfolio`, never from its internal
+files. That lets the owning team refactor freely behind a stable surface.
+
+## Enforce boundaries with tooling, not wiki pages
+
+```js
+// eslint.config.js (excerpt)
+export default [
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          { group: ["@/features/*/*"], message: "Import from the feature's index instead." },
+        ],
+      }],
+    },
+  },
+  {
+    files: ["src/shared/**"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [{ group: ["@/features/*"], message: "shared/ must not depend on features." }],
+      }],
+    },
+  },
+];
+```
+
+Dependency direction should be one-way: `app` uses `features`, and both use
+`shared`. Cycles between features are a sign that something belongs in
+`shared` or needs an event-based interface.
+
+## Monorepos and a shared design system
+
+When several apps (customer portal, advisor dashboard, admin tool) share
+code, a monorepo with package-manager workspaces (pnpm, npm or Yarn) plus a
+task runner such as Turborepo or Nx is the common setup:
+
+```text
+apps/
+  customer-web/
+  advisor-dashboard/
+packages/
+  ui/            # design system: Button, Dialog, tokens
+  api-client/    # typed API client generated from OpenAPI
+  config/        # shared tsconfig, eslint config
+```
+
+Benefits: one version of React across apps, atomic changes across packages,
+and cached builds and tests. Costs: CI needs to build only what changed,
+and ownership rules (CODEOWNERS) become essential.
+
+## Code splitting at route and feature level
+
+The fastest code is code the user never downloads. Split at route
+boundaries first, then for heavy, rarely used features:
+
+```tsx
+const TaxReport = lazy(() => import("@/features/tax-report"));
+
+<Suspense fallback={<ReportSkeleton />}>
+  {showReport && <TaxReport year={2026} />}
+</Suspense>
+```
+
+Set a **bundle budget** in CI (for example, fail the build if the initial JS
+for the main route grows past an agreed size) so regressions are caught in
+review rather than by users.
+
+## Micro-frontends: a team-scaling tool, not a performance tool
+
+Micro-frontends let separate teams build and **deploy** parts of the UI
+independently, often via Module Federation:
+
+```js
+// host webpack/rspack config (excerpt)
+new ModuleFederationPlugin({
+  name: "shell",
+  remotes: { sip: "sip@https://cdn.example.com/sip/remoteEntry.js" },
+  shared: {
+    react: { singleton: true, requiredVersion: "^19.0.0" },
+    "react-dom": { singleton: true, requiredVersion: "^19.0.0" },
+  },
+});
+```
+
+`singleton: true` matters: two copies of React on one page break hooks and
+Context. Weigh the costs honestly:
+
+| Gain | Cost |
+|---|---|
+| Independent deploys per team | Runtime integration failures instead of build errors |
+| Smaller blast radius per release | Version skew of shared dependencies |
+| Teams can choose their own pace | Duplicated code, larger total payload |
+| Clear ownership | Harder end-to-end testing and consistent UX |
+
+A well-bounded modular monolith gives most of the organisational benefit
+with far fewer failure modes. Reach for micro-frontends when independent
+deployment is the real bottleneck.
+
+## Cross-cutting concerns to decide once
+
+- **State ownership**: server state in a query cache, URL state in the
+  router, global client state kept small.
+- **Error handling**: an error boundary per route and per risky widget,
+  reporting to monitoring with the feature name attached.
+- **Feature flags**: ship dark, roll out gradually, delete flags promptly.
+- **Architecture Decision Records**: short documents capturing why a choice
+  was made, so the next team doesn't relitigate it.
+
+### Try it yourself
+
+Take the Task Tracker project and restructure it into `features/tasks`,
+`features/filters` and `shared/ui`, each feature with an `index.ts`. Add the
+`no-restricted-imports` rules above and confirm that a deep import into
+another feature fails lint. Then lazy-load a new "Statistics" feature and
+compare the initial bundle size before and after.

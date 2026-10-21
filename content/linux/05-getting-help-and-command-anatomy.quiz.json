@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "After `name=Asha`, what does `echo 'Hello $name'` print?",
+      "options": [
+        "Hello Asha",
+        "Hello",
+        "Hello $name",
+        "An error, because single quotes are not allowed with echo"
+      ],
+      "correctIndex": 2,
+      "explanation": "Single quotes make everything literal, so the variable is not expanded. Double quotes would print Hello Asha."
+    },
+    {
+      "question": "Why is `cd /opt/old-release && rm -r cache` safer than `cd /opt/old-release ; rm -r cache`?",
+      "options": [
+        "&& runs rm only if cd succeeded, so a failed cd will not delete cache in the wrong directory",
+        "&& runs both commands in parallel, which is faster",
+        "; is not valid Bash syntax",
+        "&& automatically asks for confirmation before rm"
+      ],
+      "correctIndex": 0,
+      "explanation": "With ;, rm runs regardless of whether cd worked, so it could delete a cache directory wherever you happen to be. && checks the exit status first."
+    },
+    {
+      "question": "You need documentation for the format of the /etc/passwd file rather than the passwd command. Which command shows it?",
+      "options": [
+        "man passwd",
+        "help passwd",
+        "passwd --help",
+        "man 5 passwd"
+      ],
+      "correctIndex": 3,
+      "explanation": "Section 5 of the manual covers file formats. Plain man passwd shows section 1, the command."
+    },
+    {
+      "question": "A script runs a command and `$?` is 127. What most likely happened?",
+      "options": [
+        "The command succeeded",
+        "The command was not found",
+        "The user pressed Ctrl+C",
+        "The disk is full"
+      ],
+      "correctIndex": 1,
+      "explanation": "Exit status 127 is what the shell returns when it cannot find the command, often because of a typo or a missing PATH entry."
+    }
+  ]
+}

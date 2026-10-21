@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does `const order = (await res.json()) as Order;` not protect you from a malformed API response?",
+      "options": [
+        "Because `res.json()` already validates against the Order type",
+        "Because `as` only tells the compiler to trust you; types are erased and nothing is checked at runtime",
+        "Because `as` throws at runtime only in strict mode",
+        "Because fetch responses are always typed as `never`"
+      ],
+      "correctIndex": 1,
+      "explanation": "`res.json()` returns `any`, and a type assertion performs no runtime check. Types are erased, so bad data flows through until something crashes."
+    },
+    {
+      "question": "What does `schema.safeParse(data)` return in Zod?",
+      "options": [
+        "The parsed data, or throws a ZodError",
+        "A boolean indicating validity",
+        "A Promise that rejects on invalid data",
+        "An object with `success: true` and `data`, or `success: false` and `error`"
+      ],
+      "correctIndex": 3,
+      "explanation": "safeParse never throws. It returns a discriminated union you narrow on `success`; `parse` is the variant that throws."
+    },
+    {
+      "question": "For `const Rupees = z.string().transform((s) => Math.round(Number(s) * 100))`, what are `z.input<typeof Rupees>` and `z.output<typeof Rupees>`?",
+      "options": [
+        "string and number",
+        "number and string",
+        "string and string",
+        "unknown and number"
+      ],
+      "correctIndex": 0,
+      "explanation": "The schema accepts a string and the transform produces a number. `z.infer` is the same as `z.output`."
+    },
+    {
+      "question": "By default, what does a plain `z.object({ a: z.number() })` do with the input `{ a: 1, b: 2 }`?",
+      "options": [
+        "Fails validation because `b` is unknown",
+        "Keeps `b` in the output",
+        "Succeeds and strips `b`, returning `{ a: 1 }`",
+        "Converts `b` to a string"
+      ],
+      "correctIndex": 2,
+      "explanation": "Plain z.object strips unknown keys. Use z.strictObject to reject them or z.looseObject to keep them."
+    }
+  ]
+}

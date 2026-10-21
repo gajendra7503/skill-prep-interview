@@ -1,0 +1,191 @@
+---
+title: "DP Patterns: Knapsack, LIS, LCS, Grid & Interval"
+description: "The five dynamic programming families that cover most interview problems, with state definitions, recurrences, space optimisations and working JavaScript."
+module: "Dynamic Programming"
+level: "advanced"
+order: 21
+---
+
+Most DP interview questions are disguised versions of a handful of
+families. Recognising the family gives you the state and transition almost
+immediately. This lesson assumes the five-step framework (state, transition,
+base cases, order, answer) from "Dynamic Programming Fundamentals".
+
+| Family | Typical state | Recognise it by |
+|---|---|---|
+| 0/1 knapsack | `dp[c]` = best value with capacity `c` | pick a subset under a budget; each item once |
+| LIS | `dp[i]` = best sequence ending at `i` | increasing order within one sequence |
+| LCS / two strings | `dp[i][j]` = answer for prefixes `a[0..i)`, `b[0..j)` | compare or align two sequences |
+| Grid | `dp[r][c]` = best way to reach cell | move right/down through a matrix |
+| Interval | `dp[i][j]` = best for the range `i..j` | merge, split or bracket a range |
+
+## 1. 0/1 knapsack
+
+A start-up, Kirana Cloud, has a ₹8 lakh budget and four candidate projects
+costing ₹3, 4, 5 and 2 lakh, expected to bring 30, 50, 60 and 15 thousand
+users. Each project can be funded at most once. Maximise users.
+
+- **State**: `dp[c]` = most users achievable with budget `c` using items seen so far.
+- **Transition**: for item `i`, `dp[c] = max(dp[c], dp[c - w[i]] + v[i])`.
+
+The 2D version `dp[i][c]` reads only row `i - 1`, so one row suffices **if
+you loop capacity downwards**. Going down guarantees `dp[c - w[i]]` still
+holds the previous item's value, so each item is used at most once.
+
+```js
+function knapsack01(weights, values, capacity) {
+  const dp = new Array(capacity + 1).fill(0);
+  for (let i = 0; i < weights.length; i++) {
+    for (let c = capacity; c >= weights[i]; c--) {   // downwards!
+      dp[c] = Math.max(dp[c], dp[c - weights[i]] + values[i]);
+    }
+  }
+  return dp[capacity];
+}
+console.log(knapsack01([3, 4, 5, 2], [30, 50, 60, 15], 8)); // 90 (₹3L + ₹5L projects)
+```
+
+Loop **upwards** instead and an item can be picked repeatedly: that is the
+**unbounded knapsack**. On the same input it returns 100 (the ₹4 lakh
+project twice). Interviewers love asking why the loop direction matters.
+Time O(n x C), space O(C). Note that this is *pseudo-polynomial*: it depends
+on the numeric capacity, not just the input length. Subset sum, "partition
+into two equal sums" and "target sum with + and -" are all 0/1 knapsack.
+
+## 2. Longest increasing subsequence (LIS)
+
+Given daily prices, find the length of the longest strictly increasing
+subsequence (not necessarily contiguous).
+
+- **State**: `dp[i]` = length of the LIS **ending at** index `i`.
+- **Transition**: `dp[i] = 1 + max(dp[j])` over `j` less than `i` with
+  `nums[j]` less than `nums[i]`. Answer: max over all `dp[i]`. O(n^2).
+
+The O(n log n) version keeps `tails[k]` = smallest possible tail of an
+increasing subsequence of length `k + 1`. `tails` is always sorted, so each
+new number is placed by binary search (see "Binary Search & Search on the
+Answer"): it either extends the longest run or lowers a tail.
+
+```js
+function lisFast(nums) {
+  const tails = [];
+  for (const x of nums) {
+    let lo = 0, hi = tails.length;
+    while (lo < hi) {                       // first tail >= x
+      const mid = (lo + hi) >> 1;
+      if (tails[mid] < x) lo = mid + 1; else hi = mid;
+    }
+    tails[lo] = x;                          // extend or replace
+  }
+  return tails.length;
+}
+console.log(lisFast([10, 9, 2, 5, 3, 7, 101, 18])); // 4  e.g. 2, 3, 7, 18
+console.log(lisFast([7, 7, 7]));                    // 1  (strictly increasing)
+```
+
+Caution: `tails` is **not** an actual subsequence; only its length is
+meaningful. Reconstructing the sequence needs parent pointers.
+
+## 3. Longest common subsequence (LCS)
+
+Two-sequence DP powers diff tools, DNA alignment and spell-checkers.
+
+- **State**: `dp[i][j]` = LCS length of the first `i` chars of `a` and first `j` of `b`.
+- **Transition**: if `a[i-1] === b[j-1]`, take `dp[i-1][j-1] + 1`; otherwise
+  `max(dp[i-1][j], dp[i][j-1])`. Row 0 and column 0 are 0 (empty prefix).
+
+```js
+function lcs(a, b) {
+  const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1] + 1
+        : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  return dp[a.length][b.length];
+}
+console.log(lcs("abcde", "ace"));            // 3
+console.log(lcs("BENGALURU", "MANGALURU"));  // 7  ("NGALURU")
+```
+
+O(m x n) time and space; space drops to O(min(m, n)) with two rows. **Edit
+distance** uses the same table with three choices (insert, delete, replace).
+
+## 4. Grid paths
+
+Minimum-cost path from the top-left to the bottom-right, moving only right or
+down. `dp[r][c] = grid[r][c] + min(dp[r-1][c], dp[r][c-1])`. Since each row
+only needs the row above, one array is enough: `dp[c]` holds "from above" and
+`dp[c - 1]` holds "from the left".
+
+```js
+function minPathSum(grid) {
+  const cols = grid[0].length;
+  const dp = new Array(cols).fill(Infinity);
+  dp[0] = 0;
+  for (const row of grid) {
+    dp[0] += row[0];
+    for (let c = 1; c < cols; c++) dp[c] = Math.min(dp[c], dp[c - 1]) + row[c];
+  }
+  return dp[cols - 1];
+}
+console.log(minPathSum([[1, 3, 1], [1, 5, 1], [4, 2, 1]])); // 7  (1-3-1-1-1)
+```
+
+O(rows x cols) time, O(cols) space. "Count unique paths" uses `+` instead of
+`min`; obstacles simply set a cell to 0 ways.
+
+## 5. Interval DP: matrix-chain multiplication
+
+Multiplying a p x q matrix by a q x r one costs p x q x r operations. For a
+chain, the bracketing changes the total cost dramatically. `dims` of length
+n + 1 describes n matrices.
+
+- **State**: `dp[i][j]` = cheapest cost to multiply matrices `i..j`.
+- **Transition**: try every split `k`:
+  `dp[i][k] + dp[k+1][j] + dims[i] * dims[k+1] * dims[j+1]`.
+- **Order**: by increasing interval **length**, so shorter ranges are ready.
+
+```js
+function matrixChain(dims) {
+  const n = dims.length - 1;
+  const dp = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let len = 2; len <= n; len++) {
+    for (let i = 0; i + len - 1 < n; i++) {
+      const j = i + len - 1;
+      dp[i][j] = Infinity;
+      for (let k = i; k < j; k++) {
+        const cost = dp[i][k] + dp[k + 1][j] + dims[i] * dims[k + 1] * dims[j + 1];
+        dp[i][j] = Math.min(dp[i][j], cost);
+      }
+    }
+  }
+  return dp[0][n - 1];
+}
+console.log(matrixChain([10, 30, 5, 60]));     // 4500  ((AB)C)
+console.log(matrixChain([40, 20, 30, 10, 30])); // 26000
+```
+
+O(n^3) time, O(n^2) space. Burst balloons, minimum cost to cut a rod and
+palindrome partitioning follow the same "try every split point" shape.
+
+## Common mistakes
+
+- **Wrong loop direction in 1D knapsack** (turns 0/1 into unbounded).
+- **Confusing subsequence with substring.** Longest common *substring* resets
+  to 0 on a mismatch instead of taking the max.
+- **Off-by-one between string index and table index**: `dp[i][j]` refers to
+  `a[i - 1]` and `b[j - 1]`.
+- **Filling interval DP row by row** instead of by length.
+- **Returning `tails`** as the LIS itself.
+
+### Try it yourself
+
+1. Partition equal subset sum: can `[1, 5, 11, 5]` be split into two groups
+   with equal totals? Reduce it to 0/1 knapsack with a boolean `dp`.
+2. Edit distance between "kolkata" and "kolkatta": write the recurrence with
+   insert, delete and replace, then code it.
+3. Extend `lcs` to return the actual subsequence by walking back from
+   `dp[m][n]`.

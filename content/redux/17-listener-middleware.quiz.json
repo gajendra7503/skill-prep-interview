@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A listener on queryChanged calls api.cancelActiveListeners() and then await api.delay(300) before searching. The user dispatches queryChanged three times within 100ms. How many searches run?",
+      "options": [
+        "Three, one per action",
+        "One, for the last query only",
+        "None, because the listener cancels itself",
+        "Two, the first and the last"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each new run cancels earlier in-progress runs, which throw at their pending api.delay. Only the last run survives the 300ms wait, so this is a debounce."
+    },
+    {
+      "question": "When a listener's effect runs, what does api.getState() return?",
+      "options": [
+        "The state before the triggering action was reduced",
+        "The initial state of the store",
+        "A draft that can be mutated directly",
+        "The state after the reducers have processed the triggering action"
+      ],
+      "correctIndex": 3,
+      "explanation": "Effects run after the action has gone through the reducers. Use api.getOriginalState() if you need the state from just before the action."
+    },
+    {
+      "question": "Which trigger option lets a listener fire on a state transition regardless of which action caused it?",
+      "options": [
+        "predicate: (action, currentState, previousState) => boolean",
+        "actionCreator",
+        "type",
+        "matcher: isAnyOf(...)"
+      ],
+      "correctIndex": 0,
+      "explanation": "predicate receives both the current and previous state, so it can detect a change like 'results went from empty to non-empty' whatever action produced it."
+    },
+    {
+      "question": "A component registers a listener with dispatch(addAppListener({...})). How should it clean up?",
+      "options": [
+        "Call listenerMiddleware.clearListeners() on unmount",
+        "Nothing is needed; listeners added from components are removed automatically on unmount",
+        "Return the function returned by that dispatch from the useEffect cleanup",
+        "Dispatch the same addAppListener action a second time"
+      ],
+      "correctIndex": 2,
+      "explanation": "Dispatching addListener returns an unsubscribe function. Returning it from useEffect removes the listener when the component unmounts."
+    }
+  ]
+}

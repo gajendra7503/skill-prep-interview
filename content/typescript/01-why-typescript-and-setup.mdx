@@ -1,0 +1,177 @@
+---
+title: "Why TypeScript & Setting Up"
+description: "What TypeScript adds to JavaScript, why teams adopt it, and how to install the compiler and run your first typed program."
+module: "Getting Started"
+level: "beginner"
+order: 1
+---
+
+TypeScript is JavaScript with a **static type system** layered on top. You
+write `.ts` files, a type checker reads them before your code ever runs,
+and it reports mistakes such as calling a method that does not exist or
+passing a string where a number was expected. Then the types are removed
+and plain JavaScript is what actually executes.
+
+Today most new frontend and Node.js codebases at product companies start
+in TypeScript, and "Why would you use TypeScript?" is a common opening
+question in interviews.
+
+## The problem TypeScript solves
+
+JavaScript only finds many bugs when the faulty line actually runs —
+sometimes in production, in front of a customer:
+
+```js
+// cart.js — plain JavaScript
+function totalPrice(items) {
+  return items.reduce((sum, item) => sum + item.price * item.qty, 0);
+}
+
+totalPrice([{ price: 499, quantity: 2 }]);
+// NaN  — "quantity" is not "qty", item.qty is undefined
+```
+
+The same code in TypeScript fails **while you are typing**, in the editor:
+
+```ts
+type CartItem = { price: number; qty: number };
+
+function totalPrice(items: CartItem[]): number {
+  return items.reduce((sum, item) => sum + item.price * item.qty, 0);
+}
+
+totalPrice([{ price: 499, quantity: 2 }]);
+// Error: Object literal may only specify known properties,
+// and 'quantity' does not exist in type 'CartItem'.
+```
+
+## What you actually get
+
+| Benefit | What it means day to day |
+|---|---|
+| Earlier errors | Typos, wrong argument types and missing `null` checks fail at compile time |
+| Editor intelligence | Accurate autocomplete, go-to-definition, inline docs |
+| Safe refactoring | Rename a property and the compiler lists every place that breaks |
+| Living documentation | A function signature tells you exactly what to pass and what comes back |
+| Gradual adoption | Any valid JavaScript is close to valid TypeScript; migrate file by file |
+
+What TypeScript does **not** do:
+
+- It does not change runtime behaviour or make code faster. Types are
+  **erased** — they do not exist when the program runs.
+- It does not validate data coming from outside (API responses, form
+  input, files). A value typed as `number` can still be a string at
+  runtime if a server sends one. Checking that is covered in "Runtime
+  Validation & Type-Safe Boundaries (Zod)".
+
+Interviewers often ask: "Does TypeScript run in the browser?" The answer:
+no — browsers and Node run JavaScript. TypeScript is compiled (more
+precisely, *transpiled*) to JavaScript, or its types are stripped, before
+execution.
+
+## Installing the compiler
+
+TypeScript ships as an npm package containing the compiler, `tsc`. Install
+it per project as a dev dependency so every teammate uses the same version:
+
+```bash
+mkdir hello-ts && cd hello-ts
+npm init -y
+npm install --save-dev typescript
+npx tsc --version
+# Version 7.0.2
+```
+
+TypeScript 7 (the current release) is the compiler rewritten in Go: the
+package installs a native `tsc` binary for your platform, so checks run much
+faster than on the older JavaScript-based 5.x and 6.x releases. The commands
+and the language are the same.
+
+Create a starter configuration file:
+
+```bash
+npx tsc --init
+# Created a new tsconfig.json
+```
+
+The generated `tsconfig.json` has `"strict": true` already switched on —
+keep it that way (strict is also the compiler's default since TypeScript 6.0). Strict mode enables the checks that catch the most bugs,
+such as treating `null` and `undefined` as separate types. Every option is
+explained in "tsconfig & Strict Mode Explained".
+
+## Your first program
+
+```ts
+// greet.ts
+function greet(name: string, city: string): string {
+  return `Namaste ${name} from ${city}!`;
+}
+
+console.log(greet("Asha", "Pune"));
+console.log(greet("Ravi", 411001));
+// Error: Argument of type 'number' is not assignable to parameter of type 'string'.
+```
+
+The `: string` after each parameter is a **type annotation**. Fix the
+second call, then compile:
+
+```bash
+npx tsc            # type-checks and writes greet.js next to greet.ts
+node greet.js
+# Namaste Asha from Pune!
+```
+
+Because the generated config also enables `declaration` and `sourceMap`,
+you get `greet.d.ts` and `.map` files alongside. Open `greet.js` and you will
+see the same function with the annotations removed. Useful variations:
+
+```bash
+npx tsc --noEmit   # type-check only, write no files (common in CI)
+npx tsc --watch    # re-check every time you save
+```
+
+By default `tsc` still writes JavaScript even when there are type errors.
+Treat errors as failures anyway — CI pipelines usually run `tsc --noEmit`
+and fail the build on any error.
+
+## Running .ts files directly with Node
+
+Recent Node versions (including Node 24) can run a `.ts` file directly by
+**stripping** the type annotations — no `tsc` step needed:
+
+```bash
+node greet.ts
+# Namaste Asha from Pune!
+```
+
+Two things to know:
+
+1. Node does **not** type-check. It simply deletes the types. You still
+   need `tsc --noEmit` (or your editor) to catch errors.
+2. Only *erasable* syntax works — annotations that can be deleted without
+   changing behaviour. Features that generate JavaScript, such as `enum`,
+   `namespace` and constructor parameter properties, are rejected with a
+   syntax error.
+
+A typical workflow is: editor shows errors as you type, `node file.ts` or
+a tool like `tsx` to run quickly, `tsc --noEmit` in CI, and a bundler or
+`tsc` to build for production.
+
+## Editor support
+
+VS Code bundles the TypeScript language service, so hovering a variable
+shows its type and red squiggles appear immediately. Even in plain `.js`
+files you can add `// @ts-check` at the top to get TypeScript's checks
+using inferred types — a gentle first step when migrating an old project.
+
+### Try it yourself
+
+1. Set up `hello-ts` as above, write `greet.ts`, and confirm that both
+   `npx tsc` and `node greet.ts` print the greeting.
+2. Write a function `emi(principal: number, months: number): number` that
+   returns `principal / months` rounded to two decimals. Call it with
+   `emi("500000", 12)` and read the compiler error. Then fix the call to
+   `emi(500000, 12)` (₹5 lakh over a year).
+3. Add `enum Plan { Basic, Pro }` to a file and run it with `node`. Read
+   the error, then explain in one sentence why type stripping cannot handle
+   enums.

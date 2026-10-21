@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `\"5\" + 3` evaluate to in JavaScript?",
+      "options": [
+        "8",
+        "\"53\"",
+        "2",
+        "A TypeError"
+      ],
+      "correctIndex": 1,
+      "explanation": "When either operand of + is a string, + joins text, so 3 is converted to \"3\" and the result is \"53\"."
+    },
+    {
+      "question": "Which statement about const and let is correct?",
+      "options": [
+        "const variables can be reassigned, let variables cannot",
+        "let is the older keyword that modern code avoids",
+        "A const variable cannot be reassigned to a different value; let can",
+        "They are identical and interchangeable"
+      ],
+      "correctIndex": 2,
+      "explanation": "const creates a label that can never point at a different value, while let allows reassignment. The older keyword modern code avoids is var."
+    },
+    {
+      "question": "What is the difference between a JavaScript engine and a runtime?",
+      "options": [
+        "There is no difference; the words are synonyms",
+        "The runtime executes code; the engine provides APIs like document and fetch",
+        "The engine only exists in browsers, the runtime only in Node",
+        "The engine executes JavaScript; the runtime is the engine plus environment APIs such as document or file access"
+      ],
+      "correctIndex": 3,
+      "explanation": "Engines like V8 run the language itself, and a runtime (a browser or Node) wraps the engine and adds environment-specific APIs."
+    },
+    {
+      "question": "Why does `0.1 + 0.2` print 0.30000000000000004?",
+      "options": [
+        "JavaScript numbers are binary floating point, which cannot represent some decimals exactly",
+        "It is a bug in Node.js that browsers do not have",
+        "Because + converts both numbers to strings first",
+        "Because 0.1 is stored as a bigint"
+      ],
+      "correctIndex": 0,
+      "explanation": "JavaScript numbers are IEEE 754 binary floating point, so values like 0.1 are approximations — which is why money is best stored in whole paise."
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "question": "Which render mode best suits a logged-in portfolio dashboard that needs no SEO?",
+      "options": ["RenderMode.Prerender", "RenderMode.Client", "RenderMode.Server", "RenderMode.Static"],
+      "correctIndex": 1,
+      "explanation": "Authenticated, personalised pages gain nothing from SEO and are a good fit for client-only rendering."
+    },
+    {
+      "question": "What does `getPrerenderParams` do on a parameterised server route like `funds/:code`?",
+      "options": [
+        "Validates route params at runtime",
+        "Fetches data on every request",
+        "Disables prerendering for that route",
+        "Returns the list of param values so one HTML file is prerendered per value at build time"
+      ],
+      "correctIndex": 3,
+      "explanation": "It runs at build time and returns objects like { code } so Angular can prerender each concrete URL."
+    },
+    {
+      "question": "With incremental hydration, what happens to content inside `@defer (hydrate on viewport)`?",
+      "options": [
+        "It is server-rendered as HTML, and its JavaScript is fetched and hydrated when it scrolls into view",
+        "It is not rendered on the server at all",
+        "It hydrates immediately at startup like the rest of the page",
+        "It is removed from the page until the user clicks it"
+      ],
+      "correctIndex": 0,
+      "explanation": "The server renders full HTML; the client keeps the block dehydrated until the trigger fires, saving JavaScript at startup."
+    },
+    {
+      "question": "Why should browser-only code such as reading `localStorage` go inside `afterNextRender()` in an SSR app?",
+      "options": [
+        "It makes the code run faster on the server",
+        "It enables the HTTP transfer cache",
+        "afterNextRender only runs in the browser, so server rendering does not crash on missing browser APIs",
+        "It prevents event replay"
+      ],
+      "correctIndex": 2,
+      "explanation": "Browser globals do not exist on the server; afterNextRender callbacks are skipped during server rendering."
+    }
+  ]
+}

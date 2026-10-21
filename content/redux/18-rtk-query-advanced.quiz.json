@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In an optimistic update, what does the object returned by dispatch(api.util.updateQueryData(...)) let you do?",
+      "options": [
+        "Retry the mutation automatically",
+        "Call undo() to reverse exactly that cache patch if the request fails",
+        "Invalidate all tags for the endpoint",
+        "Cancel the HTTP request in flight"
+      ],
+      "correctIndex": 1,
+      "explanation": "updateQueryData returns a patch result with undo(). The usual pattern is to await queryFulfilled in a try/catch and call patch.undo() in the catch block."
+    },
+    {
+      "question": "A component calls useGetTodosQuery() with no argument. In onQueryStarted you call updateQueryData('getTodos', 'all', recipe). What happens?",
+      "options": [
+        "The cache entry the component reads is updated",
+        "RTK Query throws because 'all' is not a valid argument",
+        "Every cache entry for getTodos is updated",
+        "Nothing visible changes, because the patch targets a different cache key than the component's (undefined)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Cache entries are keyed by endpoint plus argument. The argument passed to updateQueryData must match the one the hook used, here undefined."
+    },
+    {
+      "question": "You set refetchOnFocus: true in createApi, but nothing refetches when the tab regains focus. What is the most likely missing step?",
+      "options": [
+        "Calling setupListeners(store.dispatch) after creating the store",
+        "Adding a pollingInterval to the hook",
+        "Wrapping the app in a second Provider",
+        "Setting keepUnusedDataFor to 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "refetchOnFocus and refetchOnReconnect rely on browser focus and online events, which RTK Query subscribes to only after setupListeners(store.dispatch) is called."
+    },
+    {
+      "question": "What does api.injectEndpoints({ endpoints }) return?",
+      "options": [
+        "A brand-new API slice that needs its own reducer and middleware in the store",
+        "A promise that resolves when the endpoints are loaded",
+        "The same API object, now containing the new endpoints, with types that include them",
+        "A copy of the API with the old endpoints removed"
+      ],
+      "correctIndex": 2,
+      "explanation": "injectEndpoints mutates the original API and returns it with improved types. Because the reducer and middleware are shared, a lazily loaded chunk can add endpoints without any store changes."
+    }
+  ]
+}

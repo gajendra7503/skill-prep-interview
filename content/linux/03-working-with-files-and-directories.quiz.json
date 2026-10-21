@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Which command creates reports/2026/q1 even if reports and reports/2026 do not exist yet?",
+      "options": [
+        "mkdir reports/2026/q1",
+        "touch -p reports/2026/q1",
+        "mkdir -p reports/2026/q1",
+        "cp -r reports/2026/q1"
+      ],
+      "correctIndex": 2,
+      "explanation": "mkdir -p creates any missing parent directories and does not complain if the path already exists. Plain mkdir fails when a parent is missing."
+    },
+    {
+      "question": "A directory contains jan.csv, feb.csv and mar.csv. What does `echo *.log` print?",
+      "options": [
+        "*.log, because Bash passes an unmatched pattern through unchanged",
+        "Nothing, an empty line",
+        "An error: no such file",
+        "jan.csv feb.csv mar.csv"
+      ],
+      "correctIndex": 0,
+      "explanation": "By default, when a glob matches nothing Bash leaves the pattern as literal text, so echo prints *.log."
+    },
+    {
+      "question": "Why is `rm -rf $DIR/` dangerous in a script?",
+      "options": [
+        "-f makes rm slower on large directories",
+        "If DIR is empty or unset, it expands to rm -rf / and tries to delete everything",
+        "rm cannot delete directories, so it always fails",
+        "The trailing slash makes rm move files to the Recycle Bin"
+      ],
+      "correctIndex": 1,
+      "explanation": "An empty variable leaves just /, and -rf removes recursively without prompting. Always check the target and prefer explicit paths."
+    },
+    {
+      "question": "You run `rm current`, where current is a symbolic link to /var/www/payroll/releases/v42. What is deleted?",
+      "options": [
+        "The v42 directory and everything in it",
+        "Nothing, because rm refuses to touch symlinks",
+        "Both the link and its target",
+        "Only the symlink; the target directory is untouched"
+      ],
+      "correctIndex": 3,
+      "explanation": "A symlink is a separate small file that points at a path. Removing it removes only the pointer, which is why symlink-based deployments can switch or roll back safely."
+    }
+  ]
+}

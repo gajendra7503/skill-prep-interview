@@ -1,0 +1,162 @@
+---
+title: "V8 Internals: JIT and Garbage Collection"
+description: "How V8 turns your JavaScript into machine code through tiered compilation, why hidden classes and inline caches decide hot-path speed, and how the generational garbage collector affects latency."
+module: "Pro Level"
+level: "pro"
+order: 26
+---
+
+Most Node performance work is about I/O and algorithms. But on a hot path —
+a JSON transformer handling 20,000 requests a second, a parser in a CLI —
+the difference between code V8 can optimise and code it cannot is often
+5-10x. Senior interviews probe this with questions like "why is `delete`
+slow?" or "what is a deoptimisation?". This lesson gives you the model.
+
+## Tiered compilation
+
+V8 does not compile everything up front. Code moves through tiers as it
+gets "hot":
+
+| Tier | What it is | Trade-off |
+| --- | --- | --- |
+| Ignition | Bytecode interpreter | Starts instantly, slowest to run |
+| Sparkplug | Baseline compiler, bytecode to machine code without optimising | Very fast to compile, modest speed-up |
+| Maglev | Mid-tier optimising compiler | Good code, compiles quickly |
+| TurboFan | Top-tier optimising compiler | Fastest code, most expensive to compile |
+
+The optimising tiers **speculate** using type feedback collected while the
+function ran: "`o.x` has always been a small integer on objects shaped like
+`Point`". If the speculation later fails, V8 **deoptimises** — throws away
+the optimised code and falls back to a lower tier. You can watch this:
+
+```js
+// deopt.js
+function total(items) {
+  let s = 0;
+  for (const it of items) s += it.price;
+  return s;
+}
+const items = Array.from({ length: 1000 }, (_, i) => ({ price: i }));
+for (let i = 0; i < 20_000; i++) total(items);   // hot: gets optimised
+total([{ price: "100" }]);                        // a string sneaks in
+```
+
+```bash
+node --trace-opt --trace-deopt deopt.js
+# [marking ... <JSFunction total> for optimization to MAGLEV, reason: hot and stable]
+# [marking ... <JSFunction total> for optimization to TURBOFAN_JS, reason: hot and stable]
+# [marking dependent code ... <SharedFunctionInfo total> for deoptimization,
+#   reason: dependent field representation changed]
+```
+
+The exact tier names and messages vary across V8 versions, but the lesson
+is stable: **consistent types keep code optimised**.
+
+## Hidden classes (maps)
+
+JavaScript objects look like dictionaries, but V8 gives each object a
+hidden **shape** (V8 calls it a *map*) describing which properties it has
+and at which memory offset. Objects created the same way share a shape, so
+a property read becomes "load from offset 8" instead of a hash lookup.
+
+```js
+// run with: node --allow-natives-syntax shapes.js  (for learning only)
+function Point(x, y) { this.x = x; this.y = y; }
+const a = new Point(1, 2);
+const b = new Point(3, 4);
+const c = new Point(5, 6);
+c.z = 7;                                  // c moves to a new shape
+
+const d = { y: 2, x: 1 };
+const e = { x: 1, y: 2 };
+
+console.log(%HaveSameMap(a, b));   // true
+console.log(%HaveSameMap(a, c));   // false
+console.log(%HaveSameMap(d, e));   // false — property ORDER is part of the shape
+```
+
+Practical rules that follow:
+
+- Initialise all fields in the constructor (or object literal), in the
+  same order, even if some start as `null`.
+- Do not add properties to objects after creation on hot paths.
+- Avoid `delete obj.key` on hot objects: it can drop the object into slow
+  **dictionary mode**. Set the field to `undefined`, or build a new object
+  without it.
+
+```js
+const g = { x: 1, y: 2 };
+console.log(%HasFastProperties(g));   // true
+delete g.x;
+console.log(%HasFastProperties(g));   // false
+```
+
+## Inline caches and polymorphism
+
+Each property access site remembers the shapes it has seen — an **inline
+cache**:
+
+- **Monomorphic** — one shape. Fastest.
+- **Polymorphic** — a few shapes (up to about four). Still decent.
+- **Megamorphic** — many shapes. Falls back to a generic, slow lookup.
+
+A function like `getId(entity)` called with users, orders, invoices and
+products of different shapes goes megamorphic. On a genuinely hot path,
+normalise data into one shape (a class or a factory function) before
+processing it.
+
+Arrays have an analogous idea, **elements kinds**: an array of only small
+integers is stored more efficiently than one mixing integers, doubles and
+objects, and creating holes (`arr[1000] = x` on an empty array) makes it
+"holey" and slower. Transitions only go towards more general kinds — an
+array never returns to the fast kind.
+
+## The generational garbage collector
+
+V8's GC (project name **Orinoco**) is based on the observation that most
+objects die young.
+
+- **Young generation** — new objects are allocated here. It is small and
+  collected often by the **Scavenger**, which copies surviving objects and
+  is fast because it only touches live data. Collection runs in parallel
+  on helper threads.
+- **Old generation** — objects that survive a couple of scavenges are
+  promoted here. It is collected by **mark-sweep-compact**, with most
+  marking done concurrently on background threads; only shorter pauses
+  stop your JavaScript.
+
+```bash
+node --trace-gc server.js
+# 76 ms: Scavenge 4.8 (5.8) -> 4.5 (6.8) MB, 2.83 / 0.00 ms  allocation failure;
+# ...  : Mark-Compact 180.2 (210.0) -> 95.1 (205.3) MB, 45.10 / 0.00 ms ...
+```
+
+Long Mark-Compact pauses show up directly as p99 latency spikes. Levers:
+
+- **Allocate less** on hot paths: avoid creating throwaway arrays and
+  closures per item, reuse buffers, stream instead of building giant
+  strings.
+- Increasing `--max-semi-space-size` (MB) enlarges the young generation so
+  fewer short-lived objects get promoted; it helps allocation-heavy
+  services, at the cost of memory. Measure before and after.
+- `--max-old-space-size` sets the old-generation limit, as covered in the
+  performance lesson.
+
+## How to use this knowledge responsibly
+
+Natives syntax (`%HaveSameMap` and friends) and tier names are internal and
+change between V8 versions — use them to learn, never in production code.
+The workflow stays the same: profile with `--cpu-prof`, find the hot
+function, check `--trace-deopt` for repeated deoptimisations, then fix the
+shape or type instability. Readable code that keeps types consistent beats
+clever micro-optimisations.
+
+### Try it yourself
+
+1. Run the `deopt.js` example and find the deoptimisation reason. Change
+   the bad call to `{ price: 100 }` and confirm the deopt disappears.
+2. Build 1,00,000 order objects of ₹ amounts two ways — all with the same
+   fields in the same order, and with fields added conditionally in random
+   order — and time a function that sums `amount` over each array.
+3. Run an allocation-heavy script with `--trace-gc`, count Scavenge versus
+   Mark-Compact lines, then rerun with `--max-semi-space-size=64` and compare.

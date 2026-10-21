@@ -1,0 +1,151 @@
+---
+title: "Security Best Practices"
+description: "Defend Node.js apps against the classic attacks: risky dependencies, unvalidated input, path traversal, prototype pollution, ReDoS and leaked secrets."
+module: "Security & Testing"
+level: "advanced"
+order: 20
+---
+
+Security questions in Node.js interviews are rarely about cryptography.
+They are about everyday mistakes: trusting user input, trusting the npm
+registry, and blocking the single-threaded event loop. If you can name the
+attack, show the vulnerable line and show the fix, you will stand out.
+
+## Dependency risk and npm audit
+
+A typical app has a handful of direct dependencies and hundreds of
+transitive ones, and any of them can run code on install through
+`postinstall` scripts. Treat every package as code you are shipping.
+
+```bash
+npm audit                     # known vulnerabilities in the installed tree
+npm audit --omit=dev          # only what ships to production
+npm audit fix                 # apply semver-compatible upgrades
+npm audit signatures          # verify registry signatures and provenance
+npm ci --ignore-scripts       # install from the lockfile without lifecycle scripts
+```
+
+Commit the lockfile, install with `npm ci` in CI, review new packages
+(maintainers, download counts, recent ownership changes) and watch for
+typosquats such as `expresss`. Fewer dependencies means a smaller attack
+surface — many small utilities are now built into Node itself.
+
+## Validate input at the boundary
+
+Everything from `req.body`, query strings, headers, files and environment
+variables is untrusted. Validate shape, type and size once, where data
+enters, and work with trusted values afterwards. A schema library like zod
+keeps this declarative:
+
+```js
+import { z } from "zod";
+
+const Transfer = z.object({
+  toAccount: z.string().regex(/^\d{9,18}$/),
+  amount: z.number().positive().max(200000), // ₹2,00,000 per transfer
+});
+
+const result = Transfer.safeParse({ toAccount: "12345", amount: -50 });
+console.log(result.success); // false
+```
+
+Also cap request body sizes, use parameterised queries (never string
+concatenation) for SQL, and escape output for the context it lands in.
+
+## Path traversal
+
+If a user-supplied name is joined into a path, `../` sequences can escape
+the intended folder and read files such as `.env`. `path.join` does not
+protect you; resolve the path and check it is still inside the root.
+
+```js
+import path from "node:path";
+import { readFile } from "node:fs/promises";
+
+const ROOT = path.resolve("uploads");
+
+export async function readUpload(name) {
+  const target = path.resolve(ROOT, name);
+  if (!target.startsWith(ROOT + path.sep)) {
+    throw new Error("Invalid path");
+  }
+  return readFile(target);
+}
+
+// readUpload("invoice.pdf")      -> reads uploads/invoice.pdf
+// readUpload("../.env")          -> Error: Invalid path
+```
+
+The trailing `path.sep` matters: without it, `uploads-private/` would pass
+a `startsWith("uploads")` check.
+
+## Prototype pollution
+
+A naive deep merge of attacker-controlled JSON can write to
+`Object.prototype`, adding properties to every object in the process:
+
+```js
+function merge(target, source) {
+  for (const key in source) {
+    if (typeof source[key] === "object" && source[key]) {
+      target[key] ??= {};
+      merge(target[key], source[key]);
+    } else target[key] = source[key];
+  }
+  return target;
+}
+
+merge({}, JSON.parse('{"__proto__": {"isAdmin": true}}'));
+console.log({}.isAdmin); // true  -- every object is now "admin"
+```
+
+Fixes: skip the keys `__proto__`, `constructor` and `prototype`; use `Map`
+or `Object.create(null)` for dictionaries keyed by user input; validate
+input with a strict schema; and consider running Node with
+`--disable-proto=delete`, which removes the `__proto__` accessor.
+
+## ReDoS: regular expressions that block the loop
+
+Regexes with nested quantifiers can backtrack exponentially. Because
+JavaScript runs on one thread, one malicious string freezes every request:
+
+```js
+const bad = /^(a+)+$/;
+bad.test("a".repeat(28) + "!"); // took over 30 seconds in testing
+```
+
+Avoid nested or overlapping quantifiers, limit input length before
+matching, and prefer simple parsing or a vetted validator for emails and
+URLs.
+
+## Secrets
+
+- Never commit secrets; keep `.env` in `.gitignore` and load it with
+  `node --env-file=.env` or a secret manager in production.
+- Never log full tokens, passwords or request bodies with card numbers.
+- Return generic error messages to clients; stack traces belong in logs.
+- Rotate any key that has ever appeared in git history — deleting the
+  file is not enough.
+
+## Least privilege
+
+Run the process as a non-root user (especially in containers), give
+database users only the permissions they need, and restrict what the
+process itself can touch with Node's permission model:
+
+```bash
+node --permission --allow-fs-read=./data app.js
+# reading outside ./data, spawning processes or starting workers
+# now throws ERR_ACCESS_DENIED
+```
+
+Older releases called the flag `--experimental-permission`; check the
+documentation for your Node version. Treat it as defence in depth, not a
+sandbox for running untrusted code.
+
+### Try it yourself
+
+Write a small HTTP endpoint `GET /files?name=...` that serves files from
+an `uploads` folder. Attack it with `../package.json`, then add the
+resolve-and-check fix. Next, rewrite the `merge` function above so the
+pollution payload has no effect, and prove it by logging `{}.isAdmin`.

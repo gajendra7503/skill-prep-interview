@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Your key login fails and `ssh -v` shows the key being refused. Which permission problem is the most common cause?",
+      "options": [
+        "~/.ssh is 700 and authorized_keys is 600",
+        "The public key file on your laptop is 644",
+        "~/.ssh or authorized_keys on the server is writable by group or others",
+        "known_hosts is empty"
+      ],
+      "correctIndex": 2,
+      "explanation": "SSH refuses keys when ~/.ssh or authorized_keys are too open. Required modes are 700 for ~/.ssh and 600 for authorized_keys; 644 for a public key is fine."
+    },
+    {
+      "question": "In `~/.ssh/config` you have a specific `Host web1` block and a `Host *` block. Where should `Host *` go and why?",
+      "options": [
+        "At the end, because SSH uses the first value it finds for each option",
+        "At the top, because later blocks override earlier ones",
+        "Anywhere; order does not matter",
+        "In a separate file, because Host * is not allowed in ~/.ssh/config"
+      ],
+      "correctIndex": 0,
+      "explanation": "For each option the first obtained value wins, so put specific hosts first and general defaults last. ssh -G host shows the final settings."
+    },
+    {
+      "question": "Which command lets you connect to a private PostgreSQL server at 10.0.1.20:5432 from your laptop on local port 5433, through web1?",
+      "options": [
+        "ssh -R 5433:10.0.1.20:5432 web1",
+        "ssh -D 5433 10.0.1.20",
+        "ssh -J 10.0.1.20:5432 web1",
+        "ssh -N -L 5433:10.0.1.20:5432 web1"
+      ],
+      "correctIndex": 3,
+      "explanation": "-L opens a listening port on your side (5433) and forwards traffic through web1 to 10.0.1.20:5432. -R opens the port on the server side instead."
+    },
+    {
+      "question": "Why is `ProxyJump` generally preferred over agent forwarding (`ssh -A`) for reaching servers behind a bastion?",
+      "options": [
+        "ProxyJump is faster because it disables encryption on the bastion",
+        "With agent forwarding, anyone with root on the remote host can use your agent while you are connected",
+        "Agent forwarding only works with RSA keys",
+        "ProxyJump copies your private key to the bastion so it can authenticate for you"
+      ],
+      "correctIndex": 1,
+      "explanation": "ProxyJump keeps the end-to-end connection encrypted from your laptop; the bastion only relays bytes and never gets access to your keys or agent."
+    }
+  ]
+}

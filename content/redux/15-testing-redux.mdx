@@ -1,0 +1,191 @@
+---
+title: "Testing Reducers, Thunks & Connected Components"
+description: "Test Redux the way the maintainers recommend: pure reducer tests, thunks against a real store, and components rendered with a fresh store per test."
+module: "Data Fetching"
+level: "intermediate"
+order: 15
+---
+
+The official Redux guidance: **prefer integration tests that exercise
+everything working together**, and treat the store as an implementation
+detail of components. Unit-test reducers and tricky selectors (pure
+functions, so it is cheap), but rarely mock `useSelector` or `dispatch`. We
+use Vitest and React Testing Library; Jest is nearly identical.
+
+## The feature under test
+
+A cart slice for a fictional grocery app, Kirana Basket. Its state is
+`{ items, status, error }`; it has `itemAdded` (merges quantity if the item
+exists) and `itemRemoved` reducers, a `selectCartTotal` selector, and this
+thunk, whose `pending`/`fulfilled`/`rejected` cases set `status`, `items` and
+`error` in `extraReducers`:
+
+```ts
+// features/cart/cartSlice.ts (excerpt)
+export const fetchCart = createAsyncThunk('cart/fetch', async (userId: string) => {
+  const res = await fetch(`https://api.example.test/cart/${userId}`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`) // becomes action.error.message
+  return (await res.json()) as CartItem[]
+})
+```
+
+## Step 1: a store factory, not a singleton
+
+Tests must not share state. Export a `setupStore` function that builds a
+**new** store each time and accepts `preloadedState`:
+
+```ts
+// app/store.ts
+import { combineReducers, configureStore } from '@reduxjs/toolkit'
+import cartReducer from '../features/cart/cartSlice'
+
+const rootReducer = combineReducers({ cart: cartReducer })
+export type RootState = ReturnType<typeof rootReducer>
+
+export function setupStore(preloadedState?: Partial<RootState>) {
+  return configureStore({ reducer: rootReducer, preloadedState })
+}
+export type AppStore = ReturnType<typeof setupStore>
+```
+
+Deriving `RootState` from `rootReducer` lets `preloadedState` be typed
+without a circular reference.
+
+## Step 2: reducer tests — just call the function
+
+A reducer is `(state, action) => newState`, so no store is needed:
+
+```ts
+import reducer, { itemAdded, itemRemoved, initialState } from './cartSlice'
+
+const dal = { id: 'dal', name: 'Toor Dal 1kg', price: 180, qty: 1 }
+const rice = { id: 'rice', name: 'Basmati 5kg', price: 650, qty: 1 }
+
+it('merges quantity when the same item is added twice', () => {
+  let state = reducer(initialState, itemAdded(dal))
+  state = reducer(state, itemAdded({ ...dal, qty: 2 }))
+  expect(state.items).toEqual([{ ...dal, qty: 3 }])
+})
+it('removes an item', () => {
+  const start = { ...initialState, items: [dal, rice] }
+  expect(reducer(start, itemRemoved('dal')).items).toEqual([rice])
+})
+```
+
+Use the **real action creators** — testing with hand-written
+`{ type: 'cart/itemAdded' }` objects duplicates knowledge and breaks on renames.
+
+## Step 3: thunk tests — dispatch into a real store
+
+Do not mock `dispatch` and assert on the sequence of actions. Dispatch the
+thunk into a real store, stub only the network, and assert on the
+**resulting state**:
+
+```ts
+afterEach(() => vi.unstubAllGlobals())
+
+it('stores items on success', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([dal, rice]), { status: 200 })))
+  const store = setupStore()
+  const result = await store.dispatch(fetchCart('u1'))
+  expect(result.type).toBe('cart/fetch/fulfilled')
+  expect(selectCartTotal(store.getState())).toBe(830)
+})
+it('records the error on failure', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response('oops', { status: 500 })))
+  const store = setupStore()
+  await store.dispatch(fetchCart('u1'))
+  expect(store.getState().cart).toMatchObject({ status: 'failed', error: 'HTTP 500' })
+})
+```
+
+## Step 4: connected components — a renderWithProviders helper
+
+Write one helper that wraps any UI in a `Provider` with a fresh store:
+
+```tsx
+// test-utils.tsx
+import type { ReactElement } from 'react'
+import { render, type RenderOptions } from '@testing-library/react'
+import { Provider } from 'react-redux'
+import { setupStore, type AppStore, type RootState } from './app/store'
+
+interface ExtendedRenderOptions extends Omit<RenderOptions, 'queries'> {
+  preloadedState?: Partial<RootState>
+  store?: AppStore
+}
+
+export function renderWithProviders(
+  ui: ReactElement,
+  { preloadedState = {}, store = setupStore(preloadedState), ...renderOptions }: ExtendedRenderOptions = {},
+) {
+  return { store, ...render(<Provider store={store}>{ui}</Provider>, renderOptions) }
+}
+```
+
+Then test the component as a user would — find text, click, check the screen:
+
+```tsx
+it('shows the total and removes an item on click', () => {
+  const { store } = renderWithProviders(<CartSummary />, {
+    preloadedState: { cart: { ...initialState, items: [dal, rice] } },
+  })
+  expect(screen.getByText('Total: ₹830')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Basmati 5kg' }))
+  expect(screen.getByText('Total: ₹180')).toBeTruthy()
+  expect(store.getState().cart.items).toEqual([dal]) // optional extra check
+})
+```
+
+## Testing RTK Query components
+
+RTK Query needs its reducer **and** middleware in the store, so add the API
+slice to `setupStore` as in the app. Mock at the network layer with MSW, and
+use `findBy...` queries to wait for data:
+
+```tsx
+import { setupServer } from 'msw/node'
+import { http, HttpResponse } from 'msw'
+
+const server = setupServer(
+  http.get('https://api.example.test/products', () =>
+    HttpResponse.json([{ id: 'p1', name: 'Masala Chai 250g' }])),
+)
+beforeAll(() => server.listen())
+afterEach(() => server.resetHandlers())
+afterAll(() => server.close())
+
+it('renders products from the API', async () => {
+  renderWithProviders(<ProductList />)
+  expect(screen.getByText('Loading…')).toBeTruthy()
+  expect(await screen.findByText('Masala Chai 250g')).toBeTruthy()
+})
+// per-test override for error paths:
+// server.use(http.get('https://api.example.test/products', () => new HttpResponse(null, { status: 500 })))
+```
+
+MSW (Mock Service Worker) handlers can be reused for every test and for local
+development. Each test builds a new store, so the RTK Query cache starts
+empty; if you reuse a store, dispatch `api.util.resetApiState()` in `afterEach`.
+
+## What to test where
+
+| Layer | Test style | Mock |
+|---|---|---|
+| Reducers / slices | Call reducer with real action creators | Nothing |
+| Selectors (with logic) | Call with a hand-built state object | Nothing |
+| Thunks | Dispatch into `setupStore()`, assert state | Network only (`fetch` stub or MSW) |
+| Components | `renderWithProviders`, user-style queries | Network only |
+| RTK Query | Render the component, wait with `findBy...` | MSW handlers |
+
+Interviewers often ask: "Would you mock `useSelector` in a component test?"
+The strong answer is no — mocking hooks couples tests to implementation;
+render with a real store and preloaded state instead.
+
+### Try it yourself
+
+1. Add a `quantityChanged` reducer that removes the item when quantity drops
+   to 0, and write two reducer tests for it first.
+2. Write a thunk test asserting `status` is `'loading'` while `fetchCart` is
+   pending (hint: make the stubbed `fetch` return a promise you resolve later).
+3. Render `CartSummary` with an empty cart and assert `Total: ₹0` is shown.

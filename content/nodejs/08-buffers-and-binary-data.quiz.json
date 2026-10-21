@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What do `\"₹500\".length` and `Buffer.byteLength(\"₹500\")` return?",
+      "options": [
+        "4 and 4",
+        "4 and 6",
+        "6 and 6",
+        "4 and 5"
+      ],
+      "correctIndex": 1,
+      "explanation": "The string has 4 UTF-16 code units, but ₹ takes 3 bytes in UTF-8, so the byte length is 3 + 3 = 6. Use Buffer.byteLength for headers like Content-Length."
+    },
+    {
+      "question": "A teammate stores passwords as base64 strings, saying they are now encrypted. What is wrong?",
+      "options": [
+        "Nothing, base64 is a reversible cipher",
+        "base64 only works for ASCII input",
+        "base64 should be replaced by hex, which is secure",
+        "base64 is an encoding, not encryption; anyone can decode it without a key"
+      ],
+      "correctIndex": 3,
+      "explanation": "base64 just represents bytes as text. It offers no secrecy. Passwords should be hashed with a slow algorithm such as bcrypt, scrypt or argon2."
+    },
+    {
+      "question": "What is the difference between `Buffer.alloc(n)` and `Buffer.allocUnsafe(n)`?",
+      "options": [
+        "alloc zero-fills the memory; allocUnsafe is faster but may contain old data until you overwrite it",
+        "allocUnsafe creates a Buffer that cannot be resized",
+        "alloc returns a Uint8Array; allocUnsafe returns a Buffer",
+        "There is no difference; allocUnsafe is just a deprecated alias"
+      ],
+      "correctIndex": 0,
+      "explanation": "allocUnsafe skips initialisation for speed, so it may expose previously used memory. Only use it when every byte is immediately overwritten."
+    },
+    {
+      "question": "You decode each stream chunk with `chunk.toString()` and occasionally see replacement characters in place of ₹. Why?",
+      "options": [
+        "Node does not support UTF-8 in streams",
+        "The ₹ sign must be sent as hex",
+        "A chunk boundary split the 3-byte character; use StringDecoder, setEncoding(\"utf8\") or concatenate before decoding",
+        "toString defaults to latin1"
+      ],
+      "correctIndex": 2,
+      "explanation": "Multi-byte characters can straddle chunks. Decoding each half separately yields invalid sequences; StringDecoder and setEncoding buffer the partial bytes for you."
+    }
+  ]
+}

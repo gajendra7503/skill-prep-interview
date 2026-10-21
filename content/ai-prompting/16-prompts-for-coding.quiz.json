@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why ask a coding assistant for a plan before it writes code for a larger change?",
+      "options": [
+        "Models cannot write code without a plan",
+        "Reviewing a short plan catches wrong assumptions before hundreds of lines are built on them",
+        "Plans make the final code run faster",
+        "It reduces the number of tests needed"
+      ],
+      "correctIndex": 1,
+      "explanation": "A plan is quick to review and lets you correct the approach before code is written."
+    },
+    {
+      "question": "What is the best way to ask for help with a failing test?",
+      "options": [
+        "Say \"it's not working, please fix\"",
+        "Paste only the last line of the error",
+        "Ask for a try/except around the failing line",
+        "Paste the full error and stack trace, the relevant code, what you expected, and ask for the root cause first"
+      ],
+      "correctIndex": 3,
+      "explanation": "Full context lets the model diagnose the real cause instead of patching over the symptom."
+    },
+    {
+      "question": "Which pattern in generated code is a security problem?",
+      "options": [
+        "Building SQL by inserting user input into the query string",
+        "Using a parameterised query with placeholders",
+        "Raising ValueError for invalid input",
+        "Normalising input to uppercase"
+      ],
+      "correctIndex": 0,
+      "explanation": "String-built SQL with user input enables SQL injection; parameterised queries avoid it."
+    },
+    {
+      "question": "Why should you read the tests a model generates, not just run them?",
+      "options": [
+        "Generated tests never pass",
+        "Tests are not needed if the code compiles",
+        "Tests written by the same model can share the same misunderstanding as the code",
+        "Reading tests is required by pytest"
+      ],
+      "correctIndex": 2,
+      "explanation": "If the model misunderstood the requirement, both code and tests may encode the same mistake and still pass."
+    }
+  ]
+}

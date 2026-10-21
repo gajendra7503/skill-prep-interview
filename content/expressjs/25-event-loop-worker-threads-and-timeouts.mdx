@@ -1,0 +1,194 @@
+---
+title: "Event Loop Blocking, Worker Threads and Timeouts"
+description: "Diagnose event-loop blocking in an Express API, measure lag with perf_hooks, offload CPU work to worker threads with a pool, tune Node's server timeouts behind a load balancer, and shed load before it cascades."
+module: "Pro Level"
+level: "pro"
+order: 26
+---
+
+An Express process runs your JavaScript on **one thread**. That is why it
+handles thousands of concurrent requests that mostly wait on I/O, and also
+why a single 200 ms synchronous computation delays every other request in the
+process by 200 ms. Senior engineers are expected to spot this class of
+problem, measure it, fix it, and configure the timeouts that stop one slow
+dependency from taking the whole fleet down.
+
+## Seeing the block
+
+```js
+import express from "express";
+import { pbkdf2Sync } from "node:crypto";
+
+const app = express();
+app.get("/health", (req, res) => res.json({ ok: true }));
+
+// 600,000 PBKDF2 iterations: a deliberately expensive password hash
+app.get("/hash-sync", (req, res) => {
+  const hash = pbkdf2Sync(req.query.pw ?? "pw", "salt", 600_000, 32, "sha256");
+  res.json({ hash: hash.toString("hex") });
+});
+```
+
+```text
+fire /hash-sync, then /health 20 ms later:
+  hash-sync  ~410 ms
+  health     ~250 ms   <- a trivial route waited for the hash to finish
+```
+
+Common culprits in real APIs: sync crypto (`*Sync` functions, `bcrypt`'s
+sync API), `JSON.parse` or `JSON.stringify` on multi-megabyte payloads, big
+in-memory sorts and reductions, image or PDF processing, and regular
+expressions with catastrophic backtracking (ReDoS) run on user input.
+
+## Measuring event-loop lag
+
+You cannot fix what you do not measure. `perf_hooks` exposes a histogram of
+how late the event loop is running:
+
+```js
+import { monitorEventLoopDelay } from "node:perf_hooks";
+
+const lag = monitorEventLoopDelay({ resolution: 20 });
+lag.enable();
+
+setInterval(() => {
+  metrics.gauge("event_loop_lag_p99_ms", lag.percentile(99) / 1e6); // ns -> ms
+  lag.reset();
+}, 10_000);
+// event_loop_lag_p99_ms 225.6   <- anything consistently above ~50-100 ms needs a look
+```
+
+`prom-client`'s default metrics already export event-loop lag if you use
+Prometheus. To find which function is blocking, profile under load with
+`node --cpu-prof` (open the `.cpuprofile` in Chrome DevTools) or a flame
+graph tool, rather than guessing.
+
+## Know which work is already off-thread
+
+Not every heavy call blocks. Node's async APIs for `crypto.pbkdf2`,
+`crypto.scrypt`, `zlib` and file system calls run on **libuv's thread pool**
+(4 threads by default, configurable with the `UV_THREADPOOL_SIZE` environment
+variable). So the first fix is often just using the async version:
+
+```js
+import { pbkdf2 } from "node:crypto";
+import { promisify } from "node:util";
+const pbkdf2Async = promisify(pbkdf2);
+
+app.get("/hash", async (req, res) => {
+  const hash = await pbkdf2Async(req.query.pw ?? "pw", "salt", 600_000, 32, "sha256");
+  res.json({ hash: hash.toString("hex") });
+});
+```
+
+Pure JavaScript work (your own loops, `JSON.stringify`, a PDF library) has no
+async version. That is what worker threads are for.
+
+## Worker threads with a pool
+
+`node:worker_threads` runs JavaScript on additional threads with their own
+event loops. Spawning a worker per request is slow (tens of milliseconds and
+several MB each), so use a pool. `piscina` is the widely used one:
+
+```js
+// workers/risk-score.js: runs inside a worker thread
+export default function ({ transactions }) {
+  // CPU-heavy pure JS: e.g. scoring 50,000 transactions
+  return transactions.reduce((score, t) => score + heavyScore(t), 0);
+}
+```
+
+```js
+// src/app.js
+import Piscina from "piscina";
+
+const pool = new Piscina({
+  filename: new URL("./workers/risk-score.js", import.meta.url).href,
+  // defaults scale with CPU count; cap with maxThreads if you share the box
+});
+
+app.post("/risk-score", async (req, res) => {
+  const score = await pool.run({ transactions: req.body.transactions });
+  res.json({ score });
+});
+```
+
+```text
+same test, offloaded:
+  risk-score / hash  ~220 ms
+  health             ~5 ms    <- the main thread stayed free
+```
+
+Data passed to a worker is copied with the structured clone algorithm, so
+sending a 50 MB array costs real time; pass IDs and let the worker load data,
+or use transferable objects such as `ArrayBuffer`. Workers fix CPU-bound work
+inside one process. To use every core for request handling, run multiple
+processes (PM2 cluster mode or one container per core), as in the deployment
+lesson.
+
+## Server timeouts behind a load balancer
+
+Node's `http.Server` has defaults worth knowing (as of recent versions):
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `requestTimeout` | 300000 ms | Max time to receive the whole request |
+| `headersTimeout` | 60000 ms | Max time to receive request headers |
+| `keepAliveTimeout` | 5000 ms | Idle time before closing a keep-alive socket |
+
+The classic production bug: a load balancer such as AWS ALB keeps idle
+connections for 60 seconds by default, but Node closes them after 5. The LB
+reuses a socket Node has just closed and returns intermittent 502s that never
+appear in your logs. Make Node outlive the proxy:
+
+```js
+const server = app.listen(config.PORT);
+server.keepAliveTimeout = 65_000;   // longer than the LB idle timeout (60 s)
+server.headersTimeout = 66_000;     // commonly kept a little above keepAliveTimeout
+```
+
+## Timeouts on everything you call
+
+The more common outage is not your CPU but a dependency that hangs. Without
+a timeout, every request to it holds a socket and memory until the process
+falls over. Always bound outgoing calls:
+
+```js
+app.get("/quotes/:symbol", async (req, res) => {
+  const upstream = await fetch(`${PRICE_API}/quotes/${req.params.symbol}`, {
+    signal: AbortSignal.timeout(2_000),     // rejects with a TimeoutError
+  });
+  res.json(await upstream.json());
+});
+// After 2 s: TimeoutError -> error handler maps it to 504 Gateway Timeout
+```
+
+Set database query and pool-acquire timeouts the same way in your driver or
+ORM configuration.
+
+## Shedding load before it cascades
+
+When a process is already saturated, accepting more work makes every request
+slow instead of a few fail fast. A small middleware can refuse early:
+
+```js
+app.use((req, res, next) => {
+  if (req.path !== "/health" && lag.percentile(99) / 1e6 > 500) {
+    res.set("Retry-After", "5");
+    return res.status(503).json({ error: { code: "OVERLOADED", message: "Try again shortly" } });
+  }
+  next();
+});
+```
+
+Pair it with a readiness probe that fails under sustained overload so the
+orchestrator routes traffic elsewhere, and with client retries that use
+exponential backoff and jitter.
+
+### Try it yourself
+
+Add `/hash-sync`, `/hash` (async `pbkdf2`) and a Piscina-backed route to one
+app. Load-test each with `npx autocannon -c 50 -d 10` while a second terminal
+polls `/health`, and record the p99 latency of `/health` and the event-loop
+lag for each version. Then set `UV_THREADPOOL_SIZE=8` and explain the change
+you see in the async version.

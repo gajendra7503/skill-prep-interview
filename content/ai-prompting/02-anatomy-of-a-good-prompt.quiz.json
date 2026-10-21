@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does the \"brilliant new colleague\" mental model suggest?",
+      "options": [
+        "The model already knows your company's conventions, so keep prompts short",
+        "Write prompts as if briefing a capable person who has no background on your task",
+        "Always assign the model a senior job title",
+        "Ask the model to interview you before every task"
+      ],
+      "correctIndex": 1,
+      "explanation": "A new colleague is capable but lacks context; if they would need to ask a question, the model probably needs that answer in the prompt."
+    },
+    {
+      "question": "Which block does the line \"Under 150 words, plain text, no bullet points\" belong to?",
+      "options": [
+        "Context",
+        "Audience",
+        "Success criteria",
+        "Format"
+      ],
+      "correctIndex": 3,
+      "explanation": "Length, structure and output shape are format instructions."
+    },
+    {
+      "question": "According to the lesson, which building block is most often skipped?",
+      "options": [
+        "Context",
+        "Task",
+        "Format",
+        "Constraints"
+      ],
+      "correctIndex": 0,
+      "explanation": "People usually state the task but forget background, purpose and relevant facts, which help the model make sensible decisions."
+    },
+    {
+      "question": "A drafted reply has the wrong tone for the reader. Which block should you improve first?",
+      "options": [
+        "Constraints",
+        "Task",
+        "Audience",
+        "Input"
+      ],
+      "correctIndex": 2,
+      "explanation": "Tone problems usually mean the model did not understand who will read the output; describe the audience more clearly."
+    }
+  ]
+}

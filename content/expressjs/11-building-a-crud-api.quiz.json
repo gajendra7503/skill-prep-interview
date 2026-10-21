@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does every query in the expense service filter by the authenticated user's id?",
+      "options": [
+        "To make queries use the composite index",
+        "Prisma requires a userId on every query",
+        "To prevent an IDOR bug where a user reads or changes another user's expense just by changing the id in the URL",
+        "So that the response can be cached per user"
+      ],
+      "correctIndex": 2,
+      "explanation": "Insecure direct object reference (IDOR) happens when ids are trusted without an ownership check. Scoping by req.user.id, never by a client-supplied userId, closes it."
+    },
+    {
+      "question": "A PATCH handler calls updateExpense.parse(req.body) and the body has amountPaise: -1. With Express 5 and no try/catch, what happens?",
+      "options": [
+        "parse() throws a ZodError, the rejected promise is forwarded to the error handler, which returns 400",
+        "The request hangs because the error is not caught",
+        "Prisma stores -1 because validation runs after the update",
+        "Express returns 422 automatically for any thrown ZodError"
+      ],
+      "correctIndex": 0,
+      "explanation": "Express 5 forwards the thrown error to error middleware, where the ZodError branch maps it to the standard 400 VALIDATION_FAILED response."
+    },
+    {
+      "question": "What status and body should DELETE /api/v1/expenses/12 return on success?",
+      "options": [
+        "200 with the deleted expense always",
+        "202 with a job id",
+        "201 with a Location header",
+        "204 with an empty body"
+      ],
+      "correctIndex": 3,
+      "explanation": "204 No Content signals success with nothing to return; the handler calls res.status(204).end()."
+    },
+    {
+      "question": "Why must a GET /expenses/summary route be registered before GET /expenses/:id on the same router?",
+      "options": [
+        "Express sorts routes alphabetically",
+        "Routes match in registration order, so /:id would capture 'summary' as an id and fail validation",
+        "Static routes are slower than parameterised ones",
+        "Express 5 forbids static segments after a parameter route"
+      ],
+      "correctIndex": 1,
+      "explanation": "Express tries routes in the order they were added. If /:id comes first, 'summary' is treated as the id and idParam.parse rejects it with a 400."
+    }
+  ]
+}

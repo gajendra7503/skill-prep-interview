@@ -1,0 +1,181 @@
+---
+title: "Networking Essentials (ip, ss, curl, dig)"
+description: "Inspect interfaces, routes, listening ports and DNS on a Linux server, test HTTP endpoints with curl, and debug connectivity layer by layer."
+module: "Administration"
+level: "advanced"
+order: 17
+---
+
+"The site is down" is one of the most common tickets a backend developer
+gets, and the fix usually starts on a Linux shell. This lesson covers the
+modern toolkit (`ip`, `ss`, `curl`, `dig`) and, more importantly, an order in
+which to use it so you find the broken layer quickly.
+
+## Old vs new tools
+
+Many tutorials still show `ifconfig`, `route` and `netstat`. They come from
+the `net-tools` package, which is deprecated and often not installed on
+current Ubuntu or Fedora images. Their replacements live in `iproute2`:
+
+| Old (net-tools) | Modern (iproute2) | Shows |
+|---|---|---|
+| `ifconfig` | `ip addr` / `ip a` | interfaces and IP addresses |
+| `route -n` | `ip route` / `ip r` | routing table |
+| `netstat -tlnp` | `ss -tlnp` | listening sockets |
+| `arp -n` | `ip neigh` | ARP / neighbour cache |
+
+Knowing both is useful in interviews; use the modern ones on the job.
+
+## Interfaces and addresses: ip
+
+```text
+$ ip -br addr        # -br = brief, one line per interface
+lo               UNKNOWN        127.0.0.1/8 ::1/128
+eth0             UP             10.0.2.15/24 fe80::a00:27ff:fe4e:66a1/64
+```
+
+`lo` is the loopback interface. `eth0` (on newer systems often a name like
+`ens3` or `enp0s3`) holds the machine's address `10.0.2.15` in a `/24`
+network. Full detail, including MAC address and MTU, comes from `ip addr show
+eth0`. `ip link` shows link state only.
+
+## Routes: where packets go
+
+```text
+$ ip route
+default via 10.0.2.2 dev eth0 proto dhcp src 10.0.2.15 metric 100
+10.0.2.0/24 dev eth0 proto kernel scope link src 10.0.2.15 metric 100
+```
+
+Read it as: anything on `10.0.2.0/24` is reached directly; everything else
+goes to the **default gateway** `10.0.2.2`. `ip route get 1.1.1.1` shows
+which route a specific destination would use. Changes made with `ip addr add` or `ip route add` are lost on reboot. On
+Ubuntu, persistent configuration lives in Netplan YAML under
+`/etc/netplan/`; Fedora and RHEL use NetworkManager (`nmcli`).
+
+## Who is listening: ss
+
+The most-used flag set is `-tlnp`: **t**CP, **l**istening, **n**umeric (do
+not resolve names), and **p**rocess (needs `sudo` to see other users'
+processes).
+
+```text
+$ sudo ss -tlnp
+State   Recv-Q  Send-Q   Local Address:Port    Peer Address:Port  Process
+LISTEN  0       511            0.0.0.0:80           0.0.0.0:*      users:(("nginx",pid=1234,fd=6))
+LISTEN  0       4096     127.0.0.53%lo:53           0.0.0.0:*      users:(("systemd-resolve",pid=567,fd=14))
+LISTEN  0       128            0.0.0.0:22           0.0.0.0:*      users:(("sshd",pid=890,fd=3))
+LISTEN  0       511          127.0.0.1:3000         0.0.0.0:*      users:(("node",pid=2210,fd=19))
+```
+
+The **local address** is the key detail interviewers probe:
+
+- `0.0.0.0:80` (or `*:80`, `[::]:80`) accepts connections on every interface.
+- `127.0.0.1:3000` accepts **only local** connections. A Node app bound
+  there is unreachable from outside, even with the firewall open. That is
+  correct behind a reverse proxy, and a classic bug otherwise.
+
+Other handy forms: `ss -tn` (established TCP connections), `ss -u` (UDP),
+`ss -s` (summary counts), and `ss -tnp state established '( dport = :5432 )'`
+to see connections to PostgreSQL.
+
+## Names: DNS with dig
+
+`dig` comes from the `dnsutils` package on Ubuntu (`bind-utils` on Fedora).
+
+```bash
+dig +short shop.example.com        # 203.0.113.25
+dig shop.example.com A
+```
+
+```text
+;; ANSWER SECTION:
+shop.example.com.    300    IN    A    203.0.113.25
+
+;; Query time: 23 msec
+;; SERVER: 127.0.0.53#53(127.0.0.53) (UDP)
+```
+
+`300` is the TTL in seconds: how long resolvers may cache the answer, which
+is why a DNS change can take time to "propagate". Useful variants:
+
+```bash
+dig MX example.com +short          # mail servers
+dig CNAME www.example.com +short   # aliases
+dig @8.8.8.8 shop.example.com      # ask a specific resolver, bypassing local cache
+dig -x 203.0.113.25 +short         # reverse lookup
+```
+
+`dig` talks to DNS directly. Applications use the system resolver, which
+also reads `/etc/hosts`. To test what an app would actually get, use
+`getent hosts shop.example.com`. On current Ubuntu, `/etc/resolv.conf`
+points to the local `systemd-resolved` stub at `127.0.0.53`; run
+`resolvectl status` to see the real upstream servers.
+
+## HTTP: curl
+
+`curl` is the Swiss Army knife for testing APIs and web servers:
+
+```bash
+curl -sSI https://example.com          # -I: headers only (HEAD request)
+# HTTP/1.1 200 OK
+# Content-Type: text/html; charset=utf-8
+# Server: cloudflare
+```
+
+| Flag | Purpose |
+|---|---|
+| `-s` / `-S` | silent progress bar / but still show errors |
+| `-i` / `-I` | include response headers / headers only |
+| `-L` | follow redirects |
+| `-v` | verbose: DNS, TLS handshake, request and response headers |
+| `-X POST -H 'Content-Type: application/json' -d '...'` | send a request body |
+| `-o file` / `-O` | save output |
+| `-w '...'` | print timing and status variables |
+| `--resolve host:443:IP` | force a host name to an IP (test before DNS changes) |
+
+Timing breakdown is excellent for "the API is slow" tickets (real output):
+
+```bash
+curl -sS -o /dev/null -w 'dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} ttfb=%{time_starttransfer} total=%{time_total}\n' https://example.com
+# dns=0.035996 connect=0.044387 tls=0.102853 ttfb=0.115457 total=0.115610
+```
+
+A large gap between `tls` and `ttfb` (time to first byte) means the server
+itself is slow; a large `dns` means resolution is the problem.
+
+## Reachability: ping, tracepath, nc
+
+```bash
+ping -c 4 10.0.2.2              # ICMP echo; -c stops after 4 packets
+tracepath shop.example.com      # hops along the path (traceroute also works)
+nc -zv db.internal 5432         # can I open a TCP connection? prints "succeeded" or "refused"/times out
+```
+
+Many cloud networks block ICMP, so a failed `ping` does not prove a host is
+down. A TCP test with `nc` or `curl` is more reliable.
+
+## A debugging order that works
+
+When `https://shop.example.com` fails, work bottom-up:
+
+1. **Is the app running and listening?** `sudo ss -tlnp | grep :443`, and
+   check the bind address.
+2. **Does it answer locally?** `curl -v http://127.0.0.1:3000/health`.
+3. **Does the name resolve correctly?** `dig +short shop.example.com`.
+4. **Is there a route and an open path?** `nc -zv <ip> 443` from outside;
+   then check firewalls and cloud security groups (see "Server Security
+   Hardening Basics").
+5. **Is TLS/HTTP correct?** `curl -vI https://shop.example.com`.
+
+Interviewers often ask "what happens when you type a URL in the browser?"
+The steps above are the same story told from the server's side.
+
+### Try it yourself
+
+1. Run `ip -br a` and `ip route` on any Linux machine or WSL, and identify
+   your IP, prefix length and default gateway.
+2. Start `python3 -m http.server 8000 --bind 127.0.0.1`, find it with
+   `ss -tlnp`, and explain why another machine cannot reach it.
+3. Use `curl -w` to print only the HTTP status code and total time for
+   three websites, and `dig +short` to compare their A records and TTLs.

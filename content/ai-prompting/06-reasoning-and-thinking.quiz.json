@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "On modern models with built-in (adaptive) thinking, when is asking for visible reasoning still most useful?",
+      "options": [
+        "Never, since internal thinking makes it pointless",
+        "On every request, to maximise accuracy",
+        "When you or a reviewer need to inspect or audit how the answer was reached",
+        "Only for translation tasks"
+      ],
+      "correctIndex": 2,
+      "explanation": "Built-in thinking handles quality; visible reasoning is valuable when you need transparency, auditing or prompt debugging."
+    },
+    {
+      "question": "Which task is least likely to benefit from step-by-step reasoning?",
+      "options": [
+        "A simple factual lookup",
+        "Calculating a pro-rated bonus across months",
+        "Checking a claim against several policy rules",
+        "Comparing three vendor proposals to recommend one"
+      ],
+      "correctIndex": 0,
+      "explanation": "Simple lookups do not need intermediate steps, so reasoning only adds tokens and latency."
+    },
+    {
+      "question": "Why separate reasoning into `<working>` tags and the result into `<answer>` tags?",
+      "options": [
+        "It makes the model reason more deeply",
+        "Readers and code can find and extract the final result easily",
+        "It is required for chain-of-thought to work",
+        "It hides the reasoning from the model itself"
+      ],
+      "correctIndex": 1,
+      "explanation": "Keeping reasoning and answer apart makes the output easy to scan and parse."
+    },
+    {
+      "question": "Which self-check instruction is most effective?",
+      "options": [
+        "Double-check your work",
+        "Be very careful",
+        "MAKE SURE THERE ARE NO MISTAKES",
+        "Verify that every figure comes from the <report> tags and that the percentages add up to 100"
+      ],
+      "correctIndex": 3,
+      "explanation": "Self-checks work best with concrete, checkable criteria rather than vague or shouted reminders."
+    }
+  ]
+}

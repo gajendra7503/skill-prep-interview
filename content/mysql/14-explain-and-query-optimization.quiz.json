@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In EXPLAIN output, which `type` value indicates a full table scan?",
+      "options": [
+        "index",
+        "range",
+        "ref",
+        "ALL"
+      ],
+      "correctIndex": 3,
+      "explanation": "ALL means every row of the table is read. `index` is a full scan of an index, `range` and `ref` use index seeks."
+    },
+    {
+      "question": "What does `Using filesort` in the Extra column tell you?",
+      "options": [
+        "The ORDER BY could not be satisfied by index order, so MySQL performed a separate sort step",
+        "The result is always written to a file on disk",
+        "The query uses a covering index",
+        "The table is stored in a separate file per table"
+      ],
+      "correctIndex": 0,
+      "explanation": "Filesort is MySQL's sort algorithm; it may run entirely in memory. It appears when no index provides the required order."
+    },
+    {
+      "question": "How does EXPLAIN ANALYZE differ from plain EXPLAIN?",
+      "options": [
+        "It only shows possible_keys",
+        "It executes the query and reports actual times, row counts and loops alongside the estimates",
+        "It rewrites the query automatically",
+        "It updates index statistics before showing the plan"
+      ],
+      "correctIndex": 1,
+      "explanation": "EXPLAIN ANALYZE (8.0.18+) runs the statement and annotates the tree plan with measured values, so estimates can be compared with reality."
+    },
+    {
+      "question": "Why is keyset pagination faster than `LIMIT 20 OFFSET 200000` for deep pages?",
+      "options": [
+        "OFFSET queries cannot use any index",
+        "Keyset pagination caches previous pages in the buffer pool",
+        "It seeks directly past the last seen key using an index instead of reading and discarding all the skipped rows",
+        "It uses a temporary table to store page numbers"
+      ],
+      "correctIndex": 2,
+      "explanation": "OFFSET still reads the skipped rows; a WHERE on the last (created_at, id) lets an index start exactly where the previous page ended."
+    }
+  ]
+}

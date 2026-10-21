@@ -1,0 +1,166 @@
+---
+title: "Performance Troubleshooting: CPU, Memory, Disk & the USE Method"
+description: "A systematic way to find Linux performance bottlenecks using the USE method, load averages, vmstat, iostat, free and the first-sixty-seconds checklist."
+module: "Pro Level"
+level: "pro"
+order: 25
+---
+
+"The server is slow" is a symptom, not a diagnosis. Junior engineers
+restart things and hope; senior engineers follow a **method** that
+narrows the problem down in minutes. This lesson gives you that method
+and the handful of tools that answer most questions.
+
+Most tools here come from the `sysstat` package (`iostat`, `mpstat`,
+`pidstat`, `sar`): `sudo apt install sysstat` (`sudo dnf install sysstat` on Fedora/RHEL).
+
+## The USE method
+
+Brendan Gregg's **USE method**: for every resource, check
+
+- **Utilisation**: how busy is it (percentage of time or capacity)?
+- **Saturation**: is work queuing because it is full?
+- **Errors**: are there error events?
+
+| Resource | Utilisation | Saturation | Errors |
+|---|---|---|---|
+| CPU | `mpstat`: 100 minus `%idle` | `vmstat` `r` greater than CPU count; load average | rare (`dmesg` for machine checks) |
+| Memory | `free`: used vs `available` | swapping (`vmstat` `si`/`so`), OOM kills | `dmesg` OOM messages |
+| Disk | `iostat -x`: `%util` | `aqu-sz`, rising `r_await`/`w_await` | `dmesg` I/O errors, SMART |
+| Network | `sar -n DEV`: throughput vs link speed | drops, TCP retransmits | `ip -s link` errors |
+| File system | `df -h`, `df -i` | — | "No space left on device" |
+
+The value is **completeness**: you check every resource instead of
+staring at whichever graph looks scary. For services, the companion
+**RED** method (Rate, Errors, Duration) looks at requests instead.
+
+## The first sixty seconds
+
+A well-known checklist from Netflix's performance team. Run these in order:
+
+```bash
+uptime                 # load averages: trend over 1, 5, 15 minutes
+dmesg -T | tail        # OOM kills, disk errors, dropped packets
+vmstat 1 5             # run queue, memory, swap, CPU split
+mpstat -P ALL 1 3      # is one CPU pegged while others idle?
+pidstat 1 3            # which processes use the CPU
+iostat -xz 1 3         # per-disk latency and utilisation
+free -h                # memory, including the 'available' column
+sar -n DEV 1 3         # network throughput per interface
+sar -n TCP,ETCP 1 3    # new connections, retransmits
+top                    # confirm and look around
+```
+
+## CPU and load average
+
+```text
+$ uptime
+ 10:42:07 up 12 days,  3:11,  2 users,  load average: 7.85, 6.10, 2.34
+$ nproc
+4
+```
+
+Load average is the average number of tasks that are **running, waiting
+to run, or in uninterruptible sleep** (state `D`, usually waiting on disk
+or NFS). On Linux it is not purely CPU. Compare it with the CPU count: 7.85
+on 4 CPUs means work is queuing, and the rising 1-minute value shows the
+problem is recent and getting worse.
+
+```text
+$ vmstat 1 3
+procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+ 8  0      0 310452  81220 5823100    0    0     3    40 2210 4100 92  6  2  0  0
+ 9  0      0 309980  81220 5823140    0    0     0    12 2302 4380 94  5  1  0  0
+```
+
+(The first line is an average since boot; read the later lines. Recent
+versions may add extra columns.)
+
+| Column | Meaning | Red flag |
+|---|---|---|
+| `r` | runnable tasks | consistently above CPU count: CPU saturated |
+| `b` | blocked in uninterruptible sleep | non-zero for long: I/O trouble |
+| `si`/`so` | swap in/out per second | any sustained value: memory pressure |
+| `us`/`sy` | user/kernel CPU % | high `sy`: syscall- or interrupt-heavy |
+| `wa` | idle while waiting on I/O | high: look at disks |
+| `st` | stolen by the hypervisor | high on a VM: noisy neighbour or throttled instance |
+
+Here `r` is about 8 on 4 CPUs with 92% user time: a CPU-bound application.
+`pidstat 1` or `top` (press `P` to sort by CPU, `1` for per-CPU) names the
+culprit. One CPU at 100% while the others idle points to a single-threaded
+bottleneck, such as a Node.js event loop.
+
+## Memory
+
+```text
+$ free -h
+               total        used        free      shared  buff/cache   available
+Mem:           7.7Gi       2.1Gi       312Mi        45Mi       5.6Gi       5.3Gi
+Swap:          2.0Gi          0B       2.0Gi
+```
+
+Low `free` is **normal**: Linux uses spare RAM as page cache. The number
+that matters is **available** (memory that can be handed out without
+swapping). Real trouble shows as sustained `si`/`so` in `vmstat`, or the
+**OOM killer**:
+
+```bash
+journalctl -k | grep -i 'out of memory'
+```
+
+```text
+Oct 15 03:12:44 web-01 kernel: Out of memory: Killed process 2211 (node) total-vm:4123456kB, anon-rss:3012345kB, ...
+```
+
+A process repeatedly "dying for no reason" at night is often this. Check
+for a memory leak (RSS growing over time in `pidstat -r 60`) or a container
+or systemd memory limit that is too small.
+
+## Disk
+
+```text
+$ iostat -xz 1 2          (columns trimmed)
+Device   r/s     w/s   r_await  w_await  aqu-sz  %util
+nvme0n1  12.0  1840.0     0.4     38.5    70.9   99.6
+```
+
+`w_await` (average milliseconds per write, including queue time) of 38 ms
+and a queue of about 71 requests: the disk is saturated by writes. `%util`
+near 100% is a strong hint on a single spinning disk, but SSDs and RAID
+handle requests in parallel, so trust **latency and queue size** more.
+`sudo iotop -o` (or `pidstat -d 1`) shows which process is writing.
+
+Do not forget capacity: `df -h` for space, `df -i` for **inodes** (millions
+of tiny files can fill a disk that `df -h` says is half empty), and
+`sudo du -xh /var | sort -h | tail` to find what grew.
+
+## Network and errors
+
+`ss -s` summarises sockets; thousands of connections in `TIME-WAIT` or a
+growing `CLOSE-WAIT` count (the app not closing sockets) are worth noting.
+`sar -n ETCP 1` shows retransmits, and `ip -s link` shows drops and errors
+per interface. Always skim `dmesg -T` and `journalctl -p err -b` for errors.
+
+## A worked example
+
+Orders at the fictional retailer KiranaKart slow down every night at 2 a.m.
+`uptime` shows load 12 on 4 CPUs, but `vmstat` shows `us` only 10% with
+`b` at 9 and `wa` at 70%. That is not a CPU problem: tasks are blocked on
+I/O. `iostat -xz` shows the data disk at 300 ms `w_await`, and `pidstat -d`
+points at a `tar` backup writing to the same disk as PostgreSQL. Fix: run
+the backup with `ionice -c3 nice -n19`, stream it off the box, or move it
+to a replica. Total time: five minutes, no guessing.
+
+Interviewers often ask: "Load average is high but CPU is mostly idle. Why?"
+Answer: on Linux, load includes tasks in uninterruptible `D` state, so
+slow disks or a hung NFS mount raise load without using CPU.
+
+### Try it yourself
+
+1. Run `yes > /dev/null &` once per CPU, then watch `uptime`, `vmstat 1`
+   and `mpstat -P ALL 1`. Kill the jobs and watch the load decay.
+2. Run `dd if=/dev/zero of=big.img bs=1M count=2000 oflag=direct` and watch
+   `iostat -xz 1` in another terminal. Note `w_await` and `aqu-sz`, then delete `big.img`.
+3. Draw the USE table for one of your own servers, filling each cell with
+   the exact command you would run.

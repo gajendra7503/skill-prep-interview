@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In a Node ESM project using `\"module\": \"nodenext\"`, how should `checkout.ts` import from `money.ts` when the project is compiled with tsc?",
+      "options": [
+        "import { withGst } from \"./money\";",
+        "import { withGst } from \"./money.ts\"; with no extra options",
+        "import { withGst } from \"./money.js\";",
+        "import { withGst } from \"money\";"
+      ],
+      "correctIndex": 2,
+      "explanation": "Node's ESM resolution requires file extensions, and you write the extension of the emitted file. TypeScript maps ./money.js back to money.ts during type checking."
+    },
+    {
+      "question": "With `verbatimModuleSyntax` enabled, what happens with `import { Loan } from \"./models.js\"` when Loan is an interface?",
+      "options": [
+        "The compiler reports an error: a type must be imported with a type-only import",
+        "It compiles and the import is silently removed",
+        "It compiles but crashes at runtime",
+        "Interfaces cannot be exported, so the import fails"
+      ],
+      "correctIndex": 0,
+      "explanation": "verbatimModuleSyntax keeps every non-type import exactly as written, so importing a type without the type keyword is reported (TS1484). Use import type or an inline type modifier."
+    },
+    {
+      "question": "A package ships only JavaScript and there is no @types package for it. What is the cleanest way to get typed imports?",
+      "options": [
+        "Turn off strict mode",
+        "Rename the package's .js files to .ts",
+        "Add // @ts-ignore above every import",
+        "Write an ambient declaration such as `declare module \"legacy-sms\" { ... }` in a .d.ts file"
+      ],
+      "correctIndex": 3,
+      "explanation": "An ambient module declaration describes the package's exports. The shorthand declare module \"x\"; also works but makes everything any."
+    },
+    {
+      "question": "In TypeScript 7, a project has @types/node installed but `process` is reported as unknown. Why?",
+      "options": [
+        "@types/node is incompatible with TypeScript 7",
+        "The types option now defaults to an empty array, so global type packages must be listed, e.g. \"types\": [\"node\"]",
+        "process must be imported from node:process in every file",
+        "skipLibCheck hides all @types packages"
+      ],
+      "correctIndex": 1,
+      "explanation": "TypeScript 5.x automatically included every package in node_modules/@types. Since TypeScript 6.0 (and in 7) types defaults to [], so you list the global type packages you need."
+    }
+  ]
+}

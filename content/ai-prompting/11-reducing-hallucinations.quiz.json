@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is \"What does Section 14.3 say about bonus payouts?\" risky when no policy text is supplied?",
+      "options": [
+        "Models cannot read numbers in prompts",
+        "Section numbers are always outdated",
+        "The question implies an answer exists, pressuring the model to produce something even if there is no such section",
+        "The question is too short for the model to process"
+      ],
+      "correctIndex": 2,
+      "explanation": "Prompts that presuppose an answer, combined with no source text, are a common trigger for fabricated specifics."
+    },
+    {
+      "question": "Which addition most directly reduces the chance of an invented reimbursement figure?",
+      "options": [
+        "\"If the policy does not state this, say so and do not estimate a figure. A missing answer is less costly than a wrong one.\"",
+        "\"Answer as confidently as possible.\"",
+        "\"You are a world-class expert on all policies.\"",
+        "\"Respond in under 20 words.\""
+      ],
+      "correctIndex": 0,
+      "explanation": "Explicit permission to abstain, with the reason, helps the model choose \"I don't know\" over a plausible guess."
+    },
+    {
+      "question": "Which citations produced by a model are checkable in the way the lesson recommends?",
+      "options": [
+        "URLs the model recalls from memory",
+        "Case names the model believes are relevant",
+        "Report titles suggested by the model",
+        "Exact quotes tied to a document index from text supplied in the prompt"
+      ],
+      "correctIndex": 3,
+      "explanation": "Citations pointing to supplied text can be verified directly. Citations generated from memory must be treated as unverified."
+    },
+    {
+      "question": "A model-generated draft for a customer cites a regulator circular number and a calculated total in crore. What should happen before it is sent?",
+      "options": [
+        "Nothing, if the model expressed high confidence",
+        "A person verifies the circular against the official source and the figures in a spreadsheet or code",
+        "Ask the model to rewrite it more formally",
+        "Remove the citations but keep the numbers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Generated numbers, statutes, circulars, and case citations should never be trusted without checking against the original source; arithmetic is best recomputed in a spreadsheet or code."
+    }
+  ]
+}

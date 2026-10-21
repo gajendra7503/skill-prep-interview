@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "How does Express relate to Node's built-in `node:http` module?",
+      "options": [
+        "It replaces `node:http` with its own C++ HTTP server",
+        "It wraps `node:http`; the Express `app` is a request listener you can pass to `http.createServer(app)`",
+        "It only works with HTTPS, so `node:http` is still needed for plain HTTP",
+        "It compiles routes into a separate worker process"
+      ],
+      "correctIndex": 1,
+      "explanation": "Express builds on `node:http`. `app` is a request handler function, so `http.createServer(app)` works, and Express adds routing, middleware and request/response helpers on top."
+    },
+    {
+      "question": "In Express 5, what happens when an `async` route handler throws an error?",
+      "options": [
+        "The process crashes with an unhandled rejection",
+        "The request hangs until it times out",
+        "The rejected promise is forwarded to the error-handling middleware automatically",
+        "Express retries the handler once before responding with 500"
+      ],
+      "correctIndex": 2,
+      "explanation": "Express 5 catches rejected promises returned by handlers and middleware and calls `next(err)` for you. In Express 4 you needed a wrapper or an explicit `next(err)`."
+    },
+    {
+      "question": "Which of these is no longer valid in Express 5?",
+      "options": [
+        "`app.delete(\"/items/:id\", handler)`",
+        "`res.status(201).json(item)`",
+        "`res.sendStatus(204)`",
+        "`app.del(\"/items/:id\", handler)`"
+      ],
+      "correctIndex": 3,
+      "explanation": "Deprecated methods were removed in Express 5, including `app.del()`. Use `app.delete()` instead. Status should be set with `res.status()` or `res.sendStatus()`."
+    },
+    {
+      "question": "What is a modern built-in alternative to `nodemon` for restarting the server on file changes during development?",
+      "options": [
+        "`node --watch server.js`",
+        "`node --reload server.js`",
+        "`npm restart --auto`",
+        "`express --dev server.js`"
+      ],
+      "correctIndex": 0,
+      "explanation": "Current Node.js versions include a `--watch` flag that restarts the process when imported files change, which covers the common nodemon use case without an extra dependency."
+    }
+  ]
+}

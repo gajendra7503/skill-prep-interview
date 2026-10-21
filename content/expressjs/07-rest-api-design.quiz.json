@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A logged-in user requests an expense that belongs to another user. Which status code best describes 'authenticated, but not allowed'?",
+      "options": [
+        "401 Unauthorized",
+        "403 Forbidden",
+        "409 Conflict",
+        "400 Bad Request"
+      ],
+      "correctIndex": 1,
+      "explanation": "401 means the client is not authenticated; 403 means the server knows who the user is but refuses access. Some APIs return 404 instead to avoid revealing that the id exists."
+    },
+    {
+      "question": "Which HTTP method is NOT idempotent?",
+      "options": [
+        "PUT",
+        "DELETE",
+        "GET",
+        "POST"
+      ],
+      "correctIndex": 3,
+      "explanation": "Repeating a POST to a collection creates another resource each time. PUT, DELETE and GET leave the server in the same state however many times they are repeated."
+    },
+    {
+      "question": "What should a successful POST /api/v1/expenses typically return?",
+      "options": [
+        "201 Created with the new resource and a Location header pointing to it",
+        "200 OK with an empty body",
+        "204 No Content with the new id in the body",
+        "202 Accepted with a redirect to the list"
+      ],
+      "correctIndex": 0,
+      "explanation": "201 Created signals a new resource; the Location header gives its URL and the body usually contains the created representation. 204 must not have a body."
+    },
+    {
+      "question": "How does an Idempotency-Key header make a payment POST safe to retry?",
+      "options": [
+        "It makes Express convert the POST into a PUT",
+        "It encrypts the body so it cannot be replayed",
+        "The server stores the first response under the key and returns that same response for repeats instead of processing again",
+        "It tells the browser to cache the response for 24 hours"
+      ],
+      "correctIndex": 2,
+      "explanation": "The server records the outcome for each key; a retry with the same key replays the saved response, so the customer is not charged twice."
+    }
+  ]
+}

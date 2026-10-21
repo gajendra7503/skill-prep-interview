@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does adding \"use client\" at the top of a module do?",
+      "options": [
+        "Makes the component skip server-side rendering entirely",
+        "Marks the module as an entry point into the client bundle, so it and everything it imports ship to the browser",
+        "Turns the module's functions into Server Functions",
+        "Only enables useState in that single component"
+      ],
+      "correctIndex": 1,
+      "explanation": "\"use client\" defines a boundary. The module and its imports become client code. Client Components are still server-rendered to HTML, then hydrated."
+    },
+    {
+      "question": "Which prop CANNOT be passed from a Server Component to a Client Component?",
+      "options": [
+        "A Date object",
+        "A JSX element",
+        "A plain object of strings and numbers",
+        "An ordinary arrow function used as an event handler"
+      ],
+      "correctIndex": 3,
+      "explanation": "Props crossing the boundary are serialised. Ordinary functions cannot be serialised; Server Functions are the exception because React passes a reference."
+    },
+    {
+      "question": "How can a Client Component display a Server Component?",
+      "options": [
+        "By receiving it already rendered as a prop such as children",
+        "By importing it directly",
+        "By calling it inside useEffect",
+        "It is impossible in any form"
+      ],
+      "correctIndex": 0,
+      "explanation": "Client Components cannot import Server Components, but a server parent can pass server-rendered JSX to them via children or other props."
+    },
+    {
+      "question": "Why must every Server Function check authentication and validate its arguments?",
+      "options": [
+        "TypeScript requires it",
+        "Server Functions run in the browser",
+        "They are effectively public endpoints that anyone can call with arbitrary arguments",
+        "React refuses to call unvalidated functions"
+      ],
+      "correctIndex": 2,
+      "explanation": "Calling a Server Function is a network request. Hiding a button doesn't stop a direct call, and types are erased at runtime."
+    }
+  ]
+}

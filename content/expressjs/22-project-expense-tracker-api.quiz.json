@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why does the expense tracker store amounts as integer paise (₹249.50 as 24950) instead of a JavaScript float of rupees?",
+      "options": [
+        "MySQL cannot store decimal numbers",
+        "Integers sort faster than floats in indexes",
+        "Binary floats cannot represent values like 0.1 exactly, so sums drift; integer paise add up exactly",
+        "JSON does not support numbers with decimal points"
+      ],
+      "correctIndex": 2,
+      "explanation": "0.1 + 0.2 is 0.30000000000000004 in JavaScript. Integer paise (or a DECIMAL column) keep money exact; convert to rupees only for display."
+    },
+    {
+      "question": "DELETE /api/expenses/:id runs deleteMany({ where: { id, userId } }) with userId taken from the JWT. What does this protect against?",
+      "options": [
+        "IDOR: a logged-in user deleting another user's expense by guessing its ID",
+        "SQL injection in the id parameter",
+        "Brute-force login attempts",
+        "Deleting the same expense twice in one request"
+      ],
+      "correctIndex": 0,
+      "explanation": "Scoping every query to the authenticated user means another user's ID matches no row and returns 404."
+    },
+    {
+      "question": "The async route handlers in this project have no try/catch. How does a thrown HttpError(404) become a JSON 404 response?",
+      "options": [
+        "Prisma catches it and converts it to a status code",
+        "It crashes the process and PM2 returns 404",
+        "zod's safeParse intercepts all thrown errors",
+        "Express 5 forwards the rejected promise to the error-handling middleware, which maps HttpError to its status"
+      ],
+      "correctIndex": 3,
+      "explanation": "In Express 5, rejections from async handlers reach error middleware automatically; the 4-argument errorHandler formats the response."
+    },
+    {
+      "question": "Why does the API accept the amount as a string such as \"249.50\" and convert it with string splitting?",
+      "options": [
+        "Express cannot parse numbers in JSON bodies",
+        "It avoids ever holding the amount as a float, and the regex can enforce at most two decimal places",
+        "Prisma only accepts strings for Int columns",
+        "Strings are smaller than numbers in JSON"
+      ],
+      "correctIndex": 1,
+      "explanation": "Parsing \"249.50\" into whole and fractional parts gives exactly 24950 paise, and the zod regex rejects values like 12.345 with a 422 field error."
+    }
+  ]
+}

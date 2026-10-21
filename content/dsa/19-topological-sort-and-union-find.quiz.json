@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Kahn's algorithm finishes and the output order contains fewer nodes than the graph has. What does that mean?",
+      "options": [
+        "The graph is disconnected",
+        "The graph contains a directed cycle",
+        "Some nodes have no outgoing edges",
+        "The queue was implemented with shift()"
+      ],
+      "correctIndex": 1,
+      "explanation": "Nodes on a cycle always keep at least one incoming edge from another cycle member, so their in-degree never reaches 0 and they are never output."
+    },
+    {
+      "question": "In three-colour DFS cycle detection on a directed graph, which event signals a cycle?",
+      "options": [
+        "Reaching a black (finished) node",
+        "Reaching a white (unvisited) node",
+        "Reaching a grey node that is on the current recursion path",
+        "A node with in-degree zero"
+      ],
+      "correctIndex": 2,
+      "explanation": "Grey means the node is an ancestor on the current DFS path, so an edge to it closes a cycle. Reaching a black node is just a shared dependency and is fine."
+    },
+    {
+      "question": "For prerequisites given as [course, pre], which direction should the edge go?",
+      "options": [
+        "pre -> course",
+        "course -> pre",
+        "Both directions",
+        "Direction does not matter for topological sort"
+      ],
+      "correctIndex": 0,
+      "explanation": "pre must come before course, so the edge points from pre to course and course's in-degree increases. Reversing it silently gives a reversed order."
+    },
+    {
+      "question": "With union by size and path compression, what is the amortised cost of a Union-Find operation?",
+      "options": [
+        "O(log n) worst case per operation, never better",
+        "O(n)",
+        "O(1) exactly, in every case",
+        "O(α(n)), where α is the inverse Ackermann function: effectively constant"
+      ],
+      "correctIndex": 3,
+      "explanation": "Combining both optimisations gives O(α(n)) amortised time per operation; α(n) is at most 4 for any realistic n. Without them, find can degrade to O(n)."
+    }
+  ]
+}

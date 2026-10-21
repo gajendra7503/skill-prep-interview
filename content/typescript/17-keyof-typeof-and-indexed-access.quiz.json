@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Given `type Dict = { [key: string]: number }`, what is `keyof Dict`?",
+      "options": [
+        "string",
+        "never",
+        "string | number",
+        "number"
+      ],
+      "correctIndex": 2,
+      "explanation": "JavaScript converts numeric keys to strings, so a string index signature also accepts number keys. keyof therefore gives string | number."
+    },
+    {
+      "question": "Given `const PLANS = [\"basic\", \"silver\", \"gold\"] as const;`, which type is the union \"basic\" | \"silver\" | \"gold\"?",
+      "options": [
+        "(typeof PLANS)[number]",
+        "keyof PLANS",
+        "typeof PLANS",
+        "PLANS[number]"
+      ],
+      "correctIndex": 0,
+      "explanation": "typeof lifts the value into a readonly tuple type, and indexing it with number gives the union of its element types. keyof PLANS and PLANS[number] are errors because PLANS is a value, not a type."
+    },
+    {
+      "question": "Why is `getProperty<T, K extends keyof T>(obj: T, key: K): T[K]` better than `getProperty<T>(obj: T, key: keyof T): T[keyof T]`?",
+      "options": [
+        "It runs faster at runtime",
+        "The separate K lets the compiler remember which key was passed, so the return type is that property's type rather than a union of all property types",
+        "The second version does not compile",
+        "It allows keys that are not in T"
+      ],
+      "correctIndex": 1,
+      "explanation": "With key: keyof T, every call returns the union of all value types. Capturing the key as its own type parameter K makes T[K] specific to the key used at each call."
+    },
+    {
+      "question": "Why does `Object.keys(investor)` return `string[]` instead of `(keyof Investor)[]`?",
+      "options": [
+        "Because Object.keys was written before TypeScript existed and was never updated",
+        "Because keyof does not work with objects",
+        "Because strict mode disables key inference",
+        "Because TypeScript is structural: the object may carry extra properties at runtime, so promising only the declared keys would be unsafe"
+      ],
+      "correctIndex": 3,
+      "explanation": "Any object with at least the declared properties is assignable to Investor, so it may have more keys at runtime. string[] is the honest type; cast with as (keyof Investor)[] only when you know the object is exact."
+    }
+  ]
+}

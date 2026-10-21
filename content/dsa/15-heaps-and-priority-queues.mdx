@@ -1,0 +1,188 @@
+---
+title: "Heaps & Priority Queues"
+description: "How a binary heap stores a tree inside an array, a reusable MinHeap class in JavaScript, and the top-K and merge-K interview patterns."
+module: "Trees & Heaps"
+level: "intermediate"
+order: 15
+---
+
+A **priority queue** hands you the most important item first, not the oldest.
+A hospital triage desk, a ride-hailing app picking the nearest driver, a job
+scheduler running the highest-priority task: all of them repeatedly ask
+"what is the smallest (or largest) item right now?" while new items keep
+arriving. A **binary heap** answers in O(1) and handles inserts and removals
+in O(log n), instead of re-sorting at O(n log n) each time.
+
+Python has `heapq` and Java has `PriorityQueue`, but **JavaScript has no
+built-in priority queue**. In interviews you write one (about 40 lines) or
+state that you are assuming a helper. We build one here and reuse it later.
+
+## The heap property and the array trick
+
+A min-heap is a **complete binary tree** (every level full except possibly the
+last, filled left to right) where every parent is less than or equal to its
+children. It is *not* a binary search tree: only the root is guaranteed to be
+the minimum; the rest is only partially ordered.
+
+Because the tree is complete, it packs into an array with no gaps, so there
+are no pointers or node objects, just index arithmetic:
+
+```text
+            1                index:  0  1  2  3  4  5
+          /   \              value: [1, 4, 2, 9, 8, 7]
+         4     2
+        / \   /              parent(i) = floor((i - 1) / 2)
+       9   8 7               left(i)   = 2i + 1
+                             right(i)  = 2i + 2
+```
+
+## A reusable MinHeap class
+
+- **push**: append at the end, then **sift up** (swap with the parent while
+  smaller than it).
+- **pop**: take the root, move the last element to the root, then **sift
+  down** (swap with the smaller child while larger than it).
+
+Both walk one root-to-leaf path of height about log2(n), so both are
+O(log n). The comparator makes the class general: pass `(a, b) => b - a` for
+a max-heap, or compare a field for objects.
+
+```js
+class MinHeap {
+  #heap = [];
+  #compare;
+  constructor(compare = (a, b) => a - b) { this.#compare = compare; }
+  get size() { return this.#heap.length; }
+  peek() { return this.#heap[0]; }
+
+  push(value) {
+    this.#heap.push(value);
+    this.#siftUp(this.#heap.length - 1);
+  }
+
+  pop() {
+    const h = this.#heap;
+    if (h.length === 0) return undefined;
+    const top = h[0];
+    const last = h.pop();
+    if (h.length > 0) {
+      h[0] = last;
+      this.#siftDown(0);
+    }
+    return top;
+  }
+
+  #siftUp(i) {
+    const h = this.#heap;
+    while (i > 0) {
+      const parent = Math.floor((i - 1) / 2);
+      if (this.#compare(h[i], h[parent]) >= 0) break;
+      [h[i], h[parent]] = [h[parent], h[i]];
+      i = parent;
+    }
+  }
+
+  #siftDown(i) {
+    const h = this.#heap;
+    while (true) {
+      const left = 2 * i + 1;
+      const right = 2 * i + 2;
+      let smallest = i;
+      if (left < h.length && this.#compare(h[left], h[smallest]) < 0) smallest = left;
+      if (right < h.length && this.#compare(h[right], h[smallest]) < 0) smallest = right;
+      if (smallest === i) return;
+      [h[i], h[smallest]] = [h[smallest], h[i]];
+      i = smallest;
+    }
+  }
+}
+
+const heap = new MinHeap();
+for (const x of [5, 3, 8, 1, 9, 2]) heap.push(x);
+console.log(heap.pop(), heap.pop(), heap.size); // 1 2 4
+
+// A max-heap of orders by amount (₹), via the comparator
+const orders = new MinHeap((a, b) => b.amount - a.amount);
+orders.push({ id: "ORD-1", amount: 1200 });
+orders.push({ id: "ORD-2", amount: 75000 });
+orders.push({ id: "ORD-3", amount: 4999 });
+console.log(orders.pop());     // { id: 'ORD-2', amount: 75000 }
+console.log(orders.peek().id); // ORD-3
+```
+
+| Operation | Time | Notes |
+|---|---|---|
+| `peek` | O(1) | root is always the min |
+| `push` | O(log n) | sift up one path |
+| `pop` | O(log n) | sift down one path |
+| build from n items (heapify) | O(n) | see below |
+| search for an arbitrary value | O(n) | a heap is not a search structure |
+| heap sort (pop everything) | O(n log n) | space O(n) for the array |
+
+**Heapify in O(n).** To build a heap from an array, sift down every non-leaf
+from index `Math.floor(n / 2) - 1` back to 0. Most nodes sit near the bottom
+and move a step or two, so the total is O(n), not O(n log n). Interviewers
+like asking why. `[9, 4, 7, 1, 8, 2]` becomes `[1, 4, 2, 9, 8, 7]` (the diagram).
+
+## Problem 1: Kth largest element (top-K pattern)
+
+Find the kth largest number without sorting everything. Keep a **min-heap
+of size k**: it holds the k largest seen so far, and its root is the
+smallest of them, which is exactly the kth largest.
+
+```js
+function kthLargest(nums, k) {
+  const heap = new MinHeap();
+  for (const n of nums) {
+    heap.push(n);
+    if (heap.size > k) heap.pop(); // evict the smallest
+  }
+  return heap.peek();
+}
+console.log(kthLargest([3, 2, 1, 5, 6, 4], 2));          // 5
+console.log(kthLargest([3, 2, 3, 1, 2, 4, 5, 5, 6], 4)); // 4
+```
+
+O(n log k) time, O(k) space, and it works on an endless stream. A *min*-heap
+for the *largest* items is the trick: you need cheap access to the next evictee.
+
+## Problem 2: Merge K sorted lists
+
+Three warehouses each send a sorted price list (₹). Put the head of each list
+in a heap; repeatedly pop the smallest and push the next item from its list.
+
+```js
+function mergeKSorted(lists) {
+  const heap = new MinHeap((a, b) => a.value - b.value);
+  lists.forEach((list, li) => {
+    if (list.length) heap.push({ value: list[0], li, i: 0 });
+  });
+  const result = [];
+  while (heap.size) {
+    const { value, li, i } = heap.pop();
+    result.push(value);
+    if (i + 1 < lists[li].length) heap.push({ value: lists[li][i + 1], li, i: i + 1 });
+  }
+  return result;
+}
+console.log(mergeKSorted([[499, 1299, 4500], [799, 999], [150, 2000, 2500]]));
+// [ 150, 499, 799, 999, 1299, 2000, 2500, 4500 ]
+```
+
+With N items in k lists: O(N log k) time, O(k) space (one entry per list).
+
+## Common mistakes
+
+- **Sorting with the default comparator.** `[10, 9, 100, 25].sort()` gives
+  `[10, 100, 25, 9]` (string order). Pass `(a, b) => a - b`.
+- **Using the wrong heap for top-K.** Top-k largest needs a min-heap of size
+  k; top-k smallest needs a max-heap of size k.
+- **Off-by-one in index maths.** The 0-based parent is `Math.floor((i - 1) / 2)`.
+
+### Try it yourself
+
+1. Write `topKFrequent(words, k)` using a `Map` of counts and a size-k
+   `MinHeap` ordered by count.
+2. Running median of a salary stream (₹ lakh): keep a max-heap for the lower
+   half and a min-heap for the upper half, sizes within one of each other.
+3. Add a static `MinHeap.from(array, compare)` using the O(n) heapify loop.

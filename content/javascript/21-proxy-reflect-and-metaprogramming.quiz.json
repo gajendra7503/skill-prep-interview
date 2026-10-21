@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why do idiomatic `get` traps call `Reflect.get(target, key, receiver)` rather than returning `target[key]`?",
+      "options": [
+        "Reflect.get is faster than property access",
+        "target[key] throws inside a trap",
+        "Passing the receiver keeps getters' `this` pointing at the proxy, so reads inside getters still go through the proxy",
+        "Reflect.get automatically makes the property reactive"
+      ],
+      "correctIndex": 2,
+      "explanation": "With target[key], a getter runs with `this` set to the raw target and bypasses the proxy. Reflect.get with the receiver preserves the proxy as `this`."
+    },
+    {
+      "question": "What happens in strict mode code if a proxy's `set` trap returns false?",
+      "options": [
+        "A TypeError is thrown",
+        "The assignment is silently ignored",
+        "The value is written to the target anyway",
+        "The proxy is revoked"
+      ],
+      "correctIndex": 0,
+      "explanation": "A set trap must return true to signal success; a falsy return throws a TypeError in strict mode, which includes modules and classes."
+    },
+    {
+      "question": "Which is an example of a Proxy invariant the engine enforces?",
+      "options": [
+        "A get trap must always return a string",
+        "ownKeys must include every non-configurable own key of the target",
+        "A proxy must be strictly equal (===) to its target",
+        "Every proxy must define all 13 traps"
+      ],
+      "correctIndex": 1,
+      "explanation": "Invariants keep proxies consistent with the target: for example ownKeys cannot omit non-configurable keys, and get must report the real value of a non-configurable, non-writable property. Violations throw a TypeError."
+    },
+    {
+      "question": "Why could Vue 3's Proxy-based reactivity detect newly added properties when Vue 2 could not?",
+      "options": [
+        "Vue 2 did not support objects, only arrays",
+        "Vue 3 polls objects for changes on every animation frame",
+        "Vue 2's Object.defineProperty getters/setters only existed for properties defined upfront, while a Proxy set trap intercepts writes to any key",
+        "Vue 3 uses WeakMap instead of Map, which tracks new keys automatically"
+      ],
+      "correctIndex": 2,
+      "explanation": "defineProperty instruments specific existing keys, so additions and array index writes went unnoticed (hence Vue.set). A Proxy intercepts the operation itself, for any key."
+    }
+  ]
+}

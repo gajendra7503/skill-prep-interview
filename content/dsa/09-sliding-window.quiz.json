@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why is the variable sliding window still O(n) even though it has a while loop inside a for loop?",
+      "options": [
+        "Because the inner loop runs at most once per outer iteration",
+        "Because left and right each only move forward, so together they make at most about 2n moves",
+        "Because JavaScript optimises nested loops automatically",
+        "It is not O(n); it is O(n²) in the worst case"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each element enters the window once (right moves) and leaves at most once (left moves), so the total work across all iterations is linear."
+    },
+    {
+      "question": "The 'shortest subarray with sum at least target' window template gives a wrong answer for [1, -5, 4, 3] with target 7. Why?",
+      "options": [
+        "The window size must be fixed",
+        "The answer must be recorded after the while loop",
+        "The array is not sorted",
+        "Shrinking assumes adding an element always increases the sum, which negative numbers break"
+      ],
+      "correctIndex": 3,
+      "explanation": "With negatives, the running sum is not monotonic, so the window logic can miss valid ranges. Prefix sums with a hash map handle negatives."
+    },
+    {
+      "question": "In the longest-substring-without-repeating-characters solution, why check lastSeen.get(ch) >= left before moving left?",
+      "options": [
+        "So that a character last seen before the current window does not move left backwards",
+        "To skip uppercase characters",
+        "To keep the Map size under 26",
+        "To make the algorithm work on sorted strings"
+      ],
+      "correctIndex": 0,
+      "explanation": "An old occurrence outside the window is irrelevant; without the check, left could jump backwards and the window would include duplicates."
+    },
+    {
+      "question": "What is the time complexity of finding the maximum sum of every k consecutive elements with a fixed sliding window?",
+      "options": [
+        "O(n·k)",
+        "O(k)",
+        "O(n)",
+        "O(n log n)"
+      ],
+      "correctIndex": 2,
+      "explanation": "After computing the first window, each slide adds one element and subtracts one, so the whole pass is O(n) regardless of k."
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+---
+title: "Deferrable Views & Lazy Loading"
+description: "Splitting your bundle by route with loadComponent/loadChildren, preloading strategies, and deferring parts of a template with @defer."
+module: "Modern Angular"
+level: "advanced"
+order: 19
+---
+
+The fastest JavaScript is the JavaScript you never download. Angular gives
+you two levels of code-splitting: **by route** (lazy routes) and **by
+template region** (deferrable views). Interviewers expect you to know both,
+and when to use which.
+
+## Lazy routes: `loadComponent` and `loadChildren`
+
+```ts
+// app.routes.ts
+export const routes: Routes = [
+  { path: "", component: HomeComponent },
+  {
+    path: "portfolio",
+    // a single standalone component in its own chunk
+    loadComponent: () => import("./portfolio/portfolio.component"),
+  },
+  {
+    path: "admin",
+    // an entire route subtree (with its own providers) in its own chunk
+    loadChildren: () => import("./admin/admin.routes").then((m) => m.ADMIN_ROUTES),
+  },
+];
+```
+
+If the component file uses `export default`, `loadComponent` can return the
+`import()` directly — no `.then((m) => m.X)` needed. The build tool sees the
+dynamic `import()` and emits a separate chunk that is only fetched when the
+user first navigates to that path.
+
+## Preloading strategies
+
+Lazy loading trades a smaller initial bundle for a small delay on first
+navigation. **Preloading** wins that delay back by fetching lazy chunks in
+the background *after* the app has bootstrapped:
+
+```ts
+// app.config.ts
+import { provideRouter, withPreloading, PreloadAllModules } from "@angular/router";
+
+export const appConfig: ApplicationConfig = {
+  providers: [provideRouter(routes, withPreloading(PreloadAllModules))],
+};
+```
+
+- `NoPreloading` (the default) — chunks load only on navigation.
+- `PreloadAllModules` — every lazy route is fetched once the app is idle.
+  Simple, but wasteful for large apps with many rarely-used admin screens.
+- **Custom strategy** — implement `PreloadingStrategy` and preload only routes
+  flagged with `data: { preload: true }`, or only on fast connections.
+  Libraries like `ngx-quicklink` preload routes whose links are visible on
+  screen.
+
+## `@defer`: lazy loading part of a template
+
+Routes are coarse. A dashboard page might have a heavy chart below the fold
+that most users never scroll to. `@defer` (stable since Angular 17) splits
+the components *inside* the block into a separate chunk:
+
+```html
+@defer (on viewport; prefetch on idle) {
+  <app-returns-chart [fundId]="fundId()" />
+} @placeholder (minimum 500ms) {
+  <div class="chart-skeleton">Returns chart</div>
+} @loading (after 100ms; minimum 1s) {
+  <app-spinner />
+} @error {
+  <p>Could not load the chart. Please refresh.</p>
+}
+```
+
+- `@placeholder` — shown before loading starts. Its content is loaded
+  eagerly, so keep it lightweight. `minimum` prevents flicker.
+- `@loading` — shown while the chunk downloads. `after 100ms` skips it
+  entirely on fast connections.
+- `@error` — shown if the chunk fails to load (network drop, deploy
+  replaced the file).
+
+## Triggers
+
+| Trigger | Loads when... |
+| --- | --- |
+| `on idle` | the browser is idle (`requestIdleCallback`) — the **default** |
+| `on viewport` | the placeholder (or a referenced element) enters the viewport |
+| `on interaction` | the user clicks or presses a key on the trigger element |
+| `on hover` | the user hovers or focuses the trigger element |
+| `on immediate` | right after the parent finishes rendering |
+| `on timer(2s)` | after a fixed delay |
+| `when isOpen()` | a boolean expression becomes truthy (one-way — it never "un-defers") |
+
+`prefetch` takes the same triggers but only *downloads* the chunk — it
+renders later on the main trigger. `on interaction; prefetch on hover` is a
+classic pairing: the code arrives while the cursor approaches the button.
+
+Triggers can also point at another element with a template reference, e.g.
+`@defer (on interaction(loadBtn))` where `#loadBtn` sits outside the block.
+
+## What actually gets deferred
+
+Only dependencies that are **standalone** and **not referenced anywhere
+else in the same component** (including the class, e.g. a `viewChild`
+query) are moved into the deferred chunk. If you import `ReturnsChartComponent`
+and also use it outside the `@defer` block, Angular has no choice but to keep
+it in the main bundle — a common reason "`@defer` didn't shrink my bundle".
+Verify with `ng build --stats-json` and a bundle analyzer, or simply by the
+lazy chunk list printed at the end of `ng build`.
+
+Two more interview points:
+
+- During **SSR**, `@defer` blocks render their `@placeholder` (or nothing);
+  the deferred content only loads in the browser. With incremental
+  hydration (`hydrate on viewport` etc., stable in Angular 20), the server
+  renders the real content and Angular defers *hydrating* it instead.
+- `@defer` is not a replacement for lazy routes — use routes for whole
+  screens, `@defer` for heavy widgets *within* a screen (charts, rich-text
+  editors, maps, comment threads).
+
+### Try it yourself
+
+Build a fund details page with a heavy `app-returns-chart` component below
+the fold. Wrap it in `@defer (on viewport; prefetch on idle)` with a
+skeleton `@placeholder`, then run `ng build` before and after and compare
+the size of the main chunk and the new lazy chunk. Finally, add a lazy
+`/admin` route with `loadChildren` and a custom preloading strategy that only
+preloads routes marked `data: { preload: true }`.

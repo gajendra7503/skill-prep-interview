@@ -1,0 +1,158 @@
+---
+title: "Replication, Backup & Security"
+description: "Binlog formats, async and semi-sync replication, GTIDs and lag, logical vs physical backups, point-in-time recovery, least-privilege accounts and SQL injection."
+module: "Operations"
+level: advanced
+order: 21
+---
+
+Backend and DBA interviews rarely stop at queries: "how would you scale
+reads?", "how do you restore to 10:42 this morning?" and "how do you stop
+SQL injection?" are standard. This lesson covers the operational answers
+for MySQL 8.0/8.4.
+
+## The binary log and its formats
+
+The **binary log (binlog)** records every change committed on a server. It
+powers both replication and point-in-time recovery. `binlog_format`
+controls what is written:
+
+| Format | Logs | Trade-off |
+| --- | --- | --- |
+| STATEMENT | the SQL text | small, but unsafe for nondeterministic SQL such as `UUID()` or `LIMIT` without `ORDER BY` |
+| ROW (default) | before/after images of each changed row | deterministic and safe; larger for bulk updates |
+| MIXED | statement, switching to row when unsafe | a compromise, rarely chosen today |
+
+ROW is the default and the recommendation; `binlog_row_image = MINIMAL`
+shrinks it. The `binlog_format` variable itself is deprecated from 8.0.34,
+signalling that row-based logging is the long-term direction.
+
+## Source–replica replication
+
+```text
+client ──commit──▶ source ──binlog──▶ replica receiver thread ──▶ relay log
+                                       replica applier thread(s) ──▶ data
+```
+
+By default replication is **asynchronous**: the source commits and replies
+to the client without waiting for any replica. If the source crashes, the
+last few transactions may never have reached a replica.
+
+**Semi-synchronous** replication makes the source wait until at least one
+replica acknowledges it has **received and written** the transaction to its
+relay log (not applied it). With the default wait point `AFTER_SYNC`, a
+failover to an acknowledged replica loses no committed data, at the cost of
+one network round trip per commit.
+
+```sql
+-- on the replica (8.0.23+ syntax)
+CHANGE REPLICATION SOURCE TO
+  SOURCE_HOST = 'db-primary', SOURCE_USER = 'repl',
+  SOURCE_PASSWORD = '...', SOURCE_AUTO_POSITION = 1;
+START REPLICA;
+SHOW REPLICA STATUS\G   -- Replica_IO_Running, Replica_SQL_Running,
+                        -- Seconds_Behind_Source
+```
+
+## GTIDs
+
+A **global transaction identifier** names every transaction as
+`server_uuid:sequence`, e.g. `3e11fa47-...:1-5021`. With
+`gtid_mode = ON` and `enforce_gtid_consistency = ON`, a replica knows
+exactly which transactions it has executed, so `SOURCE_AUTO_POSITION = 1`
+replaces fragile binlog file/position bookkeeping and makes failover
+("point every replica at the new source") much simpler.
+
+## Replication lag and read-your-writes
+
+Replicas apply changes after the source, so a user who places an order and
+immediately reads from a replica may not see it. Common fixes:
+
+- Route a user's reads to the source for a few seconds after they write.
+- Capture the GTID of the write and, on the replica, call
+  `SELECT WAIT_FOR_EXECUTED_GTID_SET('uuid:5021', 1)` before reading.
+- Reduce lag: multi-threaded applier (`replica_parallel_workers`), small
+  transactions, and primary keys on every table (ROW events without a key
+  force full scans on the replica).
+
+## Backups: logical vs physical
+
+**Logical** backups export SQL. `mysqldump --single-transaction` starts a
+REPEATABLE READ consistent snapshot, giving an InnoDB-consistent dump
+without locking tables (but avoid DDL while it runs):
+
+```bash
+mysqldump --single-transaction --source-data=2 --routines --triggers \
+  --events shop > shop_2026-10-12.sql
+```
+
+`--source-data=2` records the binlog position as a comment, which you need
+for point-in-time recovery. Logical dumps are portable but slow to restore
+for hundreds of GB, because every index is rebuilt.
+
+**Physical** backups copy InnoDB data files plus the redo log generated
+during the copy, then "prepare" them into a consistent state. Tools:
+**MySQL Enterprise Backup** (commercial) and **Percona XtraBackup** (open
+source). They are hot, fast, and restore at file-copy speed.
+
+## Point-in-time recovery
+
+Someone ran `DELETE FROM orders` without a `WHERE` at 10:42. Restore the
+last full backup, then replay binlogs from the position recorded in the dump
+up to just before the mistake:
+
+```bash
+mysql shop < shop_2026-10-12.sql
+mysqlbinlog --start-position=157 --stop-datetime="2026-10-12 10:41:59" \
+  binlog.000042 binlog.000043 | mysql
+```
+
+Binlogs must be retained (`binlog_expire_logs_seconds`) at least as long as
+your oldest usable backup.
+
+## Users, roles and least privilege
+
+```sql
+CREATE USER 'shop_app'@'10.0.%' IDENTIFIED BY 'S3cure!pass';
+CREATE ROLE 'app_rw', 'reporting_ro';
+GRANT SELECT, INSERT, UPDATE, DELETE ON shop.* TO 'app_rw';
+GRANT SELECT ON shop.* TO 'reporting_ro';
+GRANT 'app_rw' TO 'shop_app'@'10.0.%';
+SET DEFAULT ROLE ALL TO 'shop_app'@'10.0.%';
+SHOW GRANTS FOR 'shop_app'@'10.0.%';
+```
+
+The application account gets no `DROP`, `ALTER`, `FILE`, `SUPER` or
+`GRANT OPTION`, and is restricted by host. Since 8.0, `GRANT` no longer
+creates users implicitly; the default authentication plugin is
+`caching_sha2_password` (8.4 disables `mysql_native_password` by default).
+
+## SQL injection and prepared statements
+
+```python
+# VULNERABLE: input "x' OR '1'='1" returns every customer
+cur.execute(f"SELECT * FROM customers WHERE email = '{email}'")
+# SAFE: the value is sent separately and never parsed as SQL
+cur.execute("SELECT * FROM customers WHERE email = %s", (email,))
+```
+
+The same idea in pure SQL:
+
+```sql
+PREPARE find_cust FROM 'SELECT * FROM customers WHERE email = ?';
+SET @e = 'asha@example.in';
+EXECUTE find_cust USING @e;
+DEALLOCATE PREPARE find_cust;
+```
+
+Placeholders bind **values only** — table names, column names and
+`ORDER BY` directions cannot be parameters, so validate those against an
+allow-list. Least privilege limits the damage if injection ever succeeds.
+
+### Try it yourself
+
+Enable GTIDs on a source and one replica (Docker works well), insert an
+order on the source, and use `WAIT_FOR_EXECUTED_GTID_SET` to read it
+reliably from the replica. Then take a `mysqldump --single-transaction`
+backup, run an accidental `DELETE`, and recover to the second before it
+using `mysqlbinlog --stop-datetime`.

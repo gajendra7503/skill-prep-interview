@@ -1,0 +1,132 @@
+---
+title: "Regular Expressions"
+description: "Regex syntax, every modern flag, named groups, lookarounds, and the lastIndex and backtracking traps interviewers love."
+module: "Text & Metaprogramming"
+level: "advanced"
+order: 21
+---
+
+Regular expressions show up in interviews in two ways: as a practical
+"validate or extract this" exercise, and as a gotcha question about why a
+regex behaves differently on the second call. Both need a precise model of
+how a `RegExp` object actually matches.
+
+## Syntax refresher
+
+```js
+const literal = /\d{3}-\d{4}/;              // compiled once, when the script loads
+const dynamic = new RegExp("\\d{3}-\\d{4}"); // string escapes need doubling
+
+/^[A-Z][a-z]+$/.test("Asha");     // true — ^ and $ anchor the whole string
+/colou?r/.test("color");          // true — ? means 0 or 1
+/(ab)+/.exec("ababx")[0];         // "abab" — + is greedy
+/<.+?>/.exec("<b>bold</b>")[0];   // "<b>" — +? is lazy (fewest characters)
+```
+
+Core building blocks: character classes (`[a-z]`, `\d`, `\w`, `\s`),
+quantifiers (`*`, `+`, `?`, `{n,m}`), groups (`(...)` capturing,
+`(?:...)` non-capturing), alternation (`a|b`) and anchors (`^`, `$`,
+`\b`). When building a regex from user input, escape it first —
+`RegExp.escape(str)` (ES2025) does this natively in current engines;
+older code uses a manual `replace` of the special characters.
+
+## The eight flags
+
+| Flag | Name | Effect |
+| --- | --- | --- |
+| `g` | global | Find all matches; makes the regex stateful via `lastIndex` |
+| `i` | ignoreCase | Case-insensitive matching |
+| `m` | multiline | `^` and `$` match at every line break, not just string ends |
+| `s` | dotAll | `.` also matches newlines |
+| `u` | unicode | Code-point aware; enables `\p{...}` property escapes |
+| `y` | sticky | Match must start exactly at `lastIndex` |
+| `d` | hasIndices | Adds `match.indices` with start/end offsets (ES2022) |
+| `v` | unicodeSets | Superset of `u`: set operations and string properties (ES2024) |
+
+```js
+"😀".length;                         // 2 — two UTF-16 code units
+/^.$/.test("😀");                    // false without u
+/^.$/u.test("😀");                   // true — matches one code point
+/\p{Script=Devanagari}+/u.test("नमस्ते"); // true
+/[\p{L}--[a-z]]/v.test("a");         // false — v allows set subtraction
+```
+
+`u` and `v` cannot be combined; `v` replaces `u` in new code when you
+need set operations like `--` (difference) and `&&` (intersection).
+
+## The `lastIndex` gotcha with `g` and `y`
+
+A regex with `g` or `y` stores where the last match ended in
+`lastIndex`, and `test()`/`exec()` resume from there:
+
+```js
+const hasDigit = /\d/g;
+hasDigit.test("a1"); // true  — lastIndex is now 2
+hasDigit.test("a1"); // false — search starts at index 2, fails, resets to 0
+hasDigit.test("a1"); // true  — alternating results from the "same" call
+```
+
+This bites when a shared `g` regex is used in a loop or as a
+`filter` callback. Fixes: drop the `g` flag for yes/no checks, create the
+regex inside the function, or reset `lastIndex = 0`. The `y` flag is
+useful for tokenizers precisely because it refuses to skip ahead.
+
+## Named groups and lookarounds
+
+```js
+const dateRe = /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})/;
+const { year, month } = "2026-10-12".match(dateRe).groups;
+
+"2026-10-12".replace(dateRe, "$<day>/$<month>/$<year>"); // "12/10/2026"
+
+// Lookahead (?=...) / (?!...) and lookbehind (?<=...) / (?<!...)
+"₹1500 and $20".match(/(?<=₹)\d+/)[0];   // "1500" — preceded by ₹, ₹ not included
+/^(?=.*\d)(?=.*[A-Z]).{8,}$/.test("Secret12"); // true — password rules
+```
+
+Lookarounds assert a condition without consuming characters, so the
+matched text excludes the context. Backreferences reuse a group:
+`\k<name>` or `\1`.
+
+## `matchAll` and `replaceAll`
+
+```js
+const text = "Order A12 cost ₹450, order B7 cost ₹1200";
+for (const m of text.matchAll(/₹(?<amt>\d+)/g)) {
+  console.log(m.groups.amt, m.index); // "450" 15, then "1200" 35
+}
+
+text.replaceAll(/order/gi, "Item");         // must use g, else TypeError
+text.replace(/\d+/g, (n) => String(n * 2)); // callback replacement
+```
+
+`matchAll` returns a lazy iterator of full match objects (groups and
+indices) and throws a `TypeError` if the regex lacks `g`, as does
+`replaceAll` with a regex. Unlike looping on `exec`, `matchAll` clones
+the regex internally, so the original's `lastIndex` is untouched.
+
+## Catastrophic backtracking (ReDoS)
+
+JavaScript's engines are backtracking matchers. Nested or overlapping
+quantifiers can explode into exponential work when a match **fails**:
+
+```js
+const evil = /^(a+)+$/;
+evil.test("a".repeat(30) + "!"); // can hang the thread for a very long time
+```
+
+The engine tries every way to split the `a`s between the inner and outer
+`+` before giving up. Because JS is single-threaded, one malicious input
+to a server-side validator can freeze a Node process — a regular
+expression denial of service. Defences: avoid nested quantifiers like
+`(a+)+` or `(\w|\d)*`, make alternatives mutually exclusive, cap input
+length before matching, and prefer simple string methods when they
+suffice.
+
+### Try it yourself
+
+Write `parseLog(text)` that uses `matchAll` with named groups to extract
+`level`, `time` and `message` from lines like
+`[ERROR] 10:42:01 Payment of ₹2500 failed`, using the `m` flag to anchor
+each line. Then deliberately share a `g` regex with `test()` across two
+calls and fix the resulting `lastIndex` bug.

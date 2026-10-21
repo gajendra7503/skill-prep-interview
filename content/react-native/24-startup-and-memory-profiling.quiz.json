@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why should startup and performance numbers be taken from release builds rather than development builds?",
+      "options": [
+        "Development builds cannot run on physical devices",
+        "Release builds disable JavaScript",
+        "Profilers only attach to App Store builds",
+        "Dev builds add checks and run JS from source instead of precompiled bytecode, so their numbers are much worse and misleading"
+      ],
+      "correctIndex": 3,
+      "explanation": "Dev mode includes extra validation and tooling, and Hermes doesn't use precompiled bytecode there, so it doesn't represent what users experience."
+    },
+    {
+      "question": "What does `adb shell am start -W -n <package>/.MainActivity` report?",
+      "options": [
+        "The size of the JS bundle",
+        "Launch timing such as TotalTime until the activity's first frame",
+        "The number of React re-renders",
+        "Memory leaks in native code"
+      ],
+      "correctIndex": 1,
+      "explanation": "With -W the activity manager waits for launch and prints timing like TotalTime and WaitTime, a quick way to measure cold start on Android."
+    },
+    {
+      "question": "An app initialises analytics, chat support and remote config in index.js and starts slowly. What is a good first change?",
+      "options": [
+        "Defer non-critical SDK initialisation until after the first render",
+        "Turn off Hermes",
+        "Move all code into one giant component",
+        "Increase the device's font size"
+      ],
+      "correctIndex": 0,
+      "explanation": "Everything at module top level runs before the first frame. Deferring non-essential SDKs shortens the critical path to first content."
+    },
+    {
+      "question": "Memory keeps climbing each time a user opens and closes a screen. Which code pattern is a likely cause?",
+      "options": [
+        "Using StyleSheet.create",
+        "Rendering Text inside View",
+        "Adding an AppState or other event listener in useEffect without removing it in the cleanup function",
+        "Using TypeScript"
+      ],
+      "correctIndex": 2,
+      "explanation": "Listeners and timers that are never cleaned up keep their closures alive after unmount, so memory grows with every visit."
+    }
+  ]
+}

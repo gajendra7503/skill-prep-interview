@@ -1,0 +1,774 @@
+{
+  "title": "Angular Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "ng-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "16-ngmodules-vs-standalone",
+      "question": "In Angular 19 and later, what happens if you omit the `standalone` flag from a `@Component` decorator?",
+      "options": [
+        "The component must be declared in an NgModule",
+        "The component is standalone, because `standalone: true` became the default in v19",
+        "The build fails until you set `standalone` explicitly",
+        "The component is standalone only if it has no `imports` array"
+      ],
+      "correctIndex": 1,
+      "explanation": "Since Angular 19, components, directives and pipes are standalone by default. You now write `standalone: false` only for legacy NgModule-declared classes. Before v19 the default was false, which is why older code always set `standalone: true` explicitly."
+    },
+    {
+      "id": "ng-02",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "04-directives-and-pipes",
+      "question": "Which built-in control flow block replaces the `*ngIf` structural directive in modern Angular templates?",
+      "options": [
+        "`@show`",
+        "`@when`",
+        "`@ngIf`",
+        "`@if`"
+      ],
+      "correctIndex": 3,
+      "explanation": "Angular 17 introduced built-in control flow: `@if`, `@for` and `@switch`. `@if` (with optional `@else if` / `@else`) replaces `*ngIf` and needs no import. `@when` and `@show` do not exist; `@ngIf` is a mix of old and new syntax."
+    },
+    {
+      "id": "ng-03",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "04-directives-and-pipes",
+      "question": "What happens if you write a `@for` block without a `track` expression?",
+      "options": [
+        "The template fails to compile, because `track` is mandatory in `@for`",
+        "Angular silently tracks items by `$index`",
+        "Angular tracks items by object identity, like `*ngFor` did",
+        "It works but logs a performance warning in production"
+      ],
+      "correctIndex": 0,
+      "explanation": "Unlike `*ngFor`, where `trackBy` was optional, `@for` requires a `track` expression and the compiler reports an error without one. That forces you to choose a stable identity (usually `item.id`) up front."
+    },
+    {
+      "id": "ng-04",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "07-change-detection-and-signals",
+      "question": "Given `count = signal(0)` in a component, how do you display its current value in the template?",
+      "options": [
+        "`{{ count }}`",
+        "`{{ count.value }}`",
+        "`{{ count() }}`",
+        "`{{ count | async }}`"
+      ],
+      "correctIndex": 2,
+      "explanation": "A signal is a getter function: you call it to read the value, both in TypeScript and in templates. `{{ count }}` would try to render the function itself. Signals have no `.value` property, and the `async` pipe is for Observables and Promises."
+    },
+    {
+      "id": "ng-05",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "10-dependency-injection-deep-dive",
+      "question": "Where can you call `inject(FundService)` without getting an error?",
+      "options": [
+        "Anywhere, including inside a `setTimeout` callback",
+        "Only inside `ngOnInit`",
+        "In an injection context, such as a class field initializer or the constructor",
+        "Only inside a method marked with `@Injectable()`"
+      ],
+      "correctIndex": 2,
+      "explanation": "`inject()` works only inside an injection context: field initializers, constructors, provider factories, and functional guards, resolvers and interceptors. It fails in lifecycle hooks or async callbacks, which run after construction. `ngOnInit` is a common wrong guess, but it runs too late."
+    },
+    {
+      "id": "ng-06",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-components-and-templates",
+      "question": "In `<button [disabled]=\"isSaving()\">Save</button>`, what kind of binding is `[disabled]`?",
+      "options": [
+        "Property binding: it sets the DOM `disabled` property from the expression",
+        "Event binding: it runs `isSaving()` when the button is disabled",
+        "Two-way binding between the button and `isSaving`",
+        "Interpolation, the same as `disabled=\"{{ isSaving() }}\"`"
+      ],
+      "correctIndex": 0,
+      "explanation": "Square brackets bind a component expression to a DOM property, one way. Event binding uses parentheses, e.g. `(click)`, and two-way binding uses `[( )]`. Interpolation converts the value to a string, which is wrong for boolean properties like `disabled`."
+    },
+    {
+      "id": "ng-07",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "07-change-detection-and-signals",
+      "question": "You have `qty = signal(1)`. Which call increments it based on its current value?",
+      "options": [
+        "`this.qty++`",
+        "`this.qty.value += 1`",
+        "`this.qty.next(this.qty() + 1)`",
+        "`this.qty.update(q => q + 1)`"
+      ],
+      "correctIndex": 3,
+      "explanation": "`update()` takes a function that receives the current value and returns the new one. `.set(this.qty() + 1)` would also work. `next()` belongs to RxJS Subjects, signals have no `.value`, and `++` would try to increment the function reference."
+    },
+    {
+      "id": "ng-08",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "19-build-and-deployment",
+      "question": "By default, on which port does `ng serve` start the development server?",
+      "options": [
+        "3000",
+        "4200",
+        "8080",
+        "5173"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Angular CLI dev server defaults to http://localhost:4200. You can change it with `ng serve --port 4300`. Port 3000 is a common default for Node/Next.js, and 5173 is Vite's own default."
+    },
+    {
+      "id": "ng-09",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-services-and-di",
+      "question": "In a standalone app bootstrapped with `bootstrapApplication`, how do you make `HttpClient` available for injection?",
+      "options": [
+        "Add `provideHttpClient()` to the `providers` array in `app.config.ts`",
+        "Import `HttpClientModule` into every component that uses it",
+        "Add `HttpClient` to the component's `imports` array",
+        "Nothing; `HttpClient` is provided automatically"
+      ],
+      "correctIndex": 0,
+      "explanation": "Standalone apps register HTTP support with `provideHttpClient()`, optionally with features such as `withInterceptors([...])` or `withFetch()`. `HttpClientModule` is the deprecated NgModule approach. `HttpClient` is a service, not a component, so it does not go in `imports`."
+    },
+    {
+      "id": "ng-10",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "04-directives-and-pipes",
+      "question": "In a `@switch (status())` block, which block renders when none of the `@case` values match?",
+      "options": [
+        "`@else`",
+        "`@empty`",
+        "`@default`",
+        "`@otherwise`"
+      ],
+      "correctIndex": 2,
+      "explanation": "`@switch` uses `@case (value)` blocks and an optional `@default` fallback. `@else` belongs to `@if`, `@empty` belongs to `@for`, and `@otherwise` does not exist."
+    },
+    {
+      "id": "ng-11",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "06-routing-and-guards",
+      "question": "Which directive should you use on an `<a>` tag to navigate between Angular routes without a full page reload?",
+      "options": [
+        "`href` with a `#` prefix",
+        "`routerLink`",
+        "`ngHref`",
+        "`routerOutlet`"
+      ],
+      "correctIndex": 1,
+      "explanation": "`routerLink` (imported from `@angular/router`) makes the router handle navigation inside the app. A plain `href` reloads the whole app. `<router-outlet>` is where routed components render; it does not create links. `ngHref` is from AngularJS."
+    },
+    {
+      "id": "ng-12",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-change-detection-and-signals",
+      "question": "What happens when you try to call `.set()` on a value created with `computed()`?",
+      "options": [
+        "The value is overwritten until one of its dependencies changes",
+        "It throws a runtime error only in development mode",
+        "It triggers an immediate recalculation",
+        "TypeScript reports an error: `computed()` returns a read-only `Signal` with no `set` method"
+      ],
+      "correctIndex": 3,
+      "explanation": "`computed()` returns `Signal<T>`, not `WritableSignal<T>`, so `set` and `update` do not exist on its type. Its value always comes from its dependencies. If you need derived state that the user can also overwrite, use `linkedSignal()`."
+    },
+    {
+      "id": "ng-13",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-change-detection-and-signals",
+      "question": "When does an `effect()` run after a signal it reads changes?",
+      "options": [
+        "Synchronously, inside the `set()` call",
+        "Only when `ChangeDetectorRef.detectChanges()` is called manually",
+        "Never again; effects run exactly once",
+        "Later, as a scheduled step tied to change detection, not synchronously inside `set()`"
+      ],
+      "correctIndex": 3,
+      "explanation": "Effects are scheduled. Changing a signal marks the effect dirty, and Angular runs it later during its change-detection cycle. Several synchronous `set()` calls therefore usually trigger one effect run, not one per call. Effects also run once initially to record their dependencies."
+    },
+    {
+      "id": "ng-14",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-change-detection-and-signals",
+      "question": "Inside a `computed()` or `effect()`, what does wrapping a read in `untracked(() => config())` do?",
+      "options": [
+        "It reads the signal's value without making it a dependency",
+        "It stops the signal from ever changing again",
+        "It reads the signal's previous value",
+        "It turns the signal into an Observable"
+      ],
+      "correctIndex": 0,
+      "explanation": "`untracked()` returns the current value but does not register a dependency, so later changes to `config` will not re-run that computed or effect. It is useful for reading context (such as a logged-in user for logging) without making it a trigger."
+    },
+    {
+      "id": "ng-15",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-change-detection-and-signals",
+      "question": "Why does `count` still show 2 after `addFund()` runs?",
+      "code": "funds = signal(['A', 'B']);\ncount = computed(() => this.funds().length);\n\naddFund() {\n  this.funds().push('C');\n}",
+      "codeLanguage": "ts",
+      "options": [
+        "`computed()` caches its first value forever",
+        "Signals cannot hold arrays",
+        "`push` mutates the same array, so the signal's equality check sees no change and dependents are not notified",
+        "`count` must be declared as `signal()` instead of `computed()`"
+      ],
+      "correctIndex": 2,
+      "explanation": "Signals compare values with `Object.is` by default. Mutating the array in place leaves the reference unchanged, so nothing is notified. Replace the array immutably instead: `this.funds.update(list => [...list, 'C'])`."
+    },
+    {
+      "id": "ng-16",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-change-detection-and-signals",
+      "question": "An `OnPush` component reads a signal in its template, and the signal is updated from a service. What does Angular do?",
+      "options": [
+        "Nothing, because `OnPush` only reacts to `@Input()` reference changes",
+        "It marks the component for check automatically, so the view updates without `markForCheck()`",
+        "It throws an error, because signals cannot be used with `OnPush`",
+        "It re-renders the entire application tree"
+      ],
+      "correctIndex": 1,
+      "explanation": "Signals read in a template are tracked by that component's view. When one changes, Angular marks the view (and its ancestors) for check, even under `OnPush`. That is why signals and `OnPush` work well together. The `@Input()` rule describes when OnPush runs, but it is not the only trigger."
+    },
+    {
+      "id": "ng-17",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "04-directives-and-pipes",
+      "question": "Which of these is NOT a built-in contextual variable inside a `@for` block?",
+      "options": [
+        "`$length`",
+        "`$count`",
+        "`$first`",
+        "`$odd`"
+      ],
+      "correctIndex": 0,
+      "explanation": "`@for` exposes `$index`, `$count`, `$first`, `$last`, `$even` and `$odd`. The collection size is `$count`, not `$length`. You can alias them, e.g. `@for (f of funds(); track f.id; let i = $index)`."
+    },
+    {
+      "id": "ng-18",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "14-deferrable-views-and-lazy-loading",
+      "question": "With `@defer (when isReady()) { <app-report /> }`, what happens if `isReady()` becomes `true` and later turns `false` again?",
+      "options": [
+        "The block switches back to its `@placeholder`",
+        "The deferred chunk is unloaded from memory",
+        "Angular throws an error because `when` conditions must stay true",
+        "The deferred content stays rendered; `when` is a one-time trigger"
+      ],
+      "correctIndex": 3,
+      "explanation": "Defer triggers fire once. After the condition becomes truthy and the block loads, it does not go back to the placeholder. If you need to show and hide repeatedly, put an `@if` inside the `@defer` block."
+    },
+    {
+      "id": "ng-19",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-routing-and-guards",
+      "question": "In a functional `CanActivateFn`, what is the recommended return value for sending an unauthenticated user to `/login`?",
+      "options": [
+        "`false`, and then call `router.navigate(['/login'])` in a `setTimeout`",
+        "`window.location.href = '/login'`",
+        "`inject(Router).createUrlTree(['/login'])`",
+        "`throw new Error('/login')`"
+      ],
+      "correctIndex": 2,
+      "explanation": "Returning a `UrlTree` (or a `RedirectCommand` in newer versions) cancels the current navigation and starts a redirect in one step, without race conditions. Returning `false` just blocks the navigation. Setting `window.location` reloads the whole app."
+    },
+    {
+      "id": "ng-20",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "06-routing-and-guards",
+      "question": "What does adding `withComponentInputBinding()` to `provideRouter(routes, ...)` enable?",
+      "options": [
+        "Components can be passed as inputs to the router",
+        "Route params, query params and route data are bound directly to matching component inputs",
+        "Inputs are validated against route guards",
+        "Lazy-loaded components receive their inputs from `localStorage`"
+      ],
+      "correctIndex": 1,
+      "explanation": "With `withComponentInputBinding()`, a route `funds/:id` sets an input named `id` (for example `id = input.required<string>()`) on the routed component, so you do not need to inject `ActivatedRoute` for simple cases."
+    },
+    {
+      "id": "ng-21",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-rxjs-essentials",
+      "question": "You call `takeUntilDestroyed()` inside `ngOnInit` and get an injection-context error. What is the fix?",
+      "options": [
+        "Move the subscription into `ngOnDestroy`",
+        "Inject `DestroyRef` in a field and pass it in: `takeUntilDestroyed(this.destroyRef)`",
+        "Replace it with `take(1)`",
+        "Mark the component `OnPush`"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without arguments, `takeUntilDestroyed()` calls `inject(DestroyRef)`, which only works in an injection context such as the constructor or a field initializer. In lifecycle hooks, pass a `DestroyRef` you injected earlier. `take(1)` changes the behaviour: it stops after the first value."
+    },
+    {
+      "id": "ng-22",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-rxjs-essentials",
+      "question": "What is the type of `users` here?",
+      "code": "private http = inject(HttpClient);\nusers = toSignal(this.http.get<User[]>('/api/users'));",
+      "codeLanguage": "ts",
+      "options": [
+        "`Signal<User[]>`",
+        "`Observable<User[]>`",
+        "`Signal<User[] | undefined>`",
+        "`WritableSignal<User[]>`"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without an `initialValue` (or `requireSync: true`), `toSignal` has no value before the HTTP response arrives, so it adds `undefined` to the type. Pass `{ initialValue: [] }` to get `Signal<User[]>`. The result is always read-only."
+    },
+    {
+      "id": "ng-23",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "03-reactive-forms",
+      "question": "With typed reactive forms, what is the value type of `name = new FormControl('')`?",
+      "options": [
+        "`string | null`, because `reset()` sets the control to `null`",
+        "`string`",
+        "`any`",
+        "`string | undefined`"
+      ],
+      "correctIndex": 0,
+      "explanation": "By default a `FormControl` can be reset to `null`, so its value type includes `null`. Use `new FormControl('', { nonNullable: true })` (or `NonNullableFormBuilder`) to make `reset()` go back to the initial value and get a plain `string` type."
+    },
+    {
+      "id": "ng-24",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "15-http-interceptors",
+      "question": "Which signature matches a functional HTTP interceptor (`HttpInterceptorFn`)?",
+      "options": [
+        "`(req: HttpRequest<unknown>) => HttpRequest<unknown>`",
+        "`intercept(req, next: HttpHandler): Promise<Response>`",
+        "`(next: HttpHandlerFn) => void`",
+        "`(req: HttpRequest<unknown>, next: HttpHandlerFn) => Observable<HttpEvent<unknown>>`"
+      ],
+      "correctIndex": 3,
+      "explanation": "A functional interceptor receives the request and a `next` function, and returns the Observable from `next(req)` (often after `req.clone(...)`). The class-based `intercept(req, next: HttpHandler)` returns an Observable, not a Promise. Register functional interceptors with `withInterceptors([...])`."
+    },
+    {
+      "id": "ng-25",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "21-signal-inputs-queries-and-resource",
+      "question": "What does `transform: booleanAttribute` let consumers of this component do?",
+      "code": "compact = input(false, { transform: booleanAttribute });",
+      "codeLanguage": "ts",
+      "options": [
+        "Pass only the literal strings 'true' or 'false'",
+        "Bind the input two-way with `[(compact)]`",
+        "Skip declaring the input's type",
+        "Write `<app-fund-card compact />`, and the empty attribute is turned into `true`"
+      ],
+      "correctIndex": 3,
+      "explanation": "A bare attribute passes an empty string. `booleanAttribute` turns `\"\"` and any value except `\"false\"` into `true`, so `compact` behaves like a native boolean attribute such as `disabled`. Two-way binding needs `model()`, not a transform."
+    },
+    {
+      "id": "ng-26",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "04-directives-and-pipes",
+      "question": "Which statement about `@let total = price() * qty();` in a template is correct?",
+      "options": [
+        "It creates a writable signal on the component class",
+        "It declares a read-only template variable that updates when its expression changes; it cannot be reassigned in the template",
+        "It runs only once, when the template is first rendered",
+        "It is visible to every component in the app"
+      ],
+      "correctIndex": 1,
+      "explanation": "`@let` (stable since Angular 19) stores a template expression's result in a local, read-only variable. It is scoped to its view and child blocks and is re-evaluated when its inputs change. You cannot assign to it from an event handler."
+    },
+    {
+      "id": "ng-27",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "07-change-detection-and-signals",
+      "question": "In a zoneless app (`provideZonelessChangeDetection()`, stable from Angular 20.2), which change will NOT update the view by itself?",
+      "options": [
+        "Assigning a new value to a plain class field inside a `setTimeout` callback",
+        "Calling `.set()` on a signal that the template reads",
+        "A `(click)` handler bound in the template that updates state",
+        "A new value arriving through the `async` pipe"
+      ],
+      "correctIndex": 0,
+      "explanation": "Without Zone.js, Angular does not know about arbitrary async callbacks. Change detection is scheduled only by notifications: signal updates read in templates, template/host event listeners, the `async` pipe (which calls `markForCheck`), `markForCheck()` itself, and `setInput`. A plain field assignment in `setTimeout` notifies nobody. Note: the API was a developer preview in 20.0 and became stable in 20.2."
+    },
+    {
+      "id": "ng-28",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "07-change-detection-and-signals",
+      "question": "How many times is 'computing' logged when this code runs?",
+      "code": "const a = signal(1);\nconst double = computed(() => {\n  console.log('computing');\n  return a() * 2;\n});\n\na.set(2);\na.set(3);\nconsole.log(double());\nconsole.log(double());",
+      "codeLanguage": "ts",
+      "options": [
+        "Never",
+        "Twice",
+        "Once",
+        "Three times"
+      ],
+      "correctIndex": 2,
+      "explanation": "`computed()` is lazy and memoized. The `set()` calls only mark it dirty; nothing is computed until `double()` is first read, which logs once and returns 6. The second read finds no dependency changes and returns the cached value without running the function."
+    },
+    {
+      "id": "ng-29",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "11-content-projection-and-communication",
+      "question": "A card component wraps `<ng-content />` in `@if (expanded()) { ... }`. When `expanded()` is false, what happens to a component the parent projects into it?",
+      "options": [
+        "It is still created, because projected content is instantiated by the parent whether or not the slot is rendered",
+        "It is never created until `expanded()` becomes true",
+        "It is created and destroyed each time `expanded()` toggles",
+        "Angular reports a compile error for conditional `ng-content`"
+      ],
+      "correctIndex": 0,
+      "explanation": "Projected content belongs to the parent's view, so the parent creates it, along with its constructor and lifecycle hooks, even if the `<ng-content>` slot is hidden. To create content lazily, accept an `<ng-template>` and render it with `ngTemplateOutlet`, or have the parent use `@if` itself."
+    },
+    {
+      "id": "ng-30",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "14-deferrable-views-and-lazy-loading",
+      "question": "You add `@defer (hydrate on viewport) { <app-reviews /> }` to an SSR app. What is needed for the `hydrate` trigger to work?",
+      "options": [
+        "Only `provideRouter(routes)`",
+        "`withEventReplay()` alone, without hydration",
+        "Running `ng add @angular/pwa`",
+        "`provideClientHydration(withIncrementalHydration())` in the app config"
+      ],
+      "correctIndex": 3,
+      "explanation": "`hydrate on ...` triggers belong to incremental hydration (stable since Angular 20; developer preview in 19). You enable it with `withIncrementalHydration()` inside `provideClientHydration()`. Event replay is related, and turned on automatically by incremental hydration, but on its own it does not enable `hydrate` triggers."
+    },
+    {
+      "id": "ng-31",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-dependency-injection-deep-dive",
+      "question": "A lazy route declares `providers: [ReportStore]`, and two components inside that route's subtree inject `ReportStore`. What do they get?",
+      "options": [
+        "A new instance each, because route providers behave like component providers",
+        "The same `ReportStore` instance, created in an environment injector for that route, separate from any root instance",
+        "The root singleton, because route providers are ignored for lazy routes",
+        "An injection error, because route-level providers need an NgModule"
+      ],
+      "correctIndex": 1,
+      "explanation": "Route `providers` create an environment injector for that route and its children. Every component in the subtree shares one instance, which is useful for feature-scoped state. Components outside the route cannot see it."
+    },
+    {
+      "id": "ng-32",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "21-signal-inputs-queries-and-resource",
+      "question": "Using `resource()` (experimental in Angular 20), what happens when the `params` function returns `undefined`?",
+      "options": [
+        "The loader runs with `params` set to `undefined`",
+        "The resource enters the 'error' state",
+        "The loader does not run and the resource status becomes 'idle'",
+        "The resource throws during construction"
+      ],
+      "correctIndex": 2,
+      "explanation": "Returning `undefined` from `params` tells `resource()` there is nothing to load yet, for example when no fund is selected. The loader is skipped and the status is 'idle'. Because the API is experimental (v19's `request` was renamed to `params` in v20), check your version's docs."
+    },
+    {
+      "id": "ng-33",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-dependency-injection-deep-dive",
+      "question": "A component lists `TooltipService` under `viewProviders` instead of `providers`. Which code can inject that instance?",
+      "options": [
+        "Only content projected through `<ng-content>`",
+        "Every component in the application",
+        "Elements in the component's own template, but not content projected into it through `<ng-content>`",
+        "Only the component class itself, not its children"
+      ],
+      "correctIndex": 2,
+      "explanation": "`viewProviders` are visible only to the component's view, meaning the elements and components declared in its own template. Projected content comes from the parent's view and cannot see them. With `providers`, both the view and projected content can inject the service."
+    },
+    {
+      "id": "ng-34",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-dependency-injection-deep-dive",
+      "question": "A service calls `effect(() => ...)` inside a method that runs after a button click, and gets error NG0203. What is the right fix?",
+      "options": [
+        "Create the effect in an injection context (for example a field initializer), or pass `{ injector }` as the second argument",
+        "Wrap the call in `untracked()`",
+        "Replace `effect` with `computed` and keep calling it in the method",
+        "Add `allowSignalWrites: true`"
+      ],
+      "correctIndex": 0,
+      "explanation": "`effect()` needs an injector to register itself and tie its cleanup to a lifetime, so outside an injection context it throws NG0203. Create it in the constructor or a field, or inject `Injector` and pass `{ injector: this.injector }`. `allowSignalWrites` is deprecated (writes are allowed by default since v19) and has nothing to do with this error."
+    },
+    {
+      "id": "ng-35",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "07-change-detection-and-signals",
+      "question": "What happens when a `computed()` function calls `.set()` on another writable signal?",
+      "options": [
+        "The write is applied after the computation finishes",
+        "Angular throws an error (NG0600), because writing to signals is not allowed inside `computed()`",
+        "The write is silently ignored",
+        "It works but the computed becomes non-memoized"
+      ],
+      "correctIndex": 1,
+      "explanation": "Computed functions must be pure derivations; side effects like signal writes inside them throw NG0600. Use `computed()` to derive values, and `linkedSignal()` or explicit event handlers to change state. Effects may write signals, but deriving state that way is discouraged."
+    },
+    {
+      "id": "ng-36",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "07-change-detection-and-signals",
+      "question": "What value does `total()` return after this code runs?",
+      "code": "const qty = signal(2);\nconst price = signal(150);\nconst total = computed(() => qty() * price());\n\nqty.set(3);\nprice.update(p => p + 50);",
+      "codeLanguage": "ts",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "600"
+      ],
+      "caseSensitive": false,
+      "explanation": "`qty` becomes 3 and `price` becomes 150 + 50 = 200. The computed recalculates on read: 3 x 200 = 600."
+    },
+    {
+      "id": "ng-37",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "01-components-and-templates",
+      "question": "Type the Angular CLI command (long or short form) that generates a component named `user-card`.",
+      "answerHint": "Type the full command, e.g. 'ng ...'",
+      "acceptedAnswers": [
+        "ng generate component user-card",
+        "ng g component user-card",
+        "ng g c user-card",
+        "ng generate c user-card"
+      ],
+      "caseSensitive": false,
+      "explanation": "`ng generate component user-card`, or the shorthand `ng g c user-card`, creates the component's TypeScript, template, styles and spec files. Since v19 the generated component is standalone by default."
+    },
+    {
+      "id": "ng-38",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-services-and-di",
+      "question": "Fill in the blank: which function obtains the service instance here?",
+      "code": "export class FundListComponent {\n  private fundService = ____(FundService);\n}",
+      "codeLanguage": "ts",
+      "answerHint": "Type the function name",
+      "acceptedAnswers": [
+        "inject",
+        "inject()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`inject()` resolves a dependency from the current injector. It works in field initializers because they run during construction, which is an injection context."
+    },
+    {
+      "id": "ng-39",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "04-directives-and-pipes",
+      "question": "Fill in the blank: which block shows the 'No funds found' message when `funds()` is an empty array?",
+      "code": "@for (fund of funds(); track fund.id) {\n  <app-fund-row [fund]=\"fund\" />\n} ____ {\n  <p>No funds found.</p>\n}",
+      "codeLanguage": "html",
+      "answerHint": "Type the block name, including @",
+      "acceptedAnswers": [
+        "@empty",
+        "empty"
+      ],
+      "caseSensitive": false,
+      "explanation": "`@empty` is an optional block right after `@for` that renders when the collection has no items, so you do not need a separate `@if (funds().length === 0)`."
+    },
+    {
+      "id": "ng-40",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "05-rxjs-essentials",
+      "question": "A search box calls the API on every keystroke. Which RxJS operator should replace the blank so that each new term cancels the previous in-flight request?",
+      "code": "this.results$ = this.term$.pipe(\n  debounceTime(300),\n  distinctUntilChanged(),\n  ____(term => this.api.search(term))\n);",
+      "codeLanguage": "ts",
+      "answerHint": "Type the operator name",
+      "acceptedAnswers": [
+        "switchMap",
+        "switchMap()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`switchMap` unsubscribes from the previous inner Observable when a new value arrives, which cancels the old HTTP request, so stale results never overwrite newer ones. `mergeMap` keeps all requests running, and `concatMap` queues them."
+    },
+    {
+      "id": "ng-41",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "05-rxjs-essentials",
+      "question": "Fill in the blank with the `@angular/core/rxjs-interop` operator that automatically unsubscribes when the component is destroyed.",
+      "code": "export class TickerComponent {\n  price = signal(0);\n\n  constructor() {\n    this.feed.prices$\n      .pipe(____())\n      .subscribe(p => this.price.set(p));\n  }\n}",
+      "codeLanguage": "ts",
+      "answerHint": "Type the operator name",
+      "acceptedAnswers": [
+        "takeUntilDestroyed",
+        "takeUntilDestroyed()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`takeUntilDestroyed()` completes the stream when the surrounding `DestroyRef` (here, the component) is destroyed. Called in the constructor, it is in an injection context, so it needs no arguments."
+    },
+    {
+      "id": "ng-42",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "21-signal-inputs-queries-and-resource",
+      "question": "Fill in the blank so that leaving out the `name` binding is a compile-time error for any parent using this component.",
+      "code": "export class FundCardComponent {\n  name = ____<string>();\n}",
+      "codeLanguage": "ts",
+      "answerHint": "Type the API, e.g. 'something.something'",
+      "acceptedAnswers": [
+        "input.required",
+        "input.required()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`input.required<string>()` declares a signal input that every usage must bind. It replaces the `@Input() name!: string` pattern, and the compiler reports a missing binding."
+    },
+    {
+      "id": "ng-43",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "09-lifecycle-hooks",
+      "question": "With a decorator-based `@ViewChild('chart') chartEl!: ElementRef;` (non-static), which lifecycle hook is the first one where `chartEl` is reliably set?",
+      "answerHint": "Type the hook method name",
+      "acceptedAnswers": [
+        "ngAfterViewInit",
+        "ngAfterViewInit()"
+      ],
+      "caseSensitive": false,
+      "explanation": "Non-static view queries are resolved after the component's view is created, so they are first available in `ngAfterViewInit`. In `ngOnInit` they are still undefined. Signal queries (`viewChild()`) avoid this timing issue."
+    },
+    {
+      "id": "ng-44",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "07-change-detection-and-signals",
+      "question": "What value does `sum()` return after this code runs?",
+      "code": "const items = signal([10, 20, 30]);\nconst sum = computed(() =>\n  items().reduce((a, b) => a + b, 0)\n);\n\nitems.update(list => [...list, 40]);\nitems.update(list => list.filter(n => n > 15));",
+      "codeLanguage": "ts",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "90"
+      ],
+      "caseSensitive": false,
+      "explanation": "After the first update the list is [10, 20, 30, 40]. The filter keeps values above 15, giving [20, 30, 40], so the sum is 90."
+    },
+    {
+      "id": "ng-45",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "04-directives-and-pipes",
+      "question": "The `en-IN` locale is registered. What text does this template render?",
+      "code": "{{ 250000 | currency:'INR':'symbol':'1.2-2':'en-IN' }}",
+      "codeLanguage": "html",
+      "answerHint": "Type the exact output, including the symbol",
+      "acceptedAnswers": [
+        "₹2,50,000.00",
+        "₹ 2,50,000.00"
+      ],
+      "caseSensitive": false,
+      "explanation": "The `en-IN` locale uses Indian digit grouping (lakh: 2,50,000), the ₹ symbol for INR, and '1.2-2' forces two decimal places, giving ₹2,50,000.00. Under the default en-US locale it would render ₹250,000.00 instead."
+    },
+    {
+      "id": "ng-46",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "05-rxjs-essentials",
+      "question": "Which function from `@angular/core/rxjs-interop` converts an Observable such as `this.http.get<Fund[]>(url)` into a signal you can read in a template?",
+      "answerHint": "Type the function name",
+      "acceptedAnswers": [
+        "toSignal",
+        "toSignal()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`toSignal(obs$)` subscribes immediately, exposes the latest value as a read-only signal, and unsubscribes when the injection context is destroyed. The opposite direction is `toObservable()`."
+    },
+    {
+      "id": "ng-47",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "21-signal-inputs-queries-and-resource",
+      "question": "What does `selected()` return after this code runs?",
+      "code": "const plans = signal(['Gold', 'Silver']);\nconst selected = linkedSignal(() => plans()[0]);\n\nselected.set('Silver');\nplans.set(['Platinum', 'Gold']);",
+      "codeLanguage": "ts",
+      "answerHint": "Type the string value, without quotes",
+      "acceptedAnswers": [
+        "Platinum",
+        "'Platinum'",
+        "\"Platinum\""
+      ],
+      "caseSensitive": false,
+      "explanation": "`linkedSignal` can be written locally ('Silver'), but when its source `plans` changes it recomputes from the new source, so it resets to the first item, 'Platinum'. A plain `signal` would have kept 'Silver'."
+    },
+    {
+      "id": "ng-48",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "07-change-detection-and-signals",
+      "question": "What does `label()` return after this code runs?",
+      "code": "const user = signal(\n  { id: 1, name: 'Asha' },\n  { equal: (a, b) => a.id === b.id }\n);\nconst label = computed(() => user().name);\n\nuser.set({ id: 1, name: 'Ravi' });",
+      "codeLanguage": "ts",
+      "answerHint": "Type the string value, without quotes",
+      "acceptedAnswers": [
+        "Asha",
+        "'Asha'",
+        "\"Asha\""
+      ],
+      "caseSensitive": false,
+      "explanation": "The custom `equal` function says the new object equals the old one (same `id`), so `set()` ignores the new value: the signal keeps the original object and notifies no one. `label()` is still 'Asha'. Custom equality must say whether two values are truly the same."
+    },
+    {
+      "id": "ng-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "07-change-detection-and-signals",
+      "question": "What value does the last `c()` call return?",
+      "code": "const a = signal(1);\nconst b = signal(10);\nconst c = computed(() => a() + untracked(() => b()));\n\nc();\nb.set(20);\nc();\na.set(2);\nc();",
+      "codeLanguage": "ts",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "22"
+      ],
+      "caseSensitive": false,
+      "explanation": "`b` is read inside `untracked`, so it is not a dependency. After `b.set(20)` the computed stays cached at 11. `a.set(2)` invalidates it, and on recompute it reads the current `b`: 2 + 20 = 22."
+    },
+    {
+      "id": "ng-50",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "05-rxjs-essentials",
+      "question": "A 'Place order' button triggers a save stream. Which RxJS operator should fill the blank so that clicks are IGNORED while a save is still in progress (preventing duplicate orders)?",
+      "code": "this.saveClicks$.pipe(\n  ____(() => this.orders.place(this.cart()))\n).subscribe();",
+      "codeLanguage": "ts",
+      "answerHint": "Type the operator name",
+      "acceptedAnswers": [
+        "exhaustMap",
+        "exhaustMap()"
+      ],
+      "caseSensitive": false,
+      "explanation": "`exhaustMap` ignores new source values while its current inner Observable is active, so double-clicks do not send a second order. `switchMap` would cancel the first request (risky for writes), `concatMap` would queue a duplicate, and `mergeMap` would run both."
+    }
+  ]
+}

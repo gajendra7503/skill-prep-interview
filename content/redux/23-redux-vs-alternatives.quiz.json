@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A component reads only `user` from a Context whose value is `{ user, cartCount }`. What happens when `cartCount` changes?",
+      "options": [
+        "Nothing, Context compares the fields the component used",
+        "The component re-renders, because every consumer re-renders when the provider value changes",
+        "Only components that read cartCount re-render",
+        "React throws a warning about unused context fields"
+      ],
+      "correctIndex": 1,
+      "explanation": "Context has no selector mechanism. When the value object changes, every component using that context re-renders."
+    },
+    {
+      "question": "Which kind of state is TanStack Query designed to manage?",
+      "options": [
+        "Form input state",
+        "Theme and locale",
+        "URL search parameters",
+        "Server state: a cache of remote data with refetching and invalidation"
+      ],
+      "correctIndex": 3,
+      "explanation": "TanStack Query is a server-state cache keyed by queryKey. It is not a general client-state store."
+    },
+    {
+      "question": "Which is a genuine advantage of Redux over Zustand for large, multi-team apps?",
+      "options": [
+        "Every change is a named, serialisable action, enabling time-travel debugging, action logs and many features reacting to one event",
+        "Redux needs fewer lines of code for a simple store",
+        "Redux works without a Provider",
+        "Redux has no learning curve"
+      ],
+      "correctIndex": 0,
+      "explanation": "Redux's explicit action events and middleware give predictability and tooling. Zustand is usually less code and needs no provider."
+    },
+    {
+      "question": "Your app already uses Redux Toolkit and you want one devtools view of all state including API data. Which data-fetching choice fits best?",
+      "options": [
+        "TanStack Query with a separate QueryClient",
+        "Storing fetch results in React Context",
+        "RTK Query, which keeps its cache in the Redux store and shows actions in Redux DevTools",
+        "Plain useEffect plus useState in every component"
+      ],
+      "correctIndex": 2,
+      "explanation": "RTK Query lives in the Redux store under its reducerPath, so its requests and cache appear in Redux DevTools alongside the rest of the state."
+    }
+  ]
+}

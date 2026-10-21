@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A container log shows the main process exited with status 137. What does that most likely mean?",
+      "options": [
+        "The process finished successfully",
+        "The process received SIGTERM and shut down gracefully",
+        "The command was not found",
+        "The process was killed by SIGKILL (128 + 9), often by the out-of-memory killer"
+      ],
+      "correctIndex": 3,
+      "explanation": "When a signal kills a process the shell reports 128 plus the signal number. 137 is 128 + 9 (SIGKILL); 143 would be SIGTERM."
+    },
+    {
+      "question": "Why should you send SIGTERM before resorting to `kill -9`?",
+      "options": [
+        "SIGTERM can be caught, letting the program finish work, flush data and clean up; SIGKILL cannot",
+        "SIGKILL only works for processes owned by root",
+        "SIGTERM is faster than SIGKILL",
+        "SIGKILL restarts the process automatically"
+      ],
+      "correctIndex": 0,
+      "explanation": "SIGTERM is a polite request a program can handle to shut down cleanly. SIGKILL ends the process immediately and cannot be caught, risking corrupted or half-written data."
+    },
+    {
+      "question": "You started a long command in the foreground and pressed Ctrl+Z. How do you let it continue running in the background?",
+      "options": [
+        "fg",
+        "bg",
+        "kill -STOP %1",
+        "wait"
+      ],
+      "correctIndex": 1,
+      "explanation": "Ctrl+Z sends SIGTSTP and stops the job. bg resumes the current stopped job in the background; fg would bring it back to the foreground."
+    },
+    {
+      "question": "What is a zombie process?",
+      "options": [
+        "A process stuck waiting on disk I/O",
+        "A running process whose parent has exited",
+        "A process that has exited but whose parent has not yet collected its exit status with wait",
+        "A process running with the lowest nice value"
+      ],
+      "correctIndex": 2,
+      "explanation": "A zombie (state Z) has finished but still holds a process-table entry until its parent reaps it. A running process whose parent exited is an orphan, adopted by PID 1."
+    }
+  ]
+}

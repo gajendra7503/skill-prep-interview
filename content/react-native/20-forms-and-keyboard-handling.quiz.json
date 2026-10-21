@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What is a sensible default `behavior` for `KeyboardAvoidingView` across platforms?",
+      "options": [
+        "\"height\" on both platforms",
+        "\"padding\" on iOS and usually undefined on Android, since Android's adjustResize already resizes the window",
+        "\"position\" on Android only",
+        "No behavior is ever needed on iOS"
+      ],
+      "correctIndex": 1,
+      "explanation": "iOS overlays the keyboard by default, so padding is needed. Android with windowSoftInputMode=adjustResize resizes the window itself, so adding behavior there often double-adjusts."
+    },
+    {
+      "question": "A user taps a Submit button inside a ScrollView while the keyboard is open, but nothing happens on the first tap. What fixes this?",
+      "options": [
+        "Setting keyboardShouldPersistTaps=\"handled\" on the ScrollView",
+        "Using secureTextEntry",
+        "Wrapping the button in KeyboardAvoidingView",
+        "Calling Keyboard.dismiss() in useEffect"
+      ],
+      "correctIndex": 0,
+      "explanation": "By default the first tap only dismisses the keyboard. With \"handled\", taps on touchables are delivered while taps on empty space still dismiss."
+    },
+    {
+      "question": "How do you move focus to the next field when the user presses \"Next\" on the keyboard?",
+      "options": [
+        "React Native does it automatically using tab order",
+        "Set autoFocus on every field",
+        "Set returnKeyType=\"next\" and call nextRef.current?.focus() in onSubmitEditing",
+        "Use the onChange event"
+      ],
+      "correctIndex": 2,
+      "explanation": "There's no Tab key on mobile; focus chaining is wired manually with refs, and submitBehavior=\"submit\" keeps the keyboard open between fields."
+    },
+    {
+      "question": "Why is `Controller` used with react-hook-form in React Native?",
+      "options": [
+        "Because zod only works with Controller",
+        "To make every keystroke re-render the whole form",
+        "Controller is required for server-side rendering",
+        "TextInput isn't a native HTML input that register can attach to, so Controller bridges value/onChangeText/onBlur to the form"
+      ],
+      "correctIndex": 3,
+      "explanation": "register relies on DOM inputs. Controller wraps a custom component like TextInput, mapping onChange to onChangeText, and passing ref enables setFocus on invalid fields."
+    }
+  ]
+}

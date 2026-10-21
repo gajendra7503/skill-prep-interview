@@ -1,0 +1,186 @@
+---
+title: "Async Logic with Thunks & createAsyncThunk"
+description: "Run async work outside reducers with thunks, generate pending, fulfilled and rejected actions with createAsyncThunk, and handle errors, cancellation and loading state."
+module: "Redux Toolkit"
+level: "intermediate"
+order: 10
+---
+
+Reducers must be pure and synchronous, so where does an API call go? In
+Redux Toolkit the default answer is a **thunk**: a function you dispatch
+instead of an action object. The thunk middleware (included by
+`configureStore`) calls it with `dispatch` and `getState`, and the thunk can
+do async work and dispatch real actions when it finishes.
+
+## A hand-written thunk
+
+```js
+// a "thunk action creator" returns the thunk function
+const logOrderTotal = () => (dispatch, getState) => {
+  const total = getState().orders.items.reduce((s, o) => s + o.amountInr, 0);
+  console.log("total ₹" + total.toLocaleString("en-IN"));
+};
+
+store.dispatch(logOrderTotal()); // total ₹91,150
+```
+
+For async requests you would dispatch "loading", await the call, then
+dispatch "success" or "failure". RTK generates that pattern for you.
+
+## createAsyncThunk
+
+`createAsyncThunk(typePrefix, payloadCreator)` returns a thunk action
+creator. When dispatched it emits up to three actions:
+
+| Action type | When | Carries |
+|---|---|---|
+| `orders/fetch/pending` | before the payload creator runs | `meta.arg`, `meta.requestId` |
+| `orders/fetch/fulfilled` | the promise resolved | `payload` = returned value |
+| `orders/fetch/rejected` | it threw, or you returned `rejectWithValue` | `error` and/or `payload` |
+
+The example below uses a fake API passed in as the thunk's `extra` argument,
+which keeps the thunk easy to test:
+
+```js
+import { createAsyncThunk, createSlice, configureStore } from "@reduxjs/toolkit";
+
+export const fetchOrders = createAsyncThunk(
+  "orders/fetch",
+  async (userId, { extra, rejectWithValue }) => {
+    const res = await extra.api.getOrders(userId);
+    if (!res.ok) return rejectWithValue({ status: res.status });
+    return res.data; // becomes action.payload of "fulfilled"
+  },
+  {
+    // skip the request if one is already running
+    condition: (userId, { getState }) => {
+      if (getState().orders.status === "loading") return false;
+    },
+  },
+);
+
+const store = configureStore({
+  reducer: { orders: ordersSlice.reducer },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({ thunk: { extraArgument: { api: fakeApi } } }),
+});
+```
+
+## Handling the lifecycle in a slice
+
+The thunk's actions are defined outside the slice, so you respond to them in
+`extraReducers` using the builder callback:
+
+```js
+const ordersSlice = createSlice({
+  name: "orders",
+  initialState: { items: [], status: "idle", error: null },
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchOrders.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(fetchOrders.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.items = action.payload;
+      })
+      .addCase(fetchOrders.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload
+          ? `HTTP ${action.payload.status}` // from rejectWithValue
+          : action.error.message;           // from a thrown error
+      });
+  },
+});
+```
+
+Prefer one `status` string over several booleans (`isLoading`, `isError`),
+which can end up in impossible combinations.
+
+## What dispatch returns
+
+Dispatching an async thunk returns a promise of the **final action**. It
+never rejects on its own, so you inspect the action. Real output with a
+logging middleware:
+
+```js
+const p1 = store.dispatch(fetchOrders("u1"));
+const p2 = store.dispatch(fetchOrders("u1")); // condition returns false
+const r1 = await p1;
+const r2 = await p2;
+// action: orders/fetch/pending
+// action: orders/fetch/fulfilled
+console.log(r1.type, r2.type, r2.meta.condition);
+// orders/fetch/fulfilled orders/fetch/rejected true
+```
+
+When `condition` returns `false`, no actions are dispatched at all; the
+promise just resolves with a rejected action marked `meta.condition: true`.
+
+## Errors: thrown vs rejectWithValue
+
+```js
+const r3 = await store.dispatch(fetchOrders("bad"));     // API throws
+console.log(r3.error.message, r3.payload);   // Network down undefined
+
+const r4 = await store.dispatch(fetchOrders("nobody"));  // returns 404
+console.log(r4.payload, r4.error.message);   // { status: 404 } Rejected
+```
+
+A thrown error is **serialized** into a plain `{ name, message, stack }`
+object, because actions should be serializable. Use `rejectWithValue` when
+you want a typed, meaningful error payload (validation messages, HTTP status).
+
+## unwrap() in components
+
+In a component you often want try/catch semantics, for example to close a
+form only on success. `.unwrap()` returns the payload or throws:
+
+```jsx
+const handleClick = async () => {
+  try {
+    const orders = await dispatch(fetchOrders(userId)).unwrap();
+    toast(`Loaded ${orders.length} orders`);
+  } catch (err) {
+    toast(`Failed: ${err.message ?? err.status}`);
+  }
+};
+```
+
+The thrown value is the `rejectWithValue` payload, or the serialized error
+object. It is a plain object, **not** an `Error` instance
+(`e instanceof Error` printed `false`).
+
+## Cancellation
+
+The returned promise has an `abort()` method (handy in a `useEffect`
+cleanup). The payload creator receives an `AbortSignal` to pass to `fetch`:
+
+```js
+const promise = store.dispatch(slowThunk());
+promise.abort("user left page");
+const r5 = await promise;
+console.log(r5.error, r5.meta.aborted);
+// { name: 'AbortError', message: 'user left page' } true
+```
+
+(RTK 2 can also define thunks inside a slice with `create.asyncThunk`, after
+building a custom slice creator with `buildCreateSlice({ creators: { asyncThunk: asyncThunkCreator } })`.
+Standalone `createAsyncThunk` remains the common style.)
+
+Interviewers often ask: "Why not put the fetch in a reducer?" Reducers must
+be pure and synchronous so that the same state and action always give the
+same result. Side effects belong in thunks, listeners or RTK Query. And
+note: for plain "fetch and cache server data", RTK Query (see "RTK Query
+Basics: createApi & Query Hooks") replaces most hand-written thunks.
+
+### Try it yourself
+
+1. Write `fetchProduct(id)` with `createAsyncThunk`, and store
+   `status`/`error` in a slice. Make it reject with `"Not found"` via
+   `rejectWithValue` when the API returns 404.
+2. Add a `condition` that skips the request if the product is already in
+   state, and confirm that only one `pending` action appears in DevTools.
+3. Pass `signal` to `fetch` and abort the thunk from a `useEffect` cleanup.

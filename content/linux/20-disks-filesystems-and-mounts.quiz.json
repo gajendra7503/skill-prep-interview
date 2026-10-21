@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "Why should `/etc/fstab` entries use `UUID=...` rather than `/dev/sdb`?",
+      "options": [
+        "UUIDs mount faster",
+        "Device names like /dev/sdb can change between boots when disks are added or removed",
+        "fstab does not accept /dev paths",
+        "UUIDs enable encryption automatically"
+      ],
+      "correctIndex": 1,
+      "explanation": "Kernel device names depend on detection order. A filesystem UUID (from blkid or lsblk -f) always identifies the same filesystem."
+    },
+    {
+      "question": "`df -h` shows `/` at 100%, but `du` on the whole filesystem adds up to much less. Which is a likely cause?",
+      "options": [
+        "du does not count hidden files",
+        "df reports in a different unit from du",
+        "The disk has bad sectors",
+        "A large file was deleted while a process still has it open, so its space has not been freed"
+      ],
+      "correctIndex": 3,
+      "explanation": "Deleted-but-open files still occupy space until the process closes them. sudo lsof +L1 lists them; restart or reload the process to free the space."
+    },
+    {
+      "question": "What should you do right after adding a new line to `/etc/fstab`, before rebooting?",
+      "options": [
+        "Test it with sudo findmnt --verify and sudo mount -a",
+        "Run mkfs again on the device",
+        "Nothing; fstab is only read at boot",
+        "Delete /etc/mtab"
+      ],
+      "correctIndex": 0,
+      "explanation": "A broken fstab line can drop the server into emergency mode at boot. Verifying and running mount -a surfaces errors while you can still fix them."
+    },
+    {
+      "question": "`df -h` shows plenty of free space, but creating new files fails with \"No space left on device\". What should you check next?",
+      "options": [
+        "lsblk -f",
+        "free -h",
+        "df -i, because the filesystem may have run out of inodes",
+        "swapon --show"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each file needs an inode. Millions of tiny files can exhaust inodes while bytes remain free; df -i shows inode usage."
+    }
+  ]
+}

@@ -1,0 +1,187 @@
+---
+title: "SSH Keys, Config & Tunnels"
+description: "Log in to servers with SSH keys and ssh-agent, organise hosts in ~/.ssh/config, jump through bastions, and forward ports with local and remote tunnels."
+module: "Administration"
+level: "advanced"
+order: 18
+---
+
+SSH (Secure Shell) is how you reach almost every Linux server: cloud VMs,
+build agents, database hosts behind a bastion. Typing a password every
+time is slow and unsafe. This lesson covers key-based login, a tidy
+`~/.ssh/config`, and the tunnels that let you reach private services
+without opening ports to the internet.
+
+## How key authentication works
+
+You generate a **key pair**. The **private key** stays on your laptop and
+never leaves it. The **public key** is copied to each server, into
+`~/.ssh/authorized_keys` of the account you log in as. At login the server
+sends a challenge that only the private key can sign, so no secret ever
+crosses the network.
+
+There is a second pair you rarely think about: the server's **host key**.
+On first connection SSH shows its fingerprint and stores it in
+`~/.ssh/known_hosts`. If it changes later you get a loud
+`REMOTE HOST IDENTIFICATION HAS CHANGED` warning. That can mean the server
+was rebuilt, or that someone is intercepting the connection. Confirm with
+whoever runs the server before you remove the old entry with
+`ssh-keygen -R hostname`.
+
+## Generating a key
+
+Ed25519 keys are short, fast and the recommended default in current
+OpenSSH:
+
+```text
+$ ssh-keygen -t ed25519 -C "asha@laptop"
+Generating public/private ed25519 key pair.
+Enter file in which to save the key (/home/asha/.ssh/id_ed25519):
+Enter passphrase (empty for no passphrase):
+Your identification has been saved in /home/asha/.ssh/id_ed25519
+Your public key has been saved in /home/asha/.ssh/id_ed25519.pub
+```
+
+The public key is a single line you can paste anywhere:
+
+```bash
+cat ~/.ssh/id_ed25519.pub
+# ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIINCXxv8iV5plp5PpIqczWq+NHFAqNbhiBF6r5W56Ux+ asha@laptop
+ssh-keygen -lf ~/.ssh/id_ed25519.pub     # show its fingerprint
+# 256 SHA256:hxczSERNMOI08AHN2UgkK8as4LJiFV6LMkptIR16Mxo asha@laptop (ED25519)
+```
+
+Use RSA (`-t rsa -b 4096`) only for old systems that do not accept Ed25519.
+**Set a passphrase**: a stolen unencrypted private key is a working login to
+every server that trusts it.
+
+## Installing the key on a server
+
+`ssh-copy-id deploy@203.0.113.10` appends your public key to the remote `authorized_keys` and
+fixes permissions. Without it (for example from Git Bash on Windows), do the
+same by hand:
+
+```bash
+cat ~/.ssh/id_ed25519.pub | ssh deploy@203.0.113.10 \
+  'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys'
+```
+
+SSH refuses keys when permissions are too open. That is the most common
+reason "my key does not work":
+
+| Path | Required mode |
+|---|---|
+| `~/.ssh/` | `700` |
+| `~/.ssh/authorized_keys` | `600` |
+| private key (`id_ed25519`) | `600` |
+| public key (`.pub`) | `644` is fine |
+
+The home directory itself must not be writable by others either.
+
+## ssh-agent: type the passphrase once
+
+The agent holds decrypted keys in memory for your session:
+
+```bash
+eval "$(ssh-agent -s)"     # start an agent (desktops usually run one already)
+ssh-add ~/.ssh/id_ed25519  # asks for the passphrase once
+ssh-add -l                 # list loaded keys
+```
+
+`ssh -A` (agent forwarding) lets a remote server use your agent, for
+example to `git pull` from a private repository. Anyone with root on that
+server can use your agent while you are connected, so prefer `ProxyJump`
+(below) to hop between servers instead of forwarding the agent.
+
+## ~/.ssh/config: stop typing long commands
+
+```text
+Host web1
+  HostName 203.0.113.10
+  User deploy
+  Port 2222
+  IdentityFile ~/.ssh/id_ed25519
+
+Host db1
+  HostName 10.0.1.20
+  User ubuntu
+  ProxyJump web1
+
+Host *
+  ServerAliveInterval 60
+  AddKeysToAgent yes
+```
+
+Now `ssh web1` replaces `ssh -p 2222 -i ~/.ssh/id_ed25519 deploy@203.0.113.10`,
+and the alias works with `scp` and `rsync` too. For each option, SSH uses
+the **first value it finds**, so put specific hosts first and `Host *`
+defaults last. To check what SSH will actually use:
+
+```text
+$ ssh -G web1 | grep -E '^(hostname|user|port) '
+user deploy
+hostname 203.0.113.10
+port 2222
+```
+
+## Jump hosts (bastions)
+
+Private servers often accept SSH only from one hardened **bastion** host.
+`ProxyJump` (or `-J` on the command line) tunnels through it in one step:
+`ssh -J deploy@bastion.example.com ubuntu@10.0.1.20`. The connection to
+`10.0.1.20` is end-to-end encrypted from your laptop; the bastion only
+relays bytes and never needs your private key.
+
+## Running remote commands
+
+```bash
+ssh web1 'uptime && df -h /'          # quote it so your local shell does not expand it
+for h in web1 web2 web3; do ssh "$h" 'hostname; free -m | head -2'; done
+```
+
+## Tunnels (port forwarding)
+
+| Flag | Direction | Typical use |
+|---|---|---|
+| `-L local:target:port` | your machine to a remote network | reach a private database or admin UI |
+| `-R remote:target:port` | remote server to your machine | expose a local dev server temporarily |
+| `-D port` | dynamic SOCKS proxy | browse as if from the server's network |
+
+**Local forward**: the PostgreSQL server at `10.0.1.20` is private, but
+`web1` can reach it:
+
+```bash
+ssh -N -L 5433:10.0.1.20:5432 web1
+# now, in another terminal:
+psql -h 127.0.0.1 -p 5433 -U app shopdb
+```
+
+`-N` means "no remote command, just forward". Traffic to local port 5433
+travels encrypted to `web1`, which connects to `10.0.1.20:5432`.
+
+**Remote forward**: let a teammate on the server hit your laptop's port 3000:
+
+```bash
+ssh -N -R 8080:localhost:3000 web1   # on web1, curl localhost:8080 reaches your laptop
+```
+
+Interviewers often ask the difference between `-L` and `-R`: with `-L` the
+listening port opens on **your** side; with `-R` it opens on the **server**.
+
+## Debugging connections
+
+`ssh -v web1` (or `-vv`, `-vvv` for more detail) shows which config file and keys were tried, and why each
+was rejected. On the server side, failed logins appear in the SSH service
+logs (see "systemd Services, Timers & journalctl"). Disabling password
+logins and root login on the server is covered in "Server Security
+Hardening Basics".
+
+### Try it yourself
+
+1. Generate an Ed25519 key with a passphrase, load it into `ssh-agent`,
+   and print its fingerprint with `ssh-keygen -lf`.
+2. Write a `~/.ssh/config` with an alias for a server and a second host
+   reached through it with `ProxyJump`, then confirm the settings with
+   `ssh -G`.
+3. Write the command that makes a private Redis server (`10.0.2.30:6379`)
+   available on your laptop at `127.0.0.1:6380` via `web1`.

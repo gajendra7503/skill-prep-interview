@@ -1,0 +1,152 @@
+---
+title: "CPython Internals: Bytecode, the Adaptive Interpreter & Free-Threading"
+description: "What really runs when you run Python: compilation to bytecode, .pyc caching, reading dis output, the specializing interpreter, immortal objects, the free-threaded build and subinterpreters."
+module: "Pro Level"
+level: "pro"
+order: 27
+---
+
+"Python is interpreted" is only half true. CPython compiles your source to
+**bytecode** and then executes that bytecode in a loop written in C. Knowing
+what happens in between explains why local variables are faster than
+globals, why recent releases got noticeably quicker, and what the
+free-threaded build actually changes — all fair game in a senior interview.
+
+## Source to bytecode to execution
+
+Running a module goes through three stages:
+
+1. **Parse** the source into an abstract syntax tree (the `ast` module lets
+   you inspect it).
+2. **Compile** the tree into a **code object**: bytecode instructions plus
+   tables of constants and names.
+3. **Execute** the code object in the interpreter's evaluation loop.
+
+For imported modules, step 2 is cached as a `.pyc` file in `__pycache__`,
+tagged with the interpreter version, for example
+`report.cpython-314.pyc`. The cache is re-used while the source is
+unchanged, which is why the second import of a large package is faster. The
+script you run directly is compiled every time and not cached.
+
+## Code objects
+
+Every function carries its compiled code:
+
+```python
+def add_gst(price):
+    return price * 1.18
+
+code = add_gst.__code__
+print(code.co_varnames)     # ('price',)
+print(code.co_consts)       # (1.18,)
+print(code.co_argcount)     # 1
+```
+
+Local variable names and constants are fixed at compile time, which is
+exactly why assigning to a name anywhere in a function makes it local for
+the whole function (the `UnboundLocalError` puzzle from the scope lesson).
+
+## Reading bytecode with `dis`
+
+```python
+import dis
+dis.dis(add_gst)
+#   2           RESUME                   0
+#
+#   3           LOAD_FAST_BORROW         0 (price)
+#               LOAD_CONST               0 (1.18)
+#               BINARY_OP                5 (*)
+#               RETURN_VALUE
+```
+
+The interpreter is a **stack machine**: `LOAD_*` pushes values, `BINARY_OP`
+pops two and pushes the result, `RETURN_VALUE` pops the answer. Exact
+opcode names change between releases (the output above is from Python
+3.14; older versions show `LOAD_FAST`), so never rely on bytecode as a
+stable API.
+
+Two practical lessons fall straight out of `dis`:
+
+- **Locals are array slots** (`LOAD_FAST`), while globals and built-ins need
+  dictionary lookups (`LOAD_GLOBAL`). That is why binding a hot global to a
+  local can speed up a tight loop.
+- `counter += 1` is a load, an add and a store — several instructions —
+  which is why it is not atomic across threads.
+
+## The specializing adaptive interpreter (3.11+)
+
+Python 3.11 (PEP 659) made the interpreter **adaptive**: after an
+instruction runs a few times, it is rewritten in place into a specialized
+version for the types it actually sees.
+
+```python
+for _ in range(1000):
+    add_gst(100.0)
+
+dis.dis(add_gst, adaptive=True)
+#   3           LOAD_FAST_BORROW         0 (price)
+#               LOAD_CONST_MORTAL        0 (1.18)
+#               BINARY_OP_MULTIPLY_FLOAT 5 (*)
+#               RETURN_VALUE
+```
+
+`BINARY_OP` became `BINARY_OP_MULTIPLY_FLOAT`, skipping generic type
+dispatch. If a call later passes an `int`, the instruction falls back and
+may re-specialize. The takeaway: code with **stable types** at each site
+runs faster, which is one more reason consistent typing pays off. Recent
+versions also include an experimental JIT compiler (PEP 744) that is off by
+default in standard builds.
+
+## Reference counts and immortal objects
+
+Every object header holds a reference count that changes on almost every
+operation. Since Python 3.12 (PEP 683), some objects such as `None`, `True`
+and small integers are **immortal**: their count is never really
+modified, so they are never freed and can be shared safely.
+
+```python
+import sys
+print(sys.getrefcount(None))    # a huge fixed number, e.g. 3221225472
+```
+
+Don't build logic on these numbers — they are an implementation detail.
+
+## The free-threaded build
+
+The GIL exists largely to protect those reference counts. PEP 703 added an
+optional **free-threaded** build (`python3.13t`, `python3.14t`) with no GIL,
+using techniques such as biased reference counting and per-object locks.
+
+| Release | Status of the free-threaded build |
+| --- | --- |
+| 3.13 | Experimental, separate optional binary |
+| 3.14 | Officially supported (PEP 779), still optional and not the default |
+
+```python
+import sys, sysconfig
+print(sysconfig.get_config_var("Py_GIL_DISABLED"))  # 1 on a free-threaded build, 0 otherwise
+print(sys._is_gil_enabled())                        # False when running without the GIL
+```
+
+Trade-offs to state in an interview: single-threaded code runs somewhat
+slower on the free-threaded build; C extensions must be rebuilt and declare
+support, or the interpreter re-enables the GIL when importing them; and
+removing the GIL exposes data races your code may have got away with —
+`threading.Lock` is now essential, not just good practice.
+
+## Subinterpreters
+
+Another route to parallelism keeps the GIL but gives each **subinterpreter**
+its own. Python 3.14 (PEP 734) exposes them as `concurrent.interpreters`,
+plus `concurrent.futures.InterpreterPoolExecutor`. They are cheaper than
+processes but share no Python objects, so data is passed by copying.
+Expect library support to lag behind the language here.
+
+### Try it yourself
+
+Use `dis` to compare `sum(x * x for x in data)` with an explicit `for` loop
+that appends to a list, and count the instructions in each loop body. Time a
+loop that calls `math.sqrt` against one that binds `sqrt = math.sqrt`
+locally first. If you can install a free-threaded build (for example with
+`uv python install 3.14t`), run a CPU-bound function on four threads on both
+builds and compare the timings.

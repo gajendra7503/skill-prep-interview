@@ -1,0 +1,137 @@
+---
+title: "How React Native Works: The Mental Model"
+description: "Native views, the JavaScript thread, components, props and state — the core vocabulary every later lesson builds on."
+module: "Getting Started"
+level: beginner
+order: 2
+---
+
+Before writing real screens, it helps to have a clear picture of what is
+actually happening when your React Native code runs on a phone. With this
+mental model and a handful of words of vocabulary, every later lesson —
+styling, navigation, performance, native modules — will slot into place.
+
+## It's a native app, not a website in a box
+
+A common misconception is that React Native wraps a web page inside an app.
+It doesn't. When you write a `View` or `Text`, React Native creates the
+platform's **real native UI element**:
+
+| You write | Android creates | iOS creates |
+|---|---|---|
+| `View` | `android.view.View` (a ViewGroup) | `UIView` |
+| `Text` | `TextView` | a native text view |
+| `Image` | `ImageView` | `UIImageView` |
+| `TextInput` | `EditText` | `UITextField` |
+
+That's why a React Native app scrolls, types and animates like any other app
+on the phone — the pixels are drawn by the operating system's own UI
+toolkit, not by a browser engine. There is no HTML, no DOM and no CSS file.
+
+## Two worlds: JavaScript and native
+
+Your app runs as two cooperating parts:
+
+```text
+┌────────────────────────┐        ┌───────────────────────────┐
+│  JavaScript (your code) │ ─────▶ │  Native side (Android/iOS) │
+│  React components,      │        │  Real views, camera, GPS,  │
+│  state, business logic  │ ◀───── │  touch events, storage     │
+└────────────────────────┘        └───────────────────────────┘
+```
+
+- Your components and logic run in a **JavaScript engine** — by default
+  **Hermes**, an engine built for React Native — on the **JS thread**.
+- The native side owns the screen. Drawing, scrolling and receiving touches
+  happen on the **main (UI) thread**.
+- React decides *what* the UI should look like; React Native tells the
+  native side to create or update the matching views.
+
+One practical consequence: if your JavaScript is busy doing a long
+calculation, it can't respond to taps or update the screen until it's done.
+Keeping the JS thread free is a theme you'll meet again in the performance
+lessons.
+
+## Components, props and state
+
+If you know React on the web, these work identically. If not, here are the
+three words you need:
+
+- **Component** — a function that returns UI. Everything on screen is built
+  from components.
+- **Props** — inputs passed to a component by its parent, read-only inside it.
+- **State** — data a component owns that can change over time; changing it
+  re-renders the component.
+
+```tsx
+import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
+
+function Greeting({ name }: { name: string }) {
+  return <Text>Hello, {name}!</Text>; // `name` is a prop
+}
+
+export default function Counter() {
+  const [count, setCount] = useState(0); // `count` is state
+
+  return (
+    <View style={{ padding: 24 }}>
+      <Greeting name="Priya" />
+      <Text>You tapped {count} times</Text>
+      <Pressable onPress={() => setCount(count + 1)}>
+        <Text>Tap me</Text>
+      </Pressable>
+    </View>
+  );
+}
+// Initially: "Hello, Priya!" / "You tapped 0 times"
+// After three taps: "You tapped 3 times"
+```
+
+Tapping calls `setCount`, React re-runs `Counter`, works out that only one
+`Text` changed, and React Native updates just that one native text view.
+
+## The words you'll hear constantly
+
+- **Bundle** — all your JavaScript combined into one file that the app runs.
+- **Metro** — the tool that builds the bundle and serves it during
+  development.
+- **Dev build vs release build** — development builds include debugging
+  tools and are noticeably slower; release builds are optimised and are
+  what users install from the stores. Never judge performance in dev mode.
+- **Native module** — native (Kotlin/Swift/C++) code exposed to JavaScript,
+  such as camera or secure storage.
+- **dp (density-independent pixels)** — the unit for sizes; `width: 100`
+  looks roughly the same physical size on any screen.
+- **Expo** — a framework and toolchain on top of React Native that handles
+  much of the native setup for you.
+
+## Where your code ends up
+
+```text
+Your .tsx files ──▶ Metro bundles them ──▶ JS bundle
+                                              │
+     Android app (.apk/.aab) or iOS app (.ipa) runs the bundle in Hermes
+                                              │
+                            React tells native which views to draw
+```
+
+In development the bundle is streamed from your computer, which is why
+Fast Refresh is possible. In a release build the bundle is packaged inside
+the app (Hermes precompiles it to bytecode for faster startup).
+
+## What changes compared with web React
+
+- Text must always be inside a `Text` component — a bare string inside a
+  `View` is an error.
+- Layout uses Flexbox only, with `flexDirection: "column"` as the default.
+- There are no URLs by default; navigation is handled by a library.
+- You must think about two platforms that occasionally behave differently.
+
+### Try it yourself
+
+Extend the `Counter` above with a second button that resets the count to
+zero, and pass the count into `Greeting` as a new prop so it says "Hello,
+Priya! (3 taps)". Then write down, in one sentence each, what a bundle,
+Metro and the JS thread are — if you can explain them simply, you're ready
+for the rest of the course.

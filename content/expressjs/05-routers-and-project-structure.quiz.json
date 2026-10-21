@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "A child router is mounted with `accountsRouter.use(\"/:accountId/txns\", txnsRouter)`. Inside `txnsRouter`, `req.params.accountId` is `undefined`. What fixes it?",
+      "options": [
+        "Use `app.param(\"accountId\")` in the child",
+        "Mount the child with `app.use()` instead of `router.use()`",
+        "Create the child router with `Router({ mergeParams: true })`",
+        "Read it from `req.query.accountId` instead"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each router keeps its own params by default. `mergeParams: true` makes the parent's route parameters available on the child's `req.params`."
+    },
+    {
+      "question": "Why export the Express `app` from `app.js` and call `listen()` in a separate `server.js`?",
+      "options": [
+        "Express 5 requires the two to be in different files",
+        "Tests can import the app and send requests in-process without opening a real port",
+        "It makes routes run in parallel worker threads",
+        "It is the only way to use ESM with Express"
+      ],
+      "correctIndex": 1,
+      "explanation": "Separating the app from the listening server keeps startup concerns in one place and lets tools like supertest exercise the app directly."
+    },
+    {
+      "question": "In a routes/controllers/services structure, which layer should contain a rule like \"transfers above ₹2,00,000 need extra checks\"?",
+      "options": [
+        "The service layer",
+        "The router file",
+        "The controller, because it has access to `req.body`",
+        "The error-handling middleware"
+      ],
+      "correctIndex": 0,
+      "explanation": "Services hold business logic and know nothing about HTTP, so the rule can be reused from APIs, workers and tests. Controllers translate between HTTP and services; routes only wire URLs to controllers."
+    },
+    {
+      "question": "A router defines `router.get(\"/:id\", ...)` and is mounted with `app.use(\"/api/v1/accounts\", router)`. Which request reaches that handler?",
+      "options": [
+        "`GET /:id`",
+        "`GET /api/v1/:id`",
+        "`GET /accounts/7`",
+        "`GET /api/v1/accounts/7`"
+      ],
+      "correctIndex": 3,
+      "explanation": "Paths inside a router are relative to its mount point, so the full path is the mount prefix plus the router path."
+    }
+  ]
+}

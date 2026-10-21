@@ -1,0 +1,796 @@
+{
+  "title": "MySQL Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "sql-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "01-relational-basics-and-data-types",
+      "question": "A developer proposes storing customers' 10-digit Indian mobile numbers (e.g. 9876543210) in an INT column. What is the best objection?",
+      "options": [
+        "INT cannot store numbers with more than 8 digits",
+        "INT columns cannot have an index",
+        "9876543210 exceeds INT's maximum (2,147,483,647 signed, 4,294,967,295 unsigned), and phone numbers are identifiers, not quantities, so a VARCHAR is the right type",
+        "INT would work, but it uses more storage than VARCHAR(10)"
+      ],
+      "correctIndex": 2,
+      "explanation": "A 4-byte INT tops out at 2,147,483,647 (signed) or 4,294,967,295 (unsigned), so 9876543210 overflows it. Phone numbers are also never added or averaged and may carry '+91' or leading zeros, so store them as a string such as VARCHAR(15). INT handles up to 10 digits within its range, so the 8-digit claim is wrong."
+    },
+    {
+      "id": "sql-02",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "01-relational-basics-and-data-types",
+      "question": "orders.id is declared INT (signed) AUTO_INCREMENT and its counter has reached 2,147,483,647. What happens on the next plain INSERT that relies on AUTO_INCREMENT?",
+      "options": [
+        "The insert fails with a duplicate-key error, because the generated value cannot go past the maximum and that id is already taken",
+        "The counter wraps around to 1 and reuses free ids",
+        "MySQL automatically widens the column to BIGINT",
+        "The row is inserted with id NULL"
+      ],
+      "correctIndex": 0,
+      "explanation": "When AUTO_INCREMENT reaches the column type's maximum, the next generated value is still that maximum, so the insert fails with ERROR 1062 (Duplicate entry '2147483647' for key 'PRIMARY'). MySQL never wraps around or changes the column type for you; the fix is an ALTER TABLE to BIGINT UNSIGNED, ideally done long before this happens."
+    },
+    {
+      "id": "sql-03",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "02-select-filtering-and-sorting",
+      "question": "Which products does this query return?",
+      "code": "SELECT name, price\nFROM products\nWHERE price BETWEEN 500 AND 1000;",
+      "codeLanguage": "sql",
+      "options": [
+        "Products priced above ₹500 and below ₹1,000, excluding both ends",
+        "Products priced from ₹500 up to but not including ₹1,000",
+        "Products priced above ₹500 up to and including ₹1,000",
+        "Products priced from ₹500 to ₹1,000, including both ₹500 and ₹1,000"
+      ],
+      "correctIndex": 3,
+      "explanation": "BETWEEN a AND b is inclusive at both ends: it is equivalent to price >= 500 AND price <= 1000. A product priced exactly ₹500.00 or ₹1,000.00 is returned."
+    },
+    {
+      "id": "sql-04",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "02-select-filtering-and-sorting",
+      "question": "customers.city contains 'Pune', NULL and 'Delhi'. In what order does this query return the rows?",
+      "code": "SELECT name, city\nFROM customers\nORDER BY city ASC;",
+      "codeLanguage": "sql",
+      "options": [
+        "Delhi, Pune, then the NULL row",
+        "The NULL row first, then Delhi, then Pune",
+        "An error, because ORDER BY cannot sort a column that contains NULL",
+        "Delhi and Pune; the NULL row is left out"
+      ],
+      "correctIndex": 1,
+      "explanation": "MySQL treats NULL as smaller than any non-NULL value when sorting, so NULLs come first in ascending order and last in descending order. Sorting never removes rows. To push NULLs to the end in ascending order, sort on city IS NULL first: ORDER BY city IS NULL, city."
+    },
+    {
+      "id": "sql-05",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "03-insert-update-and-delete",
+      "question": "customers.email is UNIQUE and 'asha@example.in' already exists. What is the result of this statement?",
+      "code": "INSERT IGNORE INTO customers (name, email, city) VALUES\n  ('Asha R',  'asha@example.in',  'Pune'),\n  ('Bala K',  'bala@example.in',  'Chennai'),\n  ('Chetan S','chetan@example.in','Delhi');",
+      "codeLanguage": "sql",
+      "options": [
+        "All three rows fail because the statement is atomic",
+        "The existing Asha row is replaced with the new values",
+        "The duplicate row is skipped with a warning and the other two rows are inserted",
+        "All three rows are inserted and the UNIQUE constraint is relaxed"
+      ],
+      "correctIndex": 2,
+      "explanation": "INSERT IGNORE turns errors such as duplicate-key violations into warnings and skips only the offending row, so Bala and Chetan are inserted (2 rows affected). Replacing the existing row is what REPLACE or ON DUPLICATE KEY UPDATE do, not IGNORE. The catch is that IGNORE also hides other problems, which show up only in SHOW WARNINGS."
+    },
+    {
+      "id": "sql-06",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "03-insert-update-and-delete",
+      "question": "Assume no order_items rows reference the affected orders. Which rows does this statement delete?",
+      "code": "DELETE o\nFROM orders o\nJOIN customers c ON c.id = o.customer_id\nWHERE c.city = 'Pune';",
+      "codeLanguage": "sql",
+      "options": [
+        "Only the orders belonging to customers in Pune; the customers are untouched",
+        "The Pune customers and all their orders",
+        "Only the Pune customers",
+        "Nothing; MySQL does not allow JOIN in a DELETE"
+      ],
+      "correctIndex": 0,
+      "explanation": "In MySQL's multi-table DELETE syntax, only the tables (or aliases) listed between DELETE and FROM lose rows. Here only alias o is listed, so the join is used just to pick which orders to delete. To delete from both tables you would write DELETE o, c FROM ..."
+    },
+    {
+      "id": "sql-07",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "04-joins",
+      "question": "Asha has 3 orders and Bala has none. How do they appear in the result?",
+      "code": "SELECT c.name, o.id AS order_id\nFROM customers c\nINNER JOIN orders o ON o.customer_id = c.id;",
+      "codeLanguage": "sql",
+      "options": [
+        "Asha once and Bala once, with NULL as Bala's order_id",
+        "Asha once with her latest order; Bala is absent",
+        "Asha 3 times and Bala once with NULL as order_id",
+        "Asha 3 times (once per order); Bala does not appear"
+      ],
+      "correctIndex": 3,
+      "explanation": "An INNER JOIN outputs one row for every matching pair, so Asha appears once per order. Customers without a match are dropped entirely. Keeping Bala with a NULL order_id needs a LEFT JOIN."
+    },
+    {
+      "id": "sql-08",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "04-joins",
+      "question": "You want every pair of customers who live in the same city, with each pair listed exactly once. Which join condition does this?",
+      "code": "SELECT a.name, b.name, a.city\nFROM customers a\nJOIN customers b\n  ON a.city = b.city AND /* ? */;",
+      "codeLanguage": "sql",
+      "options": [
+        "a.id <> b.id",
+        "a.id < b.id",
+        "a.id = b.id",
+        "a.name <> b.name"
+      ],
+      "correctIndex": 1,
+      "explanation": "a.id < b.id removes self-pairs (Asha with Asha) and keeps only one ordering of each pair. a.id <> b.id also removes self-pairs but returns every pair twice, once as (Asha, Bala) and again as (Bala, Asha). Comparing names fails when two customers share a name."
+    },
+    {
+      "id": "sql-09",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-aggregation-group-by-and-having",
+      "question": "No orders were placed on 2025-01-01. What does this query return?",
+      "code": "SELECT SUM(total) AS revenue\nFROM orders\nWHERE created_at >= '2025-01-01'\n  AND created_at <  '2025-01-02';",
+      "codeLanguage": "sql",
+      "options": [
+        "One row with revenue = 0",
+        "An empty result set (no rows)",
+        "One row with revenue = NULL",
+        "An error, because SUM needs at least one row"
+      ],
+      "correctIndex": 2,
+      "explanation": "An aggregate query with no GROUP BY always returns exactly one row. SUM, AVG, MIN and MAX return NULL over an empty set, and only COUNT returns 0. Write COALESCE(SUM(total), 0) when reports need ₹0. You would get an empty result only with GROUP BY, because then there are no groups to output."
+    },
+    {
+      "id": "sql-10",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "05-aggregation-group-by-and-having",
+      "question": "What extra output does WITH ROLLUP add to this query?",
+      "code": "SELECT city, COUNT(*) AS customers\nFROM customers\nGROUP BY city WITH ROLLUP;",
+      "codeLanguage": "sql",
+      "options": [
+        "One extra summary row whose city is NULL, holding the grand total count",
+        "A running total column next to each city",
+        "A row per city showing that city's share of the total as a percentage",
+        "Nothing; WITH ROLLUP only changes the sort order"
+      ],
+      "correctIndex": 0,
+      "explanation": "WITH ROLLUP adds super-aggregate rows. With one grouping column, that is a single grand-total row whose city is NULL. Use GROUPING(city) to tell it apart from a real NULL-city group. Running totals need window functions, not ROLLUP."
+    },
+    {
+      "id": "sql-11",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "06-subqueries-and-ctes",
+      "question": "Customer 7 has placed several orders. What happens when this query runs?",
+      "code": "SELECT name,\n       (SELECT total FROM orders WHERE customer_id = 7) AS order_total\nFROM customers\nWHERE id = 7;",
+      "codeLanguage": "sql",
+      "options": [
+        "It returns one row per order of customer 7",
+        "It returns the first order's total",
+        "It returns the sum of all of customer 7's orders",
+        "It fails with ERROR 1242: Subquery returns more than 1 row"
+      ],
+      "correctIndex": 3,
+      "explanation": "A subquery used as a scalar value must return at most one row. If it returns several, MySQL raises error 1242 at run time. Fix it by aggregating (SUM(total)), adding a LIMIT 1 with a deterministic ORDER BY, or turning it into a join."
+    },
+    {
+      "id": "sql-12",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "06-subqueries-and-ctes",
+      "question": "What happens when this query runs with default server settings?",
+      "code": "WITH RECURSIVE seq AS (\n  SELECT 1 AS n\n  UNION ALL\n  SELECT n + 1 FROM seq WHERE n < 5000\n)\nSELECT COUNT(*) FROM seq;",
+      "codeLanguage": "sql",
+      "options": [
+        "It returns 5000",
+        "It fails with an error once recursion goes past cte_max_recursion_depth (default 1000)",
+        "It returns 1000, because recursion silently stops at the limit",
+        "It loops forever because recursive CTEs have no limit"
+      ],
+      "correctIndex": 1,
+      "explanation": "cte_max_recursion_depth defaults to 1000. When a recursive CTE needs more iterations, MySQL aborts with an error instead of truncating the result. Raise the limit with SET SESSION cte_max_recursion_depth = 10000 (or a SET_VAR hint) when a deep recursion is intended. The limit exists to stop runaway queries."
+    },
+    {
+      "id": "sql-13",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "07-window-functions",
+      "question": "Which query returns exactly one row per customer: that customer's most recent order (assume no two orders of a customer share created_at)?",
+      "options": [
+        "SELECT customer_id, id, MAX(created_at) FROM orders GROUP BY customer_id;",
+        "SELECT customer_id, id, created_at FROM orders ORDER BY created_at DESC LIMIT 1;",
+        "SELECT customer_id, id, created_at FROM (SELECT o.*, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY created_at DESC) AS rn FROM orders o) t WHERE rn = 1;",
+        "SELECT customer_id, id, created_at FROM orders WHERE ROW_NUMBER() OVER (PARTITION BY customer_id) = 1;"
+      ],
+      "correctIndex": 2,
+      "explanation": "Numbering each customer's orders newest-first and keeping rn = 1 in an outer query is the standard top-1-per-group pattern. The GROUP BY version fails under ONLY_FULL_GROUP_BY, and even where it runs, id is not guaranteed to come from the newest row. LIMIT 1 returns one row in total, not one per customer. Window functions are not allowed in WHERE."
+    },
+    {
+      "id": "sql-14",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "07-window-functions",
+      "question": "Each customer's orders have distinct created_at values. What does the latest_total column contain?",
+      "code": "SELECT customer_id, id, total,\n       LAST_VALUE(total) OVER (\n         PARTITION BY customer_id ORDER BY created_at\n       ) AS latest_total\nFROM orders;",
+      "codeLanguage": "sql",
+      "options": [
+        "The current row's own total, because the default frame ends at the current row",
+        "The total of the customer's most recent order, on every row",
+        "The total of the customer's first order, on every row",
+        "NULL on every row except the last one"
+      ],
+      "correctIndex": 0,
+      "explanation": "With ORDER BY and no frame clause, the frame is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW. The 'last' row of that frame is the current row (or its last peer). For the true latest value, add ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING, or use FIRST_VALUE with ORDER BY created_at DESC."
+    },
+    {
+      "id": "sql-15",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-views-stored-procedures-and-functions",
+      "question": "What happens when you run the UPDATE below?",
+      "code": "CREATE VIEW city_counts AS\n  SELECT city, COUNT(*) AS n\n  FROM customers\n  GROUP BY city;\n\nUPDATE city_counts SET city = 'Bengaluru' WHERE city = 'Bangalore';",
+      "codeLanguage": "sql",
+      "options": [
+        "The matching customers are updated through the view",
+        "Only the view's stored definition changes",
+        "It fails because a view containing GROUP BY or aggregate functions is not updatable",
+        "It succeeds but affects 0 rows, because views are read-only snapshots"
+      ],
+      "correctIndex": 2,
+      "explanation": "A view is updatable only when each view row maps to exactly one base-table row. Aggregates, GROUP BY, DISTINCT, UNION and similar constructs break that mapping, so MySQL rejects the UPDATE with an error saying the target table is not updatable. A view is not a snapshot either: it stores only its SELECT definition."
+    },
+    {
+      "id": "sql-16",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "08-views-stored-procedures-and-functions",
+      "question": "A procedure is declared as count_orders(IN p_customer INT UNSIGNED, OUT p_count INT). How do you call it and read the count from the mysql client?",
+      "options": [
+        "SELECT count_orders(7);",
+        "CALL count_orders(7, @cnt); SELECT @cnt;",
+        "CALL count_orders(7) INTO @cnt;",
+        "EXEC count_orders 7, @cnt OUTPUT;"
+      ],
+      "correctIndex": 1,
+      "explanation": "An OUT parameter needs a variable to write into. Pass a user variable in CALL, then SELECT it. Procedures cannot be called inside a SELECT (only stored functions can). EXEC ... OUTPUT is SQL Server syntax."
+    },
+    {
+      "id": "sql-17",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "09-triggers-and-events",
+      "question": "A trigger is defined on orders as shown. What happens when a row is inserted into orders?",
+      "code": "CREATE TRIGGER orders_ai AFTER INSERT ON orders\nFOR EACH ROW\n  UPDATE orders\n  SET status = 'new'\n  WHERE id = NEW.id;",
+      "codeLanguage": "sql",
+      "options": [
+        "The new row's status is set to 'new'",
+        "The trigger fires recursively until the stack overflows",
+        "The UPDATE is silently skipped",
+        "The INSERT fails with error 1442: the trigger cannot modify the table that its own statement is using"
+      ],
+      "correctIndex": 3,
+      "explanation": "A trigger may not run DML against the table whose statement fired it, so the INSERT fails with error 1442. To change the incoming row, use a BEFORE INSERT trigger with SET NEW.status = 'new'. Better still, use a column DEFAULT."
+    },
+    {
+      "id": "sql-18",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "09-triggers-and-events",
+      "question": "You created an event with ON SCHEDULE EVERY 1 HOUR, but it never runs, and SHOW PROCESSLIST shows no event_scheduler thread. What is the most likely cause?",
+      "options": [
+        "Events run only once a day regardless of their schedule",
+        "The event_scheduler system variable is OFF (for example, disabled in the server config)",
+        "Events need a separate cron job on the operating system",
+        "The event must be called with CALL to start it"
+      ],
+      "correctIndex": 1,
+      "explanation": "Events are run by the event scheduler thread. The scheduler is ON by default in MySQL 8.0, but if event_scheduler is set to OFF (or DISABLED at startup), no thread appears in the processlist and no event fires. Turn it on with SET GLOBAL event_scheduler = ON (if it was not DISABLED at startup) and persist the setting in the config. No external cron is involved."
+    },
+    {
+      "id": "sql-19",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "10-normalization-and-keys",
+      "question": "A products table stores tags as a single string, e.g. tags = 'cotton,kurta,festive'. Which normal form does this violate first?",
+      "options": [
+        "First normal form (1NF), because the column holds a list instead of one atomic value",
+        "Second normal form (2NF), because of a partial key dependency",
+        "Third normal form (3NF), because of a transitive dependency",
+        "Boyce-Codd normal form only"
+      ],
+      "correctIndex": 0,
+      "explanation": "1NF requires every column to hold a single atomic value. A comma-separated list breaks it: you cannot index or join on one tag and you end up with LIKE '%kurta%' scans. The normalised design is a product_tags(product_id, tag) table. 2NF and 3NF problems are about dependencies between non-key columns and keys, not repeating values."
+    },
+    {
+      "id": "sql-20",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "11-constraints-and-referential-integrity",
+      "question": "customers.id is INT UNSIGNED. What happens when you create this table?",
+      "code": "CREATE TABLE addresses (\n  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,\n  customer_id INT NOT NULL,\n  line1       VARCHAR(200) NOT NULL,\n  FOREIGN KEY (customer_id) REFERENCES customers (id)\n);",
+      "codeLanguage": "sql",
+      "options": [
+        "It succeeds; MySQL converts customer_id to INT UNSIGNED automatically",
+        "It succeeds, but the foreign key is silently ignored",
+        "It succeeds, but negative customer_id values are rejected at insert time",
+        "It fails, because the referencing and referenced columns are incompatible (signed INT vs INT UNSIGNED)"
+      ],
+      "correctIndex": 3,
+      "explanation": "InnoDB requires foreign-key columns to have the same integer size and the same signedness as the referenced column. A signed INT referencing an INT UNSIGNED makes CREATE TABLE fail with an incompatible-columns error (ERROR 3780 in 8.0). Declare customer_id INT UNSIGNED NOT NULL."
+    },
+    {
+      "id": "sql-21",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-json-and-generated-columns",
+      "question": "What is JSON_TABLE() used for in this query?",
+      "code": "SELECT p.id, t.tag\nFROM products p,\n     JSON_TABLE(p.attrs, '$.tags[*]'\n       COLUMNS (tag VARCHAR(30) PATH '$')) AS t;",
+      "codeLanguage": "sql",
+      "options": [
+        "It validates that attrs is well-formed JSON and returns 1 or 0",
+        "It turns each element of the JSON tags array into a relational row, so tags can be filtered, joined and grouped",
+        "It creates a permanent table with one column per JSON key",
+        "It converts the whole table to a JSON document"
+      ],
+      "correctIndex": 1,
+      "explanation": "JSON_TABLE is a table function: it maps JSON data to rows and typed columns for the rest of the query. Here a product with three tags produces three rows. It creates nothing permanent. JSON_VALID is the validation function, and JSON_ARRAYAGG/JSON_OBJECT build JSON output."
+    },
+    {
+      "id": "sql-22",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "13-indexes",
+      "question": "This query runs frequently on a large orders table. Which single composite index serves it best?",
+      "code": "SELECT id, total\nFROM orders\nWHERE status = 'shipped'\n  AND created_at >= '2025-04-01';",
+      "codeLanguage": "sql",
+      "options": [
+        "INDEX (created_at, status)",
+        "INDEX (total, status)",
+        "INDEX (status, created_at)",
+        "Separate single-column indexes on status and created_at; they are always just as good"
+      ],
+      "correctIndex": 2,
+      "explanation": "Put equality columns first and the range column last. With (status, created_at), MySQL seeks to status = 'shipped' and range-scans just the matching dates. With (created_at, status) the range on the first column means status cannot narrow the seek and is only checked row by row. Two separate indexes need an index merge, which is usually worse than one well-ordered composite index."
+    },
+    {
+      "id": "sql-23",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "13-indexes",
+      "question": "orders has PRIMARY KEY (id) and a secondary INDEX idx_cust (customer_id), and nothing else. Which query can be answered entirely from idx_cust (EXPLAIN Extra: Using index)?",
+      "options": [
+        "SELECT id, customer_id FROM orders WHERE customer_id = 7;",
+        "SELECT customer_id, total FROM orders WHERE customer_id = 7;",
+        "SELECT * FROM orders WHERE customer_id = 7;",
+        "SELECT customer_id, status FROM orders WHERE customer_id = 7;"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every InnoDB secondary-index entry stores the primary-key value next to the indexed columns, so idx_cust actually holds (customer_id, id). A query that needs only those columns is covered and never touches the clustered index. total and status are not in the index, so those queries must look up each row by primary key."
+    },
+    {
+      "id": "sql-24",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "13-indexes",
+      "question": "products.name has a B-tree index. Which filter can use it for an index range scan?",
+      "options": [
+        "WHERE name LIKE '%kurta'",
+        "WHERE name LIKE '%kurta%'",
+        "WHERE LOWER(name) = 'kurta'",
+        "WHERE name LIKE 'kurta%'"
+      ],
+      "correctIndex": 3,
+      "explanation": "A B-tree is sorted from the leftmost character, so a constant prefix ('kurta%') becomes a range seek. A leading wildcard means the start of the value is unknown, so every entry must be checked. Wrapping the column in a function (LOWER) also defeats the index unless you create a functional index on that exact expression."
+    },
+    {
+      "id": "sql-25",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "14-explain-and-query-optimization",
+      "question": "EXPLAIN shows possible_keys = idx_status, key = NULL, type = ALL for a query filtering on status = 'delivered'. What does that mean?",
+      "options": [
+        "idx_status is corrupted and must be rebuilt",
+        "The optimizer considered idx_status but chose a full table scan, typically because it estimated that the filter matches a large share of rows",
+        "The query used idx_status as a covering index",
+        "possible_keys is always ignored, so the output is meaningless"
+      ],
+      "correctIndex": 1,
+      "explanation": "possible_keys lists the indexes that could apply, and key shows the one actually chosen. key = NULL with type = ALL means a full scan was judged cheaper. That is typical when a value such as 'delivered' matches most rows, so reading the index and then looking up each row would cost more than scanning the table. Check the rows estimate, and consider a more selective composite index."
+    },
+    {
+      "id": "sql-26",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "15-innodb-internals",
+      "question": "Monitoring shows the InnoDB history list length (SHOW ENGINE INNODB STATUS) climbing steadily for hours, and queries are slowing down. Which is the most likely cause?",
+      "options": [
+        "A session started a transaction hours ago and never committed, so purge cannot remove old row versions that its read view might still need",
+        "innodb_buffer_pool_size is set too large",
+        "The binary log has been disabled",
+        "Too many secondary indexes exist on a read-only table"
+      ],
+      "correctIndex": 0,
+      "explanation": "Updates and deletes leave old row versions in the undo log for MVCC. The purge thread can discard them only once no open read view needs them. One forgotten open transaction pins every version created since it started, so the history list and undo space grow, and consistent reads must walk longer version chains. Find it in information_schema.innodb_trx and end it."
+    },
+    {
+      "id": "sql-27",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "16-transactions-and-isolation-levels",
+      "question": "Session A runs two identical plain SELECTs on the same row inside one transaction. Between them, session B updates the row and commits. At which isolation level does A's second SELECT see B's change?",
+      "options": [
+        "REPEATABLE READ",
+        "SERIALIZABLE",
+        "READ COMMITTED",
+        "At no level; InnoDB always shows the first value"
+      ],
+      "correctIndex": 2,
+      "explanation": "Under READ COMMITTED, each consistent read takes a fresh snapshot, so the second SELECT sees B's committed value (a non-repeatable read). Under REPEATABLE READ, the snapshot from the first read is reused, so A keeps seeing the old value. Under SERIALIZABLE (with autocommit off), plain SELECTs become locking reads, so B's update would have had to wait for A instead."
+    },
+    {
+      "id": "sql-28",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "17-locking-and-deadlocks",
+      "question": "Inside an open transaction, an UPDATE fails with ERROR 1205 (Lock wait timeout exceeded) under default settings. What is the state of the transaction?",
+      "options": [
+        "The whole transaction has been rolled back and a new one started",
+        "The whole transaction has been committed up to the failed statement",
+        "The connection has been closed by the server",
+        "Only the timed-out statement was rolled back; the transaction is still open with its earlier changes and locks, so the application must explicitly retry or ROLLBACK"
+      ],
+      "correctIndex": 3,
+      "explanation": "With innodb_rollback_on_timeout = OFF (the default), a lock wait timeout rolls back only the current statement. Earlier statements in the transaction stay pending and their locks stay held. A deadlock (1213) is different: there InnoDB rolls back the whole transaction. Code that assumes everything was undone on 1205 can later COMMIT a half-finished unit of work."
+    },
+    {
+      "id": "sql-29",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "17-locking-and-deadlocks",
+      "question": "ALTER TABLE products ADD COLUMN hsn_code CHAR(8) sits in the state 'Waiting for table metadata lock', and new SELECTs on products are now queuing behind it. What is the usual root cause?",
+      "options": [
+        "Another session has an open (uncommitted) transaction that has read or written products, so it still holds a metadata lock on the table",
+        "The disk is full",
+        "The table has too many rows for ALTER TABLE",
+        "The buffer pool is too small to hold the new column"
+      ],
+      "correctIndex": 0,
+      "explanation": "Any statement that touches a table takes a shared metadata lock that lasts until its transaction ends, even a plain SELECT. The ALTER needs an exclusive metadata lock, so it waits, and every new query on the table queues behind the waiting ALTER. Find the idle transaction (performance_schema.metadata_locks, innodb_trx) and commit or kill it. Run DDL with a short lock_wait_timeout."
+    },
+    {
+      "id": "sql-30",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "18-replication-backup-and-security",
+      "question": "Your app writes to the primary and sends reads to an asynchronous replica. A customer places an order and is redirected to 'My Orders', but the new order is missing; on refresh a second later it appears. What is the most likely cause?",
+      "options": [
+        "The INSERT was rolled back",
+        "Replication lag: the replica had not yet applied the change when the read arrived",
+        "The replica rejects INSERTs",
+        "The primary's query cache returned stale results"
+      ],
+      "correctIndex": 1,
+      "explanation": "Asynchronous replicas apply the primary's binary log with some delay, so a read straight after a write can miss it. Common fixes: send read-your-own-writes queries to the primary, wait for the write's GTID on the replica, or use semi-sync replication where it fits. MySQL 8.0 has no query cache."
+    },
+    {
+      "id": "sql-31",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "18-replication-backup-and-security",
+      "question": "At 14:05 someone ran DELETE FROM orders without a WHERE clause. You have last night's full backup and binary logging is enabled. How do you recover with minimal data loss?",
+      "options": [
+        "Run ROLLBACK on the primary",
+        "Restore last night's backup and accept losing today's orders",
+        "Restore last night's backup, then replay the binary logs from the backup's position up to just before the bad DELETE (e.g. mysqlbinlog --stop-position)",
+        "Re-run the DELETE with a WHERE clause"
+      ],
+      "correctIndex": 2,
+      "explanation": "This is point-in-time recovery: the full backup gives a consistent base, and replaying the binlog re-applies every change made after it, stopping just before the destructive event (by position, GTID or time). An autocommitted DELETE is already committed, so ROLLBACK cannot undo it."
+    },
+    {
+      "id": "sql-32",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "16-transactions-and-isolation-levels",
+      "question": "At checkout the app must insert the order, insert its order_items and reduce product stock. If any step fails, none of it should persist. What do you use?",
+      "options": [
+        "Run all the statements inside one transaction (START TRANSACTION ... COMMIT, with ROLLBACK on error)",
+        "Run each statement with autocommit on and delete leftovers manually on failure",
+        "Use a VIEW over the three tables",
+        "Add AFTER INSERT triggers that undo earlier steps"
+      ],
+      "correctIndex": 0,
+      "explanation": "Atomicity is exactly what a transaction provides: InnoDB applies all the changes at COMMIT, or none of them after ROLLBACK, including when the server crashes. Manual clean-up after autocommitted statements leaves windows where other sessions see half-finished data."
+    },
+    {
+      "id": "sql-33",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "20-string-date-and-numeric-functions",
+      "question": "What does this expression return?",
+      "code": "SELECT DATE_ADD('2025-01-31', INTERVAL 1 MONTH);",
+      "codeLanguage": "sql",
+      "options": [
+        "'2025-03-03'",
+        "'2025-02-31'",
+        "NULL",
+        "'2025-02-28'"
+      ],
+      "correctIndex": 3,
+      "explanation": "When adding months produces a day that does not exist, MySQL clamps it to the last day of the resulting month, so 31 January plus one month is 28 February 2025 (not a leap year). It does not roll over into March or return an invalid date. Watch for this in billing-cycle calculations."
+    },
+    {
+      "id": "sql-34",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "21-partitioning-and-sharding",
+      "question": "An orders_archive table is created with PARTITION BY HASH(customer_id) PARTITIONS 8. Which query can partition pruning limit to a single partition?",
+      "options": [
+        "SELECT * FROM orders_archive WHERE status = 'delivered';",
+        "SELECT * FROM orders_archive WHERE created_at >= '2025-01-01';",
+        "SELECT * FROM orders_archive WHERE customer_id = 42;",
+        "SELECT * FROM orders_archive WHERE customer_id + 1 = 43;"
+      ],
+      "correctIndex": 2,
+      "explanation": "Pruning works only when the optimizer can work out the partition from a condition on the bare partitioning column. An equality on customer_id hashes to exactly one partition (EXPLAIN shows it in the partitions column). Filters on other columns, or an expression wrapped around customer_id, force every partition to be scanned."
+    },
+    {
+      "id": "sql-35",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "22-mysql-from-application-code",
+      "question": "A Node.js handler searches customers by a name typed into a form. Which approach prevents SQL injection?",
+      "options": [
+        "Build the SQL with string concatenation: \"... WHERE name = '\" + input + \"'\"",
+        "Use a placeholder and pass the value separately: execute('SELECT id, name FROM customers WHERE name = ?', [input])",
+        "Strip all spaces from the input first",
+        "Use SELECT * so the query does not depend on the input"
+      ],
+      "correctIndex": 1,
+      "explanation": "With a prepared statement, the SQL text and the data travel separately, so the input is always treated as a value and never as SQL. Concatenation lets input such as ' OR '1'='1 rewrite the query. Ad-hoc filtering like stripping spaces is easy to bypass."
+    },
+    {
+      "id": "sql-36",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "11-constraints-and-referential-integrity",
+      "question": "Fill in the blank so that deleting an order automatically deletes its order_items rows.",
+      "code": "CREATE TABLE order_items (\n  order_id   BIGINT UNSIGNED NOT NULL,\n  product_id INT UNSIGNED NOT NULL,\n  quantity   INT UNSIGNED NOT NULL,\n  PRIMARY KEY (order_id, product_id),\n  FOREIGN KEY (order_id) REFERENCES orders (id)\n    ON DELETE ______\n);",
+      "codeLanguage": "sql",
+      "answerHint": "Type the missing keyword",
+      "acceptedAnswers": [
+        "CASCADE"
+      ],
+      "caseSensitive": false,
+      "explanation": "ON DELETE CASCADE makes InnoDB delete the child rows when the parent row is deleted. The default (RESTRICT / NO ACTION) would instead make the DELETE on orders fail while items still reference it. SET NULL is not possible here because order_id is NOT NULL and part of the primary key."
+    },
+    {
+      "id": "sql-37",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "05-aggregation-group-by-and-having",
+      "question": "How many rows does this query return?",
+      "code": "-- customers.city values (5 rows):\n-- 'Pune', NULL, 'Delhi', NULL, 'Pune'\n\nSELECT city, COUNT(*) AS n\nFROM customers\nGROUP BY city;",
+      "codeLanguage": "sql",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "3"
+      ],
+      "caseSensitive": false,
+      "explanation": "GROUP BY puts all NULLs into a single group, so the groups are Pune (2), Delhi (1) and NULL (2): 3 rows. A common mistake is to answer 2 (dropping NULL) or 4 (treating each NULL as its own group)."
+    },
+    {
+      "id": "sql-38",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "14-explain-and-query-optimization",
+      "question": "A row with id 42 exists. What value does EXPLAIN show in the type column?",
+      "code": "EXPLAIN SELECT * FROM orders WHERE id = 42;",
+      "codeLanguage": "sql",
+      "answerHint": "Type the EXPLAIN access type",
+      "acceptedAnswers": [
+        "const"
+      ],
+      "caseSensitive": false,
+      "explanation": "An equality on the full primary key (or a full UNIQUE NOT NULL key) matches at most one row, so the optimizer reads it once, treats its values as constants, and reports type = const. The weaker types are eq_ref (one row per join match), ref (non-unique lookup), range and ALL (full scan)."
+    },
+    {
+      "id": "sql-39",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "04-joins",
+      "question": "Fill in the blank so that every customer is listed, including customers who have never ordered (their order_id shows as NULL).",
+      "code": "SELECT c.name, o.id AS order_id\nFROM customers c\n______ orders o ON o.customer_id = c.id;",
+      "codeLanguage": "sql",
+      "answerHint": "Type the missing join (two or three words)",
+      "acceptedAnswers": [
+        "LEFT JOIN",
+        "LEFT OUTER JOIN"
+      ],
+      "caseSensitive": false,
+      "explanation": "A LEFT (OUTER) JOIN keeps every row of the left table (customers) and fills the right side with NULLs when no order matches. An INNER JOIN would drop customers without orders. RIGHT JOIN would keep all orders instead."
+    },
+    {
+      "id": "sql-40",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "17-locking-and-deadlocks",
+      "question": "Inside a transaction, fill in the blank so the selected product row is locked exclusively until COMMIT, stopping another checkout from changing its stock in the meantime.",
+      "code": "START TRANSACTION;\nSELECT stock FROM products WHERE id = 7 ______;\nUPDATE products SET stock = stock - 1 WHERE id = 7;\nCOMMIT;",
+      "codeLanguage": "sql",
+      "answerHint": "Type the missing locking clause (two words)",
+      "acceptedAnswers": [
+        "FOR UPDATE"
+      ],
+      "caseSensitive": false,
+      "explanation": "SELECT ... FOR UPDATE takes exclusive row locks, so another transaction that tries to lock or modify the row waits until this one commits. FOR SHARE takes only shared locks, which let others read-lock the row too and lead to deadlocks when both then try to update. A plain SELECT takes no locks at all."
+    },
+    {
+      "id": "sql-41",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "07-window-functions",
+      "question": "Fill in the window function that produces the pos values shown.",
+      "code": "-- Result wanted:\n-- name    score  pos\n-- Asha    980    1\n-- Bala    980    1\n-- Chetan  870    2\n\nSELECT name, score,\n       ______() OVER (ORDER BY score DESC) AS pos\nFROM results;",
+      "codeLanguage": "sql",
+      "answerHint": "Type the function name",
+      "acceptedAnswers": [
+        "DENSE_RANK",
+        "DENSE_RANK()"
+      ],
+      "caseSensitive": false,
+      "explanation": "DENSE_RANK gives tied rows the same rank and leaves no gap after a tie, so 980, 980, 870 become 1, 1, 2. RANK would give 1, 1, 3, and ROW_NUMBER would give 1, 2, 3."
+    },
+    {
+      "id": "sql-42",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "05-aggregation-group-by-and-having",
+      "question": "How many rows does the query return?",
+      "code": "INSERT INTO orders (id, customer_id, status, total) VALUES\n (1, 1, 'delivered', 1200.00), (2, 1, 'cancelled',  800.00),\n (3, 2, 'delivered',  500.00), (4, 2, 'delivered',  400.00),\n (5, 3, 'pending',   3000.00), (6, 3, 'delivered',  300.00);\n\nSELECT customer_id, SUM(total) AS spent\nFROM orders\nWHERE status <> 'cancelled'\nGROUP BY customer_id\nHAVING SUM(total) > 1000;",
+      "codeLanguage": "sql",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "2"
+      ],
+      "caseSensitive": false,
+      "explanation": "WHERE removes order 2 before grouping. Totals: customer 1 = ₹1,200, customer 2 = ₹500 + ₹400 = ₹900, customer 3 = ₹3,000 + ₹300 = ₹3,300. HAVING keeps the groups above ₹1,000: customers 1 and 3, so 2 rows. Customer 2's ₹900 fails the HAVING filter."
+    },
+    {
+      "id": "sql-43",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "04-joins",
+      "question": "How many rows does this query return?",
+      "code": "-- customers: (1,'Asha'), (2,'Bala'), (3,'Chetan')\n-- orders (id, customer_id, status):\n--   (101, 1, 'delivered'), (102, 1, 'pending'), (103, 2, 'pending')\n\nSELECT c.name, o.id\nFROM customers c\nLEFT JOIN orders o\n  ON o.customer_id = c.id\n AND o.status = 'delivered';",
+      "codeLanguage": "sql",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "3"
+      ],
+      "caseSensitive": false,
+      "explanation": "The status filter is in the ON clause, so it only limits which orders match. It never removes customers. Asha matches order 101 only (1 row). Bala's only order is pending, so she gets one row with NULL. Chetan has no orders, so one NULL row. Total 3. Had the filter been in WHERE, only Asha's row would survive (1 row)."
+    },
+    {
+      "id": "sql-44",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "05-aggregation-group-by-and-having",
+      "question": "reviews.rating is an INT column holding the values 4, NULL, 5 and 3 (four rows). What does this query return?",
+      "code": "SELECT AVG(rating) FROM reviews;",
+      "codeLanguage": "sql",
+      "answerHint": "Enter the numeric value",
+      "acceptedAnswers": [
+        "4",
+        "4.0",
+        "4.00",
+        "4.0000"
+      ],
+      "caseSensitive": false,
+      "explanation": "AVG ignores NULLs: (4 + 5 + 3) / 3 = 4, which MySQL displays as 4.0000. The tempting 3 comes from dividing by all four rows. That would need AVG(COALESCE(rating, 0)), which treats a missing rating as zero."
+    },
+    {
+      "id": "sql-45",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "20-string-date-and-numeric-functions",
+      "question": "What does this expression return?",
+      "code": "SELECT DATEDIFF('2024-03-01', '2024-02-01');",
+      "codeLanguage": "sql",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "29"
+      ],
+      "caseSensitive": false,
+      "explanation": "DATEDIFF(a, b) returns a minus b in days. February 2024 has 29 days because 2024 is a leap year, so the answer is 29, not 28. The arguments are in the order later date first, which gives a positive result."
+    },
+    {
+      "id": "sql-46",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "20-string-date-and-numeric-functions",
+      "question": "What string does this expression return?",
+      "code": "SELECT SUBSTRING_INDEX('ravi.kumar@example.in', '@', -1);",
+      "codeLanguage": "sql",
+      "answerHint": "Type the returned string",
+      "acceptedAnswers": [
+        "example.in",
+        "'example.in'"
+      ],
+      "caseSensitive": false,
+      "explanation": "SUBSTRING_INDEX(str, delim, count) with a negative count returns everything to the right of the count-th delimiter, counting from the end. With -1 that is the part after the last '@', the email domain 'example.in'. With 1 it would return 'ravi.kumar'."
+    },
+    {
+      "id": "sql-47",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "14-explain-and-query-optimization",
+      "question": "orders has a non-unique secondary index on customer_id, and there are thousands of customers. What type does EXPLAIN most likely show?",
+      "code": "EXPLAIN SELECT * FROM orders WHERE customer_id = 7;",
+      "codeLanguage": "sql",
+      "answerHint": "Type the EXPLAIN access type",
+      "acceptedAnswers": [
+        "ref"
+      ],
+      "caseSensitive": false,
+      "explanation": "An equality lookup on a non-unique index can match several rows, so the access type is ref. const and eq_ref need a unique key. range is for inequalities, BETWEEN or IN lists, and ALL is a full scan."
+    },
+    {
+      "id": "sql-48",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "07-window-functions",
+      "question": "What does the final query return? (amount is an INT column.)",
+      "code": "INSERT INTO sales (region, amount) VALUES\n ('North', 700), ('North', 500), ('North', 100),\n ('South', 900), ('South', 600), ('South', 600), ('South', 200);\n\nSELECT SUM(amount)\nFROM (\n  SELECT amount,\n         RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS rk\n  FROM sales\n) t\nWHERE rk <= 2;",
+      "codeLanguage": "sql",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "3300"
+      ],
+      "caseSensitive": false,
+      "explanation": "Ranks per region: North 700→1, 500→2, 100→3; South 900→1, 600→2, 600→2, 200→4. rk <= 2 keeps North 700 + 500 = 1,200 and South 900 + 600 + 600 = 2,100, so the total is 3,300. Both 600s rank 2 because RANK gives ties the same rank. ROW_NUMBER would keep only one 600 and give 2,700."
+    },
+    {
+      "id": "sql-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "06-subqueries-and-ctes",
+      "question": "How many rows does the CTE produce, i.e. what does this query return?",
+      "code": "WITH RECURSIVE n AS (\n  SELECT 1 AS x\n  UNION ALL\n  SELECT x * 2 FROM n WHERE x < 50\n)\nSELECT COUNT(*) FROM n;",
+      "codeLanguage": "sql",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "7"
+      ],
+      "caseSensitive": false,
+      "explanation": "The anchor gives 1. Each step doubles a value that is still below 50: 2, 4, 8, 16, 32 and then 64, which is produced from 32 because 32 < 50. 64 fails x < 50, so recursion stops. Rows: 1, 2, 4, 8, 16, 32, 64, so the count is 7. The usual slip is to stop at 32, but the WHERE tests the previous value, not the new one."
+    },
+    {
+      "id": "sql-50",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "16-transactions-and-isolation-levels",
+      "question": "Table t (v INT) is empty and the statements are run one by one in the mysql client. Any error is reported and execution continues. What does the final SELECT return?",
+      "code": "START TRANSACTION;\nINSERT INTO t VALUES (10);\nSAVEPOINT a;\nINSERT INTO t VALUES (20);\nSAVEPOINT b;\nINSERT INTO t VALUES (30);\nROLLBACK TO SAVEPOINT a;\nINSERT INTO t VALUES (40);\nROLLBACK TO SAVEPOINT b;\nCOMMIT;\nSELECT SUM(v) FROM t;",
+      "codeLanguage": "sql",
+      "answerHint": "Enter a number",
+      "acceptedAnswers": [
+        "50"
+      ],
+      "caseSensitive": false,
+      "explanation": "ROLLBACK TO SAVEPOINT a undoes 20 and 30 and also deletes savepoint b, which was set after a. 40 is then inserted. ROLLBACK TO SAVEPOINT b fails with 'SAVEPOINT b does not exist' (error 1305). The error undoes nothing and does not end the transaction. COMMIT saves 10 and 40, so SUM = 50. Answering 10 assumes the rollback to b worked; 100 assumes nothing was rolled back."
+    }
+  ]
+}

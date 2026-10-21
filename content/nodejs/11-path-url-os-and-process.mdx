@@ -1,0 +1,163 @@
+---
+title: "Path, URL, OS and Process"
+description: "The everyday built-ins for building file paths, parsing URLs and query strings, inspecting the machine, and reading arguments, environment variables and exit codes."
+module: "Networking"
+level: "beginner"
+order: 6
+---
+
+These modules are small, but they show up in nearly every Node file — and
+in interviews as "what is the difference between `path.join` and
+`path.resolve`?" or "how should a CLI signal failure?". Getting them wrong
+causes bugs that only appear on Windows, or in production containers.
+
+## node:path — never concatenate paths with strings
+
+```js
+import path from "node:path";
+
+path.join("/srv/app", "uploads", "../logs", "app.log"); // '/srv/app/logs/app.log'
+path.join("reports", "/2026", "oct.csv");               // 'reports/2026/oct.csv'
+
+path.resolve("/srv/app", "data", "file.txt");           // '/srv/app/data/file.txt'
+path.resolve("/srv/app", "/etc", "passwd");             // '/etc/passwd'
+path.resolve("data.json");  // absolute path based on process.cwd()
+```
+
+- `join` glues segments with the platform separator and normalises `..`
+  and `.`. The result can be relative.
+- `resolve` works right to left until it builds an **absolute** path; an
+  absolute segment resets everything before it. With no absolute segment,
+  it prepends `process.cwd()`.
+
+```js
+const file = "/srv/app/report.final.pdf";
+path.basename(file);          // 'report.final.pdf'
+path.basename(file, ".pdf");  // 'report.final'
+path.extname(file);           // '.pdf'
+path.dirname(file);           // '/srv/app'
+path.parse(file);  // { root: '/', dir: '/srv/app', base: 'report.final.pdf', ext: '.pdf', name: 'report.final' }
+path.relative("/srv/app/src", "/srv/app/data/x.json"); // '../data/x.json'
+```
+
+Outputs above are for Linux and macOS. On Windows the separator is `\`;
+`path.posix` and `path.win32` force one style. Using `path` instead of
+`` `${dir}/${name}` `` is what keeps code portable.
+
+**Security note:** `path.join(uploadDir, userInput)` with input like
+`../../etc/passwd` escapes the folder. Resolve the final path and check it
+still starts with the intended base directory before using it.
+
+## Finding the current file's directory
+
+```js
+// ESM (recent Node versions)
+console.log(import.meta.dirname);  // folder of this module
+console.log(import.meta.filename); // full path of this module
+
+// Older ESM fallback
+import { fileURLToPath } from "node:url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+```
+
+`process.cwd()` is where the process was **started**, not where the file
+lives. Reading `./config.json` breaks when someone runs your script from
+another folder; build paths from `import.meta.dirname` instead.
+
+## URL and URLSearchParams
+
+The WHATWG `URL` class is global in Node, just like in browsers.
+
+```js
+const u = new URL("https://api.example.com:8443/v1/funds/search?q=index&risk=low#top");
+u.hostname;      // 'api.example.com'
+u.port;          // '8443'  (a string)
+u.pathname;      // '/v1/funds/search'
+u.origin;        // 'https://api.example.com:8443'
+u.searchParams.get("q");        // 'index'
+
+u.searchParams.set("page", "2");
+u.searchParams.delete("risk");
+u.href; // 'https://api.example.com:8443/v1/funds/search?q=index&page=2#top'
+
+new URL("../img/logo.png", "https://x.com/a/b/page.html").href;
+// 'https://x.com/a/img/logo.png'
+new URL("/relative");   // throws TypeError, code 'ERR_INVALID_URL'
+```
+
+```js
+const params = new URLSearchParams("tag=sip&tag=elss&amt=%E2%82%B9500");
+params.getAll("tag");          // [ 'sip', 'elss' ]
+params.get("amt");             // '₹500'  (decoded for you)
+params.get("missing");         // null
+new URLSearchParams({ q: "mutual funds", min: 500 }).toString();
+// 'q=mutual+funds&min=500'
+```
+
+Always build query strings with `URLSearchParams` rather than string
+concatenation — it handles encoding of spaces, `&` and `₹`. The old
+`url.parse()` is legacy; prefer `new URL()`. `URL.canParse(str)` checks
+validity without a `try`.
+
+## node:os — facts about the machine
+
+```js
+import os from "node:os";
+
+os.platform();             // 'linux', 'darwin', 'win32'
+os.availableParallelism(); // how many threads it is sensible to use
+os.cpus().length;          // logical CPU count
+os.totalmem(); os.freemem(); // bytes
+os.homedir(); os.tmpdir(); os.hostname();
+os.EOL;                    // '\n' on POSIX, '\r\n' on Windows
+```
+
+Typical uses: sizing a worker pool, choosing a temp directory, adding
+host details to logs. In containers, `os.cpus()` may report the host's CPUs
+rather than the container's limit, so treat it as an upper bound.
+
+## process — arguments, environment and exit codes
+
+```js
+// node report.mjs sales.csv --limit 10
+console.log(process.argv);
+// [ '/usr/bin/node', '/srv/app/report.mjs', 'sales.csv', '--limit', '10' ]
+const args = process.argv.slice(2); // drop node and script path
+
+import { parseArgs } from "node:util";
+const { values, positionals } = parseArgs({
+  args,
+  options: { limit: { type: "string", default: "5" } },
+  allowPositionals: true,
+});
+console.log(values.limit, positionals); // 10 [ 'sales.csv' ]
+```
+
+```js
+const port = Number(process.env.PORT ?? 3000); // env values are always strings
+process.env.RETRIES = 3;
+console.log(typeof process.env.RETRIES);       // 'string'
+```
+
+**Exit codes:** `0` means success, anything else means failure — shells,
+CI pipelines and Docker all rely on this.
+
+```js
+if (!args[0]) {
+  console.error("usage: node report.mjs <file>");
+  process.exitCode = 1;   // preferred: exit with 1 once pending work finishes
+}
+// process.exit(1) stops immediately and can cut off buffered output or I/O
+```
+
+Other useful members: `process.pid`, `process.platform`,
+`process.memoryUsage()`, `process.uptime()`, `process.hrtime.bigint()` for
+precise timing, and `process.on("SIGTERM", ...)` for shutdown (see "Errors & Process Lifecycle").
+
+### Try it yourself
+
+Write `size-report.mjs` that takes a directory as its first argument (default
+`process.cwd()`), lists every file with its size using `path.join` and
+`stat`, prints the largest one, and exits with code `2` if the directory does
+not exist. Add a `--json` flag via `parseArgs` that prints machine-readable
+output instead.

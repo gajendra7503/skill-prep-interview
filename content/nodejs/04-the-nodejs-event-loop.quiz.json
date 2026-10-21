@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "In a CommonJS script, what is the output of `Promise.resolve().then(() => console.log(\"P\")); process.nextTick(() => console.log(\"N\")); console.log(\"S\");`?",
+      "options": [
+        "P, N, S",
+        "S, P, N",
+        "S, N, P",
+        "N, P, S"
+      ],
+      "correctIndex": 2,
+      "explanation": "Synchronous code runs first. Then Node drains the process.nextTick queue before the promise microtask queue, so N prints before P."
+    },
+    {
+      "question": "Inside an fs.readFile callback, you schedule both `setTimeout(fn, 0)` and `setImmediate(fn)`. Which runs first?",
+      "options": [
+        "setImmediate, because the check phase follows the poll phase in the same loop turn",
+        "setTimeout, because timers always run first",
+        "The order is random every time",
+        "Neither runs until the file is closed"
+      ],
+      "correctIndex": 0,
+      "explanation": "I/O callbacks run in the poll phase. The check phase (setImmediate) comes next, while timers are only processed on the next turn of the loop, so the order is deterministic here."
+    },
+    {
+      "question": "Which event loop phase runs setImmediate callbacks?",
+      "options": [
+        "timers",
+        "poll",
+        "close callbacks",
+        "check"
+      ],
+      "correctIndex": 3,
+      "explanation": "The phases are timers, pending callbacks, idle/prepare, poll, check and close callbacks. setImmediate callbacks run in the check phase."
+    },
+    {
+      "question": "A route handler in a Node HTTP server runs a CPU-heavy loop for 3 seconds. What happens to other incoming requests during that time?",
+      "options": [
+        "They are handled in parallel on other JavaScript threads automatically",
+        "They wait, because the single main thread cannot run any other callback until the loop finishes",
+        "They are rejected with a 503 status by Node",
+        "Only requests to the same route wait"
+      ],
+      "correctIndex": 1,
+      "explanation": "All JavaScript callbacks share one thread, so a blocking operation delays every request. Move CPU work to worker threads or break it into chunks."
+    }
+  ]
+}

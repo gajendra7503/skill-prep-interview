@@ -1,0 +1,6 @@
+{
+  "title": "Linux & the Command Line",
+  "description": "From your first shell to running production servers — files, permissions, text processing, Bash scripting, systemd, SSH, security and troubleshooting.",
+  "icon": "linux",
+  "accent": "#e8a317"
+}

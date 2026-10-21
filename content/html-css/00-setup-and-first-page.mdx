@@ -1,0 +1,153 @@
+---
+title: "Setup & Your First Web Page"
+description: "Install an editor, create an HTML file and a stylesheet, open them in a browser, and meet DevTools — no prior experience needed."
+module: "Getting Started"
+level: beginner
+order: 1
+---
+
+HTML and CSS need almost no setup: every computer already has the most
+important tool, a web browser. This lesson gets you from an empty folder to
+a styled page you can inspect and change, so every later lesson has
+somewhere to run.
+
+## What you need
+
+| Tool | Why | Cost |
+| --- | --- | --- |
+| A modern browser (Chrome, Edge, Firefox or Safari) | Renders your page and ships with DevTools | Free |
+| A code editor (VS Code is the common choice) | Syntax highlighting, auto-complete, Emmet shortcuts | Free |
+| A folder for your project | Browsers load files by path, so keep them together | ₹0 |
+
+You do **not** need Node.js, a server or a build tool to learn HTML and
+CSS. Double-clicking an `.html` file opens it straight from disk.
+
+## Step 1: the project folder
+
+Create a folder called `my-first-site` with two empty files inside:
+
+```text
+my-first-site/
+├── index.html    the page itself (structure and content)
+└── style.css     the presentation (colours, spacing, layout)
+```
+
+`index.html` is the conventional name for a site's home page: web servers
+serve it automatically when someone visits the folder's URL.
+
+## Step 2: the HTML skeleton
+
+Open `index.html` in your editor and type this (in VS Code, typing `!`
+and pressing Tab generates most of it via Emmet):
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My First Site</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <h1>Namaste, web!</h1>
+    <p>This page was written by hand.</p>
+    <a href="https://developer.mozilla.org">Learn more on MDN</a>
+  </body>
+</html>
+```
+
+Line by line:
+
+- `<!DOCTYPE html>` tells the browser to use modern standards mode. Without
+  it, browsers fall back to "quirks mode" and emulate old bugs.
+- `lang="en"` helps screen readers pronounce text correctly and helps
+  search engines and translation tools.
+- `<meta charset="utf-8">` lets the page show any character, including ₹
+  and Devanagari, correctly.
+- The viewport `<meta>` stops phones from pretending to be a 980px-wide
+  desktop screen.
+- `<title>` is the text on the browser tab and in search results.
+- `<link rel="stylesheet">` connects the CSS file. The `href` is a path
+  relative to the HTML file.
+- Everything visible goes inside `<body>`.
+
+## Step 3: the first stylesheet
+
+Open `style.css`:
+
+```css
+body {
+  font-family: system-ui, sans-serif;  /* use the operating system's font */
+  max-width: 40rem;                    /* keep lines readable */
+  margin: 2rem auto;                   /* centre the content */
+  line-height: 1.5;
+}
+
+h1 {
+  color: #1d4ed8;   /* a blue heading */
+}
+
+a {
+  color: #b45309;
+}
+```
+
+Now double-click `index.html` (or drag it into a browser window). You
+should see a blue heading, a paragraph and an orange-brown link, all
+centred in a narrow column. The address bar will show something like
+`file:///C:/Users/you/my-first-site/index.html`.
+
+## Step 4: the edit-refresh loop
+
+Change `#1d4ed8` to `crimson`, save, and press **F5** (or Ctrl+R / Cmd+R)
+in the browser. The heading turns red. That loop — edit, save, refresh —
+is the whole development workflow for static pages.
+
+If you want automatic reloading, install the "Live Server" extension in
+VS Code, or, if you already have Node.js, run a tiny local server:
+
+```bash
+npx serve .
+# Serving! Local: http://localhost:3000
+```
+
+A local server matters later: some features (such as `fetch()` from
+JavaScript or ES modules) are blocked on `file://` URLs for security.
+
+## Step 5: open DevTools
+
+Right-click the heading and choose **Inspect** (or press F12). DevTools
+opens with two panels you will use constantly:
+
+- **Elements**: the live HTML tree. Click any element to select it.
+- **Styles**: every CSS rule applying to the selected element, which file
+  and line it came from, and which declarations are crossed out because a
+  stronger rule won.
+
+You can edit values directly in the Styles panel — click `crimson`, type
+`green`, and the page updates instantly. Those edits are **not saved** to
+your file; they vanish on refresh, which makes DevTools a safe place to
+experiment before copying the winning value back to your editor.
+
+## When nothing shows up
+
+| Symptom | Usual cause |
+| --- | --- |
+| Page is unstyled | Wrong `href` path, or the CSS file was not saved |
+| Strange characters instead of ₹ | Missing `<meta charset="utf-8">` |
+| Text is tiny on a phone | Missing viewport `<meta>` |
+| A change does not appear | File not saved, or the browser cached the old CSS — hard refresh with Ctrl+Shift+R |
+
+The **Console** tab in DevTools also reports files it could not load
+(for example `GET .../styles.css net::ERR_FILE_NOT_FOUND`), which is the
+fastest way to catch a typo in a filename.
+
+### Try it yourself
+
+Create the `my-first-site` folder from this lesson. Add a second paragraph
+and an `<h2>` heading, give the `<h2>` its own colour in `style.css`, and
+confirm it in the browser. Then open DevTools, change the body's
+`max-width` to `20rem` in the Styles panel, watch the column narrow, and
+refresh to see the edit disappear. Finally, deliberately misspell the
+stylesheet's `href` and find the error in the Console.

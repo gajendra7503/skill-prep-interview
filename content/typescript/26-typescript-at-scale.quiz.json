@@ -1,0 +1,48 @@
+{
+  "questions": [
+    {
+      "question": "What does `composite: true` do for a referenced project?",
+      "options": [
+        "Bundles all projects into one output file",
+        "Forces declaration output, requires all source files to be matched by include/files, and enables .tsbuildinfo incremental output",
+        "Disables type-checking for faster builds",
+        "Merges node_modules across packages"
+      ],
+      "correctIndex": 1,
+      "explanation": "composite is required for project references so downstream projects can consume .d.ts files and builds can be incremental."
+    },
+    {
+      "question": "You upgrade a repo to TypeScript 7 and `tsc` now fails with TS5102 for `baseUrl` and `outFile`. Why?",
+      "options": [
+        "The tsconfig is invalid JSON",
+        "TypeScript 7 requires project references",
+        "The options must be moved to package.json",
+        "Those options were removed in TypeScript 7 after being deprecated in 6.0"
+      ],
+      "correctIndex": 3,
+      "explanation": "The native compiler removed long-deprecated options such as baseUrl, outFile, target ES5 and AMD/UMD modules. Upgrading through 6.0 and fixing its deprecation errors first is the usual path."
+    },
+    {
+      "question": "With `isolatedDeclarations` on, which export is an error?",
+      "options": [
+        "`export const add = (a: number, b: number) => a + b;`",
+        "`export const add = (a: number, b: number): number => a + b;`",
+        "`export function add(a: number, b: number): number { return a + b; }`",
+        "`export type Add = (a: number, b: number) => number;`"
+      ],
+      "correctIndex": 0,
+      "explanation": "Its return type would require inference, so declarations could not be generated per file. TypeScript 7 reports TS9013 (TypeScript 5.x reported TS9007); either way, add an explicit annotation."
+    },
+    {
+      "question": "In `--extendedDiagnostics` output, very high Instantiations and Check time most likely point to:",
+      "options": [
+        "Slow disk I/O",
+        "Too many @types packages",
+        "Expensive types, such as deep recursive or large conditional types",
+        "A missing .tsbuildinfo file"
+      ],
+      "correctIndex": 2,
+      "explanation": "The lesson's 70-line type-level file produced over five lakh instantiations. Use --generateTrace to locate such types; a large Files count points to accidental inputs instead."
+    }
+  ]
+}

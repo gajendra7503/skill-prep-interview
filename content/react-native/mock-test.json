@@ -1,0 +1,786 @@
+{
+  "title": "React Native Mock Test",
+  "durationMinutes": 60,
+  "questions": [
+    {
+      "id": "rn-01",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "20-forms-and-keyboard-handling",
+      "question": "Which core component renders an editable text field that opens the on-screen keyboard?",
+      "options": [
+        "Text",
+        "EditText",
+        "TextInput",
+        "InputField"
+      ],
+      "correctIndex": 2,
+      "explanation": "TextInput is React Native's editable text component; it maps to UITextField/UITextView on iOS and EditText on Android. Text displays text but is not editable, and EditText is the Android native class name, not a React Native component you import."
+    },
+    {
+      "id": "rn-02",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "02-styling-with-flexbox",
+      "question": "What is the default value of alignItems for a View in React Native?",
+      "options": [
+        "stretch",
+        "flex-start",
+        "center",
+        "baseline"
+      ],
+      "correctIndex": 0,
+      "explanation": "Children stretch to fill the cross axis by default, which is why a child in a column-direction container spans the full width unless it has its own width. flex-start is a common guess because many people assume items hug the start edge, but that only happens once you set alignItems: 'flex-start' explicitly."
+    },
+    {
+      "id": "rn-03",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "02-styling-with-flexbox",
+      "question": "What colour will the text \"Hi\" render in?",
+      "code": "<View style={{ color: 'red' }}>\n  <Text>Hi</Text>\n</View>",
+      "codeLanguage": "jsx",
+      "options": [
+        "Red, because styles inherit through the component tree as in CSS",
+        "Red on iOS but default on Android",
+        "The app crashes because View does not accept a style prop",
+        "The default text colour - View does not pass text styles down; only a parent <Text> cascades styles to nested <Text>"
+      ],
+      "correctIndex": 3,
+      "explanation": "React Native has no CSS cascade. Text styles like color only inherit from a parent Text to a nested Text. View has no color style, so the value is ignored and the Text uses the platform default. Expecting red is a web/CSS habit."
+    },
+    {
+      "id": "rn-04",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "03-touchables-gestures-and-platform",
+      "question": "Which style property is used to give a View a drop shadow on Android?",
+      "options": [
+        "shadowOpacity",
+        "elevation",
+        "boxShadow",
+        "zIndex"
+      ],
+      "correctIndex": 1,
+      "explanation": "Android shadows have traditionally come from the elevation style, which uses Material's elevation system. shadowColor/shadowOpacity/shadowOffset/shadowRadius are the iOS shadow props and historically had no effect on Android. zIndex changes stacking order only."
+    },
+    {
+      "id": "rn-05",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "04-react-navigation",
+      "question": "A deeply nested button component (not a screen) needs to navigate to another screen. Which React Navigation hook gives it access to the navigation object?",
+      "options": [
+        "useRoute",
+        "useNavigation",
+        "useLinking",
+        "useNavigationState"
+      ],
+      "correctIndex": 1,
+      "explanation": "useNavigation returns the navigation object of the nearest navigator, so you do not have to pass navigation down as a prop. useRoute gives the current route (name and params), not the ability to navigate."
+    },
+    {
+      "id": "rn-06",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "04-react-navigation",
+      "question": "In a stack navigator, the Details screen (params { id: 1 }) is currently on top. What does navigation.push('Details', { id: 2 }) do?",
+      "options": [
+        "Replaces the params of the current Details screen with id 2",
+        "Does nothing, because Details is already focused",
+        "Pops back to the first Details screen and resets its params",
+        "Adds a new Details screen with id 2 on top; pressing back returns to Details with id 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "push always adds a new route to the stack, even if a screen with the same name is already there. navigate is the method that may reuse or update an existing route instead of adding one, which is why the 'update params' option is tempting but wrong for push."
+    },
+    {
+      "id": "rn-07",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "04-react-navigation",
+      "question": "You want to refetch a screen's data every time the user returns to it in a stack (not just on first mount). Which React Navigation hook fits best?",
+      "options": [
+        "useFocusEffect",
+        "useEffect with an empty dependency array",
+        "useLayoutEffect",
+        "useIsFocused alone, without an effect"
+      ],
+      "correctIndex": 0,
+      "explanation": "Stack screens stay mounted when you push another screen on top, so a useEffect with [] runs only once. useFocusEffect (with a useCallback-wrapped callback) runs on every focus and can clean up on blur. useIsFocused returns a boolean but does not by itself run side effects."
+    },
+    {
+      "id": "rn-08",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "14-offline-first-and-local-storage",
+      "question": "An offline app needs to store about 50,000 transaction records and query them by date range. Which storage option fits best?",
+      "options": [
+        "AsyncStorage with one JSON string holding the whole array",
+        "React Context state",
+        "An embedded SQLite database (e.g. expo-sqlite)",
+        "A secure keychain/keystore entry"
+      ],
+      "correctIndex": 2,
+      "explanation": "SQLite gives indexed queries and partial reads, so you can fetch just one date range. Storing one huge JSON string in AsyncStorage means reading and parsing everything for every query. Context is in-memory only, and the keychain is meant for small secrets, not bulk data."
+    },
+    {
+      "id": "rn-09",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "07-the-bridge-jsi-and-new-architecture",
+      "question": "In the New Architecture, what does Codegen do?",
+      "options": [
+        "Compiles your JavaScript to Hermes bytecode at build time",
+        "Converts React components into native Swift and Kotlin UI code",
+        "Generates TypeScript types from an existing native module at runtime",
+        "Generates native interface boilerplate (C++/Objective-C/Java) from a typed JS spec for TurboModules and Fabric components, keeping JS and native types consistent"
+      ],
+      "correctIndex": 3,
+      "explanation": "Codegen reads a TypeScript or Flow spec at build time and generates the strongly typed glue code that TurboModules and Fabric components need. Compiling to bytecode is Hermes's job, and React Native never turns your components into Swift or Kotlin source."
+    },
+    {
+      "id": "rn-10",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "07-the-bridge-jsi-and-new-architecture",
+      "question": "Which part of React Native's New Architecture is the new rendering system that manages the native view tree?",
+      "options": [
+        "TurboModules",
+        "Fabric",
+        "Metro",
+        "Hermes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Fabric is the renderer. TurboModules are the new system for native modules (device APIs), Metro is the JavaScript bundler, and Hermes is the JavaScript engine."
+    },
+    {
+      "id": "rn-11",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "07-the-bridge-jsi-and-new-architecture",
+      "question": "How do TurboModules help app startup time compared with legacy native modules?",
+      "options": [
+        "They run on a separate JavaScript thread so startup work is parallelised",
+        "They are precompiled into Hermes bytecode",
+        "They are loaded lazily the first time JS uses them, whereas legacy modules were typically initialised eagerly at startup",
+        "They cache their results in AsyncStorage between launches"
+      ],
+      "correctIndex": 2,
+      "explanation": "With the legacy system, registered native modules were generally set up when the app started whether or not they were used. TurboModules are created on first access through JSI, so unused modules cost nothing at launch. Precompiling to bytecode is a Hermes feature and has nothing to do with native modules."
+    },
+    {
+      "id": "rn-12",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-expo-vs-bare-workflow",
+      "question": "Your Expo app adds a library that contains custom native code not included in Expo Go. What is the recommended way to keep developing with it?",
+      "options": [
+        "Create a development build (expo-dev-client), e.g. with EAS Build or npx expo run:android/ios",
+        "Keep using Expo Go - it downloads missing native code on demand",
+        "Eject permanently and delete app.json",
+        "Rewrite the library in pure JavaScript"
+      ],
+      "correctIndex": 0,
+      "explanation": "Expo Go is a prebuilt app with a fixed set of native modules, so it cannot load new native code. A development build is your own app binary with the dev client included, so it contains your extra native libraries. Ejecting permanently is outdated advice; prebuild and dev builds remove the need for it."
+    },
+    {
+      "id": "rn-13",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "12-expo-vs-bare-workflow",
+      "question": "What does running npx expo prebuild do?",
+      "options": [
+        "Generates the android/ and ios/ native projects from app.json/app.config and config plugins",
+        "Uploads the app to the App Store and Play Store",
+        "Publishes an over-the-air JavaScript update",
+        "Starts Metro with a cleared cache"
+      ],
+      "correctIndex": 0,
+      "explanation": "Prebuild is the core of Continuous Native Generation: native folders are generated output from your app config and config plugins, so they can be regenerated at any time. Store submission is EAS Submit, and OTA updates are expo-updates/EAS Update."
+    },
+    {
+      "id": "rn-14",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "04-react-navigation",
+      "question": "In Expo Router's file-based routing, which file would render for the URL /profile/42?",
+      "options": [
+        "app/profile/{id}.tsx",
+        "app/profile/:id.tsx",
+        "app/profile/[id].tsx",
+        "app/profile/id.tsx"
+      ],
+      "correctIndex": 2,
+      "explanation": "Expo Router uses square brackets for dynamic segments, like Next.js, so [id].tsx matches /profile/42 with id = '42'. The :id syntax comes from Express and React Router path strings, not file names. id.tsx would only match the literal path /profile/id."
+    },
+    {
+      "id": "rn-15",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "17-app-store-and-play-store-deployment",
+      "question": "With expo-updates, an OTA update is published for runtimeVersion \"2.0\". Which installed builds will download it?",
+      "options": [
+        "Every build with app version 2.0 or higher",
+        "Every installed build of the app, regardless of version",
+        "Only builds installed through TestFlight or internal testing tracks",
+        "Only builds whose runtimeVersion is also \"2.0\", because the runtime version marks native-code compatibility"
+      ],
+      "correctIndex": 3,
+      "explanation": "runtimeVersion is the contract between a JS bundle and the native binary it needs. Updates go only to binaries with a matching runtime version, so a bundle never runs against native code it was not built for. It is not a 'greater than or equal' version check."
+    },
+    {
+      "id": "rn-16",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-list-and-render-performance",
+      "question": "A FlatList's renderItem highlights the row whose id equals selectedId, a piece of state that is NOT part of the data array. Because FlatList is a PureComponent, which prop should you pass so it re-renders when selectedId changes?",
+      "options": [
+        "key={selectedId} on the FlatList",
+        "extraData={selectedId}",
+        "refreshing={selectedId}",
+        "initialScrollIndex={selectedId}"
+      ],
+      "correctIndex": 1,
+      "explanation": "extraData tells FlatList to re-render when values outside data change; the docs use exactly this selection example. Putting a changing key on the FlatList also forces an update, but it remounts the whole list and loses scroll position and recycled cells, so it is a heavy workaround. refreshing controls the pull-to-refresh spinner."
+    },
+    {
+      "id": "rn-17",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-list-and-render-performance",
+      "question": "What does windowSize={5} on a FlatList mean?",
+      "options": [
+        "Render exactly 5 items at a time",
+        "Re-render the list at most 5 times per second",
+        "Keep 5 off-screen items mounted on each side",
+        "Render roughly 5 viewport-lengths of content: the visible area plus about 2 screens above and 2 below"
+      ],
+      "correctIndex": 3,
+      "explanation": "windowSize is measured in viewport lengths, not items. The default is 21 (10 screens above, 10 below, plus the visible one). Smaller values save memory but make blank areas more likely when the user scrolls fast. Reading it as an item count is the common mistake."
+    },
+    {
+      "id": "rn-18",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "10-list-and-render-performance",
+      "question": "You need a virtualized list of contacts grouped under letter headers (A, B, C...) with sticky headers. Which core component is designed for this?",
+      "options": [
+        "SectionList",
+        "FlatList with nested ScrollViews",
+        "VirtualizedGroupList",
+        "ListView"
+      ],
+      "correctIndex": 0,
+      "explanation": "SectionList takes a sections array (each with a title and data) and supports section headers, including sticky ones. ListView is the old, removed API, and nesting ScrollViews inside FlatList undermines virtualization."
+    },
+    {
+      "id": "rn-19",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "01-core-components-and-jsx",
+      "question": "Why does React Native warn when a FlatList is placed inside a plain ScrollView with the same orientation?",
+      "options": [
+        "FlatList cannot render inside any other component",
+        "The outer ScrollView gives the list unlimited space, so the FlatList renders every item and virtualization stops working",
+        "Two scroll views will crash on Android",
+        "The warning is only about TypeScript prop types"
+      ],
+      "correctIndex": 1,
+      "explanation": "Virtualization depends on knowing the visible window. Inside a same-direction ScrollView the FlatList grows to its full content height, so it mounts every row, which loses the benefit of virtualization. Use a single FlatList with ListHeaderComponent/ListFooterComponent instead. It does not crash; it just performs badly."
+    },
+    {
+      "id": "rn-20",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "11-animations",
+      "question": "Why is an Animated value usually created as useRef(new Animated.Value(0)).current inside a function component?",
+      "options": [
+        "Because Animated.Value can only be created inside a ref",
+        "To make the value trigger a re-render when it changes",
+        "So the same Animated.Value instance persists across re-renders instead of being replaced (and reset) on every render",
+        "Because useState does not work with numbers"
+      ],
+      "correctIndex": 2,
+      "explanation": "If you write new Animated.Value(0) directly in the component body, every render creates a fresh value at 0, which resets or breaks running animations. useRef keeps one instance for the component's lifetime. Animated values deliberately do NOT cause re-renders when they change."
+    },
+    {
+      "id": "rn-21",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "11-animations",
+      "question": "progress is set to 1.5. What value does rotate produce?",
+      "code": "const rotate = progress.interpolate({\n  inputRange: [0, 1],\n  outputRange: ['0deg', '360deg'],\n  extrapolate: 'clamp',\n});",
+      "codeLanguage": "tsx",
+      "options": [
+        "'540deg'",
+        "'180deg'",
+        "'360deg'",
+        "'0deg'"
+      ],
+      "correctIndex": 2,
+      "explanation": "extrapolate: 'clamp' stops the output at the edges of outputRange, so any input above 1 gives '360deg'. Without clamping, the default 'extend' would keep going along the same line and give '540deg', which is the tempting answer."
+    },
+    {
+      "id": "rn-22",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "11-animations",
+      "question": "You want to fade in a card and slide it up at the same time using two Animated values. Which composition function runs both animations simultaneously?",
+      "options": [
+        "Animated.sequence",
+        "Animated.parallel",
+        "Animated.stagger",
+        "Animated.delay"
+      ],
+      "correctIndex": 1,
+      "explanation": "Animated.parallel starts all its animations together. Animated.sequence runs them one after another, Animated.stagger starts them with a fixed delay between each, and Animated.delay just waits."
+    },
+    {
+      "id": "rn-23",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "11-animations",
+      "question": "Which core API lets you say 'animate whatever layout changes happen on the next render' (e.g. a list item expanding) without managing Animated values?",
+      "options": [
+        "Animated.event",
+        "InteractionManager.runAfterInteractions",
+        "requestAnimationFrame",
+        "LayoutAnimation.configureNext"
+      ],
+      "correctIndex": 3,
+      "explanation": "Call LayoutAnimation.configureNext before a state update, and the native layout changes from that update are animated automatically. Animated.event maps gesture or scroll events to Animated values. requestAnimationFrame only schedules a JS callback; it does not animate layout."
+    },
+    {
+      "id": "rn-24",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "11-animations",
+      "question": "A synchronous loop blocks the JS thread for 2 seconds. Which of these keeps running smoothly during that time?",
+      "options": [
+        "An Animated.loop opacity pulse that was started earlier with useNativeDriver: true",
+        "A counter that calls setState from setInterval",
+        "An Animated.timing on opacity started with useNativeDriver: false",
+        "A Pressable whose style function changes colour when pressed"
+      ],
+      "correctIndex": 0,
+      "explanation": "Once a native-driven animation starts, its whole definition runs on the UI thread, so a blocked JS thread does not affect it. setState, JS-driven Animated (useNativeDriver: false) and Pressable's style callback all need the JS thread to run, so they freeze until the loop finishes."
+    },
+    {
+      "id": "rn-25",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "08-native-modules-and-device-apis",
+      "question": "In a bare React Native app (no Expo modules), which core API requests an Android runtime permission such as CAMERA?",
+      "options": [
+        "PermissionsAndroid.request",
+        "Linking.openSettings",
+        "AppRegistry.requestPermission",
+        "Platform.requestPermission"
+      ],
+      "correctIndex": 0,
+      "explanation": "PermissionsAndroid is the core module for Android runtime permissions, and it also has check(). Linking.openSettings only opens the app's settings page and cannot grant anything by itself. The other two APIs do not exist."
+    },
+    {
+      "id": "rn-26",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "08-native-modules-and-device-apis",
+      "question": "A native module needs to push a continuous stream of updates (e.g. step-counter readings) to JavaScript. What is the standard JS-side way to receive them?",
+      "options": [
+        "Poll a native getter with setInterval every 100 ms",
+        "Pass a callback once; a native callback can be invoked any number of times",
+        "Listen with Linking.addEventListener('url')",
+        "Subscribe through a NativeEventEmitter created for that module (or a typed event emitter declared in a New Architecture spec)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Events are the right model for many values pushed over time: native emits, and JS subscribes and later removes the subscription. A native callback/promise is meant to be invoked once per call, so it cannot carry a stream. Polling wastes battery and adds latency. Linking events are for incoming deep links."
+    },
+    {
+      "id": "rn-27",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "17-app-store-and-play-store-deployment",
+      "question": "Which file format does Google Play require for publishing new apps?",
+      "options": [
+        "APK (.apk) only",
+        "Android App Bundle (.aab)",
+        "IPA (.ipa)",
+        "ZIP of the JS bundle"
+      ],
+      "correctIndex": 1,
+      "explanation": "Google Play requires new apps to be published as Android App Bundles; Play then builds optimised APKs for each device. APKs are still used for direct installs and testing, and .ipa is the iOS app format."
+    },
+    {
+      "id": "rn-28",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "17-app-store-and-play-store-deployment",
+      "question": "What is Apple's official service for distributing beta builds of an iOS app to testers before App Store release?",
+      "options": [
+        "Firebase App Distribution Store",
+        "Xcode Cloud Store",
+        "TestFlight",
+        "App Center Play"
+      ],
+      "correctIndex": 2,
+      "explanation": "TestFlight, part of App Store Connect, distributes beta builds to internal and external testers. Xcode Cloud is a CI/CD service, not a tester distribution channel, and the other names are not Apple's beta service."
+    },
+    {
+      "id": "rn-29",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "13-debugging-and-devtools",
+      "question": "Why can a release build of a React Native app run without Metro running on your computer, while a debug build cannot?",
+      "options": [
+        "Release builds convert all JavaScript to native code",
+        "The release build embeds a prebuilt JS bundle (typically Hermes bytecode) in the binary; the debug build loads JS from the Metro dev server",
+        "Metro is bundled inside the release APK/IPA",
+        "Debug builds do not contain any native code"
+      ],
+      "correctIndex": 1,
+      "explanation": "In development, the app fetches the bundle from Metro so Fast Refresh can work. For release, the bundle is built ahead of time and shipped inside the binary. Your JS still runs as JavaScript or Hermes bytecode; it is never converted to native code."
+    },
+    {
+      "id": "rn-30",
+      "type": "mcq",
+      "difficulty": "easy",
+      "lesson": "20-forms-and-keyboard-handling",
+      "question": "Which TextInput prop shows a numeric keypad for entering a PIN?",
+      "options": [
+        "keyboardType",
+        "textContentType",
+        "returnKeyType",
+        "autoCapitalize"
+      ],
+      "correctIndex": 0,
+      "explanation": "keyboardType (e.g. 'number-pad' or 'numeric') picks the on-screen keyboard layout; the newer inputMode prop can do the same. returnKeyType only changes the label of the return key, and textContentType gives iOS autofill hints."
+    },
+    {
+      "id": "rn-31",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "03-touchables-gestures-and-platform",
+      "question": "On notched iPhones and Android devices with display cutouts, your header slides under the status bar/notch. What is the most robust cross-platform fix?",
+      "options": [
+        "Add a hard-coded paddingTop: 44 to every screen",
+        "Use the core SafeAreaView, which handles every Android device",
+        "Use react-native-safe-area-context (SafeAreaProvider with useSafeAreaInsets or its SafeAreaView) to pad by the real insets",
+        "Set StatusBar hidden on all screens"
+      ],
+      "correctIndex": 2,
+      "explanation": "react-native-safe-area-context reports the actual insets on both platforms, including rotation and different devices. The core SafeAreaView only ever worked on iOS, and a hard-coded 44 is wrong on many devices and on Android."
+    },
+    {
+      "id": "rn-32",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "22-global-state-with-zustand-and-react-query",
+      "question": "What should replace ??? to clean up this listener correctly?",
+      "code": "useEffect(() => {\n  const sub = AppState.addEventListener('change', (state) => {\n    if (state === 'active') refetch();\n  });\n  return () => ???;\n}, []);",
+      "codeLanguage": "tsx",
+      "options": [
+        "AppState.removeEventListener('change')",
+        "sub.unsubscribe()",
+        "AppState.clearListeners()",
+        "sub.remove()"
+      ],
+      "correctIndex": 3,
+      "explanation": "Modern core event APIs return a subscription object with a remove() method. AppState.removeEventListener was deprecated and later removed, so it is the tempting outdated answer. unsubscribe() and clearListeners() are not part of the API."
+    },
+    {
+      "id": "rn-33",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "10-list-and-render-performance",
+      "question": "Row is wrapped in React.memo, yet every visible row re-renders whenever selected changes. Why?",
+      "code": "const Row = React.memo(({ item, onPress }) => (\n  <Pressable onPress={onPress}><Text>{item.title}</Text></Pressable>\n));\n\n<FlatList\n  data={items}\n  renderItem={({ item }) => (\n    <Row item={item} onPress={() => setSelected(item.id)} />\n  )}\n/>",
+      "codeLanguage": "jsx",
+      "options": [
+        "onPress is a new arrow function on every render, so React.memo's shallow prop comparison always sees a changed prop",
+        "React.memo does not work inside FlatList",
+        "FlatList always remounts every row on state change",
+        "Pressable forces its parent to re-render"
+      ],
+      "correctIndex": 0,
+      "explanation": "React.memo compares props by reference. The inline arrow creates a new function identity on every render, so memoisation never prevents a render. Fix it by passing a stable handler (useCallback) and the id, and letting the row call onPress(item.id). React.memo itself works fine in lists."
+    },
+    {
+      "id": "rn-34",
+      "type": "mcq",
+      "difficulty": "hard",
+      "lesson": "01-core-components-and-jsx",
+      "question": "What happens with this code when Metro bundles the app?",
+      "code": "function Icon({ name }) {\n  const source = require(`./icons/${name}.png`);\n  return <Image source={source} />;\n}",
+      "codeLanguage": "jsx",
+      "options": [
+        "It works and loads the matching icon at runtime",
+        "Bundling fails because Metro only resolves require() calls with static string literals; use a map of static requires instead",
+        "It works on iOS only",
+        "It loads all PNGs in the folder automatically"
+      ],
+      "correctIndex": 1,
+      "explanation": "Metro works out which assets to include at build time by reading require() arguments, so the path must be a fixed string. A template literal cannot be resolved. The usual fix is const icons = { home: require('./icons/home.png'), ... } and then icons[name]. Assuming it works like a runtime file read is the tempting mistake."
+    },
+    {
+      "id": "rn-35",
+      "type": "mcq",
+      "difficulty": "medium",
+      "lesson": "21-accessibility-and-internationalization",
+      "question": "A small 24x24 icon button is hard to tap. Which Pressable prop enlarges its touchable area without changing its visual layout?",
+      "options": [
+        "pressRetentionOffset",
+        "delayLongPress",
+        "hitSlop",
+        "android_ripple"
+      ],
+      "correctIndex": 2,
+      "explanation": "hitSlop extends the area that starts a press beyond the view's bounds without affecting layout. pressRetentionOffset sets how far a finger can move away after a press has started before it is cancelled; it does not make the initial target larger."
+    },
+    {
+      "id": "rn-36",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "01-core-components-and-jsx",
+      "question": "This screen maps 10,000 messages inside a ScrollView and runs out of memory on low-end Android phones. Which core component should replace ScrollView so only the visible rows are rendered?",
+      "code": "<ScrollView>\n  {messages.map((m) => <MessageRow key={m.id} message={m} />)}\n</ScrollView>",
+      "codeLanguage": "tsx",
+      "answerHint": "Type the component name",
+      "acceptedAnswers": [
+        "FlatList",
+        "<FlatList>",
+        "<FlatList />",
+        "FlatList component",
+        "React Native FlatList"
+      ],
+      "caseSensitive": false,
+      "explanation": "ScrollView renders every child up front. FlatList virtualizes, mounting only the rows near the viewport and unmounting those far away. (Third-party FlashList is another option, but FlatList is the core component.)"
+    },
+    {
+      "id": "rn-37",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "02-styling-with-flexbox",
+      "question": "What is the default flexDirection of a View in React Native?",
+      "answerHint": "Type the value",
+      "acceptedAnswers": [
+        "column",
+        "'column'",
+        "\"column\"",
+        "flexDirection: column",
+        "flexDirection: 'column'"
+      ],
+      "caseSensitive": false,
+      "explanation": "React Native defaults to column, so children stack vertically. On the web the CSS default is row. You need flexDirection: 'row' to lay children out horizontally."
+    },
+    {
+      "id": "rn-38",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "03-touchables-gestures-and-platform",
+      "question": "What string does Platform.OS return when the app runs on an Android device?",
+      "answerHint": "Type the exact string value",
+      "acceptedAnswers": [
+        "android",
+        "'android'",
+        "\"android\""
+      ],
+      "caseSensitive": false,
+      "explanation": "Platform.OS is 'android' on Android and 'ios' on iOS (all lower case). It is commonly used for small platform branches; Platform.select or .android.tsx/.ios.tsx files are better for larger differences."
+    },
+    {
+      "id": "rn-39",
+      "type": "practical",
+      "difficulty": "easy",
+      "lesson": "08-native-modules-and-device-apis",
+      "question": "Which core API call opens an external URL such as https://example.com in the device's browser (or the matching app)?",
+      "answerHint": "Type the module and method, e.g. Module.method",
+      "acceptedAnswers": [
+        "Linking.openURL",
+        "Linking.openURL()",
+        "Linking.openURL(url)",
+        "openURL",
+        "await Linking.openURL(url)"
+      ],
+      "caseSensitive": false,
+      "explanation": "Linking.openURL(url) hands the URL to the operating system, which opens the browser or the app registered for that scheme (tel:, mailto:, etc.). It returns a promise that rejects if nothing can handle the URL."
+    },
+    {
+      "id": "rn-40",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "10-list-and-render-performance",
+      "question": "This FlatList's items have an id field, but React Native warns about missing keys and rows sometimes keep the wrong state after an item is deleted. Which FlatList prop should you add?",
+      "code": "<FlatList\n  data={todos}\n  renderItem={({ item }) => <TodoRow todo={item} />}\n/>",
+      "codeLanguage": "tsx",
+      "answerHint": "Type the prop name",
+      "acceptedAnswers": [
+        "keyExtractor",
+        "keyExtractor={(item) => item.id}",
+        "keyExtractor={item => item.id}"
+      ],
+      "caseSensitive": false,
+      "explanation": "keyExtractor={(item) => item.id} gives each row a stable identity, so FlatList and React can match rows correctly when items are inserted or removed. FlatList also reads item.key automatically if present, but these items use id."
+    },
+    {
+      "id": "rn-41",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "20-forms-and-keyboard-handling",
+      "question": "On a search screen, results are inside a ScrollView. When the keyboard is open, tapping a result only dismisses the keyboard and the press is lost. Which ScrollView prop, set to 'handled', makes the tap reach the result?",
+      "answerHint": "Type the prop name",
+      "acceptedAnswers": [
+        "keyboardShouldPersistTaps",
+        "keyboardShouldPersistTaps=\"handled\"",
+        "keyboardShouldPersistTaps='handled'",
+        "keyboardShouldPersistTaps={'handled'}"
+      ],
+      "caseSensitive": false,
+      "explanation": "With the default ('never'), the first tap outside the focused TextInput only dismisses the keyboard. 'handled' lets taps go to children that handle them (like a Pressable) while still dismissing the keyboard for taps on empty space."
+    },
+    {
+      "id": "rn-42",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "02-styling-with-flexbox",
+      "question": "A row container is 360 dp wide with no padding. It has two children: the first has flex: 1 and the second has flex: 2 (no widths set). What is the width of the second child in dp?",
+      "code": "<View style={{ flexDirection: 'row', width: 360 }}>\n  <View style={{ flex: 1 }} />\n  <View style={{ flex: 2 }} />\n</View>",
+      "codeLanguage": "tsx",
+      "answerHint": "Type a number",
+      "acceptedAnswers": [
+        "240",
+        "240dp",
+        "240 dp",
+        "240px",
+        "240pt"
+      ],
+      "caseSensitive": false,
+      "explanation": "Positive flex values share the free space in proportion: 1 + 2 = 3 parts, so the second child gets 2/3 of 360 = 240 dp and the first gets 120 dp."
+    },
+    {
+      "id": "rn-43",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "02-styling-with-flexbox",
+      "question": "Which React Native hook returns the current window width and height and updates automatically when the device rotates?",
+      "answerHint": "Type the hook name",
+      "acceptedAnswers": [
+        "useWindowDimensions",
+        "useWindowDimensions()",
+        "const { width, height } = useWindowDimensions()"
+      ],
+      "caseSensitive": false,
+      "explanation": "useWindowDimensions re-renders the component when the dimensions change. Dimensions.get('window') returns a one-time snapshot, so a value read at module level goes stale after rotation."
+    },
+    {
+      "id": "rn-44",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "11-animations",
+      "question": "An Animated.Value is currently 0.25. What number does this interpolation output?",
+      "code": "const translateY = value.interpolate({\n  inputRange: [0, 1],\n  outputRange: [0, 200],\n});",
+      "codeLanguage": "tsx",
+      "answerHint": "Type a number",
+      "acceptedAnswers": [
+        "50",
+        "50.0"
+      ],
+      "caseSensitive": false,
+      "explanation": "interpolate maps linearly: 0.25 of the way from 0 to 1 is 0.25 of the way from 0 to 200, which is 50."
+    },
+    {
+      "id": "rn-45",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "10-list-and-render-performance",
+      "question": "Every row in a FlatList is exactly 72 dp tall. Which FlatList prop lets you supply each row's length and offset so FlatList can skip measuring rows and jump straight to scrollToIndex targets?",
+      "answerHint": "Type the prop name",
+      "acceptedAnswers": [
+        "getItemLayout",
+        "getItemLayout()",
+        "getItemLayout={...}"
+      ],
+      "caseSensitive": false,
+      "explanation": "getItemLayout={(_, index) => ({ length: 72, offset: 72 * index, index })} lets FlatList calculate positions without measuring. It only works when row heights are fixed or can be computed in advance."
+    },
+    {
+      "id": "rn-46",
+      "type": "practical",
+      "difficulty": "medium",
+      "lesson": "11-animations",
+      "question": "In react-native-reanimated, which hook creates a value that can be read and written from worklets on the UI thread without causing React re-renders?",
+      "answerHint": "Type the hook name",
+      "acceptedAnswers": [
+        "useSharedValue",
+        "useSharedValue()",
+        "const x = useSharedValue(0)"
+      ],
+      "caseSensitive": false,
+      "explanation": "useSharedValue creates a value whose .value can be changed from the JS or UI thread. It drives useAnimatedStyle on the UI thread without re-rendering the component, which is why gesture-driven animations stay smooth."
+    },
+    {
+      "id": "rn-47",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "02-styling-with-flexbox",
+      "question": "A row container is 360 dp wide with padding: 20. Inside are three children: A has width: 80, while B and C each have flex: 1. What is B's width in dp?",
+      "code": "<View style={{ flexDirection: 'row', width: 360, padding: 20 }}>\n  <View style={{ width: 80 }} />\n  <View style={{ flex: 1 }} />\n  <View style={{ flex: 1 }} />\n</View>",
+      "codeLanguage": "tsx",
+      "answerHint": "Type a number",
+      "acceptedAnswers": [
+        "120",
+        "120dp",
+        "120 dp",
+        "120px",
+        "120pt"
+      ],
+      "caseSensitive": false,
+      "explanation": "In React Native, width includes padding, so the content box is 360 - 2x20 = 320. A takes a fixed 80, leaving 240, which B and C split equally: 120 each. Forgetting the padding gives the tempting wrong answer, 140."
+    },
+    {
+      "id": "rn-48",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "03-touchables-gestures-and-platform",
+      "question": "On a device running Android 14, what value does Platform.Version return?",
+      "answerHint": "Type a number",
+      "acceptedAnswers": [
+        "34",
+        "API 34",
+        "api level 34",
+        "level 34"
+      ],
+      "caseSensitive": false,
+      "explanation": "On Android, Platform.Version is the numeric API level, not the marketing version. Android 14 is API level 34. On iOS, Platform.Version is a version string such as '17.4'."
+    },
+    {
+      "id": "rn-49",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "10-list-and-render-performance",
+      "question": "If you do not set it, how many items does FlatList render in its first batch (the initialNumToRender default)?",
+      "answerHint": "Type a number",
+      "acceptedAnswers": [
+        "10",
+        "ten"
+      ],
+      "caseSensitive": false,
+      "explanation": "initialNumToRender defaults to 10. Set it to roughly the number of rows that fill one screen: too low shows blanks on first paint, and too high slows down the first render. Those first items are never unmounted, so scrolling back to the top stays instant."
+    },
+    {
+      "id": "rn-50",
+      "type": "practical",
+      "difficulty": "hard",
+      "lesson": "02-styling-with-flexbox",
+      "question": "Which StyleSheet constant gives the width of the thinnest line the current device can draw, which is useful for crisp list separators?",
+      "answerHint": "Type the constant, e.g. StyleSheet.something",
+      "acceptedAnswers": [
+        "StyleSheet.hairlineWidth",
+        "hairlineWidth",
+        "borderBottomWidth: StyleSheet.hairlineWidth"
+      ],
+      "caseSensitive": false,
+      "explanation": "StyleSheet.hairlineWidth is one physical pixel expressed in dp (for example about 0.33 on a 3x screen). A hard-coded 1 would look thicker on high-density screens."
+    }
+  ]
+}
