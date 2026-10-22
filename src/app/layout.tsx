@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import "highlight.js/styles/github-dark.css";
@@ -25,6 +25,11 @@ export const metadata: Metadata = {
     "In-depth courses on React, Angular, Next.js, JavaScript, React Native, HTML & CSS, Node.js, Express.js, Python, MySQL, and AI Prompting — each with real projects and interview-style quizzes.",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await getCurrentUser();
   // A saved choice is rendered on the server so the page never flashes the wrong theme.
@@ -35,9 +40,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       data-theme={theme === "system" ? undefined : theme}
-      className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <body className="flex min-h-dvh flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
         <Navbar signedIn={!!user} userName={user?.name ?? null} theme={theme} showAdmin={showAdmin} />
         <main className="flex flex-1 flex-col">{children}</main>
         <Footer signedIn={!!user} />

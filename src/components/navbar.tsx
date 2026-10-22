@@ -87,8 +87,12 @@ export function Navbar({
           </form>
         </nav>
       </div>
-      <nav aria-label="Primary" className="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-1.5 text-sm font-medium md:hidden dark:border-slate-800">
-        <NavLinks links={links} className={mobileLink} activeClassName={activeLink} />
+      <nav aria-label="Primary" className="grid grid-cols-3 gap-x-1 gap-y-0.5 border-t border-slate-100 px-4 py-1.5 text-xs font-medium sm:text-sm md:hidden dark:border-slate-800">
+        <NavLinks
+          links={links}
+          className={`${mobileLink} whitespace-nowrap text-center`}
+          activeClassName={activeLink}
+        />
       </nav>
     </header>
   );
